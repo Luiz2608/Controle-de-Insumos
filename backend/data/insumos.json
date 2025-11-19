@@ -1,0 +1,62 @@
+{
+  "oxifertil": [
+    {
+      "id": 1,
+      "processo": "CANA DE ACUCAR",
+      "subprocesso": "PLANTIO",
+      "produto": "CALCARIO OXIFERTIL",
+      "fazenda": "SANTA NARCISA",
+      "areaTalhao": 90.16,
+      "areaTotalAplicada": 90.16,
+      "doseRecomendada": 0.15,
+      "insumDoseAplicada": 0.1207853,
+      "quantidadeAplicada": 10.890002648,
+      "dif": -0.1947647,
+      "frente": 4001,
+      "dataAplicacao": "2024-01-15"
+    }
+  ],
+  "insumosFazendas": [
+    {
+      "id": 1,
+      "os": 7447,
+      "cod": 1030,
+      "fazenda": "ORIENTE",
+      "areaTalhao": 37.42,
+      "areaTotalAplicada": 37.42,
+      "produto": "LANEX 800 WG (REGENTE)",
+      "doseRecomendada": 0.25,
+      "quantidadeAplicada": 10.000001056,
+      "frente": 4001,
+      "dataAplicacao": "2024-01-10"
+    }
+  ],
+  "santaIrene": [
+    {
+      "id": 1,
+      "cod": 8053,
+      "fazenda": "SANTA IRENE",
+      "areaTalhao": 147.52,
+      "areaTotalAplicada": 147.52,
+      "produto": "BIOZYME",
+      "doseRecomendada": 0.5,
+      "quantidadeAplicada": 80,
+      "frente": 4009,
+      "dataAplicacao": "2024-02-01"
+    }
+  ],
+  "daniela": [
+    {
+      "id": 1,
+      "cod": 8061,
+      "fazenda": "SÃO TOMAZ DANIELA",
+      "areaTotal": 16.6,
+      "areaTotalAplicada": 16.6,
+      "produto": "BIOZYME",
+      "doseRecomendada": 0.5,
+      "quantidadeAplicada": 9,
+      "frente": 4001,
+      "dataAplicacao": "2024-02-15"
+    }
+  ]
+}
