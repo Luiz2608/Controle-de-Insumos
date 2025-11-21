@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestão de Insumos</title>
+    <link rel="stylesheet" href="main.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>🧪 Gestão de Insumos Agrícolas</h1>
+            <div class="header-actions">
+                <button id="refresh-btn" class="btn btn-secondary">🔄 Atualizar</button>
+                <button id="add-btn" class="btn btn-primary">➕ Adicionar</button>
+                <button id="import-btn" class="btn btn-success">📤 Importar Excel</button>
+            </div>
+        </header>
+
+        <div class="tabs">
+            <button class="tab active" data-tab="insumos-fazendas">🌱 INSUMOS AGRÍCOLAS</button>
+        </div>
+
+        <!-- Conteúdo das Tabs -->
+        
+
+        <!-- Tab INSUMOS AGRÍCOLAS -->
+        <div class="tab-content" id="insumos-fazendas">
+            <!-- Filtros INSUMOS FAZENDAS -->
+            <div class="filters">
+                <div class="filter-group">
+                    <label for="produto-filter">Produto:</label>
+                    <select id="produto-filter">
+                        <option value="all">Todos os Produtos</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="fazenda-insumos-filter">Fazenda:</label>
+                    <select id="fazenda-insumos-filter">
+                        <option value="all">Todas as Fazendas</option>
+                    </select>
+                </div>
+                <button id="apply-insumos-filters" class="btn btn-primary">🔍 Aplicar Filtros</button>
+                <button id="reset-insumos-filters" class="btn btn-secondary">🔄 Limpar</button>
+            </div>
+
+            <div class="totals" id="insumos-dashboard">
+                <div class="total-item">
+                    <span class="total-label">Registros:</span>
+                    <span id="dash-total-registros" class="total-value">0</span>
+                </div>
+                <div class="total-item">
+                    <span class="total-label">Área Talhão Total:</span>
+                    <span id="dash-area-talhao" class="total-value">0.00 ha</span>
+                </div>
+                <div class="total-item">
+                    <span class="total-label">Área Aplicada Total:</span>
+                    <span id="dash-area-aplicada" class="total-value">0.00 ha</span>
+                </div>
+                <div class="total-item">
+                    <span class="total-label">Quantidade Total:</span>
+                    <span id="dash-quantidade" class="total-value">0.000</span>
+                </div>
+                <div class="total-item">
+                    <span class="total-label">Produtos Distintos:</span>
+                    <span id="dash-produtos-distintos" class="total-value">0</span>
+                </div>
+            </div>
+
+            <!-- Tabela INSUMOS FAZENDAS -->
+            <div class="table-container">
+                <table id="insumos-table" class="data-table">
+                    <thead>
+                        <tr>
+                            <th>OS</th>
+                            <th>Código</th>
+                            <th>Fazenda</th>
+                            <th>Área Talhão (ha)</th>
+                            <th>Área Aplicada (ha)</th>
+                            <th>Produto</th>
+                            <th>Dose Recom.</th>
+                            <th>Dose Aplicada</th>
+                            <th>Quantidade</th>
+                            <th>Diferença</th>
+                            <th>Frente</th>
+                            <th>Início</th>
+                            <th>Fim</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="14" class="loading">📡 Carregando dados...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading -->
+    <div id="loading" class="loading-overlay">
+        <div class="loading-spinner">⏳</div>
+        <p>Carregando...</p>
+    </div>
+
+    <!-- Notificação -->
+    <div id="notification" class="notification"></div>
+
+    <!-- Modal para Adicionar/Editar Insumo -->
+    <div id="insumo-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3 id="insumo-modal-title">➕ Adicionar Insumo</h3>
+                <button class="close-modal close-insumo-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="insumo-form">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="fornecedor">Fornecedor *</label>
+                            <select id="fornecedor" name="fornecedor" required>
+                                <option value="insumosFazendas" selected>INSUMOS FAZENDAS</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="produto">Produto *</label>
+                            <input type="text" id="produto" name="produto" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="fazenda">Fazenda *</label>
+                            <input type="text" id="fazenda" name="fazenda" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="frente">Frente</label>
+                            <input type="number" id="frente" name="frente" step="1">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="processo">Processo</label>
+                            <input type="text" id="processo" name="processo" value="CANA DE ACUCAR">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="subprocesso">Subprocesso</label>
+                            <input type="text" id="subprocesso" name="subprocesso" value="PLANTIO">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="areaTalhao">Área Talhão (ha)</label>
+                            <input type="number" id="areaTalhao" name="areaTalhao" step="0.01">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="areaTotalAplicada">Área Total Aplicada (ha)</label>
+                            <input type="number" id="areaTotalAplicada" name="areaTotalAplicada" step="0.01">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="doseRecomendada">Dose Recomendada</label>
+                            <input type="number" id="doseRecomendada" name="doseRecomendada" step="0.001">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="quantidadeAplicada">Quantidade Aplicada</label>
+                            <input type="number" id="quantidadeAplicada" name="quantidadeAplicada" step="0.000001">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="dataInicio">Data Início da Aplicação</label>
+                            <input type="datetime-local" id="dataInicio" name="dataInicio">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="dataFim">Data Fim da Aplicação</label>
+                            <input type="datetime-local" id="dataFim" name="dataFim">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="cancel-insumo">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="save-insumo">💾 Salvar Insumo</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="api.js"></script>
+    <script src="ui.js"></script>
+    <script src="import.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
