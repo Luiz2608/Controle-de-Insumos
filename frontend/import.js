@@ -194,6 +194,7 @@ class ImportManager {
             const formData = new FormData();
             formData.append('file', file);
 
+            console.log('📤 Enviando arquivo para análise...');
             const response = await fetch('/api/importar/excel', {
                 method: 'POST',
                 body: formData
@@ -204,6 +205,7 @@ class ImportManager {
             }
 
             const result = await response.json();
+            console.log('📥 Resposta da análise:', result);
             
             if (result.success) {
                 this.showMessage('✅ Arquivo analisado com sucesso!', 'success');
@@ -374,7 +376,7 @@ class ImportManager {
             const formData = new FormData();
             formData.append('file', this.currentFile);
 
-            console.log('📤 Enviando arquivo para importação REAL...');
+            console.log('🚀 INICIANDO IMPORTACAO REAL...');
 
             // 1. Fazer upload e processamento do arquivo
             console.log('📝 Passo 1: Processando arquivo Excel...');
@@ -447,18 +449,12 @@ class ImportManager {
                         setTimeout(() => {
                             this.closeImportModal();
                             
-                            // Recarregar os dados
-                            if (window.insumosApp) {
-                                console.log('🔄 Recarregando dados da aplicação...');
-                                window.insumosApp.refreshData();
-                                
-                                // Forçar recarregamento visual após um delay
-                                setTimeout(() => {
-                                    const currentTab = window.insumosApp.getCurrentTab();
-                                    window.insumosApp.loadTabData(currentTab);
-                                    this.showMessage('📊 Dados atualizados com sucesso!', 'success');
-                                }, 1000);
-                            }
+                            // 🔥 SOLUÇÃO: FORÇAR ATUALIZAÇÃO DA PÁGINA
+                            console.log('🔄 Recarregando página para exibir todos os dados...');
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 1000);
+                            
                         }, 2000);
                     } else {
                         throw new Error(updateResult.message || 'Erro desconhecido na atualização');

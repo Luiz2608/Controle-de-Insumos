@@ -37,7 +37,6 @@ let insumosData = {
             frente: 4001
         }
     ],
-    
     insumosFazendas: [
         {
             id: 2,
@@ -51,7 +50,9 @@ let insumosData = {
             quantidadeAplicada: 10.000001056,
             frente: 4001
         }
-    ]
+    ],
+    santaIrene: [],
+    daniela: []
 };
 
 // Listas para filtros
@@ -118,6 +119,8 @@ app.get('/api/insumos/insumos-fazendas', (req, res) => {
         res.status(500).json({ success: false, message: 'Erro ao buscar insumos' });
     }
 });
+
+// Removidos endpoints Santa Irene e Daniela
 
 // CRUD - Adicionar insumo
 app.post('/api/insumos', (req, res) => {
@@ -222,14 +225,24 @@ app.post('/api/insumos/atualizar-dados', (req, res) => {
         
         // Atualizar OXIFERTIL
         if (dados.oxifertil && Array.isArray(dados.oxifertil)) {
-            insumosData.oxifertil = dados.oxifertil.filter(item => item && item.fazenda);
+            insumosData.oxifertil = dados.oxifertil;
             updates.oxifertil = insumosData.oxifertil.length;
         }
         
         // Atualizar INSUMOS FAZENDAS
         if (dados.insumosFazendas && Array.isArray(dados.insumosFazendas)) {
-            insumosData.insumosFazendas = dados.insumosFazendas.filter(item => item && item.fazenda);
+            insumosData.insumosFazendas = dados.insumosFazendas;
             updates.insumosFazendas = insumosData.insumosFazendas.length;
+        }
+
+        if (dados.santaIrene && Array.isArray(dados.santaIrene)) {
+            insumosData.santaIrene = dados.santaIrene;
+            updates.santaIrene = insumosData.santaIrene.length;
+        }
+
+        if (dados.daniela && Array.isArray(dados.daniela)) {
+            insumosData.daniela = dados.daniela;
+            updates.daniela = insumosData.daniela.length;
         }
 
         const totalAtualizado = Object.values(updates).reduce((sum, val) => sum + val, 0);
@@ -267,6 +280,6 @@ app.listen(PORT, () => {
     console.log(`🚀 Servidor rodando: http://localhost:${PORT}`);
     console.log(`📁 Servindo frontend de: ${frontendPath}`);
     console.log(`🔍 Health check: http://localhost:${PORT}/api/health`);
-    console.log(`📊 API OXIFERTIL: http://localhost:${PORT}/api/insumos/oxifertil`);
+    console.log(`🌱 API Insumos Agrícolas: http://localhost:${PORT}/api/insumos/insumos-fazendas`);
     console.log(`📤 IMPORTAR (REAL): http://localhost:${PORT}/api/importar/excel`);
 });

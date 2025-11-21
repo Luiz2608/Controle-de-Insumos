@@ -3,9 +3,10 @@ class InsumosApp {
         this.api = window.apiService;
         this.ui = window.uiManager;
         this.currentFilters = {
-            oxifertil: {},
             insumos: {}
         };
+        this.insumosFazendasData = [];
+        this.currentEdit = null;
     }
 
     async init() {
@@ -51,22 +52,6 @@ forceReloadAllData() {
             });
         });
 
-        // Filtros OXIFERTIL
-        const applyFiltersBtn = document.getElementById('apply-filters');
-        const resetFiltersBtn = document.getElementById('reset-filters');
-        
-        if (applyFiltersBtn) {
-            applyFiltersBtn.addEventListener('click', () => {
-                this.applyOxifertilFilters();
-            });
-        }
-        
-        if (resetFiltersBtn) {
-            resetFiltersBtn.addEventListener('click', () => {
-                this.resetOxifertilFilters();
-            });
-        }
-
         // Filtros INSUMOS
         const applyInsumosBtn = document.getElementById('apply-insumos-filters');
         const resetInsumosBtn = document.getElementById('reset-insumos-filters');
@@ -91,6 +76,13 @@ forceReloadAllData() {
             });
         }
 
+        const addBtn = document.getElementById('add-btn');
+        if (addBtn) {
+            addBtn.addEventListener('click', () => {
+                this.openInsumoModal('add');
+            });
+        }
+
         // Botão de IMPORTAR (substitui o export-btn)
         const importBtn = document.getElementById('import-btn');
         if (importBtn) {
@@ -104,26 +96,39 @@ forceReloadAllData() {
         }
 
         // Enter nos filtros
-        ['fazenda-filter', 'frente-filter'].forEach(id => {
+        ['produto-filter', 'fazenda-insumos-filter'].forEach(id => {
             const element = document.getElementById(id);
             if (element) {
                 element.addEventListener('change', () => {
-                    this.applyOxifertilFilters();
+                    this.applyInsumosFilters();
                 });
+            }
+        });
+
+        const closeModalBtn = document.querySelector('.close-insumo-modal');
+        const cancelBtn = document.getElementById('cancel-insumo');
+        const saveBtn = document.getElementById('save-insumo');
+        if (closeModalBtn) closeModalBtn.addEventListener('click', () => this.closeInsumoModal());
+        if (cancelBtn) cancelBtn.addEventListener('click', () => this.closeInsumoModal());
+        if (saveBtn) saveBtn.addEventListener('click', () => this.saveInsumo());
+
+        document.addEventListener('click', (e) => {
+            const editBtn = e.target.closest('.btn-edit');
+            const deleteBtn = e.target.closest('.btn-delete');
+            if (editBtn) {
+                const id = editBtn.getAttribute('data-id');
+                this.startEdit(parseInt(id));
+            } else if (deleteBtn) {
+                const id = deleteBtn.getAttribute('data-id');
+                this.deleteInsumo(parseInt(id));
             }
         });
     }
 
     async loadStaticData() {
         try {
-            // Carregar fazendas
             const fazendasResponse = await this.api.getFazendas();
             if (fazendasResponse.success) {
-                this.ui.populateSelect(
-                    document.getElementById('fazenda-filter'),
-                    fazendasResponse.data,
-                    'Todas as Fazendas'
-                );
                 this.ui.populateSelect(
                     document.getElementById('fazenda-insumos-filter'),
                     fazendasResponse.data,
@@ -146,23 +151,12 @@ forceReloadAllData() {
     }
 
     async loadInitialData() {
-        await this.loadOxifertilData();
+        await this.loadInsumosData();
     }
 
     async loadTabData(tabName) {
-        switch (tabName) {
-            case 'oxifertil':
-                await this.loadOxifertilData();
-                break;
-            case 'insumos-fazendas':
-                await this.loadInsumosData();
-                break;
-            case 'santa-irene':
-                await this.loadSantaIreneData();
-                break;
-            case 'daniela':
-                await this.loadDanielaData();
-                break;
+        if (tabName === 'insumos-fazendas') {
+            await this.loadInsumosData();
         }
     }
 
@@ -174,6 +168,7 @@ forceReloadAllData() {
             const response = await this.api.getOxifertil(filters);
             
             if (response.success) {
+                this.oxifertilData = response.data;
                 this.ui.renderTable(tbody, response.data, this.getOxifertilRowHTML.bind(this));
                 this.ui.updateOxifertilTotals(response.data);
             } else {
@@ -208,6 +203,10 @@ forceReloadAllData() {
             <td>${this.ui.formatNumber(item.quantidadeAplicada, 6)}</td>
             <td class="${difClass}">${this.ui.formatPercentage(difPercent)}</td>
             <td>${item.frente || 'N/A'}</td>
+            <td>
+                <button class="btn btn-edit" data-id="${item.id}">✏️ Editar</button>
+                <button class="btn btn-delete" data-id="${item.id}">🗑️ Excluir</button>
+            </td>
         `;
     }
 
@@ -233,12 +232,14 @@ forceReloadAllData() {
     async loadInsumosData(filters = {}) {
         try {
             const tbody = document.querySelector('#insumos-table tbody');
-            tbody.innerHTML = '<tr><td colspan="11" class="loading">📡 Carregando dados...</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="14" class="loading">📡 Carregando dados...</td></tr>';
             
             const response = await this.api.getInsumosFazendas(filters);
             
             if (response.success) {
+                this.insumosFazendasData = response.data;
                 this.ui.renderTable(tbody, response.data, this.getInsumosRowHTML.bind(this));
+                this.updateInsumosDashboard(response.data);
             } else {
                 throw new Error(response.message);
             }
@@ -260,6 +261,8 @@ forceReloadAllData() {
         const difPercent = item.doseRecomendada > 0 ? 
             ((doseAplicada / item.doseRecomendada - 1) * 100) : 0;
         const difClass = this.ui.getDifferenceClass(difPercent);
+        const inicio = item.dataInicio ? new Date(item.dataInicio).toLocaleString('pt-BR') : '—';
+        const fim = item.dataFim ? new Date(item.dataFim).toLocaleString('pt-BR') : '—';
         
         return `
             <td>${item.os || 'N/A'}</td>
@@ -273,6 +276,12 @@ forceReloadAllData() {
             <td>${this.ui.formatNumber(item.quantidadeAplicada, 3)}</td>
             <td class="${difClass}">${this.ui.formatPercentage(difPercent)}</td>
             <td>${item.frente || 'N/A'}</td>
+            <td>${inicio}</td>
+            <td>${fim}</td>
+            <td>
+                <button class="btn btn-edit" data-id="${item.id}">✏️ Editar</button>
+                <button class="btn btn-delete" data-id="${item.id}">🗑️ Excluir</button>
+            </td>
         `;
     }
 
@@ -303,6 +312,7 @@ forceReloadAllData() {
             const response = await this.api.getSantaIrene();
             
             if (response.success) {
+                this.santaIreneData = response.data;
                 this.ui.renderTable(tbody, response.data, this.getSantaIreneRowHTML.bind(this));
             } else {
                 throw new Error(response.message);
@@ -337,6 +347,10 @@ forceReloadAllData() {
             <td>${this.ui.formatNumber(item.quantidadeAplicada, 3)}</td>
             <td class="${difClass}">${this.ui.formatPercentage(difPercent)}</td>
             <td>${item.frente || 'N/A'}</td>
+            <td>
+                <button class="btn btn-edit" data-id="${item.id}">✏️ Editar</button>
+                <button class="btn btn-delete" data-id="${item.id}">🗑️ Excluir</button>
+            </td>
         `;
     }
 
@@ -348,6 +362,7 @@ forceReloadAllData() {
             const response = await this.api.getDaniela();
             
             if (response.success) {
+                this.danielaData = response.data;
                 this.ui.renderTable(tbody, response.data, this.getDanielaRowHTML.bind(this));
             } else {
                 throw new Error(response.message);
@@ -382,7 +397,117 @@ forceReloadAllData() {
             <td>${this.ui.formatNumber(item.quantidadeAplicada, 3)}</td>
             <td class="${difClass}">${this.ui.formatPercentage(difPercent)}</td>
             <td>${item.frente || 'N/A'}</td>
+            <td>
+                <button class="btn btn-edit" data-id="${item.id}">✏️ Editar</button>
+                <button class="btn btn-delete" data-id="${item.id}">🗑️ Excluir</button>
+            </td>
         `;
+    }
+
+    openInsumoModal(mode, item = null) {
+        this.currentEdit = { mode, item };
+        const modal = document.getElementById('insumo-modal');
+        const title = document.getElementById('insumo-modal-title');
+        if (modal) modal.style.display = 'block';
+        if (title) title.textContent = mode === 'add' ? '➕ Adicionar Insumo' : '✏️ Editar Insumo';
+        if (item) this.fillForm(item); else this.clearForm();
+        const fornecedorEl = document.getElementById('fornecedor');
+        if (fornecedorEl) {
+            fornecedorEl.value = 'insumosFazendas';
+        }
+    }
+
+    closeInsumoModal() {
+        const modal = document.getElementById('insumo-modal');
+        if (modal) modal.style.display = 'none';
+        this.currentEdit = null;
+    }
+
+    clearForm() {
+        ['fornecedor','produto','fazenda','frente','processo','subprocesso','areaTalhao','areaTotalAplicada','doseRecomendada','quantidadeAplicada','dataInicio','dataFim']
+            .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+        const processoEl = document.getElementById('processo');
+        const subprocessoEl = document.getElementById('subprocesso');
+        if (processoEl && !processoEl.value) processoEl.value = 'CANA DE ACUCAR';
+        if (subprocessoEl && !subprocessoEl.value) subprocessoEl.value = 'PLANTIO';
+    }
+
+    fillForm(item) {
+        const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val ?? ''; };
+        set('produto', item.produto);
+        set('fazenda', item.fazenda);
+        set('frente', item.frente);
+        set('processo', item.processo);
+        set('subprocesso', item.subprocesso);
+        set('areaTalhao', item.areaTalhao ?? item.areaTotal);
+        set('areaTotalAplicada', item.areaTotalAplicada);
+        set('doseRecomendada', item.doseRecomendada);
+        set('quantidadeAplicada', item.quantidadeAplicada);
+        set('dataInicio', item.dataInicio);
+        set('dataFim', item.dataFim);
+    }
+
+    getFormData() {
+        const get = (id) => document.getElementById(id)?.value;
+        const fornecedor = get('fornecedor');
+        const payload = {
+            fornecedor,
+            produto: get('produto'),
+            fazenda: get('fazenda'),
+            frente: get('frente') ? parseInt(get('frente')) : undefined,
+            processo: get('processo'),
+            subprocesso: get('subprocesso'),
+            areaTalhao: get('areaTalhao') ? parseFloat(get('areaTalhao')) : undefined,
+            areaTotalAplicada: get('areaTotalAplicada') ? parseFloat(get('areaTotalAplicada')) : undefined,
+            doseRecomendada: get('doseRecomendada') ? parseFloat(get('doseRecomendada')) : undefined,
+            quantidadeAplicada: get('quantidadeAplicada') ? parseFloat(get('quantidadeAplicada')) : undefined,
+            dataInicio: get('dataInicio') || undefined,
+            dataFim: get('dataFim') || undefined
+        };
+        return payload;
+    }
+
+    async saveInsumo() {
+        try {
+            const data = this.getFormData();
+            if (this.currentEdit && this.currentEdit.mode === 'edit' && this.currentEdit.item?.id) {
+                await this.api.request(`/insumos/${this.currentEdit.item.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                this.ui.showNotification('Insumo atualizado!', 'success', 2000);
+            } else {
+                const created = await this.api.request(`/insumos`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                if (!created.success) throw new Error('Falha ao adicionar');
+                this.ui.showNotification('Insumo adicionado!', 'success', 2000);
+            }
+            this.closeInsumoModal();
+            await this.loadTabData(this.getCurrentTab());
+        } catch (err) {
+            this.ui.showNotification('Erro ao salvar', 'error');
+        }
+    }
+
+    startEdit(id) {
+        const tab = this.getCurrentTab();
+        let item = null;
+        if (tab === 'insumos-fazendas') item = this.insumosFazendasData.find(i => i.id == id);
+        if (item) this.openInsumoModal('edit', item);
+    }
+
+    async deleteInsumo(id) {
+        try {
+            await this.api.request(`/insumos/${id}`, { method: 'DELETE' });
+            this.ui.showNotification('Insumo excluído!', 'success', 2000);
+            await this.loadTabData(this.getCurrentTab());
+        } catch (err) {
+            this.ui.showNotification('Erro ao excluir', 'error');
+        }
     }
 
     async refreshData() {
@@ -397,7 +522,7 @@ forceReloadAllData() {
 
     getCurrentTab() {
         const activeTab = document.querySelector('.tab.active');
-        return activeTab ? activeTab.getAttribute('data-tab') : 'oxifertil';
+        return activeTab ? activeTab.getAttribute('data-tab') : 'insumos-fazendas';
     }
 
     // Função removida pois agora usamos import-btn
@@ -414,3 +539,17 @@ document.addEventListener('DOMContentLoaded', () => {
         window.insumosApp.init();
     }
 });
+
+InsumosApp.prototype.updateInsumosDashboard = function(data) {
+    const totalRegistros = data.length;
+    const totalAreaTalhao = data.reduce((s, i) => s + (i.areaTalhao || 0), 0);
+    const totalAreaAplicada = data.reduce((s, i) => s + (i.areaTotalAplicada || 0), 0);
+    const totalQuantidade = data.reduce((s, i) => s + (i.quantidadeAplicada || 0), 0);
+    const produtos = new Set(data.map(i => i.produto).filter(Boolean));
+    const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    setText('dash-total-registros', String(totalRegistros));
+    setText('dash-area-talhao', this.ui.formatNumber(totalAreaTalhao) + ' ha');
+    setText('dash-area-aplicada', this.ui.formatNumber(totalAreaAplicada) + ' ha');
+    setText('dash-quantidade', this.ui.formatNumber(totalQuantidade, 3));
+    setText('dash-produtos-distintos', String(produtos.size));
+};

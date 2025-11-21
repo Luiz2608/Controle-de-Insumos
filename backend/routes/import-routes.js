@@ -8,7 +8,6 @@ const router = express.Router();
 
 // Dados em memória para armazenar importações
 let importedData = {
-    oxifertil: [],
     insumosFazendas: []
 };
 
@@ -44,141 +43,165 @@ const upload = multer({
     }
 });
 
-// MAPEAMENTO DIRETO POR POSIÇÃO DE COLUNA
+// MAPEAMENTO 
 const columnMapping = {
     'OXIFERTIL': {
-        startRow: 1, // Começa na linha 2 (base 0)
+        startRow: 1,
         columns: {
-            0: 'processo',      // A - Processo
-            1: 'subprocesso',   // B - Subprocesso  
-            2: 'produto',       // C - Produto
-            3: 'fazenda',       // D - Fazenda
-            4: 'areaTalhao',    // E - Área Talhão (ha)
-            5: 'areaTotalAplicada', // F - Área Aplicada (ha)
-            6: 'doseRecomendada',   // G - Dose Recom.
-            7: 'insumDoseAplicada', // H - Dose Aplicada
-            8: 'quantidadeAplicada', // I - Quantidade
-            9: 'dif',           // J - Diferença
-            10: 'frente'        // K - Frente
+            0: 'processo',
+            1: 'subprocesso',  
+            2: 'produto',
+            3: 'fazenda',
+            4: 'areaTalhao',
+            5: 'areaTotalAplicada',
+            6: 'doseRecomendada',
+            7: 'insumDoseAplicada',
+            8: 'quantidadeAplicada',
+            9: 'dif',
+            10: 'frente'
         }
     },
     'INSUMOS FAZENDAS': {
-        startRow: 1, // Começa na linha 2 (base 0)
+        startRow: 1,
         columns: {
-            0: 'os',            // A - OS
-            1: 'cod',           // B - Código
-            2: 'fazenda',       // C - Fazenda
-            3: 'areaTalhao',    // D - Área Talhão (ha)
-            4: 'areaTotalAplicada', // E - Área Aplicada (ha)
-            5: 'produto',       // F - Produto
-            6: 'doseRecomendada',   // G - Dose Recom.
-            7: 'insumDoseAplicada', // H - Dose Aplicada
-            8: 'quantidadeAplicada', // I - Quantidade
-            9: 'dif',           // J - Diferença
-            10: 'frente'        // K - Frente
+            0: 'os',
+            1: 'cod',
+            2: 'fazenda',
+            3: 'areaTalhao',
+            4: 'areaTotalAplicada',
+            5: 'produto',
+            6: 'doseRecomendada',
+            7: 'insumDoseAplicada',
+            8: 'quantidadeAplicada',
+            9: 'dif',
+            10: 'frente'
+        }
+    },
+    // Sinônimos aceitos para INSUMOS
+    'INSUMOS': {
+        startRow: 1,
+        columns: {
+            0: 'os',
+            1: 'cod',
+            2: 'fazenda',
+            3: 'areaTalhao',
+            4: 'areaTotalAplicada',
+            5: 'produto',
+            6: 'doseRecomendada',
+            7: 'insumDoseAplicada',
+            8: 'quantidadeAplicada',
+            9: 'dif',
+            10: 'frente'
+        }
+    },
+    'INSUMOS AGRICOLAS': {
+        startRow: 1,
+        columns: {
+            0: 'os',
+            1: 'cod',
+            2: 'fazenda',
+            3: 'areaTalhao',
+            4: 'areaTotalAplicada',
+            5: 'produto',
+            6: 'doseRecomendada',
+            7: 'insumDoseAplicada',
+            8: 'quantidadeAplicada',
+            9: 'dif',
+            10: 'frente'
+        }
+    },
+    'INSUMOS AGRÍCOLAS': {
+        startRow: 1,
+        columns: {
+            0: 'os',
+            1: 'cod',
+            2: 'fazenda',
+            3: 'areaTalhao',
+            4: 'areaTotalAplicada',
+            5: 'produto',
+            6: 'doseRecomendada',
+            7: 'insumDoseAplicada',
+            8: 'quantidadeAplicada',
+            9: 'dif',
+            10: 'frente'
+        }
+    },
+    'SANTA IRENE (STEIN)': {
+        startRow: 1,
+        columns: {
+            0: 'cod',
+            1: 'fazenda',
+            2: 'areaTalhao',
+            3: 'areaTotalAplicada',
+            4: 'produto',
+            5: 'doseRecomendada',
+            6: 'insumDoseAplicada',
+            7: 'quantidadeAplicada',
+            8: 'dif',
+            9: 'frente'
+        }
+    },
+    'DANIELA': {
+        startRow: 1,
+        columns: {
+            0: 'cod',
+            1: 'fazenda',
+            2: 'areaTotal',
+            3: 'areaTotalAplicada',
+            4: 'produto',
+            5: 'doseRecomendada',
+            6: 'insumDoseAplicada',
+            7: 'quantidadeAplicada',
+            8: 'dif',
+            9: 'frente'
         }
     }
 };
 
-// Função para converter valor
-function convertValue(value) {
-    if (value === null || value === undefined || value === '') {
-        return null;
-    }
-    
-    if (typeof value === 'number') {
-        return value;
-    }
-    
-    if (typeof value === 'string') {
-        const trimmed = value.trim();
-        if (trimmed === '') return null;
-        
-        // Ignorar textos específicos
-        if (trimmed.toUpperCase() === 'N/A' || trimmed.toUpperCase() === 'NAN' || trimmed === '-') {
-            return null;
-        }
-        
-        // Converter números com vírgula (formato brasileiro)
-        if (trimmed.includes(',')) {
-            // Remover pontos de milhar e substituir vírgula decimal por ponto
-            const cleanValue = trimmed.replace(/\./g, '').replace(',', '.');
-            const numValue = parseFloat(cleanValue);
-            if (!isNaN(numValue)) {
-                return numValue;
-            }
-        }
-        
-        // Tentar converter normalmente
-        const numValue = parseFloat(trimmed.replace(',', '.').replace('%', ''));
-        if (!isNaN(numValue)) {
-            return numValue;
-        }
-        
-        return trimmed;
-    }
-    
-    return value;
-}
-
-// Função para processar linha
+// Função para processar linha - SEM FILTROS
 function processRowByPosition(mapping, row, rowIndex, sheetName) {
     try {
-        // Ignorar apenas linhas COMPLETAMENTE vazias
-        const isEmptyRow = row.every(cell => 
-            cell === null || cell === undefined || cell === '' || 
-            (typeof cell === 'string' && cell.trim() === '')
-        );
-        
-        if (isEmptyRow) {
-            return null;
-        }
-
         const item = { 
             id: Date.now() + rowIndex,
             _sheet: sheetName,
             _row: rowIndex + 1
         };
         
-        let hasAnyData = false;
-        
-        // Processar TODAS as colunas
+        // Processar cada coluna
         Object.entries(mapping.columns).forEach(([colIndex, fieldName]) => {
             const numColIndex = parseInt(colIndex);
             if (numColIndex < row.length && row[numColIndex] !== undefined && row[numColIndex] !== null && row[numColIndex] !== '') {
                 const cellValue = row[numColIndex];
                 
-                // Converter valor
-                let convertedValue = cellValue;
-                
-                // Se for string, tentar converter números
+                // Conversão básica
                 if (typeof cellValue === 'string') {
                     const trimmed = cellValue.trim();
-                    if (trimmed) {
-                        // Tentar converter formato brasileiro (1.000,50 -> 1000.50)
+                    if (trimmed && trimmed !== 'N/A' && trimmed !== '-' && trimmed !== 'NULL') {
+                        // Tentar converter para número
                         const cleanValue = trimmed.replace(/\./g, '').replace(',', '.');
                         const numValue = parseFloat(cleanValue);
                         if (!isNaN(numValue)) {
-                            convertedValue = numValue;
+                            item[fieldName] = numValue;
+                        } else {
+                            item[fieldName] = trimmed;
                         }
                     }
+                } else if (typeof cellValue === 'number') {
+                    item[fieldName] = cellValue;
                 }
-                
-                item[fieldName] = convertedValue;
-                hasAnyData = true;
             }
         });
         
-        // Aceitar QUALQUER linha que tenha dados
-        return hasAnyData ? item : null;
+        // 🔥 ACEITA TODAS AS LINHAS - MESMO VAZIAS
+        return item;
         
     } catch (error) {
-        console.error(`❌ Erro na linha ${rowIndex}:`, error);
+        console.error(`❌ Erro na linha ${rowIndex + 1}:`, error);
         return null;
     }
 }
 
-// Rota para upload e processamento
+// 🔥 ROTA PRINCIPAL - USA /excel (não /importar/excel)
 router.post('/excel', upload.single('file'), async (req, res) => {
     try {
         if (!req.file) {
@@ -188,7 +211,7 @@ router.post('/excel', upload.single('file'), async (req, res) => {
             });
         }
 
-        console.log('📁 Processando arquivo:', req.file.originalname);
+        console.log('\n🚀 PROCESSANDO ARQUIVO:', req.file.originalname);
         
         const filePath = req.file.path;
         const workbook = XLSX.readFile(filePath);
@@ -197,14 +220,13 @@ router.post('/excel', upload.single('file'), async (req, res) => {
             success: true,
             message: 'Arquivo processado com sucesso!',
             sheets: {},
-            totals: {
-                oxifertil: 0,
-                insumosFazendas: 0
-            }
+            totals: { insumosFazendas: 0 }
         };
 
         workbook.SheetNames.forEach(sheetName => {
             try {
+                console.log(`\n📊 PROCESSANDO: "${sheetName}"`);
+                
                 const worksheet = workbook.Sheets[sheetName];
                 const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
                     header: 1,
@@ -212,55 +234,73 @@ router.post('/excel', upload.single('file'), async (req, res) => {
                     raw: false
                 });
                 
-                const mappingKey = Object.keys(columnMapping).find(key => 
-                    sheetName.toUpperCase().includes(key.toUpperCase())
-                );
+                console.log(`📈 Total de linhas brutas: ${jsonData.length}`);
+                
+        let mappingKey = Object.keys(columnMapping).find(key => 
+            sheetName.toUpperCase().includes(key.toUpperCase())
+        );
+        // Se não encontrou, mas é uma sheet de INSUMOS, usar mapeamento padrão
+        if (!mappingKey && sheetName.toUpperCase().includes('INSUMOS')) {
+            mappingKey = 'INSUMOS FAZENDAS';
+        }
                 
                 if (!mappingKey) {
-                    importResult.sheets[sheetName] = {
-                        rows: 0,
-                        headers: [],
-                        sampleData: [],
-                        error: 'Sheet não mapeada'
+                    console.log(`❌ Sheet não mapeada: ${sheetName}`);
+                    importResult.sheets[sheetName] = { 
+                        rows: 0, 
+                        headers: [], 
+                        sampleData: [], 
+                        error: 'Sheet não mapeada' 
                     };
                     return;
                 }
                 
                 const mapping = columnMapping[mappingKey];
+                console.log(`🎯 Mapeamento: ${mappingKey} (linha ${mapping.startRow + 1})`);
+                
                 const rows = jsonData.slice(mapping.startRow);
-                const processedData = rows
-                    .map((row, index) => processRowByPosition(mapping, row, index, sheetName))
-                    .filter(item => item !== null);
+                console.log(`📝 ${rows.length} linhas para processar`);
+                
+                // Processamento SEM FILTRO
+                const processedData = rows.map((row, index) => 
+                    processRowByPosition(mapping, row, index, sheetName)
+                ).filter(item => item !== null);
+                
+                console.log(`✅ ${sheetName}: ${processedData.length} registros processados`);
                 
                 importResult.sheets[sheetName] = {
-    rows: processedData.length,
-    headers: Object.values(mapping.columns),
-    sampleData: processedData // ← MOSTRA TODOS OS DADOS
-};
+                    rows: processedData.length,
+                    headers: Object.values(mapping.columns),
+                    sampleData: processedData.slice(0, 10)
+                };
 
-                if (sheetName.toUpperCase().includes('OXIFERTIL')) {
-                    importResult.totals.oxifertil = processedData.length;
-                    importedData.oxifertil = processedData;
-                } else if (sheetName.toUpperCase().includes('INSUMOS')) {
+                // Classificar dados
+                if (sheetName.toUpperCase().includes('INSUMOS')) {
                     importResult.totals.insumosFazendas = processedData.length;
                     importedData.insumosFazendas = processedData;
+                    console.log(`💾 INSUMOS FAZENDAS: ${processedData.length} registros`);
                 }
                 
             } catch (sheetError) {
-                importResult.sheets[sheetName] = {
-                    rows: 0,
-                    headers: [],
-                    sampleData: [],
-                    error: sheetError.message
+                console.error(`❌ Erro em ${sheetName}:`, sheetError);
+                importResult.sheets[sheetName] = { 
+                    rows: 0, 
+                    headers: [], 
+                    sampleData: [], 
+                    error: sheetError.message 
                 };
             }
         });
 
+        // Limpar arquivo temporário
         try {
             fs.unlinkSync(filePath);
         } catch (unlinkError) {
             console.warn('⚠️ Não foi possível remover arquivo temporário');
         }
+
+        console.log('\n✅ PROCESSAMENTO CONCLUÍDO');
+        console.log('📊 TOTAIS FINAIS:', importResult.totals);
         
         res.json(importResult);
 
@@ -273,13 +313,14 @@ router.post('/excel', upload.single('file'), async (req, res) => {
     }
 });
 
-// Rota para obter dados importados
+// Rota para obter dados
 router.get('/dados', (req, res) => {
     try {
         const totals = {
-            oxifertil: importedData.oxifertil.length,
             insumosFazendas: importedData.insumosFazendas.length
         };
+        
+        console.log('📤 Enviando dados:', totals);
         
         res.json({
             success: true,
@@ -290,27 +331,6 @@ router.get('/dados', (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Erro ao buscar dados importados',
-            error: error.message
-        });
-    }
-});
-
-// Rota para limpar dados importados
-router.delete('/limpar', (req, res) => {
-    try {
-        importedData = {
-            oxifertil: [],
-            insumosFazendas: []
-        };
-        
-        res.json({
-            success: true,
-            message: 'Dados importados limpos com sucesso'
-        });
-    } catch (error) {
-        res.status(500).json({
-            success: false,
-            message: 'Erro ao limpar dados',
             error: error.message
         });
     }

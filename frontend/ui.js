@@ -66,7 +66,7 @@ class UIManager {
         if (!data || data.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="11" class="loading">
+                    <td colspan="14" class="loading">
                         📭 Nenhum dado encontrado
                     </td>
                 </tr>

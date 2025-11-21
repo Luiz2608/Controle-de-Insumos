@@ -18,88 +18,14 @@
             </div>
         </header>
 
-        <!-- Tabs Navigation (APENAS 2 ABAS) -->
         <div class="tabs">
-            <button class="tab active" data-tab="oxifertil">📊 OXIFERTIL</button>
-            <button class="tab" data-tab="insumos-fazendas">🌱 INSUMOS FAZENDAS</button>
-            <!-- REMOVIDO: Santa Irene e Daniela -->
+            <button class="tab active" data-tab="insumos-fazendas">🌱 INSUMOS AGRÍCOLAS</button>
         </div>
 
         <!-- Conteúdo das Tabs -->
-        <div class="tab-content active" id="oxifertil">
-            <!-- Filtros OXIFERTIL -->
-            <div class="filters">
-                <div class="filter-group">
-                    <label for="fazenda-filter">Fazenda:</label>
-                    <select id="fazenda-filter">
-                        <option value="all">Todas as Fazendas</option>
-                    </select>
-                </div>
-                <div class="filter-group">
-                    <label for="frente-filter">Frente:</label>
-                    <select id="frente-filter">
-                        <option value="all">Todas as Frentes</option>
-                        <option value="4001">4001</option>
-                        <option value="4009">4009</option>
-                    </select>
-                </div>
-                <button id="apply-filters" class="btn btn-primary">🔍 Aplicar Filtros</button>
-                <button id="reset-filters" class="btn btn-secondary">🔄 Limpar</button>
-            </div>
+        
 
-            <!-- Totais -->
-            <div class="totals">
-                <div class="total-item">
-                    <span class="total-label">Área Talhão Total:</span>
-                    <span id="total-area-talhao" class="total-value">0.00 ha</span>
-                </div>
-                <div class="total-item">
-                    <span class="total-label">Área Aplicada Total:</span>
-                    <span id="total-area-aplicada" class="total-value">0.00 ha</span>
-                </div>
-                <div class="total-item">
-                    <span class="total-label">Dose Média:</span>
-                    <span id="total-insum-dose" class="total-value">0.0000000</span>
-                </div>
-                <div class="total-item">
-                    <span class="total-label">Quantidade Total:</span>
-                    <span id="total-quantidade" class="total-value">0.000000</span>
-                </div>
-                <div class="total-item">
-                    <span class="total-label">Diferença Média:</span>
-                    <span id="total-dif" class="total-value">0.00%</span>
-                </div>
-            </div>
-
-            <!-- Tabela OXIFERTIL -->
-            <div class="table-container">
-                <table id="oxifertil-table" class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Processo</th>
-                            <th>Subprocesso</th>
-                            <th>Produto</th>
-                            <th>Fazenda</th>
-                            <th>Área Talhão (ha)</th>
-                            <th>Área Aplicada (ha)</th>
-                            <th>Dose Recom.</th>
-                            <th>Dose Aplicada</th>
-                            <th>Quantidade</th>
-                            <th>Diferença</th>
-                            <th>Frente</th>
-                            <th>Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td colspan="12" class="loading">📡 Carregando dados...</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- Tab INSUMOS FAZENDAS -->
+        <!-- Tab INSUMOS AGRÍCOLAS -->
         <div class="tab-content" id="insumos-fazendas">
             <!-- Filtros INSUMOS FAZENDAS -->
             <div class="filters">
@@ -119,6 +45,29 @@
                 <button id="reset-insumos-filters" class="btn btn-secondary">🔄 Limpar</button>
             </div>
 
+            <div class="totals" id="insumos-dashboard">
+                <div class="total-item">
+                    <span class="total-label">Registros:</span>
+                    <span id="dash-total-registros" class="total-value">0</span>
+                </div>
+                <div class="total-item">
+                    <span class="total-label">Área Talhão Total:</span>
+                    <span id="dash-area-talhao" class="total-value">0.00 ha</span>
+                </div>
+                <div class="total-item">
+                    <span class="total-label">Área Aplicada Total:</span>
+                    <span id="dash-area-aplicada" class="total-value">0.00 ha</span>
+                </div>
+                <div class="total-item">
+                    <span class="total-label">Quantidade Total:</span>
+                    <span id="dash-quantidade" class="total-value">0.000</span>
+                </div>
+                <div class="total-item">
+                    <span class="total-label">Produtos Distintos:</span>
+                    <span id="dash-produtos-distintos" class="total-value">0</span>
+                </div>
+            </div>
+
             <!-- Tabela INSUMOS FAZENDAS -->
             <div class="table-container">
                 <table id="insumos-table" class="data-table">
@@ -135,12 +84,14 @@
                             <th>Quantidade</th>
                             <th>Diferença</th>
                             <th>Frente</th>
+                            <th>Início</th>
+                            <th>Fim</th>
                             <th>Ações</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td colspan="12" class="loading">📡 Carregando dados...</td>
+                            <td colspan="14" class="loading">📡 Carregando dados...</td>
                         </tr>
                     </tbody>
                 </table>
@@ -170,9 +121,7 @@
                         <div class="form-group">
                             <label for="fornecedor">Fornecedor *</label>
                             <select id="fornecedor" name="fornecedor" required>
-                                <option value="">Selecione...</option>
-                                <option value="oxifertil">OXIFERTIL</option>
-                                <option value="insumosFazendas">INSUMOS FAZENDAS</option>
+                                <option value="insumosFazendas" selected>INSUMOS FAZENDAS</option>
                             </select>
                         </div>
                         
@@ -219,6 +168,16 @@
                         <div class="form-group">
                             <label for="quantidadeAplicada">Quantidade Aplicada</label>
                             <input type="number" id="quantidadeAplicada" name="quantidadeAplicada" step="0.000001">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="dataInicio">Data Início da Aplicação</label>
+                            <input type="datetime-local" id="dataInicio" name="dataInicio">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="dataFim">Data Fim da Aplicação</label>
+                            <input type="datetime-local" id="dataFim" name="dataFim">
                         </div>
                     </div>
                 </form>
