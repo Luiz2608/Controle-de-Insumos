@@ -13,6 +13,7 @@ class InsumosApp {
         try {
             this.ui.showLoading();
             
+            this.initTheme();
             await this.setupEventListeners();
             await this.loadStaticData();
             await this.loadInitialData();
@@ -25,6 +26,12 @@ class InsumosApp {
             this.ui.showNotification('Erro ao inicializar o sistema', 'error');
             console.error('Initialization error:', error);
         }
+    }
+
+    initTheme() {
+        const saved = localStorage.getItem('theme') || 'light';
+        const isDark = saved === 'dark';
+        document.body.classList.toggle('theme-dark', isDark);
     }
 
     // Adicione esta função à classe InsumosApp
@@ -102,6 +109,14 @@ forceReloadAllData() {
         const exportPdfBtn = document.getElementById('export-pdf-btn');
         if (exportPdfBtn) exportPdfBtn.addEventListener('click', () => this.exportPDF());
 
+        const themeToggle = document.getElementById('theme-toggle');
+        if (themeToggle) {
+            themeToggle.addEventListener('click', () => {
+                const isDark = document.body.classList.toggle('theme-dark');
+                localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            });
+        }
+
         // Enter nos filtros
         ['produto-filter', 'fazenda-insumos-filter'].forEach(id => {
             const element = document.getElementById(id);
@@ -135,6 +150,53 @@ forceReloadAllData() {
                 this.deleteInsumo(parseInt(id));
             }
         });
+
+        const insumosHead = document.querySelector('#insumos-table thead');
+        if (insumosHead) {
+            insumosHead.addEventListener('click', (ev) => {
+                const th = ev.target.closest('th');
+                if (!th) return;
+                const ths = Array.from(insumosHead.querySelectorAll('th'));
+                const idx = ths.indexOf(th);
+                const sortMap = ['os','cod','fazenda','areaTalhao','areaTotalAplicada','produto','doseRecomendada','__doseAplicada','quantidadeAplicada','__difPercent','frente','dataInicio', null];
+                const key = sortMap[idx];
+                if (!key) return;
+                const dir = (this.insumosSort && this.insumosSort.key === key && this.insumosSort.dir === 'asc') ? 'desc' : 'asc';
+                this.insumosSort = { key, dir };
+                this.sortInsumos();
+            });
+        }
+    }
+
+    sortInsumos() {
+        if (!this.insumosSort) { this.renderInsumos(); return; }
+        const { key, dir } = this.insumosSort;
+        const data = [...this.insumosFazendasData];
+        const val = (i, k) => {
+            if (k === '__doseAplicada') {
+                const a = i.areaTotalAplicada || 0;
+                const q = i.quantidadeAplicada || 0;
+                return (i.doseAplicada != null && i.doseAplicada > 0) ? i.doseAplicada : (a > 0 && q != null ? (q / a) : 0);
+            }
+            if (k === '__difPercent') {
+                const dr = i.doseRecomendada || 0;
+                const da = (i.doseAplicada != null && i.doseAplicada > 0) ? i.doseAplicada : ((i.areaTotalAplicada>0 && i.quantidadeAplicada!=null) ? (i.quantidadeAplicada/i.areaTotalAplicada) : 0);
+                return (dr > 0 && da > 0) ? ((da / dr - 1) * 100) : 0;
+            }
+            return i[k];
+        };
+        data.sort((a,b) => {
+            const va = val(a, key);
+            const vb = val(b, key);
+            const na = (typeof va === 'string') ? parseFloat(String(va).replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.')) : va;
+            const nb = (typeof vb === 'string') ? parseFloat(String(vb).replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.')) : vb;
+            if (!isNaN(na) && !isNaN(nb)) return dir === 'asc' ? na - nb : nb - na;
+            const sa = String(va ?? '').toLowerCase();
+            const sb = String(vb ?? '').toLowerCase();
+            return dir === 'asc' ? sa.localeCompare(sb) : sb.localeCompare(sa);
+        });
+        this.insumosFazendasData = data;
+        this.renderInsumos();
     }
 
     autofillByFazenda() {
@@ -224,17 +286,17 @@ forceReloadAllData() {
         const difClass = this.ui.getDifferenceClass(difPercent);
         
         return `
-            <td>${item.processo || 'N/A'}</td>
-            <td>${item.subprocesso || 'N/A'}</td>
-            <td>${item.produto || 'N/A'}</td>
-            <td>${item.fazenda || 'N/A'}</td>
-            <td>${this.ui.formatNumber(item.areaTalhao)}</td>
-            <td>${this.ui.formatNumber(item.areaTotalAplicada)}</td>
-            <td>${item.doseRecomendada || '0.15'}</td>
-            <td>${this.ui.formatNumber(item.insumDoseAplicada, 7)}</td>
-            <td>${this.ui.formatNumber(item.quantidadeAplicada, 6)}</td>
+            <td>${item.processo || '—'}</td>
+            <td>${item.subprocesso || '—'}</td>
+            <td>${item.produto || '—'}</td>
+            <td>${item.fazenda || '—'}</td>
+            <td>${this.ui.formatNumber(item.areaTalhao || 0)}</td>
+            <td>${this.ui.formatNumber(item.areaTotalAplicada || 0)}</td>
+            <td>${this.ui.formatNumber(item.doseRecomendada || 0, 3)}</td>
+            <td>${this.ui.formatNumber(item.insumDoseAplicada || 0, 7)}</td>
+            <td>${this.ui.formatNumber(item.quantidadeAplicada || 0, 6)}</td>
             <td class="${difClass}">${this.ui.formatPercentage(difPercent)}</td>
-            <td>${item.frente || 'N/A'}</td>
+            <td>${item.frente ?? 0}</td>
             <td>
                 <button class="btn btn-edit" data-id="${item.id}">✏️ Editar</button>
                 <button class="btn btn-delete" data-id="${item.id}">🗑️ Excluir</button>
@@ -264,15 +326,14 @@ forceReloadAllData() {
     async loadInsumosData(filters = {}) {
         try {
             const tbody = document.querySelector('#insumos-table tbody');
-            tbody.innerHTML = '<tr><td colspan="14" class="loading">📡 Carregando dados...</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="13" class="loading">📡 Carregando dados...</td></tr>';
             
             const response = await this.api.getInsumosFazendas(filters);
             
             if (response.success) {
                 this.insumosFazendasData = response.data;
-                this.ui.renderTable(tbody, response.data, this.getInsumosRowHTML.bind(this));
-                this.updateInsumosDashboard(response.data);
-                this.updateCharts(response.data);
+                this.updateInsumosFilters(this.insumosFazendasData);
+                this.renderInsumos();
             } else {
                 throw new Error(response.message);
             }
@@ -280,12 +341,30 @@ forceReloadAllData() {
             const tbody = document.querySelector('#insumos-table tbody');
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="14" class="loading" style="color: var(--error);">
+                    <td colspan="13" class="loading" style="color: var(--error);">
                         ❌ Erro ao carregar dados: ${error.message}
                     </td>
                 </tr>
             `;
         }
+    }
+
+    updateInsumosFilters(data) {
+        const produtos = Array.from(new Set(data.map(i => i.produto).filter(Boolean))).sort();
+        const fazendas = Array.from(new Set(data.map(i => i.fazenda).filter(Boolean))).sort();
+        const prodSelect = document.getElementById('produto-filter');
+        const fazSelect = document.getElementById('fazenda-insumos-filter');
+        if (prodSelect) this.ui.populateSelect(prodSelect, produtos, 'Todos os Produtos');
+        if (fazSelect) this.ui.populateSelect(fazSelect, fazendas, 'Todas as Fazendas');
+    }
+
+    renderInsumos() {
+        const data = [...this.insumosFazendasData];
+        const tbody = document.querySelector('#insumos-table tbody');
+        if (!tbody) return;
+        this.ui.renderTable(tbody, data, this.getInsumosRowHTML.bind(this));
+        this.updateInsumosDashboard(data);
+        this.updateCharts(data);
     }
 
     getInsumosRowHTML(item) {
@@ -294,23 +373,21 @@ forceReloadAllData() {
         const difPercent = (item.doseRecomendada > 0 && doseAplicada > 0) ? 
             ((doseAplicada / item.doseRecomendada - 1) * 100) : 0;
         const difClass = this.ui.getDifferenceClass(difPercent);
-        const inicio = item.dataInicio ? new Date(item.dataInicio).toLocaleString('pt-BR') : '—';
-        const fim = item.dataFim ? new Date(item.dataFim).toLocaleString('pt-BR') : '—';
+        const inicio = this.ui.formatDateBR(item.dataInicio);
         
         return `
-            <td>${item.os || 'N/A'}</td>
-            <td>${item.cod || 'N/A'}</td>
-            <td>${item.fazenda || 'N/A'}</td>
-            <td>${this.ui.formatNumber(item.areaTalhao)}</td>
-            <td>${this.ui.formatNumber(item.areaTotalAplicada)}</td>
-            <td>${item.produto || 'N/A'}</td>
-            <td>${this.ui.formatNumber(item.doseRecomendada, 3)}</td>
-            <td>${this.ui.formatNumber(doseAplicada, 3)}</td>
-            <td>${this.ui.formatNumber(item.quantidadeAplicada, 3)}</td>
+            <td>${item.os ?? 0}</td>
+            <td>${item.cod ?? 0}</td>
+            <td>${item.fazenda || '—'}</td>
+            <td>${this.ui.formatNumber(item.areaTalhao || 0)}</td>
+            <td>${this.ui.formatNumber(item.areaTotalAplicada || 0)}</td>
+            <td>${item.produto || '—'}</td>
+            <td>${this.ui.formatNumber(item.doseRecomendada || 0, 3)}</td>
+            <td>${this.ui.formatNumber(doseAplicada || 0, 3)}</td>
+            <td>${this.ui.formatNumber(item.quantidadeAplicada || 0, 3)}</td>
             <td class="${difClass}">${this.ui.formatPercentage(difPercent)}</td>
-            <td>${item.frente || 'N/A'}</td>
+            <td>${item.frente ?? 0}</td>
             <td>${inicio}</td>
-            <td>${fim}</td>
             <td>
                 <button class="btn btn-edit" data-id="${item.id}">✏️ Editar</button>
                 <button class="btn btn-delete" data-id="${item.id}">🗑️ Excluir</button>
@@ -370,16 +447,16 @@ forceReloadAllData() {
         const difClass = this.ui.getDifferenceClass(difPercent);
         
         return `
-            <td>${item.cod || 'N/A'}</td>
-            <td>${item.fazenda || 'N/A'}</td>
-            <td>${this.ui.formatNumber(item.areaTalhao)}</td>
-            <td>${this.ui.formatNumber(item.areaTotalAplicada)}</td>
-            <td>${item.produto || 'N/A'}</td>
-            <td>${this.ui.formatNumber(item.doseRecomendada, 3)}</td>
-            <td>${this.ui.formatNumber(doseAplicada, 3)}</td>
-            <td>${this.ui.formatNumber(item.quantidadeAplicada, 3)}</td>
+            <td>${item.cod ?? 0}</td>
+            <td>${item.fazenda || '—'}</td>
+            <td>${this.ui.formatNumber(item.areaTalhao || 0)}</td>
+            <td>${this.ui.formatNumber(item.areaTotalAplicada || 0)}</td>
+            <td>${item.produto || '—'}</td>
+            <td>${this.ui.formatNumber(item.doseRecomendada || 0, 3)}</td>
+            <td>${this.ui.formatNumber(doseAplicada || 0, 3)}</td>
+            <td>${this.ui.formatNumber(item.quantidadeAplicada || 0, 3)}</td>
             <td class="${difClass}">${this.ui.formatPercentage(difPercent)}</td>
-            <td>${item.frente || 'N/A'}</td>
+            <td>${item.frente ?? 0}</td>
             <td>
                 <button class="btn btn-edit" data-id="${item.id}">✏️ Editar</button>
                 <button class="btn btn-delete" data-id="${item.id}">🗑️ Excluir</button>
@@ -420,16 +497,16 @@ forceReloadAllData() {
         const difClass = this.ui.getDifferenceClass(difPercent);
         
         return `
-            <td>${item.cod || 'N/A'}</td>
-            <td>${item.fazenda || 'N/A'}</td>
-            <td>${this.ui.formatNumber(item.areaTotal)}</td>
-            <td>${this.ui.formatNumber(item.areaTotalAplicada)}</td>
-            <td>${item.produto || 'N/A'}</td>
-            <td>${this.ui.formatNumber(item.doseRecomendada, 3)}</td>
-            <td>${this.ui.formatNumber(doseAplicada, 3)}</td>
-            <td>${this.ui.formatNumber(item.quantidadeAplicada, 3)}</td>
+            <td>${item.cod ?? 0}</td>
+            <td>${item.fazenda || '—'}</td>
+            <td>${this.ui.formatNumber(item.areaTotal || 0)}</td>
+            <td>${this.ui.formatNumber(item.areaTotalAplicada || 0)}</td>
+            <td>${item.produto || '—'}</td>
+            <td>${this.ui.formatNumber(item.doseRecomendada || 0, 3)}</td>
+            <td>${this.ui.formatNumber(doseAplicada || 0, 3)}</td>
+            <td>${this.ui.formatNumber(item.quantidadeAplicada || 0, 3)}</td>
             <td class="${difClass}">${this.ui.formatPercentage(difPercent)}</td>
-            <td>${item.frente || 'N/A'}</td>
+            <td>${item.frente ?? 0}</td>
             <td>
                 <button class="btn btn-edit" data-id="${item.id}">✏️ Editar</button>
                 <button class="btn btn-delete" data-id="${item.id}">🗑️ Excluir</button>
@@ -457,7 +534,7 @@ forceReloadAllData() {
     }
 
     clearForm() {
-        ['fornecedor','os','cod','produto','fazenda','frente','processo','subprocesso','areaTalhao','areaTotalAplicada','doseRecomendada','doseAplicada','quantidadeAplicada','dataInicio','dataFim']
+        ['fornecedor','os','cod','produto','fazenda','frente','processo','subprocesso','areaTalhao','areaTotalAplicada','doseRecomendada','doseAplicada','quantidadeAplicada','dataInicio']
             .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
         const processoEl = document.getElementById('processo');
         const subprocessoEl = document.getElementById('subprocesso');
@@ -480,7 +557,6 @@ forceReloadAllData() {
         set('doseAplicada', item.doseAplicada);
         set('quantidadeAplicada', item.quantidadeAplicada);
         set('dataInicio', item.dataInicio);
-        set('dataFim', item.dataFim);
     }
 
     getFormData() {
@@ -500,8 +576,7 @@ forceReloadAllData() {
             doseRecomendada: get('doseRecomendada') ? parseFloat(get('doseRecomendada')) : undefined,
             doseAplicada: get('doseAplicada') ? parseFloat(get('doseAplicada')) : undefined,
             quantidadeAplicada: get('quantidadeAplicada') ? parseFloat(get('quantidadeAplicada')) : undefined,
-            dataInicio: get('dataInicio') || undefined,
-            dataFim: get('dataFim') || undefined
+            dataInicio: get('dataInicio') || undefined
         };
         return payload;
     }
@@ -581,9 +656,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
 InsumosApp.prototype.updateInsumosDashboard = function(data) {
     const totalRegistros = data.length;
-    const totalAreaTalhao = data.reduce((s, i) => s + (i.areaTalhao || 0), 0);
-    const totalAreaAplicada = data.reduce((s, i) => s + (i.areaTotalAplicada || 0), 0);
-    const totalQuantidade = data.reduce((s, i) => s + (i.quantidadeAplicada || 0), 0);
+    const num = v => {
+        if (typeof v === 'number') return v;
+        if (typeof v === 'string') { const n = parseFloat(v.replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.')); return isNaN(n) ? 0 : n; }
+        return 0;
+    };
+    const totalAreaTalhao = data.reduce((s, i) => s + num(i.areaTalhao), 0);
+    const totalAreaAplicada = data.reduce((s, i) => s + num(i.areaTotalAplicada), 0);
+    const totalQuantidade = data.reduce((s, i) => s + num(i.quantidadeAplicada), 0);
     const produtos = new Set(data.map(i => i.produto).filter(Boolean));
     const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
     setText('dash-total-registros', String(totalRegistros));
@@ -598,8 +678,13 @@ InsumosApp.prototype.updateCharts = function(data) {
         if (!window.Chart) return;
         const byProduto = {};
         const byFazenda = {};
+        const num = v => {
+            if (typeof v === 'number') return v;
+            if (typeof v === 'string') { const n = parseFloat(v.replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.')); return isNaN(n) ? 0 : n; }
+            return 0;
+        };
         data.forEach(i => {
-            const q = i.quantidadeAplicada || 0;
+            const q = num(i.quantidadeAplicada);
             if (i.produto) byProduto[i.produto] = (byProduto[i.produto] || 0) + q;
             if (i.fazenda) byFazenda[i.fazenda] = (byFazenda[i.fazenda] || 0) + q;
         });
@@ -642,8 +727,8 @@ InsumosApp.prototype.updateCharts = function(data) {
 
 InsumosApp.prototype.getExportRows = function() {
     const rows = this.insumosFazendasData.map(i => ({
-        OS: i.os ?? '',
-        Codigo: i.cod ?? '',
+        OS: i.os ?? 0,
+        Codigo: i.cod ?? 0,
         Fazenda: i.fazenda ?? '',
         AreaTalhao: i.areaTalhao ?? 0,
         AreaAplicada: i.areaTotalAplicada ?? 0,
@@ -652,9 +737,8 @@ InsumosApp.prototype.getExportRows = function() {
         DoseAplicada: (i.doseAplicada != null && i.doseAplicada > 0) ? i.doseAplicada : ((i.areaTotalAplicada>0 && i.quantidadeAplicada!=null) ? (i.quantidadeAplicada/i.areaTotalAplicada) : 0),
         Quantidade: i.quantidadeAplicada ?? 0,
         DifPercent: (i.doseRecomendada>0) ? (((((i.doseAplicada != null && i.doseAplicada > 0) ? i.doseAplicada : ((i.areaTotalAplicada>0 && i.quantidadeAplicada!=null) ? (i.quantidadeAplicada/i.areaTotalAplicada) : 0)))/i.doseRecomendada-1)*100) : 0,
-        Frente: i.frente ?? '',
-        Inicio: i.dataInicio ?? '',
-        Fim: i.dataFim ?? ''
+        Frente: i.frente ?? 0,
+        Inicio: this.ui.formatDateBR(i.dataInicio)
     }));
     return rows;
 };

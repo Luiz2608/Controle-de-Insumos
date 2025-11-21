@@ -116,7 +116,7 @@ body {
 }
 
 .tab:hover {
-    background: #f8f9fa;
+    background: rgba(0,0,0,0.03);
 }
 
 .tab.active {
@@ -161,7 +161,7 @@ body {
 .filters {
     padding: 20px;
     border-bottom: 1px solid var(--border);
-    background: #f8f9fa;
+    background: var(--surface);
     display: flex;
     gap: 15px;
     align-items: end;
@@ -243,7 +243,7 @@ body {
 }
 
 .data-table tr:hover {
-    background: #f8f9fa;
+    background: rgba(0,0,0,0.03);
 }
 
 /* Status */
@@ -470,3 +470,24 @@ body {
         gap: 3px;
     }
 }
+
+.theme-dark {
+    --primary: #90caf9;
+    --primary-dark: #42a5f5;
+    --primary-light: #64b5f6;
+    --secondary: #ffb74d;
+    --background: #0f0f10;
+    --surface: #161719;
+    --text: #e0e0e0;
+    --text-light: #c0c0c0;
+    --border: #333333;
+    --error: #ef5350;
+    --success: #81c784;
+    --warning: #ffb74d;
+    --shadow: 0 2px 6px rgba(0,0,0,0.4);
+}
+
+.theme-dark .filters { background: var(--surface); }
+.theme-dark .tab { color: var(--text-light); }
+.theme-dark .tab.active { background: var(--surface); }
+.theme-dark .notification { color: var(--text); }

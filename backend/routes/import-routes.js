@@ -74,7 +74,8 @@ const columnMapping = {
             7: 'insumDoseAplicada',
             8: 'quantidadeAplicada',
             9: 'dif',
-            10: 'frente'
+            10: 'frente',
+            11: 'dataInicio'
         }
     },
     // Sinônimos aceitos para INSUMOS
@@ -91,7 +92,8 @@ const columnMapping = {
             7: 'insumDoseAplicada',
             8: 'quantidadeAplicada',
             9: 'dif',
-            10: 'frente'
+            10: 'frente',
+            11: 'dataInicio'
         }
     },
     'INSUMOS AGRICOLAS': {
@@ -107,7 +109,8 @@ const columnMapping = {
             7: 'insumDoseAplicada',
             8: 'quantidadeAplicada',
             9: 'dif',
-            10: 'frente'
+            10: 'frente',
+            11: 'dataInicio'
         }
     },
     'INSUMOS AGRÍCOLAS': {
@@ -123,7 +126,8 @@ const columnMapping = {
             7: 'insumDoseAplicada',
             8: 'quantidadeAplicada',
             9: 'dif',
-            10: 'frente'
+            10: 'frente',
+            11: 'dataInicio'
         }
     },
     'SANTA IRENE (STEIN)': {
@@ -158,6 +162,69 @@ const columnMapping = {
     }
 };
 
+// Preenche valores de células mescladas replicando o valor do topo
+function worksheetToGrid(ws) {
+    const ref = ws['!ref'];
+    if (!ref) return [];
+    const range = XLSX.utils.decode_range(ref);
+    const rows = [];
+    for (let r = range.s.r; r <= range.e.r; r++) {
+        const row = [];
+        for (let c = range.s.c; c <= range.e.c; c++) {
+            const addr = XLSX.utils.encode_cell({ r, c });
+            const cell = ws[addr];
+            let val = null;
+            if (cell) {
+                if (cell.t === 'n' && typeof cell.v === 'number' && cell.z && /[dmy]/i.test(String(cell.z))) {
+                    const d = XLSX.SSF.parse_date_code(cell.v);
+                    if (d) val = `${String(d.d).padStart(2,'0')}/${String(d.m).padStart(2,'0')}/${d.y}`;
+                } else {
+                    val = cell.w != null ? cell.w : cell.v;
+                }
+            }
+            row.push(val);
+        }
+        rows.push(row);
+    }
+    const merges = ws['!merges'] || [];
+    merges.forEach(m => {
+        const top = rows[m.s.r - range.s.r]?.[m.s.c - range.s.c];
+        if (top === undefined || top === null || top === '') return;
+        for (let r = m.s.r; r <= m.e.r; r++) {
+            for (let c = m.s.c; c <= m.e.c; c++) {
+                const rr = r - range.s.r;
+                const cc = c - range.s.c;
+                if (rows[rr]?.[cc] === undefined || rows[rr][cc] === null || rows[rr][cc] === '') {
+                    rows[rr][cc] = top;
+                }
+            }
+        }
+    });
+    return rows;
+}
+
+// Forward-fill: propaga valores anteriores por coluna quando a célula está vazia
+function forwardFillColumns(jsonData, startRow = 0) {
+    if (!Array.isArray(jsonData) || jsonData.length === 0) return;
+    const colCount = Math.max(...jsonData.map(r => Array.isArray(r) ? r.length : 0));
+    const lastVals = new Array(colCount).fill(undefined);
+    for (let r = 0; r < jsonData.length; r++) {
+        const row = jsonData[r] || [];
+        for (let c = 0; c < colCount; c++) {
+            const cell = row[c];
+            if (r < startRow) {
+                if (cell !== undefined && cell !== null && cell !== '') lastVals[c] = cell;
+                continue;
+            }
+            if (cell !== undefined && cell !== null && cell !== '') {
+                lastVals[c] = cell;
+            } else if (lastVals[c] !== undefined) {
+                row[c] = lastVals[c];
+            }
+        }
+    }
+}
+
 // Função para processar linha - SEM FILTROS
 function processRowByPosition(mapping, row, rowIndex, sheetName) {
     try {
@@ -173,24 +240,61 @@ function processRowByPosition(mapping, row, rowIndex, sheetName) {
             if (numColIndex < row.length && row[numColIndex] !== undefined && row[numColIndex] !== null && row[numColIndex] !== '') {
                 const cellValue = row[numColIndex];
                 
-                // Conversão básica
                 if (typeof cellValue === 'string') {
                     const trimmed = cellValue.trim();
                     if (trimmed && trimmed !== 'N/A' && trimmed !== '-' && trimmed !== 'NULL') {
-                        // Tentar converter para número
-                        const cleanValue = trimmed.replace(/\./g, '').replace(',', '.');
-                        const numValue = parseFloat(cleanValue);
-                        if (!isNaN(numValue)) {
-                            item[fieldName] = numValue;
+                        if (fieldName.toLowerCase().includes('data')) {
+                            const m = trimmed.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+                            if (m) {
+                                item[fieldName] = `${m[1]}/${m[2]}/${m[3]}`;
+                            } else {
+                                const d = new Date(trimmed);
+                                if (!isNaN(d)) {
+                                    const dd = String(d.getDate()).padStart(2,'0');
+                                    const mm = String(d.getMonth()+1).padStart(2,'0');
+                                    const yyyy = d.getFullYear();
+                                    item[fieldName] = `${dd}/${mm}/${yyyy}`;
+                                } else {
+                                    item[fieldName] = trimmed;
+                                }
+                            }
                         } else {
-                            item[fieldName] = trimmed;
+                            const cleanValue = trimmed.replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.');
+                            const numValue = parseFloat(cleanValue);
+                            if (!isNaN(numValue)) item[fieldName] = numValue; else item[fieldName] = trimmed;
                         }
                     }
                 } else if (typeof cellValue === 'number') {
-                    item[fieldName] = cellValue;
+                    if (fieldName.toLowerCase().includes('data')) {
+                        const d = XLSX.SSF.parse_date_code(cellValue);
+                        if (d) {
+                            const dd = String(d.d).padStart(2,'0');
+                            const mm = String(d.m).padStart(2,'0');
+                            const yyyy = d.y;
+                            item[fieldName] = `${dd}/${mm}/${yyyy}`;
+                        }
+                    } else {
+                        item[fieldName] = cellValue;
+                    }
                 }
             }
         });
+        
+        // Defaults numéricos: se não vier valor, usar 0
+        const numericFields = new Set(['os','cod','areaTalhao','areaTotal','areaTotalAplicada','doseRecomendada','insumDoseAplicada','doseAplicada','quantidadeAplicada','dif','frente']);
+        Object.values(mapping.columns).forEach(field => {
+            if (numericFields.has(field)) {
+                const v = item[field];
+                if (v === undefined || v === null || v === '' || (typeof v === 'number' && isNaN(v))) {
+                    item[field] = 0;
+                }
+            }
+        });
+        
+        // Alias: se veio 'insumDoseAplicada', popular também 'doseAplicada'
+        if (item.insumDoseAplicada !== undefined && item.insumDoseAplicada !== null) {
+            item.doseAplicada = item.insumDoseAplicada;
+        }
         
         // 🔥 ACEITA TODAS AS LINHAS - MESMO VAZIAS
         return item;
@@ -228,12 +332,7 @@ router.post('/excel', upload.single('file'), async (req, res) => {
                 console.log(`\n📊 PROCESSANDO: "${sheetName}"`);
                 
                 const worksheet = workbook.Sheets[sheetName];
-                const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
-                    header: 1,
-                    defval: null,
-                    raw: false
-                });
-                
+                const jsonData = worksheetToGrid(worksheet);
                 console.log(`📈 Total de linhas brutas: ${jsonData.length}`);
                 
         let mappingKey = Object.keys(columnMapping).find(key => 
@@ -258,6 +357,7 @@ router.post('/excel', upload.single('file'), async (req, res) => {
                 const mapping = columnMapping[mappingKey];
                 console.log(`🎯 Mapeamento: ${mappingKey} (linha ${mapping.startRow + 1})`);
                 
+                forwardFillColumns(jsonData, mapping.startRow);
                 const rows = jsonData.slice(mapping.startRow);
                 console.log(`📝 ${rows.length} linhas para processar`);
                 

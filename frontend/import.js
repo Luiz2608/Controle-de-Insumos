@@ -31,8 +31,8 @@ class ImportManager {
                     <div class="modal-body">
                         <div class="upload-area" id="upload-area">
                             <div class="upload-icon">📊</div>
-                            <h4>Arraste o arquivo Excel aqui</h4>
-                            <p>Formatos: .xlsx, .xls, .csv</p>
+                            <h4 style="color: black;">Arraste o arquivo Excel aqui</h4>
+                            <p style="color: black;">Formatos: .xlsx, .xls, .csv</p>
                             <input type="file" id="file-input" accept=".xlsx,.xls,.csv" style="display: none;">
                             <button type="button" class="btn btn-primary" id="select-file-btn">Selecionar Arquivo</button>
                         </div>
@@ -227,7 +227,7 @@ class ImportManager {
         
         previewSection.style.display = 'block';
         
-        let previewHTML = '<div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin-bottom: 15px;">';
+        let previewHTML = '<div style="background: var(--surface); color: var(--text); padding: 15px; border-radius: 5px; margin-bottom: 15px;">';
         previewHTML += '<p><strong>📊 Resumo do Arquivo:</strong></p>';
         
         // Mostrar totais por categoria
@@ -242,25 +242,25 @@ class ImportManager {
         previewHTML += '</div>';
         
         // Container principal com barra de rolagem
-        previewHTML += `<div style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; border-radius: 5px; padding: 10px; background: white;">`;
+        previewHTML += `<div style="max-height: 400px; overflow-y: auto; border: 1px solid var(--border); border-radius: 5px; padding: 10px; background: var(--surface); color: var(--text);">`;
         
         // Mostrar preview de cada sheet
         Object.keys(importResult.sheets).forEach(sheetName => {
             const sheet = importResult.sheets[sheetName];
             if (sheet.rows > 0) {
-                previewHTML += `<div style="margin-bottom: 20px; padding: 10px; border: 1px solid #e0e0e0; border-radius: 4px; background: #fafafa;">`;
-                previewHTML += `<h4 style="margin: 0 0 10px 0; color: #2c3e50; display: flex; justify-content: space-between; align-items: center;">`;
+                previewHTML += `<div style="margin-bottom: 20px; padding: 10px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: var(--text);">`;
+                previewHTML += `<h4 style="margin: 0 0 10px 0; color: var(--text); display: flex; justify-content: space-between; align-items: center;">`;
                 previewHTML += `<span>${sheetName}</span>`;
                 previewHTML += `<span style="background: #3498db; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: normal;">${sheet.rows} registros</span>`;
                 previewHTML += `</h4>`;
                 
                 if (sheet.sampleData && sheet.sampleData.length > 0) {
                     // Container da tabela com rolagem individual
-                    previewHTML += `<div style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; background: white;">`;
+                    previewHTML += `<div style="max-height: 200px; overflow-y: auto; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: var(--text);">`;
                     previewHTML += `<table style="width: 100%; border-collapse: collapse; font-size: 11px; min-width: 600px;">`;
                     
                     // Cabeçalhos fixos
-                    previewHTML += `<thead><tr style="background: #2c3e50; color: white; position: sticky; top: 0;">`;
+                    previewHTML += `<thead><tr style="background: var(--primary); color: white; position: sticky; top: 0;">`;
                     sheet.headers.forEach(header => {
                         previewHTML += `<th style="border: 1px solid #34495e; padding: 6px 4px; text-align: left; font-weight: 600;">${header || ''}</th>`;
                     });
@@ -269,12 +269,12 @@ class ImportManager {
                     // Dados
                     previewHTML += `<tbody>`;
                     sheet.sampleData.forEach((row, index) => {
-                        const rowStyle = index % 2 === 0 ? 'background: #f8f9fa;' : 'background: white;';
+                        const rowStyle = index % 2 === 0 ? 'background: rgba(0,0,0,0.03);' : 'background: transparent;';
                         previewHTML += `<tr style="${rowStyle}">`;
                         sheet.headers.forEach((header, colIndex) => {
                             const value = row[header] !== undefined ? row[header] : (Array.isArray(row) ? row[colIndex] : '');
                             const displayValue = value !== null && value !== undefined ? String(value) : '';
-                            previewHTML += `<td style="border: 1px solid #ecf0f1; padding: 4px; white-space: nowrap;">${displayValue}</td>`;
+                            previewHTML += `<td style="border: 1px solid var(--border); padding: 4px; white-space: nowrap; color: var(--text);">${displayValue}</td>`;
                         });
                         previewHTML += `</tr>`;
                     });

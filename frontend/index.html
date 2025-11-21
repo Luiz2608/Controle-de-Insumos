@@ -18,6 +18,7 @@
                 <button id="export-csv-btn" class="btn btn-secondary">⬇️ Exportar CSV</button>
                 <button id="export-excel-btn" class="btn btn-secondary">⬇️ Exportar Excel</button>
                 <button id="export-pdf-btn" class="btn btn-secondary">⬇️ Exportar PDF</button>
+                <button id="theme-toggle" class="btn btn-secondary">🌓 Tema</button>
             </div>
         </header>
 
@@ -91,13 +92,12 @@
                             <th>Diferença</th>
                             <th>Frente</th>
                             <th>Início</th>
-                            <th>Fim</th>
                             <th>Ações</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td colspan="14" class="loading">📡 Carregando dados...</td>
+                            <td colspan="13" class="loading">📡 Carregando dados...</td>
                         </tr>
                     </tbody>
                 </table>
@@ -196,10 +196,7 @@
                             <input type="datetime-local" id="dataInicio" name="dataInicio">
                         </div>
 
-                        <div class="form-group">
-                            <label for="dataFim">Data Fim da Aplicação</label>
-                            <input type="datetime-local" id="dataFim" name="dataFim">
-                        </div>
+                        
                     </div>
                 </form>
             </div>
@@ -222,7 +219,7 @@
                 <canvas id="chart-fazendas" height="180"></canvas>
             </div>
             <div class="chart-card">
-                <h4 style="margin: 0 0 10px 0;">Participação por Produto</h4>
+                <h4 style="margin: 0 0 10px 0;">Gráfico dos Produtos</h4>
                 <canvas id="chart-produtos-share" height="180"></canvas>
             </div>
         </div>
