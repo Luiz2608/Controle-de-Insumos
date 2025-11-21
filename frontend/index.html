@@ -15,11 +15,15 @@
                 <button id="refresh-btn" class="btn btn-secondary">🔄 Atualizar</button>
                 <button id="add-btn" class="btn btn-primary">➕ Adicionar</button>
                 <button id="import-btn" class="btn btn-success">📤 Importar Excel</button>
+                <button id="export-csv-btn" class="btn btn-secondary">⬇️ Exportar CSV</button>
+                <button id="export-excel-btn" class="btn btn-secondary">⬇️ Exportar Excel</button>
+                <button id="export-pdf-btn" class="btn btn-secondary">⬇️ Exportar PDF</button>
             </div>
         </header>
 
         <div class="tabs">
             <button class="tab active" data-tab="insumos-fazendas">🌱 INSUMOS AGRÍCOLAS</button>
+            <button class="tab" data-tab="graficos">📈 DASHBOARD</button>
         </div>
 
         <!-- Conteúdo das Tabs -->
@@ -67,6 +71,8 @@
                     <span id="dash-produtos-distintos" class="total-value">0</span>
                 </div>
             </div>
+
+            <!-- Charts movidos para aba separada -->
 
             <!-- Tabela INSUMOS FAZENDAS -->
             <div class="table-container">
@@ -126,6 +132,16 @@
                         </div>
                         
                         <div class="form-group">
+                            <label for="os">Número da OS</label>
+                            <input type="number" id="os" name="os" step="1">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="cod">Código da Fazenda</label>
+                            <input type="number" id="cod" name="cod" step="1">
+                        </div>
+
+                        <div class="form-group">
                             <label for="produto">Produto *</label>
                             <input type="text" id="produto" name="produto" required>
                         </div>
@@ -164,7 +180,12 @@
                             <label for="doseRecomendada">Dose Recomendada</label>
                             <input type="number" id="doseRecomendada" name="doseRecomendada" step="0.001">
                         </div>
-                        
+
+                        <div class="form-group">
+                            <label for="doseAplicada">Dose Aplicada</label>
+                            <input type="number" id="doseAplicada" name="doseAplicada" step="0.001">
+                        </div>
+
                         <div class="form-group">
                             <label for="quantidadeAplicada">Quantidade Aplicada</label>
                             <input type="number" id="quantidadeAplicada" name="quantidadeAplicada" step="0.000001">
@@ -189,7 +210,29 @@
         </div>
     </div>
 
+    <!-- Tab de Gráficos -->
+    <div class="tab-content" id="graficos">
+        <div class="charts">
+            <div class="chart-card">
+                <h4 style="margin: 0 0 10px 0;">Produtos mais usados (Top 5)</h4>
+                <canvas id="chart-produtos" height="180"></canvas>
+            </div>
+            <div class="chart-card">
+                <h4 style="margin: 0 0 10px 0;">Quantidade por Fazenda (Top 6)</h4>
+                <canvas id="chart-fazendas" height="180"></canvas>
+            </div>
+            <div class="chart-card">
+                <h4 style="margin: 0 0 10px 0;">Participação por Produto</h4>
+                <canvas id="chart-produtos-share" height="180"></canvas>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.28/dist/jspdf.plugin.autotable.min.js"></script>
     <script src="api.js"></script>
     <script src="ui.js"></script>
     <script src="import.js"></script>

@@ -95,6 +95,13 @@ forceReloadAllData() {
             });
         }
 
+        const exportCsvBtn = document.getElementById('export-csv-btn');
+        if (exportCsvBtn) exportCsvBtn.addEventListener('click', () => this.exportCSV());
+        const exportExcelBtn = document.getElementById('export-excel-btn');
+        if (exportExcelBtn) exportExcelBtn.addEventListener('click', () => this.exportExcel());
+        const exportPdfBtn = document.getElementById('export-pdf-btn');
+        if (exportPdfBtn) exportPdfBtn.addEventListener('click', () => this.exportPDF());
+
         // Enter nos filtros
         ['produto-filter', 'fazenda-insumos-filter'].forEach(id => {
             const element = document.getElementById(id);
@@ -112,6 +119,11 @@ forceReloadAllData() {
         if (cancelBtn) cancelBtn.addEventListener('click', () => this.closeInsumoModal());
         if (saveBtn) saveBtn.addEventListener('click', () => this.saveInsumo());
 
+        const fazendaInput = document.getElementById('fazenda');
+        if (fazendaInput) {
+            fazendaInput.addEventListener('change', () => this.autofillByFazenda());
+        }
+
         document.addEventListener('click', (e) => {
             const editBtn = e.target.closest('.btn-edit');
             const deleteBtn = e.target.closest('.btn-delete');
@@ -123,6 +135,20 @@ forceReloadAllData() {
                 this.deleteInsumo(parseInt(id));
             }
         });
+    }
+
+    autofillByFazenda() {
+        const fazendaEl = document.getElementById('fazenda');
+        const osEl = document.getElementById('os');
+        const codEl = document.getElementById('cod');
+        const fazenda = fazendaEl ? fazendaEl.value : '';
+        if (!fazenda) return;
+        const existing = this.insumosFazendasData.find(i => i.fazenda === fazenda && (i.os || i.cod));
+        if (existing) {
+            if (osEl && existing.os != null) osEl.value = existing.os;
+            if (codEl && existing.cod != null) codEl.value = existing.cod;
+            this.ui.showNotification('Dados existentes encontrados. OS e Código preenchidos automaticamente.', 'info', 2000);
+        }
     }
 
     async loadStaticData() {
@@ -157,6 +183,12 @@ forceReloadAllData() {
     async loadTabData(tabName) {
         if (tabName === 'insumos-fazendas') {
             await this.loadInsumosData();
+        } else if (tabName === 'graficos') {
+            if (this.insumosFazendasData && this.insumosFazendasData.length) {
+                this.updateCharts(this.insumosFazendasData);
+            } else {
+                await this.loadInsumosData();
+            }
         }
     }
 
@@ -240,6 +272,7 @@ forceReloadAllData() {
                 this.insumosFazendasData = response.data;
                 this.ui.renderTable(tbody, response.data, this.getInsumosRowHTML.bind(this));
                 this.updateInsumosDashboard(response.data);
+                this.updateCharts(response.data);
             } else {
                 throw new Error(response.message);
             }
@@ -247,7 +280,7 @@ forceReloadAllData() {
             const tbody = document.querySelector('#insumos-table tbody');
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="11" class="loading" style="color: var(--error-color);">
+                    <td colspan="14" class="loading" style="color: var(--error);">
                         ❌ Erro ao carregar dados: ${error.message}
                     </td>
                 </tr>
@@ -256,9 +289,9 @@ forceReloadAllData() {
     }
 
     getInsumosRowHTML(item) {
-        const doseAplicada = item.areaTotalAplicada > 0 ? 
-            (item.quantidadeAplicada / item.areaTotalAplicada) : 0;
-        const difPercent = item.doseRecomendada > 0 ? 
+        const doseAplicada = (item.doseAplicada != null && item.doseAplicada > 0) ? item.doseAplicada :
+            ((item.areaTotalAplicada > 0 && item.quantidadeAplicada != null) ? (item.quantidadeAplicada / item.areaTotalAplicada) : 0);
+        const difPercent = (item.doseRecomendada > 0 && doseAplicada > 0) ? 
             ((doseAplicada / item.doseRecomendada - 1) * 100) : 0;
         const difClass = this.ui.getDifferenceClass(difPercent);
         const inicio = item.dataInicio ? new Date(item.dataInicio).toLocaleString('pt-BR') : '—';
@@ -330,9 +363,9 @@ forceReloadAllData() {
     }
 
     getSantaIreneRowHTML(item) {
-        const doseAplicada = item.areaTotalAplicada > 0 ? 
-            (item.quantidadeAplicada / item.areaTotalAplicada) : 0;
-        const difPercent = item.doseRecomendada > 0 ? 
+        const doseAplicada = (item.doseAplicada != null && item.doseAplicada > 0) ? item.doseAplicada :
+            ((item.areaTotalAplicada > 0 && item.quantidadeAplicada != null) ? (item.quantidadeAplicada / item.areaTotalAplicada) : 0);
+        const difPercent = (item.doseRecomendada > 0 && doseAplicada > 0) ? 
             ((doseAplicada / item.doseRecomendada - 1) * 100) : 0;
         const difClass = this.ui.getDifferenceClass(difPercent);
         
@@ -380,9 +413,9 @@ forceReloadAllData() {
     }
 
     getDanielaRowHTML(item) {
-        const doseAplicada = item.areaTotalAplicada > 0 ? 
-            (item.quantidadeAplicada / item.areaTotalAplicada) : 0;
-        const difPercent = item.doseRecomendada > 0 ? 
+        const doseAplicada = (item.doseAplicada != null && item.doseAplicada > 0) ? item.doseAplicada :
+            ((item.areaTotalAplicada > 0 && item.quantidadeAplicada != null) ? (item.quantidadeAplicada / item.areaTotalAplicada) : 0);
+        const difPercent = (item.doseRecomendada > 0 && doseAplicada > 0) ? 
             ((doseAplicada / item.doseRecomendada - 1) * 100) : 0;
         const difClass = this.ui.getDifferenceClass(difPercent);
         
@@ -424,7 +457,7 @@ forceReloadAllData() {
     }
 
     clearForm() {
-        ['fornecedor','produto','fazenda','frente','processo','subprocesso','areaTalhao','areaTotalAplicada','doseRecomendada','quantidadeAplicada','dataInicio','dataFim']
+        ['fornecedor','os','cod','produto','fazenda','frente','processo','subprocesso','areaTalhao','areaTotalAplicada','doseRecomendada','doseAplicada','quantidadeAplicada','dataInicio','dataFim']
             .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
         const processoEl = document.getElementById('processo');
         const subprocessoEl = document.getElementById('subprocesso');
@@ -434,6 +467,8 @@ forceReloadAllData() {
 
     fillForm(item) {
         const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val ?? ''; };
+        set('os', item.os);
+        set('cod', item.cod);
         set('produto', item.produto);
         set('fazenda', item.fazenda);
         set('frente', item.frente);
@@ -442,6 +477,7 @@ forceReloadAllData() {
         set('areaTalhao', item.areaTalhao ?? item.areaTotal);
         set('areaTotalAplicada', item.areaTotalAplicada);
         set('doseRecomendada', item.doseRecomendada);
+        set('doseAplicada', item.doseAplicada);
         set('quantidadeAplicada', item.quantidadeAplicada);
         set('dataInicio', item.dataInicio);
         set('dataFim', item.dataFim);
@@ -452,6 +488,8 @@ forceReloadAllData() {
         const fornecedor = get('fornecedor');
         const payload = {
             fornecedor,
+            os: get('os') ? parseInt(get('os')) : undefined,
+            cod: get('cod') ? parseInt(get('cod')) : undefined,
             produto: get('produto'),
             fazenda: get('fazenda'),
             frente: get('frente') ? parseInt(get('frente')) : undefined,
@@ -460,6 +498,7 @@ forceReloadAllData() {
             areaTalhao: get('areaTalhao') ? parseFloat(get('areaTalhao')) : undefined,
             areaTotalAplicada: get('areaTotalAplicada') ? parseFloat(get('areaTotalAplicada')) : undefined,
             doseRecomendada: get('doseRecomendada') ? parseFloat(get('doseRecomendada')) : undefined,
+            doseAplicada: get('doseAplicada') ? parseFloat(get('doseAplicada')) : undefined,
             quantidadeAplicada: get('quantidadeAplicada') ? parseFloat(get('quantidadeAplicada')) : undefined,
             dataInicio: get('dataInicio') || undefined,
             dataFim: get('dataFim') || undefined
@@ -552,4 +591,115 @@ InsumosApp.prototype.updateInsumosDashboard = function(data) {
     setText('dash-area-aplicada', this.ui.formatNumber(totalAreaAplicada) + ' ha');
     setText('dash-quantidade', this.ui.formatNumber(totalQuantidade, 3));
     setText('dash-produtos-distintos', String(produtos.size));
+};
+
+InsumosApp.prototype.updateCharts = function(data) {
+    try {
+        if (!window.Chart) return;
+        const byProduto = {};
+        const byFazenda = {};
+        data.forEach(i => {
+            const q = i.quantidadeAplicada || 0;
+            if (i.produto) byProduto[i.produto] = (byProduto[i.produto] || 0) + q;
+            if (i.fazenda) byFazenda[i.fazenda] = (byFazenda[i.fazenda] || 0) + q;
+        });
+        const topProdutos = Object.entries(byProduto).sort((a,b)=>b[1]-a[1]).slice(0,5);
+        const fazendasArr = Object.entries(byFazenda).sort((a,b)=>b[1]-a[1]).slice(0,6);
+        const prodCtx = document.getElementById('chart-produtos');
+        const fazCtx = document.getElementById('chart-fazendas');
+        const shareCtx = document.getElementById('chart-produtos-share');
+        if (!this._charts) this._charts = {};
+        const baseOpts = { responsive: true, plugins: { legend: { display: false } } };
+        const prodData = {
+            labels: topProdutos.map(p=>p[0]),
+            datasets: [{ label: 'Quantidade', data: topProdutos.map(p=>p[1]), backgroundColor: '#4CAF50' }]
+        };
+        const fazData = {
+            labels: fazendasArr.map(f=>f[0]),
+            datasets: [{ label: 'Quantidade', data: fazendasArr.map(f=>f[1]), backgroundColor: '#3498db' }]
+        };
+        const colors = ['#4CAF50','#FF9800','#2196F3','#9C27B0','#F44336','#00BCD4','#8BC34A'];
+        const shareData = {
+            labels: Object.keys(byProduto),
+            datasets: [{ data: Object.values(byProduto), backgroundColor: colors }]
+        };
+        if (prodCtx) {
+            if (this._charts.prod) { this._charts.prod.data = prodData; this._charts.prod.update(); }
+            else this._charts.prod = new Chart(prodCtx, { type: 'bar', data: prodData, options: baseOpts });
+        }
+        if (fazCtx) {
+            if (this._charts.faz) { this._charts.faz.data = fazData; this._charts.faz.update(); }
+            else this._charts.faz = new Chart(fazCtx, { type: 'bar', data: fazData, options: baseOpts });
+        }
+        if (shareCtx) {
+            if (this._charts.share) { this._charts.share.data = shareData; this._charts.share.update(); }
+            else this._charts.share = new Chart(shareCtx, { type: 'doughnut', data: shareData, options: { responsive: true } });
+        }
+    } catch(e) {
+        console.error('chart error', e);
+    }
+};
+
+InsumosApp.prototype.getExportRows = function() {
+    const rows = this.insumosFazendasData.map(i => ({
+        OS: i.os ?? '',
+        Codigo: i.cod ?? '',
+        Fazenda: i.fazenda ?? '',
+        AreaTalhao: i.areaTalhao ?? 0,
+        AreaAplicada: i.areaTotalAplicada ?? 0,
+        Produto: i.produto ?? '',
+        DoseRecomendada: i.doseRecomendada ?? 0,
+        DoseAplicada: (i.doseAplicada != null && i.doseAplicada > 0) ? i.doseAplicada : ((i.areaTotalAplicada>0 && i.quantidadeAplicada!=null) ? (i.quantidadeAplicada/i.areaTotalAplicada) : 0),
+        Quantidade: i.quantidadeAplicada ?? 0,
+        DifPercent: (i.doseRecomendada>0) ? (((((i.doseAplicada != null && i.doseAplicada > 0) ? i.doseAplicada : ((i.areaTotalAplicada>0 && i.quantidadeAplicada!=null) ? (i.quantidadeAplicada/i.areaTotalAplicada) : 0)))/i.doseRecomendada-1)*100) : 0,
+        Frente: i.frente ?? '',
+        Inicio: i.dataInicio ?? '',
+        Fim: i.dataFim ?? ''
+    }));
+    return rows;
+};
+
+InsumosApp.prototype.exportCSV = function() {
+    const rows = this.getExportRows();
+    if (!rows.length) { this.ui.showNotification('Sem dados para exportar', 'warning'); return; }
+    const headers = Object.keys(rows[0]);
+    const csv = [headers.join(';')].concat(rows.map(r=>headers.map(h=>String(r[h]).replace(/\n/g,' ').replace(/;/g, ',')).join(';'))).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `insumos_${Date.now()}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+};
+
+InsumosApp.prototype.exportExcel = function() {
+    const rows = this.getExportRows();
+    if (!rows.length) { this.ui.showNotification('Sem dados para exportar', 'warning'); return; }
+    if (!window.XLSX) { this.ui.showNotification('Biblioteca Excel não carregada', 'error'); return; }
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Insumos');
+    XLSX.writeFile(wb, `insumos_${Date.now()}.xlsx`);
+};
+
+InsumosApp.prototype.exportPDF = function() {
+    const rows = this.getExportRows();
+    if (!rows.length) { this.ui.showNotification('Sem dados para exportar', 'warning'); return; }
+    const { jsPDF } = window.jspdf || {};
+    if (!jsPDF || !window.jspdf || !document.createElement) { this.ui.showNotification('Biblioteca PDF não carregada', 'error'); return; }
+    const doc = new jsPDF('l', 'pt', 'a4');
+    const headers = Object.keys(rows[0]);
+    const body = rows.map(r => headers.map(h => String(r[h])));
+    if (doc.autoTable) doc.autoTable({ head: [headers], body });
+    else {
+        let y = 40;
+        doc.setFontSize(12);
+        doc.text(headers.join(' | '), 40, y);
+        y += 20;
+        body.slice(0, 40).forEach(row => { doc.text(row.join(' | '), 40, y); y += 14; });
+    }
+    doc.save(`insumos_${Date.now()}.pdf`);
 };
