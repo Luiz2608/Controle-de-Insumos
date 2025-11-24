@@ -63,6 +63,13 @@ let insumosData = {
     daniela: []
 };
 
+// Estoque por frente
+let estoque = {
+    'Frente 1': {},
+    'Frente 2': {},
+    'Frente Abençoada': {}
+};
+
 // Listas para filtros
 const filterData = {
     fazendas: ["ORIENTE", "AMOREIRA", "SANTA NARCISA", "SANTO EXPEDITO", "SANTA LUIZA"],
@@ -144,10 +151,48 @@ app.post('/api/insumos', (req, res) => {
             insumosData.insumosFazendas.push(novoInsumo);
         }
 
+        // Baixa automática de estoque
+        const produto = novoInsumo.produto;
+        const frenteNum = novoInsumo.frente;
+        const qtd = novoInsumo.quantidadeAplicada || 0;
+        const frenteNome = (frenteNum === 1) ? 'Frente 1' : (frenteNum === 2 ? 'Frente 2' : 'Frente Abençoada');
+        if (produto && qtd > 0 && estoque[frenteNome]) {
+            const atual = estoque[frenteNome][produto] || 0;
+            estoque[frenteNome][produto] = Math.max(0, atual - qtd);
+        }
+
         res.json({ success: true, message: 'Insumo adicionado!', data: novoInsumo });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Erro ao adicionar' });
     }
+});
+
+// Estoque endpoints
+app.get('/api/estoque', (req, res) => {
+    try { res.json({ success: true, data: estoque }); } catch(e) { res.status(500).json({ success: false }); }
+});
+app.post('/api/estoque', (req, res) => {
+    try {
+        const { frente, produto, quantidade } = req.body;
+        if (!frente || !produto || quantidade == null) return res.status(400).json({ success: false, message: 'Dados inválidos' });
+        if (!estoque[frente]) estoque[frente] = {};
+        const atual = estoque[frente][produto] || 0;
+        estoque[frente][produto] = atual + Number(quantidade);
+        res.json({ success: true, data: { frente, produto, quantidade: estoque[frente][produto] } });
+    } catch(e) { res.status(500).json({ success: false, message: 'Erro ao salvar estoque' }); }
+});
+
+app.delete('/api/estoque', (req, res) => {
+    try {
+        const { frente, produto } = req.body && Object.keys(req.body).length ? req.body : req.query;
+        if (!frente || !produto) return res.status(400).json({ success: false, message: 'Dados inválidos' });
+        if (estoque[frente] && estoque[frente][produto] != null) {
+            delete estoque[frente][produto];
+            res.json({ success: true });
+        } else {
+            res.status(404).json({ success: false, message: 'Lançamento não encontrado' });
+        }
+    } catch(e) { res.status(500).json({ success: false, message: 'Erro ao excluir estoque' }); }
 });
 
 // CRUD - Editar insumo
@@ -290,4 +335,15 @@ app.listen(PORT, () => {
     console.log(`🔍 Health check: http://localhost:${PORT}/api/health`);
     console.log(`🌱 API Insumos Agrícolas: http://localhost:${PORT}/api/insumos/insumos-fazendas`);
     console.log(`📤 IMPORTAR (REAL): http://localhost:${PORT}/api/importar/excel`);
+});
+
+// Excluir todos os dados (insumos e estoque)
+app.delete('/api/all', (req, res) => {
+    try {
+        insumosData = { oxifertil: [], insumosFazendas: [], santaIrene: [], daniela: [] };
+        estoque = { 'Frente 1': {}, 'Frente 2': {}, 'Frente Abençoada': {} };
+        res.json({ success: true, message: 'Todos os dados foram excluídos' });
+    } catch(e) {
+        res.status(500).json({ success: false, message: 'Erro ao excluir todos os dados' });
+    }
 });

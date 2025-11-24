@@ -32,6 +32,18 @@ class ApiService {
         }
     }
 
+    async clearImportData() {
+        return this.request('/importar/dados', { method: 'DELETE' });
+    }
+
+    async clearAll() {
+        return this.request('/all', { method: 'DELETE' });
+    }
+
+    async deleteEstoque(frente, produto) {
+        return this.request('/estoque', { method: 'DELETE', body: JSON.stringify({ frente, produto }) });
+    }
+
     async getOxifertil(filters = {}) {
         const queryString = new URLSearchParams(filters).toString();
         return this.request(`/insumos/oxifertil?${queryString}`);
@@ -64,6 +76,18 @@ class ApiService {
 
     clearCache() {
         this.cache.clear();
+    }
+
+    async getEstoque() {
+        return this.request('/estoque');
+    }
+
+    async setEstoque(frente, produto, quantidade) {
+        return this.request('/estoque', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ frente, produto, quantidade })
+        });
     }
 }
 

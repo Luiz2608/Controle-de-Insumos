@@ -15,9 +15,16 @@
                 <button id="refresh-btn" class="btn btn-secondary">🔄 Atualizar</button>
                 <button id="add-btn" class="btn btn-primary">➕ Adicionar</button>
                 <button id="import-btn" class="btn btn-success">📤 Importar Excel</button>
-                <button id="export-csv-btn" class="btn btn-secondary">⬇️ Exportar CSV</button>
-                <button id="export-excel-btn" class="btn btn-secondary">⬇️ Exportar Excel</button>
-                <button id="export-pdf-btn" class="btn btn-secondary">⬇️ Exportar PDF</button>
+                <div class="actions-dropdown">
+                    <button id="more-actions-btn" class="btn btn-secondary">⋯ Mais Ações</button>
+                    <div id="more-actions-menu" class="dropdown-menu">
+                        <button id="export-csv-btn" class="btn btn-secondary">⬇️ Exportar CSV</button>
+                        <button id="export-excel-btn" class="btn btn-secondary">⬇️ Exportar Excel</button>
+                        <button id="export-pdf-btn" class="btn btn-secondary">⬇️ Exportar PDF</button>
+                        <button id="clear-import-btn" class="btn btn-secondary">🗑️ Limpar Histórico</button>
+                        <button id="clear-all-btn" class="btn btn-delete" style="color:#d32f2f">🗑️ Excluir Tudo</button>
+                    </div>
+                </div>
                 <button id="theme-toggle" class="btn btn-secondary">🌓 Tema</button>
             </div>
         </header>
@@ -25,6 +32,7 @@
         <div class="tabs">
             <button class="tab active" data-tab="insumos-fazendas">🌱 INSUMOS AGRÍCOLAS</button>
             <button class="tab" data-tab="graficos">📈 DASHBOARD</button>
+            <button class="tab" data-tab="estoque">📦 ESTOQUE</button>
         </div>
 
         <!-- Conteúdo das Tabs -->
@@ -50,28 +58,7 @@
                 <button id="reset-insumos-filters" class="btn btn-secondary">🔄 Limpar</button>
             </div>
 
-            <div class="totals" id="insumos-dashboard">
-                <div class="total-item">
-                    <span class="total-label">Registros:</span>
-                    <span id="dash-total-registros" class="total-value">0</span>
-                </div>
-                <div class="total-item">
-                    <span class="total-label">Área Talhão Total:</span>
-                    <span id="dash-area-talhao" class="total-value">0.00 ha</span>
-                </div>
-                <div class="total-item">
-                    <span class="total-label">Área Aplicada Total:</span>
-                    <span id="dash-area-aplicada" class="total-value">0.00 ha</span>
-                </div>
-                <div class="total-item">
-                    <span class="total-label">Quantidade Total:</span>
-                    <span id="dash-quantidade" class="total-value">0.000</span>
-                </div>
-                <div class="total-item">
-                    <span class="total-label">Produtos Distintos:</span>
-                    <span id="dash-produtos-distintos" class="total-value">0</span>
-                </div>
-            </div>
+            
 
             <!-- Charts movidos para aba separada -->
 
@@ -209,18 +196,89 @@
 
     <!-- Tab de Gráficos -->
     <div class="tab-content" id="graficos">
+        <div class="filters">
+            <div class="filter-group">
+                <label for="charts-order-select">Ordenação dos gráficos:</label>
+                <select id="charts-order-select">
+                    <option value="az">A–Z (produtos)</option>
+                    <option value="za">Z–A (produtos)</option>
+                    <option value="diff_asc">Diferença crescente</option>
+                    <option value="diff_desc">Diferença decrescente</option>
+                </select>
+            </div>
+        </div>
         <div class="charts">
             <div class="chart-card">
-                <h4 style="margin: 0 0 10px 0;">Produtos mais usados (Top 5)</h4>
-                <canvas id="chart-produtos" height="180"></canvas>
+                <h4 style="margin: 0 0 10px 0;">Resumo Global: Recomendada x Aplicada</h4>
+                <canvas id="chart-dose-global"></canvas>
             </div>
             <div class="chart-card">
-                <h4 style="margin: 0 0 10px 0;">Quantidade por Fazenda (Top 6)</h4>
-                <canvas id="chart-fazendas" height="180"></canvas>
+                <h4 style="margin: 0 0 10px 0;">Diferença por Produto (%)</h4>
+                <canvas id="chart-diff-produtos"></canvas>
             </div>
             <div class="chart-card">
-                <h4 style="margin: 0 0 10px 0;">Gráfico dos Produtos</h4>
-                <canvas id="chart-produtos-share" height="180"></canvas>
+                <h4 style="margin: 0 0 10px 0;">Comparação por Produto: Dose Recomendada x Dose Aplicada</h4>
+                <canvas id="chart-dose-produtos"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab de Estoque -->
+    <div class="tab-content" id="estoque">
+        <div class="filters">
+            <div class="filter-group">
+                <label for="estoque-frente-filter">Frente:</label>
+                <select id="estoque-frente-filter">
+                    <option value="all">Todas as Frentes</option>
+                    <option value="Frente 1">Frente 1</option>
+                    <option value="Frente 2">Frente 2</option>
+                    <option value="Frente Abençoada">Frente Abençoada</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="estoque-produto-filter">Produto:</label>
+                <input type="text" id="estoque-produto-filter" placeholder="Filtrar produto...">
+            </div>
+        </div>
+        <div class="charts">
+            <div class="chart-card wide">
+                <h4 style="margin: 0 0 10px 0;">Estoque por Produto (frente selecionada)</h4>
+                <canvas id="chart-estoque-frente"></canvas>
+            </div>
+            <div class="chart-card">
+                <h4 style="margin: 0 0 10px 0;">Lançar Estoque</h4>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="estoque-frente">Frente</label>
+                        <select id="estoque-frente">
+                            <option value="Frente 1">Frente 1</option>
+                            <option value="Frente 2">Frente 2</option>
+                            <option value="Frente Abençoada">Frente Abençoada</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="estoque-produto">Produto</label>
+                        <input type="text" id="estoque-produto">
+                    </div>
+                    <div class="form-group">
+                        <label for="estoque-quantidade">Quantidade</label>
+                        <input type="number" id="estoque-quantidade" step="0.000001">
+                    </div>
+                    <button id="estoque-save-btn" class="btn btn-primary">💾 Salvar Estoque</button>
+                </div>
+            </div>
+            <div class="table-container">
+                <table id="estoque-table" class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Frente</th>
+                            <th>Produto</th>
+                            <th>Quantidade</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="estoque-table-body"></tbody>
+                </table>
             </div>
         </div>
     </div>

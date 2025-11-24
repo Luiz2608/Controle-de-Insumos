@@ -7,6 +7,8 @@ class InsumosApp {
         };
         this.insumosFazendasData = [];
         this.currentEdit = null;
+        this.estoqueFilters = { frente: 'all', produto: '' };
+        this.chartOrder = 'az';
     }
 
     async init() {
@@ -109,11 +111,104 @@ forceReloadAllData() {
         const exportPdfBtn = document.getElementById('export-pdf-btn');
         if (exportPdfBtn) exportPdfBtn.addEventListener('click', () => this.exportPDF());
 
+        const moreActionsBtn = document.getElementById('more-actions-btn');
+        const moreActionsMenu = document.getElementById('more-actions-menu');
+        if (moreActionsBtn && moreActionsMenu) {
+            moreActionsBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                moreActionsMenu.classList.toggle('show');
+            });
+            document.addEventListener('click', () => {
+                moreActionsMenu.classList.remove('show');
+            });
+        }
+
+        const clearImportBtn = document.getElementById('clear-import-btn');
+        if (clearImportBtn) {
+            clearImportBtn.addEventListener('click', async () => {
+                const ok = window.confirm('Deseja realmente limpar o histórico de importação?');
+                if (!ok) return;
+                try {
+                    const res = await this.api.clearImportData();
+                    if (res && res.success !== false) {
+                        this.ui.showNotification('Histórico limpo com sucesso!', 'success', 2000);
+                        await this.refreshData();
+                    } else {
+                        this.ui.showNotification('Erro ao limpar histórico', 'error');
+                    }
+                } catch(e) { this.ui.showNotification('Erro ao limpar histórico', 'error'); }
+            });
+        }
+
+        const clearAllBtn = document.getElementById('clear-all-btn');
+        if (clearAllBtn) {
+            clearAllBtn.addEventListener('click', async () => {
+                const ok = window.confirm('ATENÇÃO: Esta ação excluirá todos os dados e estoque. Confirmar?');
+                if (!ok) return;
+                try {
+                    const res = await this.api.clearAll();
+                    if (res && res.success) {
+                        this.ui.showNotification('Todos os dados foram excluídos!', 'success', 2000);
+                        await this.refreshData();
+                    } else {
+                        this.ui.showNotification('Erro ao excluir todos os dados', 'error');
+                    }
+                } catch(e) { this.ui.showNotification('Erro ao excluir todos os dados', 'error'); }
+            });
+        }
+
         const themeToggle = document.getElementById('theme-toggle');
         if (themeToggle) {
             themeToggle.addEventListener('click', () => {
                 const isDark = document.body.classList.toggle('theme-dark');
                 localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            });
+        }
+        const estoqueSaveBtn = document.getElementById('estoque-save-btn');
+        if (estoqueSaveBtn) {
+            estoqueSaveBtn.addEventListener('click', async () => {
+                const frente = document.getElementById('estoque-frente')?.value;
+                const produto = document.getElementById('estoque-produto')?.value;
+                const quantidadeStr = document.getElementById('estoque-quantidade')?.value;
+                const quantidade = quantidadeStr ? parseFloat(quantidadeStr) : 0;
+                if (!frente || !produto || !quantidade || isNaN(quantidade)) {
+                    this.ui.showNotification('Preencha frente, produto e quantidade', 'warning');
+                    return;
+                }
+                try {
+                    const res = await this.api.setEstoque(frente, produto, quantidade);
+                    if (res && res.success) {
+                        this.ui.showNotification('Estoque salvo!', 'success', 2000);
+                        await this.loadEstoqueAndRender();
+                    } else {
+                        this.ui.showNotification('Erro ao salvar estoque', 'error');
+                    }
+                } catch(e) {
+                    this.ui.showNotification('Erro ao salvar estoque', 'error');
+                }
+            });
+        }
+
+        const chartsOrderSelect = document.getElementById('charts-order-select');
+        if (chartsOrderSelect) {
+            chartsOrderSelect.addEventListener('change', () => {
+                this.chartOrder = chartsOrderSelect.value || 'az';
+                if (this.insumosFazendasData && this.insumosFazendasData.length) this.updateCharts(this.insumosFazendasData);
+            });
+        }
+
+        const estoqueFrenteFilter = document.getElementById('estoque-frente-filter');
+        const estoqueProdutoFilter = document.getElementById('estoque-produto-filter');
+        if (estoqueFrenteFilter) {
+            estoqueFrenteFilter.addEventListener('change', async () => {
+                this.estoqueFilters.frente = estoqueFrenteFilter.value || 'all';
+                await this.loadEstoqueAndRender();
+            });
+        }
+        if (estoqueProdutoFilter) {
+            estoqueProdutoFilter.addEventListener('input', async () => {
+                this.estoqueFilters.produto = (estoqueProdutoFilter.value || '').trim();
+                await this.loadEstoqueAndRender();
             });
         }
 
@@ -142,12 +237,26 @@ forceReloadAllData() {
         document.addEventListener('click', (e) => {
             const editBtn = e.target.closest('.btn-edit');
             const deleteBtn = e.target.closest('.btn-delete');
+            const delEstoqueBtn = e.target.closest('.btn-delete-estoque');
             if (editBtn) {
                 const id = editBtn.getAttribute('data-id');
                 this.startEdit(parseInt(id));
             } else if (deleteBtn) {
                 const id = deleteBtn.getAttribute('data-id');
                 this.deleteInsumo(parseInt(id));
+            } else if (delEstoqueBtn) {
+                const frente = delEstoqueBtn.getAttribute('data-frente');
+                const produto = delEstoqueBtn.getAttribute('data-produto');
+                const ok = window.confirm(`Excluir lançamento de estoque de "${produto}" em ${frente}?`);
+                if (!ok) return;
+                this.api.deleteEstoque(frente, produto).then(async (res) => {
+                    if (res && res.success) {
+                        this.ui.showNotification('Estoque excluído', 'success', 1500);
+                        await this.loadEstoqueAndRender();
+                    } else {
+                        this.ui.showNotification('Erro ao excluir estoque', 'error');
+                    }
+                }).catch(()=>this.ui.showNotification('Erro ao excluir estoque', 'error'));
             }
         });
 
@@ -251,6 +360,8 @@ forceReloadAllData() {
             } else {
                 await this.loadInsumosData();
             }
+        } else if (tabName === 'estoque') {
+            await this.loadEstoqueAndRender();
         }
     }
 
@@ -363,8 +474,8 @@ forceReloadAllData() {
         const tbody = document.querySelector('#insumos-table tbody');
         if (!tbody) return;
         this.ui.renderTable(tbody, data, this.getInsumosRowHTML.bind(this));
-        this.updateInsumosDashboard(data);
         this.updateCharts(data);
+        this.loadEstoqueAndRender();
     }
 
     getInsumosRowHTML(item) {
@@ -655,18 +766,33 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 InsumosApp.prototype.updateInsumosDashboard = function(data) {
-    const totalRegistros = data.length;
     const num = v => {
         if (typeof v === 'number') return v;
         if (typeof v === 'string') { const n = parseFloat(v.replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.')); return isNaN(n) ? 0 : n; }
         return 0;
     };
-    const totalAreaTalhao = data.reduce((s, i) => s + num(i.areaTalhao), 0);
-    const totalAreaAplicada = data.reduce((s, i) => s + num(i.areaTotalAplicada), 0);
-    const totalQuantidade = data.reduce((s, i) => s + num(i.quantidadeAplicada), 0);
+    const keyOf = i => {
+        const k2 = i.produto || '-';
+        const k3 = i.fazenda || '-';
+        const k4 = i.frente != null ? String(i.frente) : '-';
+        const k5 = i.dataInicio ? this.ui.formatDateBR(i.dataInicio) : '-';
+        return `${k2}|${k3}|${k4}|${k5}`;
+    };
+    const groups = new Map();
+    data.forEach(i => {
+        const k = keyOf(i);
+        const g = groups.get(k) || { areaTalhaoSum: 0, areaAplicadaMax: 0, quantidadeMax: 0 };
+        g.areaTalhaoSum += num(i.areaTalhao);
+        g.areaAplicadaMax = Math.max(g.areaAplicadaMax, num(i.areaTotalAplicada));
+        g.quantidadeMax = Math.max(g.quantidadeMax, num(i.quantidadeAplicada));
+        groups.set(k, g);
+    });
+    const totalAreaTalhao = Array.from(groups.values()).reduce((s,g)=>s+g.areaTalhaoSum,0);
+    const totalAreaAplicada = Array.from(groups.values()).reduce((s,g)=>s+g.areaAplicadaMax,0);
+    const totalQuantidade = Array.from(groups.values()).reduce((s,g)=>s+g.quantidadeMax,0);
     const produtos = new Set(data.map(i => i.produto).filter(Boolean));
     const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-    setText('dash-total-registros', String(totalRegistros));
+    setText('dash-total-registros', String(groups.size));
     setText('dash-area-talhao', this.ui.formatNumber(totalAreaTalhao) + ' ha');
     setText('dash-area-aplicada', this.ui.formatNumber(totalAreaAplicada) + ' ha');
     setText('dash-quantidade', this.ui.formatNumber(totalQuantidade, 3));
@@ -676,53 +802,130 @@ InsumosApp.prototype.updateInsumosDashboard = function(data) {
 InsumosApp.prototype.updateCharts = function(data) {
     try {
         if (!window.Chart) return;
-        const byProduto = {};
-        const byFazenda = {};
+        const byProdutoDose = {};
         const num = v => {
             if (typeof v === 'number') return v;
             if (typeof v === 'string') { const n = parseFloat(v.replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.')); return isNaN(n) ? 0 : n; }
             return 0;
         };
         data.forEach(i => {
-            const q = num(i.quantidadeAplicada);
-            if (i.produto) byProduto[i.produto] = (byProduto[i.produto] || 0) + q;
-            if (i.fazenda) byFazenda[i.fazenda] = (byFazenda[i.fazenda] || 0) + q;
+            const prod = i.produto || '—';
+            const doseRec = num(i.doseRecomendada);
+            const doseApl = (i.doseAplicada != null && i.doseAplicada > 0) ? num(i.doseAplicada) : ((num(i.areaTotalAplicada)>0 && i.quantidadeAplicada!=null) ? (num(i.quantidadeAplicada)/num(i.areaTotalAplicada)) : 0);
+            if (!byProdutoDose[prod]) byProdutoDose[prod] = { recSum: 0, recCount: 0, aplSum: 0, aplCount: 0 };
+            if (doseRec > 0) { byProdutoDose[prod].recSum += doseRec; byProdutoDose[prod].recCount += 1; }
+            if (doseApl > 0) { byProdutoDose[prod].aplSum += doseApl; byProdutoDose[prod].aplCount += 1; }
         });
-        const topProdutos = Object.entries(byProduto).sort((a,b)=>b[1]-a[1]).slice(0,5);
-        const fazendasArr = Object.entries(byFazenda).sort((a,b)=>b[1]-a[1]).slice(0,6);
-        const prodCtx = document.getElementById('chart-produtos');
-        const fazCtx = document.getElementById('chart-fazendas');
-        const shareCtx = document.getElementById('chart-produtos-share');
+        let produtos = Object.keys(byProdutoDose);
+        let recAvg = produtos.map(p => byProdutoDose[p].recCount ? byProdutoDose[p].recSum/byProdutoDose[p].recCount : 0);
+        let aplAvg = produtos.map(p => byProdutoDose[p].aplCount ? byProdutoDose[p].aplSum/byProdutoDose[p].aplCount : 0);
+        let diffPct = produtos.map((p, idx) => {
+            const r = recAvg[idx]; const a = aplAvg[idx];
+            return (r>0 && a>0) ? ((a/r - 1)*100) : 0;
+        });
+        const idxs = produtos.map((p,i)=>i).sort((a,b)=>{
+            const pa = produtos[a].toLowerCase();
+            const pb = produtos[b].toLowerCase();
+            if (this.chartOrder === 'az') return pa.localeCompare(pb);
+            if (this.chartOrder === 'za') return pb.localeCompare(pa);
+            if (this.chartOrder === 'diff_asc') return diffPct[a] - diffPct[b];
+            if (this.chartOrder === 'diff_desc') return diffPct[b] - diffPct[a];
+            return pa.localeCompare(pb);
+        });
+        produtos = idxs.map(i=>produtos[i]);
+        recAvg = idxs.map(i=>recAvg[i]);
+        aplAvg = idxs.map(i=>aplAvg[i]);
+        diffPct = idxs.map(i=>diffPct[i]);
+        const doseProdCtx = document.getElementById('chart-dose-produtos');
+        const doseGlobalCtx = document.getElementById('chart-dose-global');
+        const diffProdCtx = document.getElementById('chart-diff-produtos');
         if (!this._charts) this._charts = {};
-        const baseOpts = { responsive: true, plugins: { legend: { display: false } } };
-        const prodData = {
-            labels: topProdutos.map(p=>p[0]),
-            datasets: [{ label: 'Quantidade', data: topProdutos.map(p=>p[1]), backgroundColor: '#4CAF50' }]
+        const baseOpts = { responsive: true, maintainAspectRatio: true, aspectRatio: 2, plugins: { legend: { display: true, position: 'top' } }, scales: { x: { grid: { display: false } }, y: { grid: { display: false } } } };
+        const doseProdData = {
+            labels: produtos,
+            datasets: [
+                { label: 'Dose Recomendada', data: recAvg, backgroundColor: '#4CAF50' },
+                { label: 'Dose Aplicada', data: aplAvg, backgroundColor: '#FF9800' }
+            ]
         };
-        const fazData = {
-            labels: fazendasArr.map(f=>f[0]),
-            datasets: [{ label: 'Quantidade', data: fazendasArr.map(f=>f[1]), backgroundColor: '#3498db' }]
+        const globalRec = recAvg.reduce((s,v)=>s+v,0)/ (recAvg.filter(v=>v>0).length || 1);
+        const globalApl = aplAvg.reduce((s,v)=>s+v,0)/ (aplAvg.filter(v=>v>0).length || 1);
+        const doseGlobalData = {
+            labels: ['Global'],
+            datasets: [
+                { label: 'Dose Recomendada', data: [globalRec], backgroundColor: '#4CAF50' },
+                { label: 'Dose Aplicada', data: [globalApl], backgroundColor: '#FF9800' }
+            ]
         };
-        const colors = ['#4CAF50','#FF9800','#2196F3','#9C27B0','#F44336','#00BCD4','#8BC34A'];
-        const shareData = {
-            labels: Object.keys(byProduto),
-            datasets: [{ data: Object.values(byProduto), backgroundColor: colors }]
+        const diffProdData = {
+            labels: produtos,
+            datasets: [ { label: 'Diferença (%)', data: diffPct, backgroundColor: '#2196F3' } ]
         };
-        if (prodCtx) {
-            if (this._charts.prod) { this._charts.prod.data = prodData; this._charts.prod.update(); }
-            else this._charts.prod = new Chart(prodCtx, { type: 'bar', data: prodData, options: baseOpts });
+        if (doseProdCtx) {
+            if (this._charts.doseProd) { this._charts.doseProd.data = doseProdData; this._charts.doseProd.update(); }
+            else this._charts.doseProd = new Chart(doseProdCtx, { type: 'bar', data: doseProdData, options: baseOpts });
         }
-        if (fazCtx) {
-            if (this._charts.faz) { this._charts.faz.data = fazData; this._charts.faz.update(); }
-            else this._charts.faz = new Chart(fazCtx, { type: 'bar', data: fazData, options: baseOpts });
+        if (doseGlobalCtx) {
+            if (this._charts.doseGlobal) { this._charts.doseGlobal.data = doseGlobalData; this._charts.doseGlobal.update(); }
+            else this._charts.doseGlobal = new Chart(doseGlobalCtx, { type: 'bar', data: doseGlobalData, options: baseOpts });
         }
-        if (shareCtx) {
-            if (this._charts.share) { this._charts.share.data = shareData; this._charts.share.update(); }
-            else this._charts.share = new Chart(shareCtx, { type: 'doughnut', data: shareData, options: { responsive: true } });
+        if (diffProdCtx) {
+            if (this._charts.diffProd) { this._charts.diffProd.data = diffProdData; this._charts.diffProd.options = { ...baseOpts, indexAxis: 'y' }; this._charts.diffProd.update(); }
+            else this._charts.diffProd = new Chart(diffProdCtx, { type: 'bar', data: diffProdData, options: { ...baseOpts, indexAxis: 'y' } });
         }
     } catch(e) {
         console.error('chart error', e);
     }
+};
+
+InsumosApp.prototype.loadEstoqueAndRender = async function() {
+    try {
+        const res = await this.api.getEstoque();
+        if (!res || !res.success) return;
+        const estoque = res.data || {};
+        const ctx = document.getElementById('chart-estoque-frente');
+        if (!ctx) return;
+        if (!this._charts) this._charts = {};
+        let chartData;
+        let chartOpts = { responsive: true, maintainAspectRatio: true, aspectRatio: 2, plugins: { legend: { display: true, position: 'top' } } };
+        if (this.estoqueFilters.frente === 'all') {
+            chartData = { labels: [], datasets: [{ label: 'Selecione uma frente', data: [], backgroundColor: '#9C27B0' }] };
+            chartOpts = { ...chartOpts };
+        } else {
+            const f = this.estoqueFilters.frente;
+            const byProd = estoque[f] || {};
+            const rows = Object.entries(byProd);
+            const filteredRows = this.estoqueFilters.produto ? rows.filter(([prod]) => prod.toLowerCase().includes(this.estoqueFilters.produto.toLowerCase())) : rows;
+            const labels = filteredRows.map(([prod]) => prod);
+            const values = filteredRows.map(([,v]) => (typeof v==='number'?v:parseFloat(v)||0));
+            chartData = { labels, datasets: [{ label: `Estoque - ${f}`, data: values, backgroundColor: '#9C27B0' }] };
+            chartOpts = { ...chartOpts, indexAxis: 'y' };
+        }
+        if (this._charts.estoqueFrente) { this._charts.estoqueFrente.data = chartData; this._charts.estoqueFrente.options = chartOpts; this._charts.estoqueFrente.update(); }
+        else this._charts.estoqueFrente = new Chart(ctx, { type: 'bar', data: chartData, options: chartOpts });
+
+        const tbody = document.getElementById('estoque-table-body');
+        if (tbody) {
+            const rows = [];
+            (this.estoqueFilters.frente === 'all' ? ['Frente 1','Frente 2','Frente Abençoada'] : frentes).forEach(f => {
+                const byProd = estoque[f] || {};
+                Object.keys(byProd).forEach(prod => {
+                    if (!this.estoqueFilters.produto || prod.toLowerCase().includes(this.estoqueFilters.produto.toLowerCase())) {
+                        rows.push({ frente: f, produto: prod, quantidade: byProd[prod] });
+                    }
+                });
+            });
+            rows.sort((a,b)=> a.frente.localeCompare(b.frente) || a.produto.localeCompare(b.produto));
+            tbody.innerHTML = rows.map(r => `
+                <tr>
+                    <td>${r.frente}</td>
+                    <td>${r.produto}</td>
+                    <td>${this.ui.formatNumber(typeof r.quantidade==='number'?r.quantidade:parseFloat(r.quantidade)||0, 3)}</td>
+                    <td><button class="btn btn-delete-estoque" data-frente="${r.frente}" data-produto="${r.produto}">🗑️ Excluir</button></td>
+                </tr>
+            `).join('');
+        }
+    } catch(e) {}
 };
 
 InsumosApp.prototype.getExportRows = function() {

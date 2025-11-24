@@ -204,13 +204,20 @@ function worksheetToGrid(ws) {
 }
 
 // Forward-fill: propaga valores anteriores por coluna quando a célula está vazia
-function forwardFillColumns(jsonData, startRow = 0) {
+function forwardFillColumns(jsonData, startRow = 0, columnsMapping = {}) {
     if (!Array.isArray(jsonData) || jsonData.length === 0) return;
     const colCount = Math.max(...jsonData.map(r => Array.isArray(r) ? r.length : 0));
     const lastVals = new Array(colCount).fill(undefined);
+    const allowedForward = new Set(['os','cod','fazenda','produto','processo','subprocesso','frente','dataInicio']);
+    const allowedIndexes = new Set(
+        Object.entries(columnsMapping)
+            .filter(([, field]) => allowedForward.has(field))
+            .map(([idx]) => parseInt(idx))
+    );
     for (let r = 0; r < jsonData.length; r++) {
         const row = jsonData[r] || [];
         for (let c = 0; c < colCount; c++) {
+            if (!allowedIndexes.has(c)) continue;
             const cell = row[c];
             if (r < startRow) {
                 if (cell !== undefined && cell !== null && cell !== '') lastVals[c] = cell;
@@ -243,6 +250,7 @@ function processRowByPosition(mapping, row, rowIndex, sheetName) {
                 if (typeof cellValue === 'string') {
                     const trimmed = cellValue.trim();
                     if (trimmed && trimmed !== 'N/A' && trimmed !== '-' && trimmed !== 'NULL') {
+                        const textFields = new Set(['produto','fazenda','processo','subprocesso']);
                         if (fieldName.toLowerCase().includes('data')) {
                             const m = trimmed.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
                             if (m) {
@@ -258,9 +266,25 @@ function processRowByPosition(mapping, row, rowIndex, sheetName) {
                                     item[fieldName] = trimmed;
                                 }
                             }
+                        } else if (textFields.has(fieldName)) {
+                            item[fieldName] = trimmed;
+                        } else if (fieldName === 'os' || fieldName === 'cod') {
+                            // Preservar zeros à esquerda para OS e Código
+                            item[fieldName] = trimmed;
                         } else {
-                            const cleanValue = trimmed.replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.');
-                            const numValue = parseFloat(cleanValue);
+                            // Considerar vírgulas decimais e milhares
+                            let clean = trimmed;
+                            // Se houver ambos '.' e ',', assumir formato pt-BR (milhares '.' e decimal ',')
+                            if (clean.includes('.') && clean.includes(',')) {
+                                clean = clean.replace(/\./g, '').replace(',', '.');
+                            } else if (clean.includes(',')) {
+                                // Apenas vírgula: tratar como decimal
+                                clean = clean.replace(',', '.');
+                            } else {
+                                // Remover separadores não numéricos
+                                clean = clean.replace(/[^\d.-]/g, '');
+                            }
+                            const numValue = parseFloat(clean);
                             if (!isNaN(numValue)) item[fieldName] = numValue; else item[fieldName] = trimmed;
                         }
                     }
@@ -273,6 +297,9 @@ function processRowByPosition(mapping, row, rowIndex, sheetName) {
                             const yyyy = d.y;
                             item[fieldName] = `${dd}/${mm}/${yyyy}`;
                         }
+                    } else if (fieldName === 'os' || fieldName === 'cod') {
+                        // Converter número para string para evitar perda de zeros à esquerda em planilhas salvas como texto
+                        item[fieldName] = String(cellValue);
                     } else {
                         item[fieldName] = cellValue;
                     }
@@ -281,7 +308,7 @@ function processRowByPosition(mapping, row, rowIndex, sheetName) {
         });
         
         // Defaults numéricos: se não vier valor, usar 0
-        const numericFields = new Set(['os','cod','areaTalhao','areaTotal','areaTotalAplicada','doseRecomendada','insumDoseAplicada','doseAplicada','quantidadeAplicada','dif','frente']);
+        const numericFields = new Set(['areaTalhao','areaTotal','areaTotalAplicada','doseRecomendada','insumDoseAplicada','doseAplicada','quantidadeAplicada','dif','frente']);
         Object.values(mapping.columns).forEach(field => {
             if (numericFields.has(field)) {
                 const v = item[field];
@@ -357,7 +384,7 @@ router.post('/excel', upload.single('file'), async (req, res) => {
                 const mapping = columnMapping[mappingKey];
                 console.log(`🎯 Mapeamento: ${mappingKey} (linha ${mapping.startRow + 1})`);
                 
-                forwardFillColumns(jsonData, mapping.startRow);
+                forwardFillColumns(jsonData, mapping.startRow, mapping.columns);
                 const rows = jsonData.slice(mapping.startRow);
                 console.log(`📝 ${rows.length} linhas para processar`);
                 
@@ -433,6 +460,16 @@ router.get('/dados', (req, res) => {
             message: 'Erro ao buscar dados importados',
             error: error.message
         });
+    }
+});
+
+// Limpar histórico importado
+router.delete('/dados', (req, res) => {
+    try {
+        importedData = { insumosFazendas: [] };
+        res.json({ success: true, message: 'Histórico de importação limpo' });
+    } catch (e) {
+        res.status(500).json({ success: false, message: 'Erro ao limpar histórico' });
     }
 });
 
