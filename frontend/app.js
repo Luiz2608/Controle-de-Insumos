@@ -241,6 +241,18 @@ forceReloadAllData() {
         if (closeModalBtn) closeModalBtn.addEventListener('click', () => this.closeInsumoModal());
         if (cancelBtn) cancelBtn.addEventListener('click', () => this.closeInsumoModal());
         if (saveBtn) saveBtn.addEventListener('click', () => this.saveInsumo());
+        const insumoForm = document.getElementById('insumo-form');
+        if (insumoForm) {
+            insumoForm.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const focusables = Array.from(insumoForm.querySelectorAll('input, select, button')).filter(el => !el.disabled && el.tabIndex !== -1);
+                    const idx = focusables.indexOf(document.activeElement);
+                    const next = focusables[idx + 1];
+                    if (next) next.focus(); else { const sb = document.getElementById('save-insumo'); if (sb) sb.click(); }
+                }
+            });
+        }
 
         const fazendaInput = document.getElementById('fazenda');
         const codInput = document.getElementById('cod');

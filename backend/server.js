@@ -73,13 +73,37 @@ let estoque = {
 let plantioDia = [];
 
 // Auth simples em memória
+const crypto = require('crypto');
 const users = [{ username: 'admin', password: '123456' }];
-const activeTokens = new Map(); // token -> username
+const AUTH_SECRET = process.env.AUTH_SECRET || 'dev-secret';
+function b64url(buf) { return Buffer.from(buf).toString('base64').replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_'); }
+function signToken(username, expSec = 7 * 24 * 60 * 60) {
+    const header = b64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+    const payload = b64url(JSON.stringify({ sub: username, exp: Math.floor(Date.now() / 1000) + expSec }));
+    const data = `${header}.${payload}`;
+    const sig = b64url(crypto.createHmac('sha256', AUTH_SECRET).update(data).digest());
+    return `${data}.${sig}`;
+}
+function verifyToken(token) {
+    if (!token || typeof token !== 'string') return null;
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const [h, p, s] = parts;
+    const data = `${h}.${p}`;
+    const sig = b64url(crypto.createHmac('sha256', AUTH_SECRET).update(data).digest());
+    if (sig !== s) return null;
+    try {
+        const payload = JSON.parse(Buffer.from(p.replace(/-/g,'+').replace(/_/g,'/'), 'base64').toString('utf8'));
+        if (!payload || !payload.sub || !payload.exp) return null;
+        if (payload.exp < Math.floor(Date.now() / 1000)) return null;
+        return payload;
+    } catch { return null; }
+}
 function requireAuth(req, res, next) {
     const auth = req.headers['authorization'] || '';
     const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
-    const username = token ? activeTokens.get(token) : null;
-    if (token && username) { req.user = { username }; return next(); }
+    const payload = verifyToken(token);
+    if (payload) { req.user = { username: payload.sub }; return next(); }
     res.status(401).json({ success: false, message: 'Não autorizado' });
 }
 
@@ -151,7 +175,7 @@ app.get('/api/insumos/insumos-fazendas', (req, res) => {
 // Removidos endpoints Santa Irene e Daniela
 
 // CRUD - Adicionar insumo
-app.post('/api/insumos', requireAuth, (req, res) => {
+app.post('/api/insumos', (req, res) => {
     try {
         const novoInsumo = {
             id: Date.now(),
@@ -341,8 +365,7 @@ app.post('/api/auth/login', (req, res) => {
     const { username, password } = req.body || {};
     const ok = users.find(u => u.username === username && u.password === password);
     if (!ok) return res.status(401).json({ success: false, message: 'Credenciais inválidas' });
-    const token = Buffer.from(`${username}:${Date.now()}`).toString('base64');
-    activeTokens.set(token, username);
+    const token = signToken(username);
     res.json({ success: true, token, user: { username } });
 });
 app.post('/api/auth/register', (req, res) => {
@@ -351,17 +374,13 @@ app.post('/api/auth/register', (req, res) => {
     const exists = users.find(u => u.username === username);
     if (exists) return res.status(409).json({ success: false, message: 'Usuário já existe' });
     users.push({ username, password });
-    const token = Buffer.from(`${username}:${Date.now()}`).toString('base64');
-    activeTokens.set(token, username);
+    const token = signToken(username);
     res.json({ success: true, token, user: { username } });
 });
 app.get('/api/auth/me', requireAuth, (req, res) => {
     res.json({ success: true, user: { username: req.user.username } });
 });
 app.post('/api/auth/logout', (req, res) => {
-    const auth = req.headers['authorization'] || '';
-    const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
-    if (token) activeTokens.delete(token);
     res.json({ success: true });
 });
 
