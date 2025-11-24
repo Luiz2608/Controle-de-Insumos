@@ -3,6 +3,8 @@ class ApiService {
         // Usar URL relativa para evitar problemas de CORS
         this.baseURL = '/api';
         this.cache = new Map();
+        this.token = localStorage.getItem('authToken') || null;
+        try { this.user = JSON.parse(localStorage.getItem('authUser') || 'null'); } catch { this.user = null; }
     }
 
     async request(endpoint, options = {}) {
@@ -13,6 +15,7 @@ class ApiService {
             const response = await fetch(url, {
                 headers: {
                     'Content-Type': 'application/json',
+                    ...(this.token ? { 'Authorization': `Bearer ${this.token}` } : {}),
                     ...options.headers
                 },
                 ...options
@@ -42,6 +45,45 @@ class ApiService {
 
     async deleteEstoque(frente, produto) {
         return this.request('/estoque', { method: 'DELETE', body: JSON.stringify({ frente, produto }) });
+    }
+
+    async getPlantioDia() {
+        return this.request('/plantio-dia');
+    }
+    async addPlantioDia(payload) {
+        return this.request('/plantio-dia', { method: 'POST', body: JSON.stringify(payload) });
+    }
+    async deletePlantioDia(id) {
+        return this.request(`/plantio-dia/${id}`, { method: 'DELETE' });
+    }
+
+    async login(username, password) {
+        const res = await this.request('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) });
+        if (res && res.success && res.token) {
+            this.token = res.token;
+            localStorage.setItem('authToken', res.token);
+            if (res.user) { this.user = res.user; localStorage.setItem('authUser', JSON.stringify(res.user)); }
+        }
+        return res;
+    }
+    async logout() {
+        const res = await this.request('/auth/logout', { method: 'POST' });
+        this.token = null; localStorage.removeItem('authToken'); this.user = null; localStorage.removeItem('authUser');
+        return res;
+    }
+
+    async register(username, password) {
+        const res = await this.request('/auth/register', { method: 'POST', body: JSON.stringify({ username, password }) });
+        if (res && res.success && res.token) {
+            this.token = res.token;
+            localStorage.setItem('authToken', res.token);
+            if (res.user) { this.user = res.user; localStorage.setItem('authUser', JSON.stringify(res.user)); }
+        }
+        return res;
+    }
+
+    async me() {
+        return this.request('/auth/me');
     }
 
     async getOxifertil(filters = {}) {

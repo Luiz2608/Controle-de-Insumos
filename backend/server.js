@@ -69,6 +69,19 @@ let estoque = {
     'Frente 2': {},
     'Frente Abençoada': {}
 };
+// Plantio diário
+let plantioDia = [];
+
+// Auth simples em memória
+const users = [{ username: 'admin', password: '123456' }];
+const activeTokens = new Map(); // token -> username
+function requireAuth(req, res, next) {
+    const auth = req.headers['authorization'] || '';
+    const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
+    const username = token ? activeTokens.get(token) : null;
+    if (token && username) { req.user = { username }; return next(); }
+    res.status(401).json({ success: false, message: 'Não autorizado' });
+}
 
 // Listas para filtros
 const filterData = {
@@ -138,7 +151,7 @@ app.get('/api/insumos/insumos-fazendas', (req, res) => {
 // Removidos endpoints Santa Irene e Daniela
 
 // CRUD - Adicionar insumo
-app.post('/api/insumos', (req, res) => {
+app.post('/api/insumos', requireAuth, (req, res) => {
     try {
         const novoInsumo = {
             id: Date.now(),
@@ -171,7 +184,7 @@ app.post('/api/insumos', (req, res) => {
 app.get('/api/estoque', (req, res) => {
     try { res.json({ success: true, data: estoque }); } catch(e) { res.status(500).json({ success: false }); }
 });
-app.post('/api/estoque', (req, res) => {
+app.post('/api/estoque', requireAuth, (req, res) => {
     try {
         const { frente, produto, quantidade } = req.body;
         if (!frente || !produto || quantidade == null) return res.status(400).json({ success: false, message: 'Dados inválidos' });
@@ -182,7 +195,7 @@ app.post('/api/estoque', (req, res) => {
     } catch(e) { res.status(500).json({ success: false, message: 'Erro ao salvar estoque' }); }
 });
 
-app.delete('/api/estoque', (req, res) => {
+app.delete('/api/estoque', requireAuth, (req, res) => {
     try {
         const { frente, produto } = req.body && Object.keys(req.body).length ? req.body : req.query;
         if (!frente || !produto) return res.status(400).json({ success: false, message: 'Dados inválidos' });
@@ -323,6 +336,75 @@ app.post('/api/insumos/atualizar-dados', (req, res) => {
 // Use as rotas reais de importação
 app.use('/api/importar', importRoutes);
 
+// Login
+app.post('/api/auth/login', (req, res) => {
+    const { username, password } = req.body || {};
+    const ok = users.find(u => u.username === username && u.password === password);
+    if (!ok) return res.status(401).json({ success: false, message: 'Credenciais inválidas' });
+    const token = Buffer.from(`${username}:${Date.now()}`).toString('base64');
+    activeTokens.set(token, username);
+    res.json({ success: true, token, user: { username } });
+});
+app.post('/api/auth/register', (req, res) => {
+    const { username, password } = req.body || {};
+    if (!username || !password) return res.status(400).json({ success: false, message: 'Usuário e senha são obrigatórios' });
+    const exists = users.find(u => u.username === username);
+    if (exists) return res.status(409).json({ success: false, message: 'Usuário já existe' });
+    users.push({ username, password });
+    const token = Buffer.from(`${username}:${Date.now()}`).toString('base64');
+    activeTokens.set(token, username);
+    res.json({ success: true, token, user: { username } });
+});
+app.get('/api/auth/me', requireAuth, (req, res) => {
+    res.json({ success: true, user: { username: req.user.username } });
+});
+app.post('/api/auth/logout', (req, res) => {
+    const auth = req.headers['authorization'] || '';
+    const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
+    if (token) activeTokens.delete(token);
+    res.json({ success: true });
+});
+
+// Plantio diário endpoints (antes do catch-all)
+app.get('/api/plantio-dia', (req, res) => {
+    try { res.json({ success: true, data: plantioDia }); } catch(e) { res.status(500).json({ success: false }); }
+});
+app.post('/api/plantio-dia', requireAuth, (req, res) => {
+    try {
+        const payload = req.body || {};
+        const id = Date.now();
+        const normalizeFrentes = (Array.isArray(payload.frentes) ? payload.frentes : []).map(f => ({
+            frente: f.frente,
+            fazenda: f.fazenda,
+            cod: typeof f.cod === 'number' ? f.cod : (f.cod ? parseInt(f.cod) : undefined),
+            talhao: f.talhao,
+            variedade: f.variedade,
+            area: Number(f.area) || 0,
+            plantada: Number(f.plantada) || 0,
+            muda: Number(f.muda) || 0,
+        }));
+        const item = {
+            id,
+            data: payload.data,
+            responsavel: payload.responsavel || '',
+            observacoes: payload.observacoes || '',
+            frentes: normalizeFrentes,
+            insumos: Array.isArray(payload.insumos) ? payload.insumos : [],
+            qualidade: payload.qualidade || {}
+        };
+        plantioDia.push(item);
+        res.json({ success: true, data: item });
+    } catch(e) { res.status(500).json({ success: false, message: 'Erro ao registrar' }); }
+});
+app.delete('/api/plantio-dia/:id', requireAuth, (req, res) => {
+    try {
+        const id = req.params.id;
+        const idx = plantioDia.findIndex(i => String(i.id) === String(id));
+        if (idx >= 0) { plantioDia.splice(idx, 1); return res.json({ success: true }); }
+        res.status(404).json({ success: false, message: 'Registro não encontrado' });
+    } catch(e) { res.status(500).json({ success: false, message: 'Erro ao excluir' }); }
+});
+
 // ⭐⭐ ROTA PARA O FRONTEND - SPA ⭐⭐
 app.get('*', (req, res) => {
     res.sendFile(path.join(frontendPath, 'index.html'));
@@ -342,6 +424,7 @@ app.delete('/api/all', (req, res) => {
     try {
         insumosData = { oxifertil: [], insumosFazendas: [], santaIrene: [], daniela: [] };
         estoque = { 'Frente 1': {}, 'Frente 2': {}, 'Frente Abençoada': {} };
+        if (typeof plantioDia !== 'undefined') plantioDia = [];
         res.json({ success: true, message: 'Todos os dados foram excluídos' });
     } catch(e) {
         res.status(500).json({ success: false, message: 'Erro ao excluir todos os dados' });

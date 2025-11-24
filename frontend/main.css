@@ -347,7 +347,7 @@ body {
 }
 
 .modal-content {
-    background: white;
+    background: var(--surface);
     border-radius: var(--radius);
     width: 100%;
     max-width: 500px;
@@ -380,6 +380,8 @@ body {
 
 .modal-body {
     padding: 20px;
+    background: var(--surface);
+    color: var(--text);
 }
 
 .modal-footer {
@@ -507,3 +509,9 @@ body {
 .dropdown-menu { position: absolute; top: 38px; right: 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 8px; display: none; z-index: 1000; }
 .dropdown-menu .btn { display: block; width: 100%; text-align: left; margin: 6px 0; }
 .dropdown-menu.show { display: block; }
+.details-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+.quality-block div { margin: 4px 0; }
+.plantio-details td { background: var(--surface); }
+.login-screen { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(2px); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.login-box { background: var(--surface); color: var(--text); border-radius: var(--radius); padding: 20px; width: 100%; max-width: 420px; box-shadow: 0 8px 20px rgba(0,0,0,0.2); }
+ .user-badge { background: rgba(0,0,0,0.1); color: var(--text); padding: 6px 10px; border-radius: 999px; font-size: 12px; margin-left: 8px; }

@@ -31,8 +31,8 @@ class ImportManager {
                     <div class="modal-body">
                         <div class="upload-area" id="upload-area">
                             <div class="upload-icon">📊</div>
-                            <h4 style="color: black;">Arraste o arquivo Excel aqui</h4>
-                            <p style="color: black;">Formatos: .xlsx, .xls, .csv</p>
+                            <h4 style="color: var(--text);">Arraste o arquivo Excel aqui</h4>
+                            <p style="color: var(--text);">Formatos: .xlsx, .xls, .csv</p>
                             <input type="file" id="file-input" accept=".xlsx,.xls,.csv" style="display: none;">
                             <button type="button" class="btn btn-primary" id="select-file-btn">Selecionar Arquivo</button>
                         </div>
@@ -129,13 +129,13 @@ class ImportManager {
         if (uploadArea) {
             uploadArea.addEventListener('dragover', (e) => {
                 e.preventDefault();
-                uploadArea.style.borderColor = '#4CAF50';
-                uploadArea.style.backgroundColor = '#f0f7f0';
+                uploadArea.style.borderColor = 'var(--primary-light)';
+                uploadArea.style.backgroundColor = 'var(--surface)';
             });
 
             uploadArea.addEventListener('dragleave', () => {
-                uploadArea.style.borderColor = '#ccc';
-                uploadArea.style.backgroundColor = '';
+                uploadArea.style.borderColor = 'var(--border)';
+                uploadArea.style.backgroundColor = 'transparent';
             });
 
             uploadArea.addEventListener('drop', (e) => {

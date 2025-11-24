@@ -23,16 +23,58 @@
                         <button id="export-pdf-btn" class="btn btn-secondary">⬇️ Exportar PDF</button>
                         <button id="clear-import-btn" class="btn btn-secondary">🗑️ Limpar Histórico</button>
                         <button id="clear-all-btn" class="btn btn-delete" style="color:#d32f2f">🗑️ Excluir Tudo</button>
+                        <button id="logout-btn" class="btn btn-secondary">Sair</button>
                     </div>
                 </div>
                 <button id="theme-toggle" class="btn btn-secondary">🌓 Tema</button>
+                <span id="current-user" class="user-badge" title="Usuário autenticado" style="display:none;"></span>
             </div>
         </header>
+
+        <!-- Tela de Login -->
+        <div id="login-screen" class="login-screen" style="display:none;">
+            <div class="login-box">
+                <h2>Controle de Insumos</h2>
+                <p style="opacity:0.8;margin-bottom:12px;">Acesse para liberar o software</p>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="login-user">Usuário</label>
+                        <input type="text" id="login-user" placeholder="admin">
+                    </div>
+                    <div class="form-group">
+                        <label for="login-pass">Senha</label>
+                        <input type="password" id="login-pass" placeholder="123456">
+                    </div>
+                </div>
+                <div style="margin-top:10px;display:flex;gap:10px;justify-content:space-between;align-items:center;">
+                    <button id="login-register-toggle" class="btn btn-secondary">Cadastrar</button>
+                    <div style="display:flex;gap:10px;">
+                        <button id="login-btn" class="btn btn-primary">Entrar</button>
+                    </div>
+                </div>
+                <div id="register-area" style="display:none;margin-top:12px;">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="register-user">Novo usuário</label>
+                            <input type="text" id="register-user" placeholder="ex.: joao">
+                        </div>
+                        <div class="form-group">
+                            <label for="register-pass">Senha</label>
+                            <input type="password" id="register-pass" placeholder="min. 6 caracteres">
+                        </div>
+                    </div>
+                    <div style="margin-top:10px;display:flex;gap:10px;justify-content:flex-end;">
+                        <button id="register-btn" class="btn btn-success">Criar Conta</button>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <div class="tabs">
             <button class="tab active" data-tab="insumos-fazendas">🌱 INSUMOS AGRÍCOLAS</button>
             <button class="tab" data-tab="graficos">📈 DASHBOARD</button>
             <button class="tab" data-tab="estoque">📦 ESTOQUE</button>
+            <button class="tab" data-tab="plantio-dia">📅 PLANTIO DIÁRIO</button>
         </div>
 
         <!-- Conteúdo das Tabs -->
@@ -130,7 +172,21 @@
 
                         <div class="form-group">
                             <label for="produto">Produto *</label>
-                            <input type="text" id="produto" name="produto" required>
+                            <select id="produto" name="produto" required>
+                                <option value="">Selecione</option>
+                                <option>BIOZYME</option>
+                                <option>04-30-10</option>
+                                <option>QUALITY</option>
+                                <option>AZOKOP</option>
+                                <option>SURVEY (FIPRONIL)</option>
+                                <option>OXIFERTIL</option>
+                                <option>LANEX 800 WG (REGENTE)</option>
+                                <option>COMET</option>
+                                <option>COMPOSTO</option>
+                                <option>10-49-00</option>
+                                <option>PEREGRINO</option>
+                                <option>NO-NEMA</option>
+                            </select>
                         </div>
                         
                         <div class="form-group">
@@ -258,7 +314,21 @@
                     </div>
                     <div class="form-group">
                         <label for="estoque-produto">Produto</label>
-                        <input type="text" id="estoque-produto">
+                        <select id="estoque-produto">
+                            <option value="">Selecione</option>
+                            <option>BIOZYME</option>
+                            <option>04-30-10</option>
+                            <option>QUALITY</option>
+                            <option>AZOKOP</option>
+                            <option>SURVEY (FIPRONIL)</option>
+                            <option>OXIFERTIL</option>
+                            <option>LANEX 800 WG (REGENTE)</option>
+                            <option>COMET</option>
+                            <option>COMPOSTO</option>
+                            <option>10-49-00</option>
+                            <option>PEREGRINO</option>
+                            <option>NO-NEMA</option>
+                        </select>
                     </div>
                     <div class="form-group">
                         <label for="estoque-quantidade">Quantidade</label>
@@ -278,6 +348,175 @@
                         </tr>
                     </thead>
                     <tbody id="estoque-table-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab Plantio Diário -->
+    <div class="tab-content" id="plantio-dia">
+        <div class="charts">
+            <div class="chart-card">
+                <h4 style="margin: 0 0 10px 0;">1. Informações Gerais</h4>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="plantio-data">Data</label>
+                        <input type="date" id="plantio-data">
+                    </div>
+                    <div class="form-group">
+                        <label for="plantio-responsavel">Responsável</label>
+                        <input type="text" id="plantio-responsavel">
+                    </div>
+                    <div class="form-group">
+                        <label for="plantio-obs">Observações</label>
+                        <input type="text" id="plantio-obs" placeholder="Opcional">
+                    </div>
+                </div>
+            </div>
+
+            <div class="chart-card">
+                <h4 style="margin: 0 0 10px 0;">2. Relatório Diário - Frente</h4>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="single-frente">Frente</label>
+                        <select id="single-frente">
+                            <option value="">Selecione</option>
+                            <option value="4001">4001</option>
+                            <option value="4002">4002</option>
+                            <option value="4009 Abençoada">4009 Abençoada</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="single-fazenda">Fazenda</label>
+                        <input type="text" id="single-fazenda">
+                    </div>
+                    <div class="form-group">
+                        <label for="single-cod">Código</label>
+                        <input type="number" id="single-cod" step="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="single-talhao">Talhão</label>
+                        <input type="text" id="single-talhao">
+                    </div>
+                    <div class="form-group">
+                        <label for="single-variedade">Variedade</label>
+                        <input type="text" id="single-variedade">
+                    </div>
+                    <div class="form-group">
+                        <label for="single-area">Área (ha)</label>
+                        <input type="number" id="single-area" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label for="single-plantada">Plantada (ha)</label>
+                        <input type="number" id="single-plantada" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label for="single-muda">Muda (ton)</label>
+                        <input type="number" id="single-muda" step="0.01">
+                    </div>
+                    <button id="single-frente-save-btn" class="btn btn-primary">Registrar Frente</button>
+                </div>
+            </div>
+
+            <div class="chart-card">
+                <h4 style="margin: 0 0 10px 0;">3. Insumos Aplicados</h4>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="insumo-produto">Produto</label>
+                        <select id="insumo-produto">
+                            <option value="">Selecione</option>
+                            <option>BIOZYME</option>
+                            <option>04-30-10</option>
+                            <option>QUALITY</option>
+                            <option>AZOKOP</option>
+                            <option>SURVEY (FIPRONIL)</option>
+                            <option>OXIFERTIL</option>
+                            <option>LANEX 800 WG (REGENTE)</option>
+                            <option>COMET</option>
+                            <option>COMPOSTO</option>
+                            <option>10-49-00</option>
+                            <option>PEREGRINO</option>
+                            <option>NO-NEMA</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="insumo-dose">Dose</label>
+                        <input type="number" id="insumo-dose" step="0.000001">
+                    </div>
+                    <div class="form-group">
+                        <label for="insumo-unid">Unid</label>
+                        <input type="text" id="insumo-unid" placeholder="ex.: L/ha, kg/ha">
+                    </div>
+                    <button id="insumo-add-btn" class="btn btn-primary">Adicionar Insumo</button>
+                </div>
+                <div class="table-container">
+                    <table class="data-table" id="insumos-table">
+                        <thead>
+                            <tr>
+                                <th>Produto</th>
+                                <th>Dose</th>
+                                <th>Unid</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="insumos-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="chart-card">
+                <h4 style="margin: 0 0 10px 0;">4. Qualidade Muda/Plantio</h4>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="qual-gemas-ok">Gemas viáveis/m</label>
+                        <input type="number" id="qual-gemas-ok" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label for="qual-gemas-nok">Gemas não viáveis/m (≤)</label>
+                        <input type="number" id="qual-gemas-nok" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label for="qual-toletes-bons">Toletes bons (≥%)</label>
+                        <input type="number" id="qual-toletes-bons" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label for="qual-toletes-ruins">Toletes ruins (≤%)</label>
+                        <input type="number" id="qual-toletes-ruins" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label for="qual-muda">Muda (ton/ha)</label>
+                        <input type="number" id="qual-muda" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label for="qual-profundidade">Profundidade (cm)</label>
+                        <input type="number" id="qual-profundidade" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label for="qual-cobertura">Cobertura</label>
+                        <input type="text" id="qual-cobertura">
+                    </div>
+                    <div class="form-group">
+                        <label for="qual-alinhamento">Alinhamento</label>
+                        <input type="text" id="qual-alinhamento">
+                    </div>
+                </div>
+                <div style="margin-top:10px; display:flex; gap:10px;">
+                    <button id="plantio-save-btn" class="btn btn-primary">💾 Registrar Dia</button>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table class="data-table" id="plantio-table">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Frentes do dia</th>
+                            <th>Σ Área (ha)</th>
+                            <th>Σ Muda (ton)</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="plantio-table-body"></tbody>
                 </table>
             </div>
         </div>

@@ -9,6 +9,11 @@ class InsumosApp {
         this.currentEdit = null;
         this.estoqueFilters = { frente: 'all', produto: '' };
         this.chartOrder = 'az';
+        this.plantioDia = [];
+        this.plantioFrentesDraft = [];
+        this.plantioInsumosDraft = [];
+        this.fazendaIndex = { byName: {}, byCod: {} };
+        this.plantioExpanded = new Set();
     }
 
     async init() {
@@ -18,7 +23,13 @@ class InsumosApp {
             this.initTheme();
             await this.setupEventListeners();
             await this.loadStaticData();
-            await this.loadInitialData();
+            if (this.api.token) {
+                this.hideLoginScreen();
+                this.updateCurrentUserUI();
+                await this.loadInitialData();
+            } else {
+                this.showLoginScreen();
+            }
             
             this.ui.hideLoading();
             this.ui.showNotification('Sistema carregado com sucesso!', 'success', 2000);
@@ -197,6 +208,8 @@ forceReloadAllData() {
             });
         }
 
+        
+
         const estoqueFrenteFilter = document.getElementById('estoque-frente-filter');
         const estoqueProdutoFilter = document.getElementById('estoque-produto-filter');
         if (estoqueFrenteFilter) {
@@ -230,14 +243,16 @@ forceReloadAllData() {
         if (saveBtn) saveBtn.addEventListener('click', () => this.saveInsumo());
 
         const fazendaInput = document.getElementById('fazenda');
-        if (fazendaInput) {
-            fazendaInput.addEventListener('change', () => this.autofillByFazenda());
-        }
+        const codInput = document.getElementById('cod');
+        if (fazendaInput) fazendaInput.addEventListener('change', () => this.autofillByFazenda());
+        if (codInput) codInput.addEventListener('change', () => this.autofillByCod());
 
         document.addEventListener('click', (e) => {
             const editBtn = e.target.closest('.btn-edit');
             const deleteBtn = e.target.closest('.btn-delete');
             const delEstoqueBtn = e.target.closest('.btn-delete-estoque');
+            const delPlantioBtn = e.target.closest('.btn-delete-plantio');
+            const togglePlantioBtn = e.target.closest('.btn-toggle-plantio-details');
             if (editBtn) {
                 const id = editBtn.getAttribute('data-id');
                 this.startEdit(parseInt(id));
@@ -257,6 +272,22 @@ forceReloadAllData() {
                         this.ui.showNotification('Erro ao excluir estoque', 'error');
                     }
                 }).catch(()=>this.ui.showNotification('Erro ao excluir estoque', 'error'));
+            } else if (delPlantioBtn) {
+                const id = delPlantioBtn.getAttribute('data-plantio-id');
+                const ok = window.confirm('Excluir registro de plantio diário?');
+                if (!ok) return;
+                this.api.deletePlantioDia(id).then(async (res) => {
+                    if (res && res.success) {
+                        this.ui.showNotification('Registro excluído', 'success', 1500);
+                        await this.loadPlantioDia();
+                    } else {
+                        this.ui.showNotification('Erro ao excluir', 'error');
+                    }
+                }).catch(()=>this.ui.showNotification('Erro ao excluir', 'error'));
+            } else if (togglePlantioBtn) {
+                const id = togglePlantioBtn.getAttribute('data-plantio-id');
+                if (this.plantioExpanded.has(id)) this.plantioExpanded.delete(id); else this.plantioExpanded.add(id);
+                this.renderPlantioDia();
             }
         });
 
@@ -275,6 +306,40 @@ forceReloadAllData() {
                 this.sortInsumos();
             });
         }
+
+        const insumoAddBtn = document.getElementById('insumo-add-btn');
+        if (insumoAddBtn) insumoAddBtn.addEventListener('click', () => this.addInsumoRow());
+        const insumoProdutoSel = document.getElementById('insumo-produto');
+        if (insumoProdutoSel) insumoProdutoSel.addEventListener('change', () => {
+            const prod = insumoProdutoSel.value;
+            const unidInput = document.getElementById('insumo-unid');
+            const map = this.getInsumoUnits();
+            if (unidInput) unidInput.value = map[prod] || '';
+        });
+        const plantioSaveBtn = document.getElementById('plantio-save-btn');
+        if (plantioSaveBtn) plantioSaveBtn.addEventListener('click', async () => { await this.savePlantioDia(); });
+        const singleFrente = document.getElementById('single-frente');
+        const singleCod = document.getElementById('single-cod');
+        const singleFazenda = document.getElementById('single-fazenda');
+        if (singleFazenda) singleFazenda.addEventListener('change', () => this.autofillRowByFazenda('single-fazenda', 'single-cod'));
+        if (singleCod) singleCod.addEventListener('change', () => this.autofillRowByCod('single-fazenda', 'single-cod'));
+        const singleSave = document.getElementById('single-frente-save-btn');
+        if (singleSave) singleSave.addEventListener('click', () => this.saveSingleFrente());
+        const loginBtn = document.getElementById('login-btn');
+        const logoutBtn = document.getElementById('logout-btn');
+        const regToggle = document.getElementById('login-register-toggle');
+        const regBtn = document.getElementById('register-btn');
+        if (loginBtn) loginBtn.addEventListener('click', () => this.handleLogin());
+        if (logoutBtn) logoutBtn.addEventListener('click', () => this.handleLogout());
+        if (regToggle) regToggle.addEventListener('click', () => {
+            const area = document.getElementById('register-area');
+            if (area) area.style.display = (area.style.display === 'none' || !area.style.display) ? 'block' : 'none';
+        });
+        if (regBtn) regBtn.addEventListener('click', () => this.handleRegister());
+        const plantioFazenda = document.getElementById('plantio-fazenda');
+        const plantioCod = document.getElementById('plantio-cod');
+        if (plantioFazenda) plantioFazenda.addEventListener('change', () => this.autofillPlantioByFazenda());
+        if (plantioCod) plantioCod.addEventListener('change', () => this.autofillPlantioByCod());
     }
 
     sortInsumos() {
@@ -313,13 +378,36 @@ forceReloadAllData() {
         const osEl = document.getElementById('os');
         const codEl = document.getElementById('cod');
         const fazenda = fazendaEl ? fazendaEl.value : '';
-        if (!fazenda) return;
-        const existing = this.insumosFazendasData.find(i => i.fazenda === fazenda && (i.os || i.cod));
-        if (existing) {
-            if (osEl && existing.os != null) osEl.value = existing.os;
-            if (codEl && existing.cod != null) codEl.value = existing.cod;
-            this.ui.showNotification('Dados existentes encontrados. OS e Código preenchidos automaticamente.', 'info', 2000);
+        const info = this.fazendaIndex.byName[fazenda];
+        if (info) {
+            if (osEl && info.os != null) osEl.value = info.os;
+            if (codEl && info.cod != null) codEl.value = info.cod;
+            this.ui.showNotification('Dados da fazenda preenchidos automaticamente.', 'info', 1500);
         }
+    }
+
+    autofillByCod() {
+        const codEl = document.getElementById('cod');
+        const fazendaEl = document.getElementById('fazenda');
+        const info = codEl ? this.fazendaIndex.byCod[parseInt(codEl.value)] : null;
+        if (info && fazendaEl) {
+            fazendaEl.value = info.fazenda;
+            this.ui.showNotification('Fazenda preenchida a partir do código.', 'info', 1500);
+        }
+    }
+
+    autofillPlantioByFazenda() {
+        const fazendaEl = document.getElementById('plantio-fazenda');
+        const codEl = document.getElementById('plantio-cod');
+        const info = fazendaEl ? this.fazendaIndex.byName[fazendaEl.value] : null;
+        if (info && codEl) codEl.value = info.cod ?? '';
+    }
+
+    autofillPlantioByCod() {
+        const codEl = document.getElementById('plantio-cod');
+        const fazendaEl = document.getElementById('plantio-fazenda');
+        const info = codEl ? this.fazendaIndex.byCod[parseInt(codEl.value)] : null;
+        if (info && fazendaEl) fazendaEl.value = info.fazenda ?? '';
     }
 
     async loadStaticData() {
@@ -362,7 +450,100 @@ forceReloadAllData() {
             }
         } else if (tabName === 'estoque') {
             await this.loadEstoqueAndRender();
+        } else if (tabName === 'plantio-dia') {
+            await this.loadPlantioDia();
         }
+    }
+
+    async loadPlantioDia() {
+        try {
+            const res = await this.api.getPlantioDia();
+            if (res && res.success) {
+                this.plantioDia = res.data || [];
+                this.renderPlantioDia();
+            }
+        } catch(e) {}
+    }
+
+    renderPlantioDia() {
+        const tbody = document.getElementById('plantio-table-body');
+        if (!tbody) return;
+        const rows = (this.plantioDia || []).slice().sort((a,b)=> String(a.data||'').localeCompare(String(b.data||'')));
+        tbody.innerHTML = rows.map(r => {
+            const sumArea = (r.frentes||[]).reduce((s,x)=> s + (Number(x.area)||0), 0);
+            const sumMuda = (r.frentes||[]).reduce((s,x)=> s + (Number(x.muda)||0), 0);
+            const resumoFrentes = (r.frentes||[]).map(f => `${f.frente}: ${f.fazenda||'—'}${f.talhao?(' / '+f.talhao):''}`).join(' | ');
+            const expanded = this.plantioExpanded.has(String(r.id));
+            const details = expanded ? this.getPlantioDetailsHTML(r) : '';
+            const toggleText = expanded ? 'Ocultar detalhes' : 'Ver detalhes';
+            return `
+            <tr>
+                <td>${this.ui.formatDateBR(r.data)}</td>
+                <td>${resumoFrentes || '—'}</td>
+                <td>${this.ui.formatNumber(sumArea)}</td>
+                <td>${this.ui.formatNumber(sumMuda)}</td>
+                <td>
+                    <button class="btn btn-secondary btn-toggle-plantio-details" data-plantio-id="${r.id}">${toggleText}</button>
+                    <button class="btn btn-delete-plantio" data-plantio-id="${r.id}">🗑️</button>
+                </td>
+            </tr>
+            ${details}`;
+        }).join('');
+    }
+
+    getPlantioDetailsHTML(r) {
+        const frentesRows = (r.frentes||[]).map(f => `
+            <tr>
+                <td>${f.frente||'—'}</td>
+                <td>${f.fazenda||'—'}</td>
+                <td>${f.cod!=null?f.cod:'—'}</td>
+                <td>${f.talhao||'—'}</td>
+                <td>${f.variedade||'—'}</td>
+                <td>${this.ui.formatNumber(f.area||0)}</td>
+                <td>${this.ui.formatNumber(f.plantada||0)}</td>
+                <td>${this.ui.formatNumber(f.muda||0)}</td>
+            </tr>
+        `).join('');
+        const insumosRows = (r.insumos||[]).map(i => `
+            <tr>
+                <td>${i.produto}</td>
+                <td>${this.ui.formatNumber(i.dose||0, 6)}</td>
+                <td>${i.unid||''}</td>
+            </tr>
+        `).join('');
+        const q = r.qualidade||{};
+        return `
+        <tr class="plantio-details"><td colspan="5">
+            <div class="details-grid">
+                <div>
+                    <h5>Frentes</h5>
+                    <table class="data-table">
+                        <thead><tr><th>Frente</th><th>Fazenda</th><th>Cód</th><th>Talhão</th><th>Variedade</th><th>Área</th><th>Plantada</th><th>Muda</th></tr></thead>
+                        <tbody>${frentesRows || '<tr><td colspan="8">—</td></tr>'}</tbody>
+                    </table>
+                </div>
+                <div>
+                    <h5>Insumos</h5>
+                    <table class="data-table">
+                        <thead><tr><th>Produto</th><th>Dose</th><th>Unid</th></tr></thead>
+                        <tbody>${insumosRows || '<tr><td colspan="3">—</td></tr>'}</tbody>
+                    </table>
+                </div>
+                <div>
+                    <h5>Qualidade</h5>
+                    <div class="quality-block">
+                        <div>Gemas viáveis/m: ${this.ui.formatNumber(q.gemasOk||0)}</div>
+                        <div>Gemas não viáveis/m: ${this.ui.formatNumber(q.gemasNok||0)}</div>
+                        <div>Toletes bons (≥%): ${this.ui.formatNumber(q.toletesBons||0)}</div>
+                        <div>Toletes ruins (≤%): ${this.ui.formatNumber(q.toletesRuins||0)}</div>
+                        <div>Muda (ton/ha): ${this.ui.formatNumber(q.mudaTonHa||0)}</div>
+                        <div>Profundidade (cm): ${this.ui.formatNumber(q.profundidadeCm||0)}</div>
+                        <div>Cobertura: ${q.cobertura||'—'}</div>
+                        <div>Alinhamento: ${q.alinhamento||'—'}</div>
+                    </div>
+                </div>
+            </div>
+        </td></tr>`;
     }
 
     async loadOxifertilData(filters = {}) {
@@ -467,6 +648,24 @@ forceReloadAllData() {
         const fazSelect = document.getElementById('fazenda-insumos-filter');
         if (prodSelect) this.ui.populateSelect(prodSelect, produtos, 'Todos os Produtos');
         if (fazSelect) this.ui.populateSelect(fazSelect, fazendas, 'Todas as Fazendas');
+        this.buildFazendaIndex(data);
+    }
+
+    buildFazendaIndex(data) {
+        const byName = {};
+        const byCod = {};
+        data.forEach(i => {
+            if (i.fazenda) {
+                const info = byName[i.fazenda] || {};
+                if (i.cod != null) info.cod = i.cod;
+                if (i.os != null) info.os = i.os;
+                byName[i.fazenda] = info;
+            }
+            if (i.cod != null && i.fazenda) {
+                byCod[i.cod] = { fazenda: i.fazenda, os: i.os };
+            }
+        });
+        this.fazendaIndex = { byName, byCod };
     }
 
     renderInsumos() {
@@ -990,3 +1189,254 @@ InsumosApp.prototype.exportPDF = function() {
     }
     doc.save(`insumos_${Date.now()}.pdf`);
 };
+
+// Plantio Diário helpers
+InsumosApp.prototype.getInsumoUnits = function() {
+    return {
+        'BIOZYME': 'L/ha',
+        '04-30-10': 'kg/ha',
+        'QUALITY': 'L/ha',
+        'AZOKOP': 'L/ha',
+        'SURVEY (FIPRONIL)': 'L/ha',
+        'OXIFERTIL': 'L/ha',
+        'LANEX 800 WG (REGENTE)': 'kg/ha',
+        'COMET': 'L/ha',
+        'COMPOSTO': 't/ha',
+        '10-49-00': 'kg/ha',
+        'PEREGRINO': 'L/ha',
+        'NO-NEMA': 'L/ha'
+    };
+};
+
+// frentes fixas: leitura e totais
+InsumosApp.prototype.getFixedFrentes = function() {
+    const rows = [
+        { frente: '4001', fazenda: 'fr-4001-fazenda', cod: 'fr-4001-cod', talhao: 'fr-4001-talhao', variedade: 'fr-4001-variedade', area: 'fr-4001-area', plantada: 'fr-4001-plantada', muda: 'fr-4001-muda' },
+        { frente: '4002', fazenda: 'fr-4002-fazenda', cod: 'fr-4002-cod', talhao: 'fr-4002-talhao', variedade: 'fr-4002-variedade', area: 'fr-4002-area', plantada: 'fr-4002-plantada', muda: 'fr-4002-muda' },
+        { frente: '4009 Abençoada', fazenda: 'fr-4009-fazenda', cod: 'fr-4009-cod', talhao: 'fr-4009-talhao', variedade: 'fr-4009-variedade', area: 'fr-4009-area', plantada: 'fr-4009-plantada', muda: 'fr-4009-muda' }
+    ];
+    return rows.map(r => ({
+        frente: r.frente,
+        fazenda: document.getElementById(r.fazenda)?.value || '',
+        cod: document.getElementById(r.cod)?.value ? parseInt(document.getElementById(r.cod)?.value) : undefined,
+        talhao: document.getElementById(r.talhao)?.value || '',
+        variedade: document.getElementById(r.variedade)?.value || '',
+        area: parseFloat(document.getElementById(r.area)?.value || '0'),
+        plantada: parseFloat(document.getElementById(r.plantada)?.value || '0'),
+        muda: parseFloat(document.getElementById(r.muda)?.value || '0')
+    })).filter(x => (x.area||0) > 0 || (x.plantada||0) > 0 || (x.muda||0) > 0);
+};
+
+InsumosApp.prototype.updateFixedFrentesTotals = function() {
+    const frentes = this.getFixedFrentes();
+    const sumArea = frentes.reduce((s,x)=> s + (Number(x.area)||0), 0);
+    const sumPlant = frentes.reduce((s,x)=> s + (Number(x.plantada)||0), 0);
+    const sumMuda = frentes.reduce((s,x)=> s + (Number(x.muda)||0), 0);
+    const setText = (id,val)=>{ const el=document.getElementById(id); if (el) el.textContent = this.ui.formatNumber(val); };
+    setText('total-area-ha', sumArea);
+    setText('total-plantada-ha', sumPlant);
+    setText('total-muda-ton', sumMuda);
+};
+
+InsumosApp.prototype.addInsumoRow = function() {
+    const produto = document.getElementById('insumo-produto')?.value || '';
+    const dose = parseFloat(document.getElementById('insumo-dose')?.value || '0');
+    const unid = document.getElementById('insumo-unid')?.value || '';
+    if (!produto) { this.ui.showNotification('Selecione o produto', 'warning'); return; }
+    this.plantioInsumosDraft.push({ produto, dose, unid });
+    this.renderInsumosDraft();
+    ['insumo-dose'].forEach(id=>{ const el=document.getElementById(id); if (el) el.value=''; });
+};
+
+InsumosApp.prototype.renderInsumosDraft = function() {
+    const tbody = document.getElementById('insumos-table-body');
+    if (!tbody) return;
+    tbody.innerHTML = this.plantioInsumosDraft.map((r,idx)=>`
+        <tr>
+            <td>${r.produto}</td>
+            <td>${this.ui.formatNumber(r.dose||0, 6)}</td>
+            <td>${r.unid||''}</td>
+            <td><button class="btn btn-delete-insumo-row" data-idx="${idx}">🗑️</button></td>
+        </tr>
+    `).join('');
+};
+
+InsumosApp.prototype.savePlantioDia = async function() {
+    const data = document.getElementById('plantio-data')?.value;
+    const responsavel = document.getElementById('plantio-responsavel')?.value;
+    const observacoes = document.getElementById('plantio-obs')?.value || '';
+    const qualidade = {
+        gemasOk: parseFloat(document.getElementById('qual-gemas-ok')?.value || '0'),
+        gemasNok: parseFloat(document.getElementById('qual-gemas-nok')?.value || '0'),
+        toletesBons: parseFloat(document.getElementById('qual-toletes-bons')?.value || '0'),
+        toletesRuins: parseFloat(document.getElementById('qual-toletes-ruins')?.value || '0'),
+        mudaTonHa: parseFloat(document.getElementById('qual-muda')?.value || '0'),
+        profundidadeCm: parseFloat(document.getElementById('qual-profundidade')?.value || '0'),
+        cobertura: document.getElementById('qual-cobertura')?.value || '',
+        alinhamento: document.getElementById('qual-alinhamento')?.value || ''
+    };
+    if (!data) { this.ui.showNotification('Informe a data', 'warning'); return; }
+    const payload = {
+        data, responsavel, observacoes,
+        frentes: this.getFixedFrentes(),
+        insumos: this.plantioInsumosDraft.slice(),
+        qualidade
+    };
+    try {
+        const res = await this.api.addPlantioDia(payload);
+        if (res && res.success) {
+            this.ui.showNotification('Dia de plantio registrado', 'success', 1500);
+            this.plantioInsumosDraft = [];
+            this.renderInsumosDraft();
+            await this.loadPlantioDia();
+        } else {
+            this.ui.showNotification('Erro ao registrar', 'error');
+        }
+    } catch(e) { this.ui.showNotification('Erro ao registrar', 'error'); }
+};
+
+InsumosApp.prototype.autofillPlantioByFazenda = function() {
+    const fazendaEl = document.getElementById('plantio-fazenda');
+    const codEl = document.getElementById('plantio-cod');
+    const info = fazendaEl ? this.fazendaIndex.byName[fazendaEl.value] : null;
+    if (info && codEl) codEl.value = info.cod ?? '';
+};
+
+InsumosApp.prototype.autofillPlantioByCod = function() {
+    const codEl = document.getElementById('plantio-cod');
+    const fazendaEl = document.getElementById('plantio-fazenda');
+    const info = codEl ? this.fazendaIndex.byCod[parseInt(codEl.value)] : null;
+    if (info && fazendaEl) fazendaEl.value = info.fazenda ?? '';
+};
+InsumosApp.prototype.autofillRowByFazenda = function(fazId, codId) {
+    const fEl = document.getElementById(fazId);
+    const cEl = document.getElementById(codId);
+    const info = fEl && fEl.value ? this.fazendaIndex.byName[fEl.value] : null;
+    if (info && cEl) cEl.value = info.cod ?? '';
+};
+InsumosApp.prototype.autofillRowByCod = function(fazId, codId) {
+    const fEl = document.getElementById(fazId);
+    const cEl = document.getElementById(codId);
+    const info = cEl && cEl.value ? this.fazendaIndex.byCod[parseInt(cEl.value)] : null;
+    if (info && fEl) fEl.value = info.fazenda ?? '';
+};
+
+InsumosApp.prototype.savePlantioFrente = async function(frenteKey) {
+    const data = document.getElementById('plantio-data')?.value;
+    const responsavel = document.getElementById('plantio-responsavel')?.value;
+    const observacoes = document.getElementById('plantio-obs')?.value || '';
+    if (!data) { this.ui.showNotification('Informe a data', 'warning'); return; }
+    const map = {
+        '4001': { fazenda: 'fr-4001-fazenda', cod: 'fr-4001-cod', talhao: 'fr-4001-talhao', variedade: 'fr-4001-variedade', area: 'fr-4001-area', plantada: 'fr-4001-plantada', muda: 'fr-4001-muda' },
+        '4002': { fazenda: 'fr-4002-fazenda', cod: 'fr-4002-cod', talhao: 'fr-4002-talhao', variedade: 'fr-4002-variedade', area: 'fr-4002-area', plantada: 'fr-4002-plantada', muda: 'fr-4002-muda' },
+        '4009 Abençoada': { fazenda: 'fr-4009-fazenda', cod: 'fr-4009-cod', talhao: 'fr-4009-talhao', variedade: 'fr-4009-variedade', area: 'fr-4009-area', plantada: 'fr-4009-plantada', muda: 'fr-4009-muda' }
+    }[frenteKey];
+    if (!map) return;
+    const frente = {
+        frente: frenteKey,
+        fazenda: document.getElementById(map.fazenda)?.value || '',
+        cod: document.getElementById(map.cod)?.value ? parseInt(document.getElementById(map.cod)?.value) : undefined,
+        talhao: document.getElementById(map.talhao)?.value || '',
+        variedade: document.getElementById(map.variedade)?.value || '',
+        area: parseFloat(document.getElementById(map.area)?.value || '0'),
+        plantada: parseFloat(document.getElementById(map.plantada)?.value || '0'),
+        muda: parseFloat(document.getElementById(map.muda)?.value || '0')
+    };
+    if (!frente.fazenda && !frente.cod) { this.ui.showNotification('Informe a fazenda ou código da frente', 'warning'); return; }
+    const payload = { data, responsavel, observacoes, frentes: [frente], insumos: this.plantioInsumosDraft.slice(), qualidade: {} };
+    try {
+        const res = await this.api.addPlantioDia(payload);
+        if (res && res.success) {
+            this.ui.showNotification(`Frente ${frenteKey} registrada`, 'success', 1500);
+            this.clearFrenteRow(frenteKey);
+            this.updateFixedFrentesTotals();
+            await this.loadPlantioDia();
+        } else {
+            this.ui.showNotification('Erro ao registrar', 'error');
+        }
+    } catch(e) { this.ui.showNotification('Erro ao registrar', 'error'); }
+};
+
+InsumosApp.prototype.clearFrenteRow = function(frenteKey) {
+    const ids = frenteKey === '4001' ? ['fr-4001-fazenda','fr-4001-cod','fr-4001-talhao','fr-4001-variedade','fr-4001-area','fr-4001-plantada','fr-4001-muda']
+        : frenteKey === '4002' ? ['fr-4002-fazenda','fr-4002-cod','fr-4002-talhao','fr-4002-variedade','fr-4002-area','fr-4002-plantada','fr-4002-muda']
+        : ['fr-4009-fazenda','fr-4009-cod','fr-4009-talhao','fr-4009-variedade','fr-4009-area','fr-4009-plantada','fr-4009-muda'];
+    ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+};
+
+InsumosApp.prototype.saveSingleFrente = async function() {
+    const data = document.getElementById('plantio-data')?.value;
+    const responsavel = document.getElementById('plantio-responsavel')?.value;
+    const observacoes = document.getElementById('plantio-obs')?.value || '';
+    const frenteKey = document.getElementById('single-frente')?.value || '';
+    if (!data || !frenteKey) { this.ui.showNotification('Informe data e frente', 'warning'); return; }
+    const frente = {
+        frente: frenteKey,
+        fazenda: document.getElementById('single-fazenda')?.value || '',
+        cod: document.getElementById('single-cod')?.value ? parseInt(document.getElementById('single-cod')?.value) : undefined,
+        talhao: document.getElementById('single-talhao')?.value || '',
+        variedade: document.getElementById('single-variedade')?.value || '',
+        area: parseFloat(document.getElementById('single-area')?.value || '0'),
+        plantada: parseFloat(document.getElementById('single-plantada')?.value || '0'),
+        muda: parseFloat(document.getElementById('single-muda')?.value || '0')
+    };
+    const payload = { data, responsavel, observacoes, frentes: [frente], insumos: this.plantioInsumosDraft.slice(), qualidade: {} };
+    try {
+        const res = await this.api.addPlantioDia(payload);
+        if (res && res.success) {
+            this.ui.showNotification('Frente registrada', 'success', 1500);
+            ['single-fazenda','single-cod','single-talhao','single-variedade','single-area','single-plantada','single-muda'].forEach(id=>{ const el=document.getElementById(id); if (el) el.value=''; });
+            await this.loadPlantioDia();
+        } else {
+            this.ui.showNotification('Erro ao registrar', 'error');
+        }
+    } catch(e) { this.ui.showNotification('Erro ao registrar', 'error'); }
+};
+
+InsumosApp.prototype.handleLogin = async function() {
+    const u = document.getElementById('login-user')?.value || '';
+    const p = document.getElementById('login-pass')?.value || '';
+    if (!u || !p) { this.ui.showNotification('Informe usuário e senha', 'warning'); return; }
+    try {
+        const res = await this.api.login(u, p);
+        if (res && res.success) { this.ui.showNotification('Login efetuado', 'success', 1500); this.hideLoginScreen(); this.updateCurrentUserUI(); await this.loadInitialData(); }
+        else this.ui.showNotification('Credenciais inválidas', 'error');
+    } catch(e) { this.ui.showNotification('Erro de login', 'error'); }
+};
+
+InsumosApp.prototype.handleRegister = async function() {
+    const u = document.getElementById('register-user')?.value || '';
+    const p = document.getElementById('register-pass')?.value || '';
+    if (!u || !p) { this.ui.showNotification('Informe novo usuário e senha', 'warning'); return; }
+    try {
+        const res = await this.api.register(u, p);
+        if (res && res.success) {
+            this.ui.showNotification('Conta criada e login efetuado', 'success', 1500);
+            this.hideLoginScreen();
+            this.updateCurrentUserUI();
+            await this.loadInitialData();
+        } else {
+            this.ui.showNotification('Erro ao criar conta', 'error');
+        }
+    } catch(e) { this.ui.showNotification('Erro ao criar conta', 'error'); }
+};
+
+InsumosApp.prototype.handleLogout = async function() {
+    try { await this.api.logout(); } catch(e) {}
+    this.showLoginScreen();
+    this.ui.showNotification('Sessão encerrada', 'success', 1000);
+    this.updateCurrentUserUI();
+};
+
+InsumosApp.prototype.updateLoginStatus = function() {
+};
+InsumosApp.prototype.updateCurrentUserUI = function() {
+    const el = document.getElementById('current-user');
+    const u = (this.api && this.api.user && this.api.user.username) ? this.api.user.username : null;
+    if (el) {
+        if (u) { el.style.display = 'inline-block'; el.textContent = `👤 ${u}`; }
+        else { el.style.display = 'none'; el.textContent = ''; }
+    }
+};
+InsumosApp.prototype.showLoginScreen = function() { const el = document.getElementById('login-screen'); if (el) el.style.display = 'flex'; };
+InsumosApp.prototype.hideLoginScreen = function() { const el = document.getElementById('login-screen'); if (el) el.style.display = 'none'; };
