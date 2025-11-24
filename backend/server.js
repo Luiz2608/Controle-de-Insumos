@@ -208,7 +208,7 @@ app.post('/api/insumos', (req, res) => {
 app.get('/api/estoque', (req, res) => {
     try { res.json({ success: true, data: estoque }); } catch(e) { res.status(500).json({ success: false }); }
 });
-app.post('/api/estoque', requireAuth, (req, res) => {
+app.post('/api/estoque', (req, res) => {
     try {
         const { frente, produto, quantidade } = req.body;
         if (!frente || !produto || quantidade == null) return res.status(400).json({ success: false, message: 'Dados inválidos' });
@@ -219,7 +219,7 @@ app.post('/api/estoque', requireAuth, (req, res) => {
     } catch(e) { res.status(500).json({ success: false, message: 'Erro ao salvar estoque' }); }
 });
 
-app.delete('/api/estoque', requireAuth, (req, res) => {
+app.delete('/api/estoque', (req, res) => {
     try {
         const { frente, produto } = req.body && Object.keys(req.body).length ? req.body : req.query;
         if (!frente || !produto) return res.status(400).json({ success: false, message: 'Dados inválidos' });
