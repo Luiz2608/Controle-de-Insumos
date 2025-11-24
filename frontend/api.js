@@ -22,6 +22,14 @@ class ApiService {
             });
 
             if (!response.ok) {
+                if (response.status === 401) {
+                    this.token = null;
+                    this.user = null;
+                    try { localStorage.removeItem('authToken'); } catch {}
+                    try { localStorage.removeItem('authUser'); } catch {}
+                    try { window.uiManager?.showNotification('Sessão expirada. Faça login novamente', 'warning'); } catch {}
+                    try { window.insumosApp?.showLoginScreen(); } catch {}
+                }
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
 
