@@ -323,8 +323,7 @@ forceReloadAllData() {
         const singleFazenda = document.getElementById('single-fazenda');
         if (singleFazenda) singleFazenda.addEventListener('change', () => this.autofillRowByFazenda('single-fazenda', 'single-cod'));
         if (singleCod) singleCod.addEventListener('change', () => this.autofillRowByCod('single-fazenda', 'single-cod'));
-        const singleSave = document.getElementById('single-frente-save-btn');
-        if (singleSave) singleSave.addEventListener('click', () => this.saveSingleFrente());
+        
         const loginBtn = document.getElementById('login-btn');
         const logoutBtn = document.getElementById('logout-btn');
         const regToggle = document.getElementById('login-register-toggle');
@@ -1275,10 +1274,21 @@ InsumosApp.prototype.savePlantioDia = async function() {
         cobertura: document.getElementById('qual-cobertura')?.value || '',
         alinhamento: document.getElementById('qual-alinhamento')?.value || ''
     };
-    if (!data) { this.ui.showNotification('Informe a data', 'warning'); return; }
+    const frenteKey = document.getElementById('single-frente')?.value || '';
+    if (!data || !frenteKey) { this.ui.showNotification('Informe data e frente', 'warning'); return; }
+    const frente = {
+        frente: frenteKey,
+        fazenda: document.getElementById('single-fazenda')?.value || '',
+        cod: document.getElementById('single-cod')?.value ? parseInt(document.getElementById('single-cod')?.value) : undefined,
+        talhao: document.getElementById('single-talhao')?.value || '',
+        variedade: document.getElementById('single-variedade')?.value || '',
+        area: parseFloat(document.getElementById('single-area')?.value || '0'),
+        plantada: parseFloat(document.getElementById('single-plantada')?.value || '0'),
+        muda: parseFloat(document.getElementById('single-muda')?.value || '0')
+    };
     const payload = {
         data, responsavel, observacoes,
-        frentes: this.getFixedFrentes(),
+        frentes: [frente],
         insumos: this.plantioInsumosDraft.slice(),
         qualidade
     };
@@ -1288,6 +1298,7 @@ InsumosApp.prototype.savePlantioDia = async function() {
             this.ui.showNotification('Dia de plantio registrado', 'success', 1500);
             this.plantioInsumosDraft = [];
             this.renderInsumosDraft();
+            ['single-fazenda','single-cod','single-talhao','single-variedade','single-area','single-plantada','single-muda'].forEach(id=>{ const el=document.getElementById(id); if (el) el.value=''; });
             await this.loadPlantioDia();
         } else {
             this.ui.showNotification('Erro ao registrar', 'error');
@@ -1364,34 +1375,7 @@ InsumosApp.prototype.clearFrenteRow = function(frenteKey) {
     ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
 };
 
-InsumosApp.prototype.saveSingleFrente = async function() {
-    const data = document.getElementById('plantio-data')?.value;
-    const responsavel = document.getElementById('plantio-responsavel')?.value;
-    const observacoes = document.getElementById('plantio-obs')?.value || '';
-    const frenteKey = document.getElementById('single-frente')?.value || '';
-    if (!data || !frenteKey) { this.ui.showNotification('Informe data e frente', 'warning'); return; }
-    const frente = {
-        frente: frenteKey,
-        fazenda: document.getElementById('single-fazenda')?.value || '',
-        cod: document.getElementById('single-cod')?.value ? parseInt(document.getElementById('single-cod')?.value) : undefined,
-        talhao: document.getElementById('single-talhao')?.value || '',
-        variedade: document.getElementById('single-variedade')?.value || '',
-        area: parseFloat(document.getElementById('single-area')?.value || '0'),
-        plantada: parseFloat(document.getElementById('single-plantada')?.value || '0'),
-        muda: parseFloat(document.getElementById('single-muda')?.value || '0')
-    };
-    const payload = { data, responsavel, observacoes, frentes: [frente], insumos: this.plantioInsumosDraft.slice(), qualidade: {} };
-    try {
-        const res = await this.api.addPlantioDia(payload);
-        if (res && res.success) {
-            this.ui.showNotification('Frente registrada', 'success', 1500);
-            ['single-fazenda','single-cod','single-talhao','single-variedade','single-area','single-plantada','single-muda'].forEach(id=>{ const el=document.getElementById(id); if (el) el.value=''; });
-            await this.loadPlantioDia();
-        } else {
-            this.ui.showNotification('Erro ao registrar', 'error');
-        }
-    } catch(e) { this.ui.showNotification('Erro ao registrar', 'error'); }
-};
+ 
 
 InsumosApp.prototype.handleLogin = async function() {
     const u = document.getElementById('login-user')?.value || '';
