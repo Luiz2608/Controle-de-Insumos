@@ -254,6 +254,26 @@ forceReloadAllData() {
             });
         }
 
+        const plantioContainer = document.getElementById('plantio-dia');
+        if (plantioContainer) {
+            plantioContainer.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const inputs = Array.from(plantioContainer.querySelectorAll('input, select, button'));
+                    const focusables = inputs.filter(el => !el.disabled && el.tabIndex !== -1);
+                    const idx = focusables.indexOf(document.activeElement);
+                    const next = focusables[idx + 1];
+                    if (next) { next.focus(); }
+                    else {
+                        const addInsumoBtn = document.getElementById('insumo-add-btn');
+                        if (addInsumoBtn) addInsumoBtn.click();
+                        const saveBtn = document.getElementById('plantio-save-btn');
+                        if (saveBtn) saveBtn.click();
+                    }
+                }
+            });
+        }
+
         const fazendaInput = document.getElementById('fazenda');
         const codInput = document.getElementById('cod');
         if (fazendaInput) fazendaInput.addEventListener('change', () => this.autofillByFazenda());
@@ -1284,7 +1304,12 @@ InsumosApp.prototype.savePlantioDia = async function() {
         mudaTonHa: parseFloat(document.getElementById('qual-muda')?.value || '0'),
         profundidadeCm: parseFloat(document.getElementById('qual-profundidade')?.value || '0'),
         cobertura: document.getElementById('qual-cobertura')?.value || '',
-        alinhamento: document.getElementById('qual-alinhamento')?.value || ''
+        alinhamento: document.getElementById('qual-alinhamento')?.value || '',
+        chuvaMm: parseFloat(document.getElementById('chuva-mm')?.value || '0'),
+        gps: !!document.getElementById('plantio-gps')?.checked,
+        oxifertilDose: parseFloat(document.getElementById('oxifertil-dose')?.value || '0'),
+        cobricaoDia: parseFloat(document.getElementById('cobricao-dia')?.value || '0'),
+        cobricaoAcumulada: parseFloat(document.getElementById('cobricao-acumulada')?.value || '0')
     };
     const frenteKey = document.getElementById('single-frente')?.value || '';
     if (!data || !frenteKey) { this.ui.showNotification('Informe data e frente', 'warning'); return; }
@@ -1292,7 +1317,6 @@ InsumosApp.prototype.savePlantioDia = async function() {
         frente: frenteKey,
         fazenda: document.getElementById('single-fazenda')?.value || '',
         cod: document.getElementById('single-cod')?.value ? parseInt(document.getElementById('single-cod')?.value) : undefined,
-        talhao: document.getElementById('single-talhao')?.value || '',
         variedade: document.getElementById('single-variedade')?.value || '',
         area: parseFloat(document.getElementById('single-area')?.value || '0'),
         plantada: parseFloat(document.getElementById('single-plantada')?.value || '0'),
@@ -1310,7 +1334,7 @@ InsumosApp.prototype.savePlantioDia = async function() {
             this.ui.showNotification('Dia de plantio registrado', 'success', 1500);
             this.plantioInsumosDraft = [];
             this.renderInsumosDraft();
-            ['single-fazenda','single-cod','single-talhao','single-variedade','single-area','single-plantada','single-muda'].forEach(id=>{ const el=document.getElementById(id); if (el) el.value=''; });
+            ['single-fazenda','single-cod','single-variedade','single-area','single-plantada','single-muda'].forEach(id=>{ const el=document.getElementById(id); if (el) el.value=''; });
             await this.loadPlantioDia();
         } else {
             this.ui.showNotification('Erro ao registrar', 'error');
@@ -1350,16 +1374,15 @@ InsumosApp.prototype.savePlantioFrente = async function(frenteKey) {
     const observacoes = document.getElementById('plantio-obs')?.value || '';
     if (!data) { this.ui.showNotification('Informe a data', 'warning'); return; }
     const map = {
-        '4001': { fazenda: 'fr-4001-fazenda', cod: 'fr-4001-cod', talhao: 'fr-4001-talhao', variedade: 'fr-4001-variedade', area: 'fr-4001-area', plantada: 'fr-4001-plantada', muda: 'fr-4001-muda' },
-        '4002': { fazenda: 'fr-4002-fazenda', cod: 'fr-4002-cod', talhao: 'fr-4002-talhao', variedade: 'fr-4002-variedade', area: 'fr-4002-area', plantada: 'fr-4002-plantada', muda: 'fr-4002-muda' },
-        '4009 Abençoada': { fazenda: 'fr-4009-fazenda', cod: 'fr-4009-cod', talhao: 'fr-4009-talhao', variedade: 'fr-4009-variedade', area: 'fr-4009-area', plantada: 'fr-4009-plantada', muda: 'fr-4009-muda' }
+        '4001': { fazenda: 'fr-4001-fazenda', cod: 'fr-4001-cod', variedade: 'fr-4001-variedade', area: 'fr-4001-area', plantada: 'fr-4001-plantada', muda: 'fr-4001-muda' },
+        '4002': { fazenda: 'fr-4002-fazenda', cod: 'fr-4002-cod', variedade: 'fr-4002-variedade', area: 'fr-4002-area', plantada: 'fr-4002-plantada', muda: 'fr-4002-muda' },
+        '4009 Abençoada': { fazenda: 'fr-4009-fazenda', cod: 'fr-4009-cod', variedade: 'fr-4009-variedade', area: 'fr-4009-area', plantada: 'fr-4009-plantada', muda: 'fr-4009-muda' }
     }[frenteKey];
     if (!map) return;
     const frente = {
         frente: frenteKey,
         fazenda: document.getElementById(map.fazenda)?.value || '',
         cod: document.getElementById(map.cod)?.value ? parseInt(document.getElementById(map.cod)?.value) : undefined,
-        talhao: document.getElementById(map.talhao)?.value || '',
         variedade: document.getElementById(map.variedade)?.value || '',
         area: parseFloat(document.getElementById(map.area)?.value || '0'),
         plantada: parseFloat(document.getElementById(map.plantada)?.value || '0'),
@@ -1381,9 +1404,9 @@ InsumosApp.prototype.savePlantioFrente = async function(frenteKey) {
 };
 
 InsumosApp.prototype.clearFrenteRow = function(frenteKey) {
-    const ids = frenteKey === '4001' ? ['fr-4001-fazenda','fr-4001-cod','fr-4001-talhao','fr-4001-variedade','fr-4001-area','fr-4001-plantada','fr-4001-muda']
-        : frenteKey === '4002' ? ['fr-4002-fazenda','fr-4002-cod','fr-4002-talhao','fr-4002-variedade','fr-4002-area','fr-4002-plantada','fr-4002-muda']
-        : ['fr-4009-fazenda','fr-4009-cod','fr-4009-talhao','fr-4009-variedade','fr-4009-area','fr-4009-plantada','fr-4009-muda'];
+    const ids = frenteKey === '4001' ? ['fr-4001-fazenda','fr-4001-cod','fr-4001-variedade','fr-4001-area','fr-4001-plantada','fr-4001-muda']
+        : frenteKey === '4002' ? ['fr-4002-fazenda','fr-4002-cod','fr-4002-variedade','fr-4002-area','fr-4002-plantada','fr-4002-muda']
+        : ['fr-4009-fazenda','fr-4009-cod','fr-4009-variedade','fr-4009-area','fr-4009-plantada','fr-4009-muda'];
     ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
 };
 
