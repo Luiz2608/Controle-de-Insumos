@@ -254,25 +254,28 @@ forceReloadAllData() {
             });
         }
 
-        const plantioContainer = document.getElementById('plantio-dia');
-        if (plantioContainer) {
-            plantioContainer.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    const inputs = Array.from(plantioContainer.querySelectorAll('input, select, button'));
-                    const focusables = inputs.filter(el => !el.disabled && el.tabIndex !== -1);
-                    const idx = focusables.indexOf(document.activeElement);
-                    const next = focusables[idx + 1];
-                    if (next) { next.focus(); }
-                    else {
-                        const addInsumoBtn = document.getElementById('insumo-add-btn');
-                        if (addInsumoBtn) addInsumoBtn.click();
-                        const saveBtn = document.getElementById('plantio-save-btn');
-                        if (saveBtn) saveBtn.click();
+        const enableEnterNavigation = (container) => {
+            const focusables = Array.from(container.querySelectorAll('input, select, button'))
+                .filter(el => !el.disabled && el.tabIndex !== -1);
+            focusables.forEach((el) => {
+                el.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const idx = focusables.indexOf(el);
+                        const next = focusables[idx + 1];
+                        if (next) next.focus();
+                        else {
+                            const addInsumoBtn = document.getElementById('insumo-add-btn');
+                            if (addInsumoBtn) addInsumoBtn.click();
+                            const saveBtn = document.getElementById('plantio-save-btn');
+                            if (saveBtn) saveBtn.click();
+                        }
                     }
-                }
+                });
             });
-        }
+        };
+        const plantioContainer = document.getElementById('plantio-dia');
+        if (plantioContainer) enableEnterNavigation(plantioContainer);
 
         const fazendaInput = document.getElementById('fazenda');
         const codInput = document.getElementById('cod');

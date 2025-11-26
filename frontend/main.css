@@ -515,3 +515,14 @@ body {
 .login-screen { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(2px); display: flex; align-items: center; justify-content: center; z-index: 1000; }
 .login-box { background: var(--surface); color: var(--text); border-radius: var(--radius); padding: 20px; width: 100%; max-width: 420px; box-shadow: 0 8px 20px rgba(0,0,0,0.2); }
  .user-badge { background: rgba(0,0,0,0.1); color: var(--text); padding: 6px 10px; border-radius: 999px; font-size: 12px; margin-left: 8px; }
+.boletim-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+#plantio-dia .form-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+#plantio-dia .form-group { border: 1px solid var(--border); padding: 6px; border-radius: var(--radius); }
+#plantio-dia .form-group label { font-size: 12px; opacity: 0.8; }
+
+#plantio-dia .chart-card { border: 1px solid var(--border); }
