@@ -254,28 +254,23 @@ forceReloadAllData() {
             });
         }
 
-        const enableEnterNavigation = (container) => {
-            const focusables = Array.from(container.querySelectorAll('input, select, button'))
-                .filter(el => !el.disabled && el.tabIndex !== -1);
-            focusables.forEach((el) => {
-                el.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        const idx = focusables.indexOf(el);
-                        const next = focusables[idx + 1];
-                        if (next) next.focus();
-                        else {
-                            const addInsumoBtn = document.getElementById('insumo-add-btn');
-                            if (addInsumoBtn) addInsumoBtn.click();
-                            const saveBtn = document.getElementById('plantio-save-btn');
-                            if (saveBtn) saveBtn.click();
-                        }
-                    }
-                });
-            });
-        };
         const plantioContainer = document.getElementById('plantio-dia');
-        if (plantioContainer) enableEnterNavigation(plantioContainer);
+        if (plantioContainer) {
+            plantioContainer.addEventListener('keydown', (e) => {
+                if (e.key !== 'Enter') return;
+                e.preventDefault();
+                const focusables = Array.from(plantioContainer.querySelectorAll('input, select, button')).filter(el => !el.disabled && el.tabIndex !== -1);
+                const idx = focusables.indexOf(document.activeElement);
+                const next = focusables[idx + 1];
+                if (next) next.focus();
+                else {
+                    const addInsumoBtn = document.getElementById('insumo-add-btn');
+                    if (addInsumoBtn) addInsumoBtn.click();
+                    const saveBtn = document.getElementById('plantio-save-btn');
+                    if (saveBtn) saveBtn.click();
+                }
+            });
+        }
 
         const fazendaInput = document.getElementById('fazenda');
         const codInput = document.getElementById('cod');
@@ -1245,15 +1240,14 @@ InsumosApp.prototype.getInsumoUnits = function() {
 // frentes fixas: leitura e totais
 InsumosApp.prototype.getFixedFrentes = function() {
     const rows = [
-        { frente: '4001', fazenda: 'fr-4001-fazenda', cod: 'fr-4001-cod', talhao: 'fr-4001-talhao', variedade: 'fr-4001-variedade', area: 'fr-4001-area', plantada: 'fr-4001-plantada', muda: 'fr-4001-muda' },
-        { frente: '4002', fazenda: 'fr-4002-fazenda', cod: 'fr-4002-cod', talhao: 'fr-4002-talhao', variedade: 'fr-4002-variedade', area: 'fr-4002-area', plantada: 'fr-4002-plantada', muda: 'fr-4002-muda' },
-        { frente: '4009 Abençoada', fazenda: 'fr-4009-fazenda', cod: 'fr-4009-cod', talhao: 'fr-4009-talhao', variedade: 'fr-4009-variedade', area: 'fr-4009-area', plantada: 'fr-4009-plantada', muda: 'fr-4009-muda' }
+        { frente: '4001', fazenda: 'fr-4001-fazenda', cod: 'fr-4001-cod', variedade: 'fr-4001-variedade', area: 'fr-4001-area', plantada: 'fr-4001-plantada', muda: 'fr-4001-muda' },
+        { frente: '4002', fazenda: 'fr-4002-fazenda', cod: 'fr-4002-cod', variedade: 'fr-4002-variedade', area: 'fr-4002-area', plantada: 'fr-4002-plantada', muda: 'fr-4002-muda' },
+        { frente: '4009 Abençoada', fazenda: 'fr-4009-fazenda', cod: 'fr-4009-cod', variedade: 'fr-4009-variedade', area: 'fr-4009-area', plantada: 'fr-4009-plantada', muda: 'fr-4009-muda' }
     ];
     return rows.map(r => ({
         frente: r.frente,
         fazenda: document.getElementById(r.fazenda)?.value || '',
         cod: document.getElementById(r.cod)?.value ? parseInt(document.getElementById(r.cod)?.value) : undefined,
-        talhao: document.getElementById(r.talhao)?.value || '',
         variedade: document.getElementById(r.variedade)?.value || '',
         area: parseFloat(document.getElementById(r.area)?.value || '0'),
         plantada: parseFloat(document.getElementById(r.plantada)?.value || '0'),
