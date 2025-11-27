@@ -33,9 +33,56 @@ class InsumosApp {
                 const mEl = document.getElementById('muda-consumo-acumulado');
                 if (mEl) mEl.value = String(f.muda_acumulada || 0);
             } else {
-                this.ui.showNotification('Fazenda não encontrada. Deseja criar?', 'warning', 2000);
+                this.openCreateFazendaModal(codigo);
             }
         } catch(e) {}
+    }
+
+    openCreateFazendaModal(codigo) {
+        const modal = document.getElementById('modal-fazenda');
+        if (!modal) return;
+        const set = (id, val) => { const t = document.getElementById(id); if (t) t.value = val; };
+        set('modal-fazenda-codigo', codigo || '');
+        set('modal-fazenda-nome', '');
+        set('modal-fazenda-regiao', '');
+        set('modal-fazenda-area', '');
+        set('modal-fazenda-plantio', '');
+        set('modal-fazenda-muda', '');
+        set('modal-fazenda-observacoes', '');
+        modal.style.display = 'flex';
+        const salvar = document.getElementById('modal-fazenda-salvar');
+        const cancelar = document.getElementById('modal-fazenda-cancelar');
+        const onClose = () => { modal.style.display = 'none'; salvar.removeEventListener('click', onSave); cancelar.removeEventListener('click', onClose); };
+        const onSave = async () => {
+            const payload = {
+                codigo: document.getElementById('modal-fazenda-codigo')?.value || '',
+                nome: document.getElementById('modal-fazenda-nome')?.value || '',
+                regiao: document.getElementById('modal-fazenda-regiao')?.value || '',
+                area_total: document.getElementById('modal-fazenda-area')?.value ? parseFloat(document.getElementById('modal-fazenda-area')?.value) : 0,
+                plantio_acumulado: document.getElementById('modal-fazenda-plantio')?.value ? parseFloat(document.getElementById('modal-fazenda-plantio')?.value) : 0,
+                muda_acumulada: document.getElementById('modal-fazenda-muda')?.value ? parseFloat(document.getElementById('modal-fazenda-muda')?.value) : 0,
+                observacoes: document.getElementById('modal-fazenda-observacoes')?.value || ''
+            };
+            if (!payload.codigo || !payload.nome) { this.ui.showNotification('Informe código e nome', 'warning'); return; }
+            try {
+                const res = await this.api.createFazenda(payload);
+                if (res && res.success) {
+                    this.ui.showNotification('Fazenda criada', 'success', 1500);
+                    onClose();
+                    await this.loadCadastroFazendasTab();
+                    // Preencher campos na tela atual
+                    const set2 = (id, val) => { const t = document.getElementById(id); if (t) t.value = val; };
+                    set2('single-cod', payload.codigo);
+                    set2('single-fazenda', payload.nome);
+                    set2('single-regiao', payload.regiao || '');
+                    set2('single-area-total', String(payload.area_total || 0));
+                    set2('single-area-acumulada', String(payload.plantio_acumulado || 0));
+                    const mEl = document.getElementById('muda-consumo-acumulado'); if (mEl) mEl.value = String(payload.muda_acumulada || 0);
+                } else this.ui.showNotification('Erro ao criar fazenda', 'error');
+            } catch(e) { this.ui.showNotification('Erro ao criar fazenda', 'error'); }
+        };
+        salvar.addEventListener('click', onSave);
+        cancelar.addEventListener('click', onClose);
     }
     async ensureApiReady() {
         if (!this.api) {
@@ -627,11 +674,12 @@ forceReloadAllData() {
                 );
             }
 
-            // Cadastro de fazendas
+            // Cadastro de fazendas (novo endpoint padronizado)
             try {
-                const cadResp = await this.api.getCadastroFazendas();
+                const cadResp = await this.api.getFazendas();
                 if (cadResp && cadResp.success && Array.isArray(cadResp.data)) {
-                    this.buildCadastroIndex(cadResp.data);
+                    const list = cadResp.data.map(f => ({ cod: f.codigo, nome: f.nome, areaTotal: f.area_total, plantioAcumulado: f.plantio_acumulado, mudaAcumulada: f.muda_acumulada, regiao: f.regiao }));
+                    this.buildCadastroIndex(list);
                 }
             } catch (e) {}
         } catch (error) {

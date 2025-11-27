@@ -70,6 +70,46 @@
             </div>
         </div>
 
+        <!-- Modal: Criar Fazenda -->
+        <div id="modal-fazenda" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); align-items:center; justify-content:center;">
+            <div class="chart-card" style="max-width:520px; width:95%;">
+                <h4 style="margin:0 0 10px 0;">Criar nova fazenda</h4>
+                <div class="form-grid boletim-grid">
+                    <div class="form-group">
+                        <label for="modal-fazenda-codigo">Código</label>
+                        <input type="text" id="modal-fazenda-codigo" />
+                    </div>
+                    <div class="form-group">
+                        <label for="modal-fazenda-nome">Nome</label>
+                        <input type="text" id="modal-fazenda-nome" />
+                    </div>
+                    <div class="form-group">
+                        <label for="modal-fazenda-regiao">Região</label>
+                        <input type="text" id="modal-fazenda-regiao" />
+                    </div>
+                    <div class="form-group">
+                        <label for="modal-fazenda-area">Área total</label>
+                        <input type="number" id="modal-fazenda-area" step="0.01" />
+                    </div>
+                    <div class="form-group">
+                        <label for="modal-fazenda-plantio">Plantio acumulado</label>
+                        <input type="number" id="modal-fazenda-plantio" step="0.01" />
+                    </div>
+                    <div class="form-group">
+                        <label for="modal-fazenda-muda">Muda acumulada</label>
+                        <input type="number" id="modal-fazenda-muda" step="0.01" />
+                    </div>
+                    <div class="form-group" style="grid-column: span 3;">
+                        <label for="modal-fazenda-observacoes">Observações</label>
+                        <textarea id="modal-fazenda-observacoes" rows="2"></textarea>
+                    </div>
+                </div>
+                <div style="margin-top:10px; display:flex; gap:10px; justify-content:flex-end;">
+                    <button id="modal-fazenda-cancelar" class="btn btn-secondary">Cancelar</button>
+                    <button id="modal-fazenda-salvar" class="btn btn-primary">Salvar</button>
+                </div>
+            </div>
+        </div>
         <div class="tabs">
             <button class="tab active" data-tab="insumos-fazendas">🌱 INSUMOS AGRÍCOLAS</button>
             <button class="tab" data-tab="graficos">📈 DASHBOARD</button>
