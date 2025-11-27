@@ -75,6 +75,7 @@
             <button class="tab" data-tab="graficos">📈 DASHBOARD</button>
             <button class="tab" data-tab="estoque">📦 ESTOQUE</button>
             <button class="tab" data-tab="plantio-dia">📅 PLANTIO DIÁRIO</button>
+            <button class="tab" data-tab="cadastro-fazendas">🏷️ CADASTRO DE FAZENDAS</button>
         </div>
 
         <!-- Conteúdo das Tabs -->
@@ -354,7 +355,7 @@
     </div>
 
     <!-- Tab Plantio Diário -->
-    <div class="tab-content" id="plantio-dia">
+        <div class="tab-content" id="plantio-dia">
         <div class="charts">
             <div class="chart-card">
                 <h4 style="margin: 0 0 10px 0;">1. Informações Gerais</h4>
@@ -384,7 +385,7 @@
 
             <div class="chart-card">
                 <h4 style="margin: 0 0 10px 0;">2. Relatório Diário - Frente</h4>
-                <div class="form-grid">
+                <div class="form-grid boletim-grid">
                     <div class="form-group">
                         <label for="single-frente">Frente</label>
                         <select id="single-frente">
@@ -404,8 +405,8 @@
                     </div>
                     
                     <div class="form-group">
-                        <label for="single-variedade">Variedade</label>
-                        <input type="text" id="single-variedade">
+                        <label for="single-regiao">Região</label>
+                        <input type="text" id="single-regiao">
                     </div>
                     <div class="form-group">
                         <label for="single-area">Área (ha)</label>
@@ -418,6 +419,18 @@
                     <div class="form-group">
                         <label for="single-muda">Muda (ton)</label>
                         <input type="number" id="single-muda" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label for="single-area-total">Área Total</label>
+                        <input type="number" id="single-area-total" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label for="single-area-acumulada">Área Acumulada</label>
+                        <input type="number" id="single-area-acumulada" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label for="single-plantio-dia">Plantio Diário</label>
+                        <input type="number" id="single-plantio-dia" step="0.01">
                     </div>
                     <div class="form-group">
                         <label for="cobricao-dia">Cobrição (dia)</label>
@@ -481,6 +494,33 @@
             </div>
 
             <div class="chart-card">
+                <h4 style="margin: 0 0 10px 0;">5. Muda</h4>
+                <div class="form-grid boletim-grid">
+                    <div class="form-group">
+                        <label for="muda-consumo-total">Consumo total de muda</label>
+                        <input type="number" id="muda-consumo-total" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label for="muda-consumo-acumulado">Consumo acumulado</label>
+                        <input type="number" id="muda-consumo-acumulado" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label for="muda-consumo-dia">Consumo total do dia</label>
+                        <input type="number" id="muda-consumo-dia" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label for="muda-previsto">Previsto das mudas</label>
+                        <input type="number" id="muda-previsto" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label for="muda-liberacao-fazenda">Liberação fazenda</label>
+                        <input type="text" id="muda-liberacao-fazenda">
+                    </div>
+                    <div class="form-group">
+                        <label for="muda-variedade">Variedade</label>
+                        <input type="text" id="muda-variedade">
+                    </div>
+                </div>
                 <h4 style="margin: 0 0 10px 0;">4. Qualidade Muda/Plantio</h4>
                 <div class="form-grid">
                     <div class="form-group">
@@ -534,6 +574,60 @@
                     </thead>
                     <tbody id="plantio-table-body"></tbody>
                 </table>
+            </div>
+        </div>
+
+        <!-- Tab Cadastro de Fazendas -->
+        <div class="tab-content" id="cadastro-fazendas">
+            <div class="charts">
+                <div class="chart-card">
+                    <h4 style="margin: 0 0 10px 0;">Cadastro de Fazendas</h4>
+                    <div class="form-grid boletim-grid">
+                        <div class="form-group">
+                            <label for="cad-fazenda-cod">Código da fazenda</label>
+                            <input type="number" id="cad-fazenda-cod" step="1">
+                        </div>
+                        <div class="form-group">
+                            <label for="cad-fazenda-nome">Nome</label>
+                            <input type="text" id="cad-fazenda-nome">
+                        </div>
+                        <div class="form-group">
+                            <label for="cad-fazenda-regiao">Região</label>
+                            <input type="text" id="cad-fazenda-regiao">
+                        </div>
+                        <div class="form-group">
+                            <label for="cad-fazenda-area-total">Área total</label>
+                            <input type="number" id="cad-fazenda-area-total" step="0.01">
+                        </div>
+                        <div class="form-group">
+                            <label for="cad-fazenda-plantio-acumulado">Plantio acumulado</label>
+                            <input type="number" id="cad-fazenda-plantio-acumulado" step="0.01">
+                        </div>
+                        <div class="form-group">
+                            <label for="cad-fazenda-muda-acumulada">Muda acumulada</label>
+                            <input type="number" id="cad-fazenda-muda-acumulada" step="0.01">
+                        </div>
+                    </div>
+                    <div style="margin-top:10px; display:flex; gap:10px; justify-content:flex-end;">
+                        <button id="cad-fazenda-salvar" class="btn btn-primary">Salvar</button>
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table class="data-table" id="cad-fazendas-table">
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Nome</th>
+                                <th>Região</th>
+                                <th>Área total</th>
+                                <th>Plantio acumulado</th>
+                                <th>Muda acumulada</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cad-fazendas-table-body"></tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>

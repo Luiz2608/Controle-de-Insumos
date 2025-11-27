@@ -71,6 +71,11 @@ let estoque = {
 };
 // Plantio diário
 let plantioDia = [];
+// Cadastro de fazendas (em memória)
+let fazendasCad = {
+    // cod: { cod, nome, areaTotal, plantioAcumulado, mudaAcumulada, regiao }
+    1030: { cod: 1030, nome: 'ORIENTE', areaTotal: 0, plantioAcumulado: 0, mudaAcumulada: 0, regiao: '' }
+};
 
 // Auth simples em memória
 const crypto = require('crypto');
@@ -396,11 +401,13 @@ app.post('/api/plantio-dia', requireAuth, (req, res) => {
             frente: f.frente,
             fazenda: f.fazenda,
             cod: typeof f.cod === 'number' ? f.cod : (f.cod ? parseInt(f.cod) : undefined),
-            talhao: f.talhao,
-            variedade: f.variedade,
+            regiao: f.regiao || f.variedade || '',
             area: Number(f.area) || 0,
             plantada: Number(f.plantada) || 0,
             muda: Number(f.muda) || 0,
+            areaTotal: Number(f.areaTotal) || 0,
+            areaAcumulada: Number(f.areaAcumulada) || 0,
+            plantioDiario: Number(f.plantioDiario) || 0,
         }));
         const item = {
             id,
@@ -448,4 +455,37 @@ app.delete('/api/all', (req, res) => {
     } catch(e) {
         res.status(500).json({ success: false, message: 'Erro ao excluir todos os dados' });
     }
+});
+// Cadastro de Fazendas
+app.get('/api/cadastro/fazendas', (req, res) => {
+    try { res.json({ success: true, data: Object.values(fazendasCad) }); } catch(e) { res.status(500).json({ success: false }); }
+});
+app.get('/api/cadastro/fazendas/:cod', (req, res) => {
+    try { const cod = parseInt(req.params.cod); const f = fazendasCad[cod]; if (!f) return res.status(404).json({ success: false }); res.json({ success: true, data: f }); } catch(e) { res.status(500).json({ success: false }); }
+});
+app.post('/api/cadastro/fazendas', (req, res) => {
+    try {
+        const { cod, nome, areaTotal = 0, plantioAcumulado = 0, mudaAcumulada = 0, regiao = '' } = req.body || {};
+        if (!cod || !nome) return res.status(400).json({ success: false, message: 'Código e nome são obrigatórios' });
+        const key = parseInt(cod);
+        fazendasCad[key] = { cod: key, nome, areaTotal: Number(areaTotal)||0, plantioAcumulado: Number(plantioAcumulado)||0, mudaAcumulada: Number(mudaAcumulada)||0, regiao: regiao||'' };
+        res.json({ success: true, data: fazendasCad[key] });
+    } catch(e) { res.status(500).json({ success: false, message: 'Erro ao salvar fazenda' }); }
+});
+app.put('/api/cadastro/fazendas/:cod', (req, res) => {
+    try {
+        const cod = parseInt(req.params.cod);
+        if (!fazendasCad[cod]) return res.status(404).json({ success: false, message: 'Fazenda não encontrada' });
+        const { nome, areaTotal, plantioAcumulado, mudaAcumulada, regiao } = req.body || {};
+        const curr = fazendasCad[cod];
+        fazendasCad[cod] = {
+            cod,
+            nome: nome ?? curr.nome,
+            areaTotal: areaTotal != null ? Number(areaTotal)||0 : curr.areaTotal,
+            plantioAcumulado: plantioAcumulado != null ? Number(plantioAcumulado)||0 : curr.plantioAcumulado,
+            mudaAcumulada: mudaAcumulada != null ? Number(mudaAcumulada)||0 : curr.mudaAcumulada,
+            regiao: regiao != null ? regiao : curr.regiao
+        };
+        res.json({ success: true, data: fazendasCad[cod] });
+    } catch(e) { res.status(500).json({ success: false, message: 'Erro ao atualizar fazenda' }); }
 });

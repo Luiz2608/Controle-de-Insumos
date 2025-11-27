@@ -16,6 +16,51 @@ class InsumosApp {
         this.plantioExpanded = new Set();
     }
 
+    async loadCadastroFazendasTab() {
+        try {
+            const res = await this.api.getCadastroFazendas();
+            if (res && res.success) {
+                this.buildCadastroIndex(res.data || []);
+                this.renderCadastroFazendas(res.data || []);
+            }
+        } catch(e) {}
+    }
+
+    renderCadastroFazendas(list) {
+        const tbody = document.getElementById('cad-fazendas-table-body');
+        if (!tbody) return;
+        tbody.innerHTML = (list||[]).map(f => `
+            <tr>
+                <td>${f.cod}</td>
+                <td>${f.nome||''}</td>
+                <td>${f.regiao||''}</td>
+                <td>${this.ui.formatNumber(f.areaTotal||0)}</td>
+                <td>${this.ui.formatNumber(f.plantioAcumulado||0)}</td>
+                <td>${this.ui.formatNumber(f.mudaAcumulada||0)}</td>
+                <td><button class="btn btn-primary" data-cod="${f.cod}" data-action="editar-fazenda">Editar</button></td>
+            </tr>
+        `).join('');
+    }
+
+    async saveCadastroFazenda() {
+        const get = id => document.getElementById(id)?.value;
+        const payload = {
+            cod: get('cad-fazenda-cod') ? parseInt(get('cad-fazenda-cod')) : undefined,
+            nome: get('cad-fazenda-nome') || '',
+            regiao: get('cad-fazenda-regiao') || '',
+            areaTotal: get('cad-fazenda-area-total') ? parseFloat(get('cad-fazenda-area-total')) : 0,
+            plantioAcumulado: get('cad-fazenda-plantio-acumulado') ? parseFloat(get('cad-fazenda-plantio-acumulado')) : 0,
+            mudaAcumulada: get('cad-fazenda-muda-acumulada') ? parseFloat(get('cad-fazenda-muda-acumulada')) : 0,
+        };
+        if (!payload.cod || !payload.nome) { this.ui.showNotification('Informe código e nome', 'warning'); return; }
+        try {
+            const res = await this.api.saveCadastroFazenda(payload);
+            if (res && res.success) {
+                this.ui.showNotification('Fazenda salva', 'success', 1500);
+                await this.loadCadastroFazendasTab();
+            } else { this.ui.showNotification('Erro ao salvar fazenda', 'error'); }
+        } catch(e) { this.ui.showNotification('Erro ao salvar fazenda', 'error'); }
+    }
     async init() {
         try {
             this.ui.showLoading();
@@ -352,7 +397,10 @@ forceReloadAllData() {
         const singleCod = document.getElementById('single-cod');
         const singleFazenda = document.getElementById('single-fazenda');
         if (singleFazenda) singleFazenda.addEventListener('change', () => this.autofillRowByFazenda('single-fazenda', 'single-cod'));
-        if (singleCod) singleCod.addEventListener('change', () => this.autofillRowByCod('single-fazenda', 'single-cod'));
+        if (singleCod) singleCod.addEventListener('change', () => { 
+            this.autofillRowByCod('single-fazenda', 'single-cod'); 
+            this.autofillCadastroFieldsByCod('single-cod');
+        });
         
         const loginBtn = document.getElementById('login-btn');
         const logoutBtn = document.getElementById('logout-btn');
@@ -369,6 +417,24 @@ forceReloadAllData() {
         const plantioCod = document.getElementById('plantio-cod');
         if (plantioFazenda) plantioFazenda.addEventListener('change', () => this.autofillPlantioByFazenda());
         if (plantioCod) plantioCod.addEventListener('change', () => this.autofillPlantioByCod());
+        const cadSalvarBtn = document.getElementById('cad-fazenda-salvar');
+        if (cadSalvarBtn) cadSalvarBtn.addEventListener('click', async () => { await this.saveCadastroFazenda(); });
+    }
+
+    autofillCadastroFieldsByCod(codInputId) {
+        const codEl = document.getElementById(codInputId);
+        const cod = codEl && codEl.value ? parseInt(codEl.value) : null;
+        if (!cod || !this.fazendaIndex || !this.fazendaIndex.cadastroByCod) return;
+        const info = this.fazendaIndex.cadastroByCod[cod];
+        if (!info) return;
+        const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+        if (info.nome) setVal('single-fazenda', info.nome);
+        setVal('single-regiao', info.regiao || '');
+        setVal('single-area-total', String(info.areaTotal || 0));
+        setVal('single-area-acumulada', String(info.plantioAcumulado || 0));
+        // muda acumulada pode ser mostrada em seção de Muda
+        const mudaAccumEl = document.getElementById('muda-consumo-acumulado');
+        if (mudaAccumEl) mudaAccumEl.value = String(info.mudaAcumulada || 0);
     }
 
     sortInsumos() {
@@ -407,7 +473,11 @@ forceReloadAllData() {
         const osEl = document.getElementById('os');
         const codEl = document.getElementById('cod');
         const fazenda = fazendaEl ? fazendaEl.value : '';
-        const info = this.fazendaIndex.byName[fazenda];
+        let info = this.fazendaIndex.byName[fazenda];
+        if (!info && this.fazendaIndex && this.fazendaIndex.cadastroByCod) {
+            const match = Object.entries(this.fazendaIndex.cadastroByCod).find(([,v]) => (v.nome||'').toLowerCase() === fazenda.toLowerCase());
+            if (match) info = { cod: parseInt(match[0]) };
+        }
         if (info) {
             if (osEl && info.os != null) osEl.value = info.os;
             if (codEl && info.cod != null) codEl.value = info.cod;
@@ -418,10 +488,11 @@ forceReloadAllData() {
     autofillByCod() {
         const codEl = document.getElementById('cod');
         const fazendaEl = document.getElementById('fazenda');
-        const info = codEl ? this.fazendaIndex.byCod[parseInt(codEl.value)] : null;
+        const code = codEl && codEl.value ? parseInt(codEl.value) : null;
+        const info = code != null ? (this.fazendaIndex.byCod[code] || (this.fazendaIndex.cadastroByCod||{})[code]) : null;
         if (info && fazendaEl) {
-            fazendaEl.value = info.fazenda;
-            this.ui.showNotification('Fazenda preenchida a partir do código.', 'info', 1500);
+            fazendaEl.value = info.fazenda ?? info.nome ?? '';
+            this.ui.showNotification('Dados preenchidos a partir do cadastro.', 'info', 1500);
         }
     }
 
@@ -435,8 +506,9 @@ forceReloadAllData() {
     autofillPlantioByCod() {
         const codEl = document.getElementById('plantio-cod');
         const fazendaEl = document.getElementById('plantio-fazenda');
-        const info = codEl ? this.fazendaIndex.byCod[parseInt(codEl.value)] : null;
-        if (info && fazendaEl) fazendaEl.value = info.fazenda ?? '';
+        const code = codEl && codEl.value ? parseInt(codEl.value) : null;
+        const info = code != null ? (this.fazendaIndex.byCod[code] || (this.fazendaIndex.cadastroByCod||{})[code]) : null;
+        if (info && fazendaEl) fazendaEl.value = info.fazenda ?? info.nome ?? '';
     }
 
     async loadStaticData() {
@@ -459,6 +531,14 @@ forceReloadAllData() {
                     'Todos os Produtos'
                 );
             }
+
+            // Cadastro de fazendas
+            try {
+                const cadResp = await this.api.getCadastroFazendas();
+                if (cadResp && cadResp.success && Array.isArray(cadResp.data)) {
+                    this.buildCadastroIndex(cadResp.data);
+                }
+            } catch (e) {}
         } catch (error) {
             console.error('Error loading static data:', error);
         }
@@ -481,6 +561,8 @@ forceReloadAllData() {
             await this.loadEstoqueAndRender();
         } else if (tabName === 'plantio-dia') {
             await this.loadPlantioDia();
+        } else if (tabName === 'cadastro-fazendas') {
+            await this.loadCadastroFazendasTab();
         }
     }
 
@@ -501,7 +583,7 @@ forceReloadAllData() {
         tbody.innerHTML = rows.map(r => {
             const sumArea = (r.frentes||[]).reduce((s,x)=> s + (Number(x.area)||0), 0);
             const sumMuda = (r.frentes||[]).reduce((s,x)=> s + (Number(x.muda)||0), 0);
-            const resumoFrentes = (r.frentes||[]).map(f => `${f.frente}: ${f.fazenda||'—'}${f.talhao?(' / '+f.talhao):''}`).join(' | ');
+            const resumoFrentes = (r.frentes||[]).map(f => `${f.frente}: ${f.fazenda||'—'}${f.regiao?(' / '+f.regiao):''}`).join(' | ');
             const expanded = this.plantioExpanded.has(String(r.id));
             const details = expanded ? this.getPlantioDetailsHTML(r) : '';
             const toggleText = expanded ? 'Ocultar detalhes' : 'Ver detalhes';
@@ -526,11 +608,13 @@ forceReloadAllData() {
                 <td>${f.frente||'—'}</td>
                 <td>${f.fazenda||'—'}</td>
                 <td>${f.cod!=null?f.cod:'—'}</td>
-                <td>${f.talhao||'—'}</td>
-                <td>${f.variedade||'—'}</td>
+                <td>${f.regiao||'—'}</td>
                 <td>${this.ui.formatNumber(f.area||0)}</td>
                 <td>${this.ui.formatNumber(f.plantada||0)}</td>
                 <td>${this.ui.formatNumber(f.muda||0)}</td>
+                <td>${this.ui.formatNumber(f.areaTotal||0)}</td>
+                <td>${this.ui.formatNumber(f.areaAcumulada||0)}</td>
+                <td>${this.ui.formatNumber(f.plantioDiario||0)}</td>
             </tr>
         `).join('');
         const insumosRows = (r.insumos||[]).map(i => `
@@ -547,7 +631,7 @@ forceReloadAllData() {
                 <div>
                     <h5>Frentes</h5>
                     <table class="data-table">
-                        <thead><tr><th>Frente</th><th>Fazenda</th><th>Cód</th><th>Talhão</th><th>Variedade</th><th>Área</th><th>Plantada</th><th>Muda</th></tr></thead>
+                        <thead><tr><th>Frente</th><th>Fazenda</th><th>Cód</th><th>Região</th><th>Área</th><th>Plantada</th><th>Muda</th><th>Área Total</th><th>Área Acum.</th><th>Plantio Dia</th></tr></thead>
                         <tbody>${frentesRows || '<tr><td colspan="8">—</td></tr>'}</tbody>
                     </table>
                 </div>
@@ -559,7 +643,7 @@ forceReloadAllData() {
                     </table>
                 </div>
                 <div>
-                    <h5>Qualidade</h5>
+                    <h5>Qualidade / Condições</h5>
                     <div class="quality-block">
                         <div>Gemas viáveis/m: ${this.ui.formatNumber(q.gemasOk||0)}</div>
                         <div>Gemas não viáveis/m: ${this.ui.formatNumber(q.gemasNok||0)}</div>
@@ -569,6 +653,17 @@ forceReloadAllData() {
                         <div>Profundidade (cm): ${this.ui.formatNumber(q.profundidadeCm||0)}</div>
                         <div>Cobertura: ${q.cobertura||'—'}</div>
                         <div>Alinhamento: ${q.alinhamento||'—'}</div>
+                        <div>Chuva (mm): ${this.ui.formatNumber(q.chuvaMm||0,1)}</div>
+                        <div>GPS: ${q.gps? 'Sim':'Não'}</div>
+                        <div>OXIFERTIL Dose: ${this.ui.formatNumber(q.oxifertilDose||0,2)}</div>
+                        <div>Cobrição (dia): ${this.ui.formatNumber(q.cobricaoDia||0,2)}</div>
+                        <div>Cobrição (acum.): ${this.ui.formatNumber(q.cobricaoAcumulada||0,2)}</div>
+                        <div>Consumo total de muda: ${this.ui.formatNumber(q.mudaConsumoTotal||0,2)}</div>
+                        <div>Consumo acumulado: ${this.ui.formatNumber(q.mudaConsumoAcumulado||0,2)}</div>
+                        <div>Consumo total do dia: ${this.ui.formatNumber(q.mudaConsumoDia||0,2)}</div>
+                        <div>Previsto das mudas: ${this.ui.formatNumber(q.mudaPrevisto||0,2)}</div>
+                        <div>Liberação fazenda: ${q.mudaLiberacaoFazenda||'—'}</div>
+                        <div>Variedade: ${q.mudaVariedade||'—'}</div>
                     </div>
                 </div>
             </div>
@@ -694,7 +789,36 @@ forceReloadAllData() {
                 byCod[i.cod] = { fazenda: i.fazenda, os: i.os };
             }
         });
-        this.fazendaIndex = { byName, byCod };
+        // Merge com cadastro, se existir
+        if (this.fazendaIndex && this.fazendaIndex.cadastroByCod) {
+            Object.entries(this.fazendaIndex.cadastroByCod).forEach(([cod, info]) => {
+                const c = parseInt(cod);
+                byCod[c] = { ...(byCod[c]||{}), ...info };
+                if (info.nome) byName[info.nome] = { ...(byName[info.nome]||{}), cod: c };
+            });
+        }
+        this.fazendaIndex = { byName, byCod, cadastroByCod: (this.fazendaIndex.cadastroByCod||{}) };
+    }
+
+    buildCadastroIndex(fazendas) {
+        const cadastroByCod = {};
+        fazendas.forEach(f => {
+            if (f && f.cod != null) {
+                cadastroByCod[parseInt(f.cod)] = {
+                    nome: f.nome,
+                    areaTotal: f.areaTotal || 0,
+                    plantioAcumulado: f.plantioAcumulado || 0,
+                    mudaAcumulada: f.mudaAcumulada || 0,
+                    regiao: f.regiao || ''
+                };
+            }
+        });
+        // Atualiza índice principal
+        const currentByName = (this.fazendaIndex && this.fazendaIndex.byName) ? this.fazendaIndex.byName : {};
+        const currentByCod = (this.fazendaIndex && this.fazendaIndex.byCod) ? this.fazendaIndex.byCod : {};
+        this.fazendaIndex = { byName: currentByName, byCod: currentByCod, cadastroByCod };
+        // Reconstroi unindo
+        this.buildFazendaIndex([]);
     }
 
     renderInsumos() {
@@ -1306,7 +1430,13 @@ InsumosApp.prototype.savePlantioDia = async function() {
         gps: !!document.getElementById('plantio-gps')?.checked,
         oxifertilDose: parseFloat(document.getElementById('oxifertil-dose')?.value || '0'),
         cobricaoDia: parseFloat(document.getElementById('cobricao-dia')?.value || '0'),
-        cobricaoAcumulada: parseFloat(document.getElementById('cobricao-acumulada')?.value || '0')
+        cobricaoAcumulada: parseFloat(document.getElementById('cobricao-acumulada')?.value || '0'),
+        mudaConsumoTotal: parseFloat(document.getElementById('muda-consumo-total')?.value || '0'),
+        mudaConsumoAcumulado: parseFloat(document.getElementById('muda-consumo-acumulado')?.value || '0'),
+        mudaConsumoDia: parseFloat(document.getElementById('muda-consumo-dia')?.value || '0'),
+        mudaPrevisto: parseFloat(document.getElementById('muda-previsto')?.value || '0'),
+        mudaLiberacaoFazenda: document.getElementById('muda-liberacao-fazenda')?.value || '',
+        mudaVariedade: document.getElementById('muda-variedade')?.value || ''
     };
     const frenteKey = document.getElementById('single-frente')?.value || '';
     if (!data || !frenteKey) { this.ui.showNotification('Informe data e frente', 'warning'); return; }
@@ -1314,10 +1444,13 @@ InsumosApp.prototype.savePlantioDia = async function() {
         frente: frenteKey,
         fazenda: document.getElementById('single-fazenda')?.value || '',
         cod: document.getElementById('single-cod')?.value ? parseInt(document.getElementById('single-cod')?.value) : undefined,
-        variedade: document.getElementById('single-variedade')?.value || '',
+        regiao: document.getElementById('single-regiao')?.value || '',
         area: parseFloat(document.getElementById('single-area')?.value || '0'),
         plantada: parseFloat(document.getElementById('single-plantada')?.value || '0'),
-        muda: parseFloat(document.getElementById('single-muda')?.value || '0')
+        muda: parseFloat(document.getElementById('single-muda')?.value || '0'),
+        areaTotal: parseFloat(document.getElementById('single-area-total')?.value || '0'),
+        areaAcumulada: parseFloat(document.getElementById('single-area-acumulada')?.value || '0'),
+        plantioDiario: parseFloat(document.getElementById('single-plantio-dia')?.value || '0')
     };
     const payload = {
         data, responsavel, observacoes,
@@ -1331,7 +1464,7 @@ InsumosApp.prototype.savePlantioDia = async function() {
             this.ui.showNotification('Dia de plantio registrado', 'success', 1500);
             this.plantioInsumosDraft = [];
             this.renderInsumosDraft();
-            ['single-fazenda','single-cod','single-variedade','single-area','single-plantada','single-muda'].forEach(id=>{ const el=document.getElementById(id); if (el) el.value=''; });
+            ['single-fazenda','single-cod','single-regiao','single-area','single-plantada','single-muda','single-area-total','single-area-acumulada','single-plantio-dia'].forEach(id=>{ const el=document.getElementById(id); if (el) el.value=''; });
             await this.loadPlantioDia();
         } else {
             this.ui.showNotification('Erro ao registrar', 'error');
