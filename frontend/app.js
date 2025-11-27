@@ -1,6 +1,7 @@
 class InsumosApp {
     constructor() {
-        this.api = window.apiService;
+        this.api = window.apiService || (typeof ApiService !== 'undefined' ? new ApiService() : null);
+        if (!window.apiService && this.api) window.apiService = this.api;
         this.ui = window.uiManager;
         this.currentFilters = {
             insumos: {}
@@ -68,7 +69,7 @@ class InsumosApp {
             this.initTheme();
             await this.setupEventListeners();
             await this.loadStaticData();
-            if (this.api.token) {
+            if (this.api && this.api.token) {
                 this.hideLoginScreen();
                 this.updateCurrentUserUI();
                 await this.loadInitialData();
@@ -513,6 +514,7 @@ forceReloadAllData() {
 
     async loadStaticData() {
         try {
+            if (!this.api) throw new Error('API não inicializada');
             const fazendasResponse = await this.api.getFazendas();
             if (fazendasResponse.success) {
                 this.ui.populateSelect(
