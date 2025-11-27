@@ -17,6 +17,18 @@ class InsumosApp {
         this.plantioExpanded = new Set();
     }
 
+    async ensureApiReady() {
+        if (!this.api) {
+            if (window.apiService) {
+                this.api = window.apiService;
+            } else if (typeof ApiService !== 'undefined') {
+                this.api = new ApiService();
+                window.apiService = this.api;
+            }
+        }
+        return !!this.api;
+    }
+
     async loadCadastroFazendasTab() {
         try {
             const res = await this.api.getCadastroFazendas();
@@ -68,6 +80,7 @@ class InsumosApp {
             
             this.initTheme();
             await this.setupEventListeners();
+            await this.ensureApiReady();
             await this.loadStaticData();
             if (this.api && this.api.token) {
                 this.hideLoginScreen();
@@ -514,6 +527,7 @@ forceReloadAllData() {
 
     async loadStaticData() {
         try {
+            await this.ensureApiReady();
             if (!this.api) throw new Error('API não inicializada');
             const fazendasResponse = await this.api.getFazendas();
             if (fazendasResponse.success) {
