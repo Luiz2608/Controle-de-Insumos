@@ -120,6 +120,19 @@ class ApiService {
         return this.request('/fazendas/produtos');
     }
 
+    async getCadastroFazendas() {
+        return this.request('/cadastro/fazendas');
+    }
+    async getCadastroFazendaByCod(cod) {
+        return this.request(`/cadastro/fazendas/${cod}`);
+    }
+    async saveCadastroFazenda(data) {
+        return this.request('/cadastro/fazendas', { method: 'POST', body: JSON.stringify(data) });
+    }
+    async updateCadastroFazenda(cod, data) {
+        return this.request(`/cadastro/fazendas/${cod}`, { method: 'PUT', body: JSON.stringify(data) });
+    }
+
     async healthCheck() {
         return this.request('/health');
     }
@@ -143,15 +156,3 @@ class ApiService {
 
 // Instância global do serviço API
 window.apiService = new ApiService();
-    async getCadastroFazendas() {
-        return this.request('/cadastro/fazendas');
-    }
-    async getCadastroFazendaByCod(cod) {
-        return this.request(`/cadastro/fazendas/${cod}`);
-    }
-    async saveCadastroFazenda(data) {
-        return this.request('/cadastro/fazendas', { method: 'POST', body: JSON.stringify(data) });
-    }
-    async updateCadastroFazenda(cod, data) {
-        return this.request(`/cadastro/fazendas/${cod}`, { method: 'PUT', body: JSON.stringify(data) });
-    }
