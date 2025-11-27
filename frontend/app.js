@@ -111,20 +111,21 @@ class InsumosApp {
     renderCadastroFazendas(list) {
         const tbody = document.getElementById('cad-fazendas-table-body');
         if (!tbody) return;
-        tbody.innerHTML = (list||[]).map(f => `
+        const rows = (list||[]).map(f => `
             <tr>
-                <td>${f.cod}</td>
+                <td>${f.codigo}</td>
                 <td>${f.nome||''}</td>
                 <td>${f.regiao||''}</td>
-                <td>${this.ui.formatNumber(f.areaTotal||0)}</td>
-                <td>${this.ui.formatNumber(f.plantioAcumulado||0)}</td>
-                <td>${this.ui.formatNumber(f.mudaAcumulada||0)}</td>
+                <td>${this.ui.formatNumber(f.area_total||0)}</td>
+                <td>${this.ui.formatNumber(f.plantio_acumulado||0)}</td>
+                <td>${this.ui.formatNumber(f.muda_acumulada||0)}</td>
                 <td>
-                    <button class="btn btn-primary" data-codigo="${f.codigo||f.cod}" data-action="editar-fazenda">Editar</button>
-                    <button class="btn btn-danger" data-codigo="${f.codigo||f.cod}" data-action="excluir-fazenda">Excluir</button>
+                    <button class="btn btn-primary" data-codigo="${f.codigo}" data-action="editar-fazenda">Editar</button>
+                    <button class="btn btn-danger" data-codigo="${f.codigo}" data-action="excluir-fazenda">Excluir</button>
                 </td>
             </tr>
         `).join('');
+        tbody.innerHTML = rows || '<tr><td colspan="7" style="text-align:center; opacity:0.7;">Nenhuma fazenda cadastrada</td></tr>';
     }
 
     async saveCadastroFazenda() {
@@ -754,8 +755,8 @@ forceReloadAllData() {
                 <td>${this.ui.formatNumber(f.area||0)}</td>
                 <td>${this.ui.formatNumber(f.plantada||0)}</td>
                 <td>${this.ui.formatNumber(f.areaTotal||0)}</td>
-                <td>${this.ui.formatNumber(f.areaAcumulada||0)}</td>
                 <td>${this.ui.formatNumber(f.plantioDiario||0)}</td>
+                <td>${this.ui.formatNumber(f.areaAcumulada||0)}</td>
             </tr>
         `).join('');
         const insumosRows = (r.insumos||[]).map(i => `
@@ -772,7 +773,7 @@ forceReloadAllData() {
                 <div>
                     <h5>Frentes</h5>
                     <table class="data-table">
-                        <thead><tr><th>Frente</th><th>Fazenda</th><th>Cód</th><th>Região</th><th>Área total</th><th>Área Plantada</th><th>Área Total</th><th>Área Acum.</th><th>Plantio Dia</th></tr></thead>
+                        <thead><tr><th>Frente</th><th>Fazenda</th><th>Cód</th><th>Região</th><th>Área total</th><th>Área Plantada</th><th>Área total Acumulada</th><th>Plantio total (ha)</th><th>Plantio acumulado</th></tr></thead>
                         <tbody>${frentesRows || '<tr><td colspan="8">—</td></tr>'}</tbody>
                     </table>
                 </div>

@@ -474,15 +474,15 @@
                         <input type="number" id="single-plantada" step="0.01">
                     </div>
                     <div class="form-group">
-                        <label for="single-area-total">Área Total</label>
+                        <label for="single-area-total">Área total Acumulada</label>
                         <input type="number" id="single-area-total" step="0.01">
                     </div>
                     <div class="form-group">
-                        <label for="single-area-acumulada">Área Acumulada</label>
+                        <label for="single-area-acumulada">Plantio acumulado (ha)</label>
                         <input type="number" id="single-area-acumulada" step="0.01">
                     </div>
                     <div class="form-group">
-                        <label for="single-plantio-dia">Plantio Diário</label>
+                        <label for="single-plantio-dia">Plantio total (ha)</label>
                         <input type="number" id="single-plantio-dia" step="0.01">
                     </div>
                     <div class="form-group">
@@ -543,33 +543,6 @@
             </div>
 
             <div class="chart-card">
-                <h4 style="margin: 0 0 10px 0;">5. Muda</h4>
-                <div class="form-grid boletim-grid">
-                    <div class="form-group">
-                        <label for="muda-consumo-total">Consumo total de muda</label>
-                        <input type="number" id="muda-consumo-total" step="0.01">
-                    </div>
-                    <div class="form-group">
-                        <label for="muda-consumo-acumulado">Consumo acumulado</label>
-                        <input type="number" id="muda-consumo-acumulado" step="0.01">
-                    </div>
-                    <div class="form-group">
-                        <label for="muda-consumo-dia">Consumo total do dia</label>
-                        <input type="number" id="muda-consumo-dia" step="0.01">
-                    </div>
-                    <div class="form-group">
-                        <label for="muda-previsto">Previsto das mudas</label>
-                        <input type="number" id="muda-previsto" step="0.01">
-                    </div>
-                    <div class="form-group">
-                        <label for="muda-liberacao-fazenda">Liberação fazenda</label>
-                        <input type="text" id="muda-liberacao-fazenda">
-                    </div>
-                    <div class="form-group">
-                        <label for="muda-variedade">Variedade</label>
-                        <input type="text" id="muda-variedade">
-                    </div>
-                </div>
                 <h4 style="margin: 0 0 10px 0;">4. Qualidade Muda/Plantio</h4>
                 <div class="form-grid">
                     <div class="form-group">
@@ -605,6 +578,35 @@
                         <input type="text" id="qual-alinhamento">
                     </div>
                 </div>
+                
+                <h4 style="margin: 0 0 10px 0;">5. Muda</h4>
+                <div class="form-grid boletim-grid">
+                    <div class="form-group">
+                        <label for="muda-consumo-total">Consumo total de muda</label>
+                        <input type="number" id="muda-consumo-total" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label for="muda-consumo-acumulado">Consumo acumulado</label>
+                        <input type="number" id="muda-consumo-acumulado" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label for="muda-consumo-dia">Consumo total do dia</label>
+                        <input type="number" id="muda-consumo-dia" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label for="muda-previsto">Previsto das mudas</label>
+                        <input type="number" id="muda-previsto" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label for="muda-liberacao-fazenda">Liberação fazenda</label>
+                        <input type="text" id="muda-liberacao-fazenda">
+                    </div>
+                    <div class="form-group">
+                        <label for="muda-variedade">Variedade</label>
+                        <input type="text" id="muda-variedade">
+                    </div>
+                </div>
+                
                 <div style="margin-top:10px; display:flex; gap:10px;">
                     <button id="plantio-save-btn" class="btn btn-primary">💾 Registrar Dia</button>
                 </div>
