@@ -17,6 +17,26 @@ class InsumosApp {
         this.plantioExpanded = new Set();
     }
 
+    async autofetchFazendaByCodigoApi(codInputId) {
+        const el = document.getElementById(codInputId);
+        const codigo = el && el.value ? el.value.trim() : '';
+        if (!codigo) return;
+        try {
+            const res = await this.api.getFazendaByCodigo(codigo);
+            if (res && res.success && res.data) {
+                const f = res.data;
+                const set = (id, val) => { const t = document.getElementById(id); if (t) t.value = val; };
+                set('single-fazenda', f.nome || '');
+                set('single-regiao', f.regiao || '');
+                set('single-area-total', String(f.area_total || 0));
+                set('single-area-acumulada', String(f.plantio_acumulado || 0));
+                const mEl = document.getElementById('muda-consumo-acumulado');
+                if (mEl) mEl.value = String(f.muda_acumulada || 0);
+            } else {
+                this.ui.showNotification('Fazenda não encontrada. Deseja criar?', 'warning', 2000);
+            }
+        } catch(e) {}
+    }
     async ensureApiReady() {
         if (!this.api) {
             if (window.apiService) {
@@ -31,10 +51,12 @@ class InsumosApp {
 
     async loadCadastroFazendasTab() {
         try {
-            const res = await this.api.getCadastroFazendas();
+            const res = await this.api.getFazendas();
             if (res && res.success) {
-                this.buildCadastroIndex(res.data || []);
-                this.renderCadastroFazendas(res.data || []);
+                const list = res.data || [];
+                this.buildCadastroIndex(list.map(f=>({ cod: f.codigo, nome: f.nome, areaTotal: f.area_total, plantioAcumulado: f.plantio_acumulado, mudaAcumulada: f.muda_acumulada, regiao: f.regiao })));
+                this.renderCadastroFazendas(list);
+                await this.handleCadastroActions();
             }
         } catch(e) {}
     }
@@ -50,7 +72,10 @@ class InsumosApp {
                 <td>${this.ui.formatNumber(f.areaTotal||0)}</td>
                 <td>${this.ui.formatNumber(f.plantioAcumulado||0)}</td>
                 <td>${this.ui.formatNumber(f.mudaAcumulada||0)}</td>
-                <td><button class="btn btn-primary" data-cod="${f.cod}" data-action="editar-fazenda">Editar</button></td>
+                <td>
+                    <button class="btn btn-primary" data-codigo="${f.codigo||f.cod}" data-action="editar-fazenda">Editar</button>
+                    <button class="btn btn-danger" data-codigo="${f.codigo||f.cod}" data-action="excluir-fazenda">Excluir</button>
+                </td>
             </tr>
         `).join('');
     }
@@ -58,21 +83,63 @@ class InsumosApp {
     async saveCadastroFazenda() {
         const get = id => document.getElementById(id)?.value;
         const payload = {
-            cod: get('cad-fazenda-cod') ? parseInt(get('cad-fazenda-cod')) : undefined,
+            codigo: get('cad-fazenda-cod') ? String(get('cad-fazenda-cod')) : undefined,
             nome: get('cad-fazenda-nome') || '',
             regiao: get('cad-fazenda-regiao') || '',
-            areaTotal: get('cad-fazenda-area-total') ? parseFloat(get('cad-fazenda-area-total')) : 0,
-            plantioAcumulado: get('cad-fazenda-plantio-acumulado') ? parseFloat(get('cad-fazenda-plantio-acumulado')) : 0,
-            mudaAcumulada: get('cad-fazenda-muda-acumulada') ? parseFloat(get('cad-fazenda-muda-acumulada')) : 0,
+            area_total: get('cad-fazenda-area-total') ? parseFloat(get('cad-fazenda-area-total')) : 0,
+            plantio_acumulado: get('cad-fazenda-plantio-acumulado') ? parseFloat(get('cad-fazenda-plantio-acumulado')) : 0,
+            muda_acumulada: get('cad-fazenda-muda-acumulada') ? parseFloat(get('cad-fazenda-muda-acumulada')) : 0,
+            observacoes: get('cad-fazenda-observacoes') || ''
         };
-        if (!payload.cod || !payload.nome) { this.ui.showNotification('Informe código e nome', 'warning'); return; }
+        if (!payload.codigo || !payload.nome) { this.ui.showNotification('Informe código e nome', 'warning'); return; }
         try {
-            const res = await this.api.saveCadastroFazenda(payload);
+            const exists = await this.api.getFazendaByCodigo(payload.codigo);
+            let res;
+            if (exists && exists.success) {
+                res = await this.api.updateFazenda(payload.codigo, payload);
+            } else {
+                res = await this.api.createFazenda(payload);
+            }
             if (res && res.success) {
                 this.ui.showNotification('Fazenda salva', 'success', 1500);
                 await this.loadCadastroFazendasTab();
             } else { this.ui.showNotification('Erro ao salvar fazenda', 'error'); }
         } catch(e) { this.ui.showNotification('Erro ao salvar fazenda', 'error'); }
+    }
+
+    async handleCadastroActions() {
+        const table = document.getElementById('cad-fazendas-table');
+        if (!table) return;
+        table.addEventListener('click', async (e) => {
+            const btn = e.target.closest('button[data-action]');
+            if (!btn) return;
+            const codigo = btn.getAttribute('data-codigo');
+            const action = btn.getAttribute('data-action');
+            if (action === 'editar-fazenda') {
+                const res = await this.api.getFazendaByCodigo(codigo);
+                if (res && res.success && res.data) {
+                    const f = res.data;
+                    const set = (id, val) => { const t = document.getElementById(id); if (t) t.value = val; };
+                    set('cad-fazenda-cod', f.codigo);
+                    set('cad-fazenda-nome', f.nome||'');
+                    set('cad-fazenda-regiao', f.regiao||'');
+                    set('cad-fazenda-area-total', String(f.area_total||0));
+                    set('cad-fazenda-plantio-acumulado', String(f.plantio_acumulado||0));
+                    set('cad-fazenda-muda-acumulada', String(f.muda_acumulada||0));
+                    set('cad-fazenda-observacoes', f.observacoes||'');
+                }
+            } else if (action === 'excluir-fazenda') {
+                const ok = confirm('Excluir esta fazenda?');
+                if (!ok) return;
+                const res = await this.api.deleteFazenda(codigo);
+                if (res && res.success) { this.ui.showNotification('Fazenda excluída', 'success', 1500); await this.loadCadastroFazendasTab(); }
+                else this.ui.showNotification('Erro ao excluir', 'error');
+            }
+        });
+        const limparBtn = document.getElementById('cad-fazenda-limpar');
+        if (limparBtn) limparBtn.addEventListener('click', () => {
+            ['cad-fazenda-cod','cad-fazenda-nome','cad-fazenda-regiao','cad-fazenda-area-total','cad-fazenda-plantio-acumulado','cad-fazenda-muda-acumulada','cad-fazenda-observacoes'].forEach(id=>{ const el=document.getElementById(id); if (el) el.value=''; });
+        });
     }
     async init() {
         try {
@@ -334,7 +401,7 @@ forceReloadAllData() {
         const fazendaInput = document.getElementById('fazenda');
         const codInput = document.getElementById('cod');
         if (fazendaInput) fazendaInput.addEventListener('change', () => this.autofillByFazenda());
-        if (codInput) codInput.addEventListener('change', () => this.autofillByCod());
+        if (codInput) codInput.addEventListener('change', async () => { this.autofillByCod(); await this.autofetchFazendaByCodigoApi('cod'); });
 
         document.addEventListener('click', (e) => {
             const editBtn = e.target.closest('.btn-edit');
@@ -411,9 +478,10 @@ forceReloadAllData() {
         const singleCod = document.getElementById('single-cod');
         const singleFazenda = document.getElementById('single-fazenda');
         if (singleFazenda) singleFazenda.addEventListener('change', () => this.autofillRowByFazenda('single-fazenda', 'single-cod'));
-        if (singleCod) singleCod.addEventListener('change', () => { 
+        if (singleCod) singleCod.addEventListener('change', async () => { 
             this.autofillRowByCod('single-fazenda', 'single-cod'); 
             this.autofillCadastroFieldsByCod('single-cod');
+            await this.autofetchFazendaByCodigoApi('single-cod');
         });
         
         const loginBtn = document.getElementById('login-btn');
@@ -430,9 +498,18 @@ forceReloadAllData() {
         const plantioFazenda = document.getElementById('plantio-fazenda');
         const plantioCod = document.getElementById('plantio-cod');
         if (plantioFazenda) plantioFazenda.addEventListener('change', () => this.autofillPlantioByFazenda());
-        if (plantioCod) plantioCod.addEventListener('change', () => this.autofillPlantioByCod());
+        if (plantioCod) plantioCod.addEventListener('change', async () => { this.autofillPlantioByCod(); await this.autofetchFazendaByCodigoApi('plantio-cod'); });
+        const gpsSel = document.getElementById('plantio-gps');
+        const gpsCoords = document.getElementById('gps-coords');
+        if (gpsSel && gpsCoords) {
+            const applyGps = () => { const v = gpsSel.value; gpsCoords.style.display = (v === 'Sim') ? 'grid' : 'none'; };
+            gpsSel.addEventListener('change', applyGps);
+            applyGps();
+        }
         const cadSalvarBtn = document.getElementById('cad-fazenda-salvar');
         if (cadSalvarBtn) cadSalvarBtn.addEventListener('click', async () => { await this.saveCadastroFazenda(); });
+        const cadastroTab = document.getElementById('cadastro-fazendas');
+        if (cadastroTab) await this.handleCadastroActions();
     }
 
     autofillCadastroFieldsByCod(codInputId) {
@@ -531,9 +608,11 @@ forceReloadAllData() {
             if (!this.api) throw new Error('API não inicializada');
             const fazendasResponse = await this.api.getFazendas();
             if (fazendasResponse.success) {
+                const list = Array.isArray(fazendasResponse.data) ? fazendasResponse.data : [];
+                const nomes = list.map(f => (typeof f === 'string') ? f : (f.nome || f.codigo)).filter(Boolean);
                 this.ui.populateSelect(
                     document.getElementById('fazenda-insumos-filter'),
-                    fazendasResponse.data,
+                    nomes,
                     'Todas as Fazendas'
                 );
             }
@@ -598,8 +677,7 @@ forceReloadAllData() {
         const rows = (this.plantioDia || []).slice().sort((a,b)=> String(a.data||'').localeCompare(String(b.data||'')));
         tbody.innerHTML = rows.map(r => {
             const sumArea = (r.frentes||[]).reduce((s,x)=> s + (Number(x.area)||0), 0);
-            const sumMuda = (r.frentes||[]).reduce((s,x)=> s + (Number(x.muda)||0), 0);
-            const resumoFrentes = (r.frentes||[]).map(f => `${f.frente}: ${f.fazenda||'—'}${f.regiao?(' / '+f.regiao):''}`).join(' | ');
+        const resumoFrentes = (r.frentes||[]).map(f => `${f.frente}: ${f.fazenda||'—'}${f.regiao?(' / '+f.regiao):''}`).join(' | ');
             const expanded = this.plantioExpanded.has(String(r.id));
             const details = expanded ? this.getPlantioDetailsHTML(r) : '';
             const toggleText = expanded ? 'Ocultar detalhes' : 'Ver detalhes';
@@ -608,7 +686,7 @@ forceReloadAllData() {
                 <td>${this.ui.formatDateBR(r.data)}</td>
                 <td>${resumoFrentes || '—'}</td>
                 <td>${this.ui.formatNumber(sumArea)}</td>
-                <td>${this.ui.formatNumber(sumMuda)}</td>
+                
                 <td>
                     <button class="btn btn-secondary btn-toggle-plantio-details" data-plantio-id="${r.id}">${toggleText}</button>
                     <button class="btn btn-delete-plantio" data-plantio-id="${r.id}">🗑️</button>
@@ -627,7 +705,6 @@ forceReloadAllData() {
                 <td>${f.regiao||'—'}</td>
                 <td>${this.ui.formatNumber(f.area||0)}</td>
                 <td>${this.ui.formatNumber(f.plantada||0)}</td>
-                <td>${this.ui.formatNumber(f.muda||0)}</td>
                 <td>${this.ui.formatNumber(f.areaTotal||0)}</td>
                 <td>${this.ui.formatNumber(f.areaAcumulada||0)}</td>
                 <td>${this.ui.formatNumber(f.plantioDiario||0)}</td>
@@ -647,7 +724,7 @@ forceReloadAllData() {
                 <div>
                     <h5>Frentes</h5>
                     <table class="data-table">
-                        <thead><tr><th>Frente</th><th>Fazenda</th><th>Cód</th><th>Região</th><th>Área</th><th>Plantada</th><th>Muda</th><th>Área Total</th><th>Área Acum.</th><th>Plantio Dia</th></tr></thead>
+                        <thead><tr><th>Frente</th><th>Fazenda</th><th>Cód</th><th>Região</th><th>Área total</th><th>Área Plantada</th><th>Área Total</th><th>Área Acum.</th><th>Plantio Dia</th></tr></thead>
                         <tbody>${frentesRows || '<tr><td colspan="8">—</td></tr>'}</tbody>
                     </table>
                 </div>
@@ -671,7 +748,7 @@ forceReloadAllData() {
                         <div>Alinhamento: ${q.alinhamento||'—'}</div>
                         <div>Chuva (mm): ${this.ui.formatNumber(q.chuvaMm||0,1)}</div>
                         <div>GPS: ${q.gps? 'Sim':'Não'}</div>
-                        <div>OXIFERTIL Dose: ${this.ui.formatNumber(q.oxifertilDose||0,2)}</div>
+                        
                         <div>Cobrição (dia): ${this.ui.formatNumber(q.cobricaoDia||0,2)}</div>
                         <div>Cobrição (acum.): ${this.ui.formatNumber(q.cobricaoAcumulada||0,2)}</div>
                         <div>Consumo total de muda: ${this.ui.formatNumber(q.mudaConsumoTotal||0,2)}</div>
@@ -1467,7 +1544,6 @@ InsumosApp.prototype.savePlantioDia = async function() {
         regiao: document.getElementById('single-regiao')?.value || '',
         area: parseFloat(document.getElementById('single-area')?.value || '0'),
         plantada: parseFloat(document.getElementById('single-plantada')?.value || '0'),
-        muda: parseFloat(document.getElementById('single-muda')?.value || '0'),
         areaTotal: parseFloat(document.getElementById('single-area-total')?.value || '0'),
         areaAcumulada: parseFloat(document.getElementById('single-area-acumulada')?.value || '0'),
         plantioDiario: parseFloat(document.getElementById('single-plantio-dia')?.value || '0')
@@ -1484,7 +1560,7 @@ InsumosApp.prototype.savePlantioDia = async function() {
             this.ui.showNotification('Dia de plantio registrado', 'success', 1500);
             this.plantioInsumosDraft = [];
             this.renderInsumosDraft();
-            ['single-fazenda','single-cod','single-regiao','single-area','single-plantada','single-muda','single-area-total','single-area-acumulada','single-plantio-dia'].forEach(id=>{ const el=document.getElementById(id); if (el) el.value=''; });
+            ['single-fazenda','single-cod','single-regiao','single-area','single-plantada','single-area-total','single-area-acumulada','single-plantio-dia'].forEach(id=>{ const el=document.getElementById(id); if (el) el.value=''; });
             await this.loadPlantioDia();
         } else {
             this.ui.showNotification('Erro ao registrar', 'error');
@@ -1524,22 +1600,27 @@ InsumosApp.prototype.savePlantioFrente = async function(frenteKey) {
     const observacoes = document.getElementById('plantio-obs')?.value || '';
     if (!data) { this.ui.showNotification('Informe a data', 'warning'); return; }
     const map = {
-        '4001': { fazenda: 'fr-4001-fazenda', cod: 'fr-4001-cod', variedade: 'fr-4001-variedade', area: 'fr-4001-area', plantada: 'fr-4001-plantada', muda: 'fr-4001-muda' },
-        '4002': { fazenda: 'fr-4002-fazenda', cod: 'fr-4002-cod', variedade: 'fr-4002-variedade', area: 'fr-4002-area', plantada: 'fr-4002-plantada', muda: 'fr-4002-muda' },
-        '4009 Abençoada': { fazenda: 'fr-4009-fazenda', cod: 'fr-4009-cod', variedade: 'fr-4009-variedade', area: 'fr-4009-area', plantada: 'fr-4009-plantada', muda: 'fr-4009-muda' }
+        '4001': { fazenda: 'fr-4001-fazenda', cod: 'fr-4001-cod', area: 'fr-4001-area', plantada: 'fr-4001-plantada' },
+        '4002': { fazenda: 'fr-4002-fazenda', cod: 'fr-4002-cod', area: 'fr-4002-area', plantada: 'fr-4002-plantada' },
+        '4009 Abençoada': { fazenda: 'fr-4009-fazenda', cod: 'fr-4009-cod', area: 'fr-4009-area', plantada: 'fr-4009-plantada' }
     }[frenteKey];
     if (!map) return;
     const frente = {
         frente: frenteKey,
         fazenda: document.getElementById(map.fazenda)?.value || '',
         cod: document.getElementById(map.cod)?.value ? parseInt(document.getElementById(map.cod)?.value) : undefined,
-        variedade: document.getElementById(map.variedade)?.value || '',
         area: parseFloat(document.getElementById(map.area)?.value || '0'),
-        plantada: parseFloat(document.getElementById(map.plantada)?.value || '0'),
-        muda: parseFloat(document.getElementById(map.muda)?.value || '0')
+        plantada: parseFloat(document.getElementById(map.plantada)?.value || '0')
     };
     if (!frente.fazenda && !frente.cod) { this.ui.showNotification('Informe a fazenda ou código da frente', 'warning'); return; }
-    const payload = { data, responsavel, observacoes, frentes: [frente], insumos: this.plantioInsumosDraft.slice(), qualidade: {} };
+    const gpsSel = document.getElementById('plantio-gps');
+    const qualidade = { gps: (gpsSel && gpsSel.value === 'Sim') ? 'Sim' : 'Não' };
+    if (qualidade.gps === 'Sim') {
+        qualidade.gps_lat = document.getElementById('gps-lat')?.value || '';
+        qualidade.gps_lon = document.getElementById('gps-lon')?.value || '';
+        qualidade.gps_alt = document.getElementById('gps-alt')?.value ? parseFloat(document.getElementById('gps-alt')?.value) : undefined;
+    }
+    const payload = { data, responsavel, observacoes, frentes: [frente], insumos: this.plantioInsumosDraft.slice(), qualidade };
     try {
         const res = await this.api.addPlantioDia(payload);
         if (res && res.success) {
@@ -1554,9 +1635,9 @@ InsumosApp.prototype.savePlantioFrente = async function(frenteKey) {
 };
 
 InsumosApp.prototype.clearFrenteRow = function(frenteKey) {
-    const ids = frenteKey === '4001' ? ['fr-4001-fazenda','fr-4001-cod','fr-4001-variedade','fr-4001-area','fr-4001-plantada','fr-4001-muda']
-        : frenteKey === '4002' ? ['fr-4002-fazenda','fr-4002-cod','fr-4002-variedade','fr-4002-area','fr-4002-plantada','fr-4002-muda']
-        : ['fr-4009-fazenda','fr-4009-cod','fr-4009-variedade','fr-4009-area','fr-4009-plantada','fr-4009-muda'];
+    const ids = frenteKey === '4001' ? ['fr-4001-fazenda','fr-4001-cod','fr-4001-area','fr-4001-plantada']
+        : frenteKey === '4002' ? ['fr-4002-fazenda','fr-4002-cod','fr-4002-area','fr-4002-plantada']
+        : ['fr-4009-fazenda','fr-4009-cod','fr-4009-area','fr-4009-plantada'];
     ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
 };
 

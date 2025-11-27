@@ -378,7 +378,24 @@
                     </div>
                     <div class="form-group">
                         <label for="plantio-gps">GPS</label>
-                        <input type="checkbox" id="plantio-gps">
+                        <select id="plantio-gps">
+                            <option value="Não" selected>Não</option>
+                            <option value="Sim">Sim</option>
+                        </select>
+                        <div id="gps-coords" style="display:none; grid-column: span 3; margin-top:8px;">
+                            <div class="form-group">
+                                <label for="gps-lat">Latitude</label>
+                                <input type="text" id="gps-lat" placeholder="-23.12345">
+                            </div>
+                            <div class="form-group">
+                                <label for="gps-lon">Longitude</label>
+                                <input type="text" id="gps-lon" placeholder="-46.12345">
+                            </div>
+                            <div class="form-group">
+                                <label for="gps-alt">Altitude (m)</label>
+                                <input type="number" id="gps-alt" step="0.1">
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -409,16 +426,12 @@
                         <input type="text" id="single-regiao">
                     </div>
                     <div class="form-group">
-                        <label for="single-area">Área (ha)</label>
+                        <label for="single-area">Área total (ha)</label>
                         <input type="number" id="single-area" step="0.01">
                     </div>
                     <div class="form-group">
-                        <label for="single-plantada">Plantada (ha)</label>
+                        <label for="single-plantada">Área Plantada (ha)</label>
                         <input type="number" id="single-plantada" step="0.01">
-                    </div>
-                    <div class="form-group">
-                        <label for="single-muda">Muda (ton)</label>
-                        <input type="number" id="single-muda" step="0.01">
                     </div>
                     <div class="form-group">
                         <label for="single-area-total">Área Total</label>
@@ -439,10 +452,6 @@
                     <div class="form-group">
                         <label for="cobricao-acumulada">Cobrição (acumulada)</label>
                         <input type="number" id="cobricao-acumulada" step="0.01">
-                    </div>
-                    <div class="form-group">
-                        <label for="oxifertil-dose">OXIFERTIL Dose</label>
-                        <input type="number" id="oxifertil-dose" step="0.01">
                     </div>
                 </div>
             </div>
@@ -568,7 +577,6 @@
                             <th>Data</th>
                             <th>Frentes do dia</th>
                             <th>Σ Área (ha)</th>
-                            <th>Σ Muda (ton)</th>
                             <th>Ações</th>
                         </tr>
                     </thead>
@@ -607,9 +615,14 @@
                             <label for="cad-fazenda-muda-acumulada">Muda acumulada</label>
                             <input type="number" id="cad-fazenda-muda-acumulada" step="0.01">
                         </div>
+                        <div class="form-group" style="grid-column: span 3;">
+                            <label for="cad-fazenda-observacoes">Observações</label>
+                            <textarea id="cad-fazenda-observacoes" rows="2"></textarea>
+                        </div>
                     </div>
                     <div style="margin-top:10px; display:flex; gap:10px; justify-content:flex-end;">
                         <button id="cad-fazenda-salvar" class="btn btn-primary">Salvar</button>
+                        <button id="cad-fazenda-limpar" class="btn btn-secondary">Limpar</button>
                     </div>
                 </div>
                 <div class="table-container">

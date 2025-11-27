@@ -120,6 +120,19 @@ class ApiService {
         return this.request('/fazendas/produtos');
     }
 
+    async createFazenda(payload) {
+        return this.request('/fazendas', { method: 'POST', body: JSON.stringify(payload) });
+    }
+    async getFazendaByCodigo(codigo) {
+        return this.request(`/fazendas/${codigo}`);
+    }
+    async updateFazenda(codigo, payload) {
+        return this.request(`/fazendas/${codigo}`, { method: 'PUT', body: JSON.stringify(payload) });
+    }
+    async deleteFazenda(codigo) {
+        return this.request(`/fazendas/${codigo}`, { method: 'DELETE' });
+    }
+
     async getCadastroFazendas() {
         return this.request('/cadastro/fazendas');
     }

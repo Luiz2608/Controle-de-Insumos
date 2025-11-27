@@ -126,9 +126,60 @@ app.get('/api/health', (req, res) => {
     res.json({ success: true, message: 'API funcionando!' });
 });
 
-// Fazendas
+// CRUD de Fazendas (em memória)
+// Modelo: { codigo, nome, regiao, area_total, plantio_acumulado, muda_acumulada, observacoes }
+const fazendasStore = new Map();
+// Seed básico
+fazendasStore.set('1030', { codigo: '1030', nome: 'ORIENTE', regiao: '', area_total: 0, plantio_acumulado: 0, muda_acumulada: 0, observacoes: '' });
+
+// GET lista completa
 app.get('/api/fazendas', (req, res) => {
-    res.json({ success: true, data: filterData.fazendas });
+    try {
+        res.json({ success: true, data: Array.from(fazendasStore.values()) });
+    } catch(e) { res.status(500).json({ success: false, message: 'Erro ao listar fazendas' }); }
+});
+
+// POST criar
+app.post('/api/fazendas', (req, res) => {
+    try {
+        const { codigo, nome, regiao = '', area_total = 0, plantio_acumulado = 0, muda_acumulada = 0, observacoes = '' } = req.body || {};
+        if (!codigo || !nome) return res.status(400).json({ success: false, message: 'codigo e nome são obrigatórios' });
+        if (fazendasStore.has(String(codigo))) return res.status(409).json({ success: false, message: 'Fazenda já existe' });
+        const item = { codigo: String(codigo), nome, regiao, area_total: Number(area_total)||0, plantio_acumulado: Number(plantio_acumulado)||0, muda_acumulada: Number(muda_acumulada)||0, observacoes };
+        fazendasStore.set(item.codigo, item);
+        res.json({ success: true, data: item });
+    } catch(e) { res.status(500).json({ success: false, message: 'Erro ao criar fazenda' }); }
+});
+
+// GET por código
+app.get('/api/fazendas/:codigo', (req, res) => {
+    try { const codigo = String(req.params.codigo); const f = fazendasStore.get(codigo); if (!f) return res.status(404).json({ success: false, message: 'Fazenda não encontrada' }); res.json({ success: true, data: f }); } catch(e) { res.status(500).json({ success: false, message: 'Erro ao buscar fazenda' }); }
+});
+
+// PUT atualizar
+app.put('/api/fazendas/:codigo', (req, res) => {
+    try {
+        const codigo = String(req.params.codigo);
+        if (!fazendasStore.has(codigo)) return res.status(404).json({ success: false, message: 'Fazenda não encontrada' });
+        const curr = fazendasStore.get(codigo);
+        const { nome, regiao, area_total, plantio_acumulado, muda_acumulada, observacoes } = req.body || {};
+        const updated = {
+            codigo,
+            nome: nome ?? curr.nome,
+            regiao: regiao ?? curr.regiao,
+            area_total: area_total != null ? Number(area_total)||0 : curr.area_total,
+            plantio_acumulado: plantio_acumulado != null ? Number(plantio_acumulado)||0 : curr.plantio_acumulado,
+            muda_acumulada: muda_acumulada != null ? Number(muda_acumulada)||0 : curr.muda_acumulada,
+            observacoes: observacoes ?? curr.observacoes
+        };
+        fazendasStore.set(codigo, updated);
+        res.json({ success: true, data: updated });
+    } catch(e) { res.status(500).json({ success: false, message: 'Erro ao atualizar fazenda' }); }
+});
+
+// DELETE apagar
+app.delete('/api/fazendas/:codigo', (req, res) => {
+    try { const codigo = String(req.params.codigo); if (!fazendasStore.has(codigo)) return res.status(404).json({ success: false, message: 'Fazenda não encontrada' }); fazendasStore.delete(codigo); res.json({ success: true }); } catch(e) { res.status(500).json({ success: false, message: 'Erro ao excluir fazenda' }); }
 });
 
 app.get('/api/fazendas/produtos', (req, res) => {
@@ -404,7 +455,6 @@ app.post('/api/plantio-dia', requireAuth, (req, res) => {
             regiao: f.regiao || f.variedade || '',
             area: Number(f.area) || 0,
             plantada: Number(f.plantada) || 0,
-            muda: Number(f.muda) || 0,
             areaTotal: Number(f.areaTotal) || 0,
             areaAcumulada: Number(f.areaAcumulada) || 0,
             plantioDiario: Number(f.plantioDiario) || 0,
