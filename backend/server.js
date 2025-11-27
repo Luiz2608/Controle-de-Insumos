@@ -139,6 +139,15 @@ app.get('/api/fazendas', (req, res) => {
     } catch(e) { res.status(500).json({ success: false, message: 'Erro ao listar fazendas' }); }
 });
 
+// Rotas auxiliares devem vir ANTES das rotas com parâmetro
+app.get('/api/fazendas/produtos', (req, res) => {
+    res.json({ success: true, data: filterData.produtos });
+});
+
+app.get('/api/fazendas/fornecedores', (req, res) => {
+    res.json({ success: true, data: filterData.fornecedores });
+});
+
 // POST criar
 app.post('/api/fazendas', (req, res) => {
     try {
@@ -180,14 +189,6 @@ app.put('/api/fazendas/:codigo', (req, res) => {
 // DELETE apagar
 app.delete('/api/fazendas/:codigo', (req, res) => {
     try { const codigo = String(req.params.codigo); if (!fazendasStore.has(codigo)) return res.status(404).json({ success: false, message: 'Fazenda não encontrada' }); fazendasStore.delete(codigo); res.json({ success: true }); } catch(e) { res.status(500).json({ success: false, message: 'Erro ao excluir fazenda' }); }
-});
-
-app.get('/api/fazendas/produtos', (req, res) => {
-    res.json({ success: true, data: filterData.produtos });
-});
-
-app.get('/api/fazendas/fornecedores', (req, res) => {
-    res.json({ success: true, data: filterData.fornecedores });
 });
 
 // Insumos - OXIFERTIL

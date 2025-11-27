@@ -33,67 +33,14 @@ class InsumosApp {
                 const mEl = document.getElementById('muda-consumo-acumulado');
                 if (mEl) mEl.value = String(f.muda_acumulada || 0);
             } else {
-                this.openCadastroWithCode(codigo);
+                this.ui.showNotification('Fazenda não encontrada', 'warning', 2000);
             }
         } catch(e) {}
     }
 
-    async openCadastroWithCode(codigo) {
-        this.ui.switchTab('cadastro-fazendas');
-        await this.loadTabData('cadastro-fazendas');
-        const codeEl = document.getElementById('cad-fazenda-cod');
-        if (codeEl) codeEl.value = codigo;
-        const nomeEl = document.getElementById('cad-fazenda-nome');
-        if (nomeEl) nomeEl.focus();
-        this.ui.showNotification('Fazenda não encontrada — cadastre agora.', 'warning', 2000);
-    }
+    
 
-    openCreateFazendaModal(codigo) {
-        const modal = document.getElementById('modal-fazenda');
-        if (!modal) return;
-        const set = (id, val) => { const t = document.getElementById(id); if (t) t.value = val; };
-        set('modal-fazenda-codigo', codigo || '');
-        set('modal-fazenda-nome', '');
-        set('modal-fazenda-regiao', '');
-        set('modal-fazenda-area', '');
-        set('modal-fazenda-plantio', '');
-        set('modal-fazenda-muda', '');
-        set('modal-fazenda-observacoes', '');
-        modal.style.display = 'flex';
-        const salvar = document.getElementById('modal-fazenda-salvar');
-        const cancelar = document.getElementById('modal-fazenda-cancelar');
-        const onClose = () => { modal.style.display = 'none'; salvar.removeEventListener('click', onSave); cancelar.removeEventListener('click', onClose); };
-        const onSave = async () => {
-            const payload = {
-                codigo: document.getElementById('modal-fazenda-codigo')?.value || '',
-                nome: document.getElementById('modal-fazenda-nome')?.value || '',
-                regiao: document.getElementById('modal-fazenda-regiao')?.value || '',
-                area_total: document.getElementById('modal-fazenda-area')?.value ? parseFloat(document.getElementById('modal-fazenda-area')?.value) : 0,
-                plantio_acumulado: document.getElementById('modal-fazenda-plantio')?.value ? parseFloat(document.getElementById('modal-fazenda-plantio')?.value) : 0,
-                muda_acumulada: document.getElementById('modal-fazenda-muda')?.value ? parseFloat(document.getElementById('modal-fazenda-muda')?.value) : 0,
-                observacoes: document.getElementById('modal-fazenda-observacoes')?.value || ''
-            };
-            if (!payload.codigo || !payload.nome) { this.ui.showNotification('Informe código e nome', 'warning'); return; }
-            try {
-                const res = await this.api.createFazenda(payload);
-                if (res && res.success) {
-                    this.ui.showNotification('Fazenda criada', 'success', 1500);
-                    onClose();
-                    await this.loadCadastroFazendasTab();
-                    // Preencher campos na tela atual
-                    const set2 = (id, val) => { const t = document.getElementById(id); if (t) t.value = val; };
-                    set2('single-cod', payload.codigo);
-                    set2('single-fazenda', payload.nome);
-                    set2('single-regiao', payload.regiao || '');
-                    set2('single-area-total', String(payload.area_total || 0));
-                    set2('single-area-acumulada', String(payload.plantio_acumulado || 0));
-                    const mEl = document.getElementById('muda-consumo-acumulado'); if (mEl) mEl.value = String(payload.muda_acumulada || 0);
-                } else this.ui.showNotification('Erro ao criar fazenda', 'error');
-            } catch(e) { this.ui.showNotification('Erro ao criar fazenda', 'error'); }
-        };
-        salvar.addEventListener('click', onSave);
-        cancelar.addEventListener('click', onClose);
-    }
+    
     async ensureApiReady() {
         if (!this.api) {
             if (window.apiService) {
@@ -106,126 +53,17 @@ class InsumosApp {
         return !!this.api;
     }
 
-    async loadCadastroFazendasTab() {
-        try {
-            const res = await this.api.getFazendas();
-            if (res && res.success) {
-                const list = res.data || [];
-                this.buildCadastroIndex(list.map(f=>({ cod: f.codigo, nome: f.nome, areaTotal: f.area_total, plantioAcumulado: f.plantio_acumulado, mudaAcumulada: f.muda_acumulada, regiao: f.regiao })));
-                this.renderCadastroFazendas(list);
-                await this.handleCadastroActions();
-            }
-        } catch(e) {}
-    }
+    
 
-    renderCadastroFazendas(list) {
-        const tbody = document.getElementById('cad-fazendas-table-body');
-        if (!tbody) return;
-        const rows = (list||[]).map(f => `
-            <tr>
-                <td>${f.codigo}</td>
-                <td>${f.nome||''}</td>
-                <td>${f.regiao||''}</td>
-                <td>${this.ui.formatNumber(f.area_total||0)}</td>
-                <td>${this.ui.formatNumber(f.plantio_acumulado||0)}</td>
-                <td>${this.ui.formatNumber(f.muda_acumulada||0)}</td>
-                <td>
-                    <button class="btn btn-primary" data-codigo="${f.codigo}" data-action="editar-fazenda">Editar</button>
-                    <button class="btn btn-danger" data-codigo="${f.codigo}" data-action="excluir-fazenda">Excluir</button>
-                </td>
-            </tr>
-        `).join('');
-        tbody.innerHTML = rows || '<tr><td colspan="7" style="text-align:center; opacity:0.7;">Nenhuma fazenda cadastrada</td></tr>';
-    }
+    renderCadastroFazendas(list) {}
 
-    async saveCadastroFazenda() {
-        const get = id => document.getElementById(id)?.value;
-        const payload = {
-            codigo: get('cad-fazenda-cod') ? String(get('cad-fazenda-cod')) : undefined,
-            nome: get('cad-fazenda-nome') || '',
-            regiao: get('cad-fazenda-regiao') || '',
-            area_total: get('cad-fazenda-area-total') ? parseFloat(get('cad-fazenda-area-total')) : 0,
-            plantio_acumulado: get('cad-fazenda-plantio-acumulado') ? parseFloat(get('cad-fazenda-plantio-acumulado')) : 0,
-            muda_acumulada: get('cad-fazenda-muda-acumulada') ? parseFloat(get('cad-fazenda-muda-acumulada')) : 0,
-            observacoes: get('cad-fazenda-observacoes') || ''
-        };
-        if (!payload.codigo || !payload.nome) { this.ui.showNotification('Informe código e nome', 'warning'); return; }
-        try {
-            const res = await this.api.createFazenda(payload);
-            if (res && res.success) {
-                this.ui.showNotification('Fazenda salva', 'success', 1500);
-                await this.loadCadastroFazendasTab();
-            } else { this.ui.showNotification('Erro ao salvar fazenda', 'error'); }
-        } catch(e) {
-            this.ui.showNotification(e?.message?.includes('409') ? 'Código já cadastrado' : 'Erro ao salvar fazenda', 'error');
-        }
-    }
+    async saveCadastroFazenda() {}
 
-    async editCadastroFazenda() {
-        const get = id => document.getElementById(id)?.value;
-        const codigo = get('cad-fazenda-cod');
-        if (!codigo) { this.ui.showNotification('Informe o código para editar', 'warning'); return; }
-        const payload = {
-            nome: get('cad-fazenda-nome') || '',
-            regiao: get('cad-fazenda-regiao') || '',
-            area_total: get('cad-fazenda-area-total') ? parseFloat(get('cad-fazenda-area-total')) : 0,
-            plantio_acumulado: get('cad-fazenda-plantio-acumulado') ? parseFloat(get('cad-fazenda-plantio-acumulado')) : 0,
-            muda_acumulada: get('cad-fazenda-muda-acumulada') ? parseFloat(get('cad-fazenda-muda-acumulada')) : 0,
-            observacoes: get('cad-fazenda-observacoes') || ''
-        };
-        try {
-            const res = await this.api.updateFazenda(codigo, payload);
-            if (res && res.success) { this.ui.showNotification('Fazenda atualizada', 'success', 1500); await this.loadCadastroFazendasTab(); }
-            else this.ui.showNotification('Erro ao atualizar fazenda', 'error');
-        } catch(e) { this.ui.showNotification('Erro ao atualizar fazenda', 'error'); }
-    }
+    async editCadastroFazenda() {}
 
-    async deleteCadastroFazenda() {
-        const codigo = document.getElementById('cad-fazenda-cod')?.value;
-        if (!codigo) { this.ui.showNotification('Informe o código para excluir', 'warning'); return; }
-        const ok = window.confirm('Excluir esta fazenda?');
-        if (!ok) return;
-        try {
-            const res = await this.api.deleteFazenda(codigo);
-            if (res && res.success) { this.ui.showNotification('Fazenda excluída', 'success', 1500); await this.loadCadastroFazendasTab(); }
-            else this.ui.showNotification('Erro ao excluir fazenda', 'error');
-        } catch(e) { this.ui.showNotification('Erro ao excluir fazenda', 'error'); }
-    }
+    async deleteCadastroFazenda() {}
 
-    async handleCadastroActions() {
-        const table = document.getElementById('cad-fazendas-table');
-        if (!table) return;
-        table.addEventListener('click', async (e) => {
-            const btn = e.target.closest('button[data-action]');
-            if (!btn) return;
-            const codigo = btn.getAttribute('data-codigo');
-            const action = btn.getAttribute('data-action');
-            if (action === 'editar-fazenda') {
-                const res = await this.api.getFazendaByCodigo(codigo);
-                if (res && res.success && res.data) {
-                    const f = res.data;
-                    const set = (id, val) => { const t = document.getElementById(id); if (t) t.value = val; };
-                    set('cad-fazenda-cod', f.codigo);
-                    set('cad-fazenda-nome', f.nome||'');
-                    set('cad-fazenda-regiao', f.regiao||'');
-                    set('cad-fazenda-area-total', String(f.area_total||0));
-                    set('cad-fazenda-plantio-acumulado', String(f.plantio_acumulado||0));
-                    set('cad-fazenda-muda-acumulada', String(f.muda_acumulada||0));
-                    set('cad-fazenda-observacoes', f.observacoes||'');
-                }
-            } else if (action === 'excluir-fazenda') {
-                const ok = confirm('Excluir esta fazenda?');
-                if (!ok) return;
-                const res = await this.api.deleteFazenda(codigo);
-                if (res && res.success) { this.ui.showNotification('Fazenda excluída', 'success', 1500); await this.loadCadastroFazendasTab(); }
-                else this.ui.showNotification('Erro ao excluir', 'error');
-            }
-        });
-        const limparBtn = document.getElementById('cad-fazenda-limpar');
-        if (limparBtn) limparBtn.addEventListener('click', () => {
-            ['cad-fazenda-cod','cad-fazenda-nome','cad-fazenda-regiao','cad-fazenda-area-total','cad-fazenda-plantio-acumulado','cad-fazenda-muda-acumulada','cad-fazenda-observacoes'].forEach(id=>{ const el=document.getElementById(id); if (el) el.value=''; });
-        });
-    }
+    async handleCadastroActions() {}
     async init() {
         try {
             this.ui.showLoading();
@@ -234,13 +72,9 @@ class InsumosApp {
             await this.setupEventListeners();
             await this.ensureApiReady();
             await this.loadStaticData();
-            if (this.api && this.api.token) {
-                this.hideLoginScreen();
-                this.updateCurrentUserUI();
-                await this.loadInitialData();
-            } else {
-                this.showLoginScreen();
-            }
+            this.hideLoginScreen();
+            this.updateCurrentUserUI();
+            await this.loadInitialData();
             
             this.ui.hideLoading();
             this.ui.showNotification('Sistema carregado com sucesso!', 'success', 2000);
@@ -591,14 +425,7 @@ forceReloadAllData() {
             gpsSel.addEventListener('change', applyGps);
             applyGps();
         }
-        const cadSalvarBtn = document.getElementById('cad-fazenda-salvar');
-        if (cadSalvarBtn) cadSalvarBtn.addEventListener('click', async () => { await this.saveCadastroFazenda(); });
-        const cadEditarBtn = document.getElementById('cad-fazenda-editar');
-        if (cadEditarBtn) cadEditarBtn.addEventListener('click', async () => { await this.editCadastroFazenda(); });
-        const cadExcluirBtn = document.getElementById('cad-fazenda-excluir');
-        if (cadExcluirBtn) cadExcluirBtn.addEventListener('click', async () => { await this.deleteCadastroFazenda(); });
-        const cadastroTab = document.getElementById('cadastro-fazendas');
-        if (cadastroTab) await this.handleCadastroActions();
+        
     }
 
     autofillCadastroFieldsByCod(codInputId) {
@@ -695,28 +522,31 @@ forceReloadAllData() {
         try {
             await this.ensureApiReady();
             if (!this.api) throw new Error('API não inicializada');
-            const fazendasResponse = await this.api.getFazendas();
-            if (fazendasResponse.success) {
-                const list = Array.isArray(fazendasResponse.data) ? fazendasResponse.data : [];
-                const nomes = list.map(f => (typeof f === 'string') ? f : (f.nome || f.codigo)).filter(Boolean);
-                this.ui.populateSelect(
-                    document.getElementById('fazenda-insumos-filter'),
-                    nomes,
-                    'Todas as Fazendas'
-                );
-            }
 
-            // Carregar produtos
-            const produtosResponse = await this.api.getProdutos();
-            if (produtosResponse.success) {
-                this.ui.populateSelect(
-                    document.getElementById('produto-filter'),
-                    produtosResponse.data,
-                    'Todos os Produtos'
-                );
-            }
+            try {
+                const fazendasResponse = await this.api.getFazendas();
+                if (fazendasResponse.success) {
+                    const list = Array.isArray(fazendasResponse.data) ? fazendasResponse.data : [];
+                    const nomes = list.map(f => (typeof f === 'string') ? f : (f.nome || f.codigo)).filter(Boolean);
+                    this.ui.populateSelect(
+                        document.getElementById('fazenda-insumos-filter'),
+                        nomes,
+                        'Todas as Fazendas'
+                    );
+                }
+            } catch(e) {}
 
-            // Cadastro de fazendas (novo endpoint padronizado)
+            try {
+                const produtosResponse = await this.api.getProdutos();
+                if (produtosResponse.success) {
+                    this.ui.populateSelect(
+                        document.getElementById('produto-filter'),
+                        produtosResponse.data,
+                        'Todos os Produtos'
+                    );
+                }
+            } catch(e) {}
+
             try {
                 const cadResp = await this.api.getFazendas();
                 if (cadResp && cadResp.success && Array.isArray(cadResp.data)) {
@@ -746,8 +576,6 @@ forceReloadAllData() {
             await this.loadEstoqueAndRender();
         } else if (tabName === 'plantio-dia') {
             await this.loadPlantioDia();
-        } else if (tabName === 'cadastro-fazendas') {
-            await this.loadCadastroFazendasTab();
         }
     }
 
@@ -795,6 +623,7 @@ forceReloadAllData() {
                 <td>${f.regiao||'—'}</td>
                 <td>${this.ui.formatNumber(f.area||0)}</td>
                 <td>${this.ui.formatNumber(f.plantada||0)}</td>
+                <td>${this.ui.formatNumber(f.areaAcumulada||0)}</td>
                 <td>${this.ui.formatNumber(f.areaTotal||0)}</td>
                 <td>${this.ui.formatNumber(f.plantioDiario||0)}</td>
                 <td>${this.ui.formatNumber(f.areaAcumulada||0)}</td>
@@ -814,7 +643,7 @@ forceReloadAllData() {
                 <div>
                     <h5>Frentes</h5>
                     <table class="data-table">
-                        <thead><tr><th>Frente</th><th>Fazenda</th><th>Cód</th><th>Região</th><th>Área total</th><th>Área Plantada</th><th>Área total Acumulada</th><th>Plantio total (ha)</th><th>Plantio acumulado</th></tr></thead>
+                        <thead><tr><th>Frente</th><th>Fazenda</th><th>Cód</th><th>Região</th><th>Área total (ha)</th><th>Área plantada (ha)</th><th>Área total acumulada (ha)</th><th>Plantio total (ha)</th><th>Plantio diário (ha)</th><th>Plantio acumulado (ha)</th></tr></thead>
                         <tbody>${frentesRows || '<tr><td colspan="8">—</td></tr>'}</tbody>
                     </table>
                 </div>

@@ -70,59 +70,20 @@
             </div>
         </div>
 
-        <!-- Modal: Criar Fazenda -->
-        <div id="modal-fazenda" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); align-items:center; justify-content:center;">
-            <div class="chart-card" style="max-width:520px; width:95%;">
-                <h4 style="margin:0 0 10px 0;">Criar nova fazenda</h4>
-                <div class="form-grid boletim-grid">
-                    <div class="form-group">
-                        <label for="modal-fazenda-codigo">Código</label>
-                        <input type="text" id="modal-fazenda-codigo" />
-                    </div>
-                    <div class="form-group">
-                        <label for="modal-fazenda-nome">Nome</label>
-                        <input type="text" id="modal-fazenda-nome" />
-                    </div>
-                    <div class="form-group">
-                        <label for="modal-fazenda-regiao">Região</label>
-                        <input type="text" id="modal-fazenda-regiao" />
-                    </div>
-                    <div class="form-group">
-                        <label for="modal-fazenda-area">Área total</label>
-                        <input type="number" id="modal-fazenda-area" step="0.01" />
-                    </div>
-                    <div class="form-group">
-                        <label for="modal-fazenda-plantio">Plantio acumulado</label>
-                        <input type="number" id="modal-fazenda-plantio" step="0.01" />
-                    </div>
-                    <div class="form-group">
-                        <label for="modal-fazenda-muda">Muda acumulada</label>
-                        <input type="number" id="modal-fazenda-muda" step="0.01" />
-                    </div>
-                    <div class="form-group" style="grid-column: span 3;">
-                        <label for="modal-fazenda-observacoes">Observações</label>
-                        <textarea id="modal-fazenda-observacoes" rows="2"></textarea>
-                    </div>
-                </div>
-                <div style="margin-top:10px; display:flex; gap:10px; justify-content:flex-end;">
-                    <button id="modal-fazenda-cancelar" class="btn btn-secondary">Cancelar</button>
-                    <button id="modal-fazenda-salvar" class="btn btn-primary">Salvar</button>
-                </div>
-            </div>
-        </div>
+        
         <div class="tabs">
             <button class="tab active" data-tab="insumos-fazendas">🌱 INSUMOS AGRÍCOLAS</button>
             <button class="tab" data-tab="graficos">📈 DASHBOARD</button>
             <button class="tab" data-tab="estoque">📦 ESTOQUE</button>
             <button class="tab" data-tab="plantio-dia">📅 PLANTIO DIÁRIO</button>
-            <button class="tab" data-tab="cadastro-fazendas">🏷️ CADASTRO DE FAZENDAS</button>
+            
         </div>
 
         <!-- Conteúdo das Tabs -->
         
 
         <!-- Tab INSUMOS AGRÍCOLAS -->
-        <div class="tab-content" id="insumos-fazendas">
+        <div class="tab-content active" id="insumos-fazendas">
             <!-- Filtros INSUMOS FAZENDAS -->
             <div class="filters">
                 <div class="filter-group">
@@ -628,66 +589,7 @@
             </div>
         </div>
 
-        <!-- Tab Cadastro de Fazendas -->
-        <div class="tab-content" id="cadastro-fazendas">
-            <div class="charts">
-                <div class="chart-card">
-                    <h4 style="margin: 0 0 10px 0;">Cadastro de Fazendas</h4>
-                    <div class="form-grid boletim-grid">
-                        <div class="form-group">
-                            <label for="cad-fazenda-cod">Código da fazenda</label>
-                            <input type="number" id="cad-fazenda-cod" step="1">
-                        </div>
-                        <div class="form-group">
-                            <label for="cad-fazenda-nome">Nome</label>
-                            <input type="text" id="cad-fazenda-nome">
-                        </div>
-                        <div class="form-group">
-                            <label for="cad-fazenda-regiao">Região</label>
-                            <input type="text" id="cad-fazenda-regiao">
-                        </div>
-                        <div class="form-group">
-                            <label for="cad-fazenda-area-total">Área total</label>
-                            <input type="number" id="cad-fazenda-area-total" step="0.01">
-                        </div>
-                        <div class="form-group">
-                            <label for="cad-fazenda-plantio-acumulado">Plantio acumulado</label>
-                            <input type="number" id="cad-fazenda-plantio-acumulado" step="0.01">
-                        </div>
-                        <div class="form-group">
-                            <label for="cad-fazenda-muda-acumulada">Muda acumulada</label>
-                            <input type="number" id="cad-fazenda-muda-acumulada" step="0.01">
-                        </div>
-                        <div class="form-group" style="grid-column: span 3;">
-                            <label for="cad-fazenda-observacoes">Observações</label>
-                            <textarea id="cad-fazenda-observacoes" rows="2"></textarea>
-                        </div>
-                    </div>
-                    <div style="margin-top:10px; display:flex; gap:10px; justify-content:flex-end;">
-                        <button id="cad-fazenda-salvar" class="btn btn-primary">Salvar</button>
-                        <button id="cad-fazenda-editar" class="btn btn-primary">Editar</button>
-                        <button id="cad-fazenda-excluir" class="btn btn-danger">Excluir</button>
-                        <button id="cad-fazenda-limpar" class="btn btn-secondary">Limpar</button>
-                    </div>
-                </div>
-                <div class="table-container">
-                    <table class="data-table" id="cad-fazendas-table">
-                        <thead>
-                            <tr>
-                                <th>Código</th>
-                                <th>Nome</th>
-                                <th>Região</th>
-                                <th>Área total</th>
-                                <th>Plantio acumulado</th>
-                                <th>Muda acumulada</th>
-                                <th>Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody id="cad-fazendas-table-body"></tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
+        
     </div>
 
     <!-- Scripts -->
