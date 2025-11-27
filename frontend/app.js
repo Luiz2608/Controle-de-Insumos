@@ -743,6 +743,10 @@ forceReloadAllData() {
 
     async loadInsumosData(filters = {}) {
         try {
+            if (!this.api || !this.api.getInsumosFazendas) {
+                this.api = window.apiService || (typeof ApiService !== 'undefined' ? new ApiService() : null);
+                if (!this.api || !this.api.getInsumosFazendas) throw new Error('API indisponível (getInsumosFazendas)');
+            }
             const tbody = document.querySelector('#insumos-table tbody');
             tbody.innerHTML = '<tr><td colspan="13" class="loading">📡 Carregando dados...</td></tr>';
             
