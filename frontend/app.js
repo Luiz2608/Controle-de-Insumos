@@ -33,9 +33,19 @@ class InsumosApp {
                 const mEl = document.getElementById('muda-consumo-acumulado');
                 if (mEl) mEl.value = String(f.muda_acumulada || 0);
             } else {
-                this.openCreateFazendaModal(codigo);
+                this.openCadastroWithCode(codigo);
             }
         } catch(e) {}
+    }
+
+    async openCadastroWithCode(codigo) {
+        this.ui.switchTab('cadastro-fazendas');
+        await this.loadTabData('cadastro-fazendas');
+        const codeEl = document.getElementById('cad-fazenda-cod');
+        if (codeEl) codeEl.value = codigo;
+        const nomeEl = document.getElementById('cad-fazenda-nome');
+        if (nomeEl) nomeEl.focus();
+        this.ui.showNotification('Fazenda não encontrada — cadastre agora.', 'warning', 2000);
     }
 
     openCreateFazendaModal(codigo) {
@@ -141,18 +151,45 @@ class InsumosApp {
         };
         if (!payload.codigo || !payload.nome) { this.ui.showNotification('Informe código e nome', 'warning'); return; }
         try {
-            const exists = await this.api.getFazendaByCodigo(payload.codigo);
-            let res;
-            if (exists && exists.success) {
-                res = await this.api.updateFazenda(payload.codigo, payload);
-            } else {
-                res = await this.api.createFazenda(payload);
-            }
+            const res = await this.api.createFazenda(payload);
             if (res && res.success) {
                 this.ui.showNotification('Fazenda salva', 'success', 1500);
                 await this.loadCadastroFazendasTab();
             } else { this.ui.showNotification('Erro ao salvar fazenda', 'error'); }
-        } catch(e) { this.ui.showNotification('Erro ao salvar fazenda', 'error'); }
+        } catch(e) {
+            this.ui.showNotification(e?.message?.includes('409') ? 'Código já cadastrado' : 'Erro ao salvar fazenda', 'error');
+        }
+    }
+
+    async editCadastroFazenda() {
+        const get = id => document.getElementById(id)?.value;
+        const codigo = get('cad-fazenda-cod');
+        if (!codigo) { this.ui.showNotification('Informe o código para editar', 'warning'); return; }
+        const payload = {
+            nome: get('cad-fazenda-nome') || '',
+            regiao: get('cad-fazenda-regiao') || '',
+            area_total: get('cad-fazenda-area-total') ? parseFloat(get('cad-fazenda-area-total')) : 0,
+            plantio_acumulado: get('cad-fazenda-plantio-acumulado') ? parseFloat(get('cad-fazenda-plantio-acumulado')) : 0,
+            muda_acumulada: get('cad-fazenda-muda-acumulada') ? parseFloat(get('cad-fazenda-muda-acumulada')) : 0,
+            observacoes: get('cad-fazenda-observacoes') || ''
+        };
+        try {
+            const res = await this.api.updateFazenda(codigo, payload);
+            if (res && res.success) { this.ui.showNotification('Fazenda atualizada', 'success', 1500); await this.loadCadastroFazendasTab(); }
+            else this.ui.showNotification('Erro ao atualizar fazenda', 'error');
+        } catch(e) { this.ui.showNotification('Erro ao atualizar fazenda', 'error'); }
+    }
+
+    async deleteCadastroFazenda() {
+        const codigo = document.getElementById('cad-fazenda-cod')?.value;
+        if (!codigo) { this.ui.showNotification('Informe o código para excluir', 'warning'); return; }
+        const ok = window.confirm('Excluir esta fazenda?');
+        if (!ok) return;
+        try {
+            const res = await this.api.deleteFazenda(codigo);
+            if (res && res.success) { this.ui.showNotification('Fazenda excluída', 'success', 1500); await this.loadCadastroFazendasTab(); }
+            else this.ui.showNotification('Erro ao excluir fazenda', 'error');
+        } catch(e) { this.ui.showNotification('Erro ao excluir fazenda', 'error'); }
     }
 
     async handleCadastroActions() {
@@ -556,6 +593,10 @@ forceReloadAllData() {
         }
         const cadSalvarBtn = document.getElementById('cad-fazenda-salvar');
         if (cadSalvarBtn) cadSalvarBtn.addEventListener('click', async () => { await this.saveCadastroFazenda(); });
+        const cadEditarBtn = document.getElementById('cad-fazenda-editar');
+        if (cadEditarBtn) cadEditarBtn.addEventListener('click', async () => { await this.editCadastroFazenda(); });
+        const cadExcluirBtn = document.getElementById('cad-fazenda-excluir');
+        if (cadExcluirBtn) cadExcluirBtn.addEventListener('click', async () => { await this.deleteCadastroFazenda(); });
         const cadastroTab = document.getElementById('cadastro-fazendas');
         if (cadastroTab) await this.handleCadastroActions();
     }

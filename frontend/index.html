@@ -401,6 +401,15 @@
                 <h4 style="margin: 0 0 10px 0;">1. Informações Gerais</h4>
                 <div class="form-grid">
                     <div class="form-group">
+                        <label for="single-frente">Frente</label>
+                        <select id="single-frente">
+                            <option value="">Selecione</option>
+                            <option value="4001">4001</option>
+                            <option value="4002">4002</option>
+                            <option value="4009 Abençoada">4009 Abençoada</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
                         <label for="plantio-data">Data</label>
                         <input type="date" id="plantio-data">
                     </div>
@@ -443,15 +452,7 @@
             <div class="chart-card">
                 <h4 style="margin: 0 0 10px 0;">2. Relatório Diário - Frente</h4>
                 <div class="form-grid boletim-grid">
-                    <div class="form-group">
-                        <label for="single-frente">Frente</label>
-                        <select id="single-frente">
-                            <option value="">Selecione</option>
-                            <option value="4001">4001</option>
-                            <option value="4002">4002</option>
-                            <option value="4009 Abençoada">4009 Abençoada</option>
-                        </select>
-                    </div>
+                    
                     <div class="form-group">
                         <label for="single-fazenda">Fazenda</label>
                         <input type="text" id="single-fazenda">
@@ -664,6 +665,8 @@
                     </div>
                     <div style="margin-top:10px; display:flex; gap:10px; justify-content:flex-end;">
                         <button id="cad-fazenda-salvar" class="btn btn-primary">Salvar</button>
+                        <button id="cad-fazenda-editar" class="btn btn-primary">Editar</button>
+                        <button id="cad-fazenda-excluir" class="btn btn-danger">Excluir</button>
                         <button id="cad-fazenda-limpar" class="btn btn-secondary">Limpar</button>
                     </div>
                 </div>
