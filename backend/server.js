@@ -2,10 +2,11 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const bodyParser = require('body-parser');
+require('dotenv').config();
+const supabase = require('./config/supabase');
 
-// Importar rotas
-const insumosRoutes = require('./routes/insumos');
-const fazendasRoutes = require('./routes/fazendas');
+// Importar rotas existentes (mantendo compatibilidade)
+// Note: importRoutes é usado para processamento de arquivo temporário
 const importRoutes = require('./routes/import-routes');
 
 const app = express();
@@ -27,61 +28,19 @@ app.use(bodyParser.json({ limit: '50mb' }));
 const frontendPath = path.join(__dirname, '../frontend');
 app.use(express.static(frontendPath));
 
-// Dados em memória (SIMPLES)
-let insumosData = {
-    oxifertil: [
-        {
-            id: 1,
-            processo: "CANA DE ACUCAR",
-            subprocesso: "PLANTIO",
-            produto: "CALCARIO OXIFERTIL",
-            fazenda: "SANTA NARCISA",
-            areaTalhao: 90.16,
-            areaTotalAplicada: 90.16,
-            doseRecomendada: 0.15,
-            insumDoseAplicada: 0.1207853,
-            quantidadeAplicada: 10.890002648,
-            dif: -0.1947647,
-            frente: 4001
-        }
-    ],
-    insumosFazendas: [
-        {
-            id: 2,
-            os: 7447,
-            cod: 1030,
-            fazenda: "ORIENTE",
-            areaTalhao: 37.42,
-            areaTotalAplicada: 37.42,
-            produto: "LANEX 800 WG (REGENTE)",
-            doseRecomendada: 0.25,
-            quantidadeAplicada: 10.000001056,
-            frente: 4001
-        }
-    ],
-    santaIrene: [],
-    daniela: []
+// Listas para filtros (Mantido estático por enquanto, poderia vir do DB)
+const filterData = {
+    fazendas: ["ORIENTE", "AMOREIRA", "SANTA NARCISA", "SANTO EXPEDITO", "SANTA LUIZA"],
+    produtos: ["CALCARIO OXIFERTIL", "LANEX 800 WG (REGENTE)", "BIOZYME", "04-30-10"],
+    fornecedores: ["oxifertil", "insumosFazendas"]
 };
 
-// Estoque por frente
-let estoque = {
-    'Frente 1': {},
-    'Frente 2': {},
-    'Frente Abençoada': {}
-};
-// Plantio diário
-let plantioDia = [];
-// Cadastro de fazendas (em memória)
-let fazendasCad = {
-    // cod: { cod, nome, areaTotal, plantioAcumulado, mudaAcumulada, regiao }
-    1030: { cod: 1030, nome: 'ORIENTE', areaTotal: 0, plantioAcumulado: 0, mudaAcumulada: 0, regiao: '' }
-};
-
-// Auth simples em memória
+// Auth Helper Functions
 const crypto = require('crypto');
-const users = [{ username: 'admin', password: '123456' }];
 const AUTH_SECRET = process.env.AUTH_SECRET || 'dev-secret';
+
 function b64url(buf) { return Buffer.from(buf).toString('base64').replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_'); }
+
 function signToken(username, expSec = 7 * 24 * 60 * 60) {
     const header = b64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
     const payload = b64url(JSON.stringify({ sub: username, exp: Math.floor(Date.now() / 1000) + expSec }));
@@ -89,6 +48,7 @@ function signToken(username, expSec = 7 * 24 * 60 * 60) {
     const sig = b64url(crypto.createHmac('sha256', AUTH_SECRET).update(data).digest());
     return `${data}.${sig}`;
 }
+
 function verifyToken(token) {
     if (!token || typeof token !== 'string') return null;
     const parts = token.split('.');
@@ -104,6 +64,7 @@ function verifyToken(token) {
         return payload;
     } catch { return null; }
 }
+
 function requireAuth(req, res, next) {
     const auth = req.headers['authorization'] || '';
     const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
@@ -112,34 +73,24 @@ function requireAuth(req, res, next) {
     res.status(401).json({ success: false, message: 'Não autorizado' });
 }
 
-// Listas para filtros
-const filterData = {
-    fazendas: ["ORIENTE", "AMOREIRA", "SANTA NARCISA", "SANTO EXPEDITO", "SANTA LUIZA"],
-    produtos: ["CALCARIO OXIFERTIL", "LANEX 800 WG (REGENTE)", "BIOZYME", "04-30-10"],
-    fornecedores: ["oxifertil", "insumosFazendas"]
-};
-
 // === ROTAS DA API ===
 
 // Health check
 app.get('/api/health', (req, res) => {
-    res.json({ success: true, message: 'API funcionando!' });
+    res.json({ success: true, message: 'API Supabase funcionando!' });
 });
 
-// CRUD de Fazendas (em memória)
-// Modelo: { codigo, nome, regiao, area_total, plantio_acumulado, muda_acumulada, observacoes }
-const fazendasStore = new Map();
-// Seed básico
-fazendasStore.set('1030', { codigo: '1030', nome: 'ORIENTE', regiao: '', area_total: 0, plantio_acumulado: 0, muda_acumulada: 0, observacoes: '' });
+// === CRUD de Fazendas (Supabase) ===
 
-// GET lista completa
-app.get('/api/fazendas', (req, res) => {
+app.get('/api/fazendas', async (req, res) => {
     try {
-        res.json({ success: true, data: Array.from(fazendasStore.values()) });
-    } catch(e) { res.status(500).json({ success: false, message: 'Erro ao listar fazendas' }); }
+        const { data, error } = await supabase.from('fazendas').select('*');
+        if (error) throw error;
+        res.json({ success: true, data });
+    } catch(e) { res.status(500).json({ success: false, message: 'Erro ao listar fazendas: ' + e.message }); }
 });
 
-// Rotas auxiliares devem vir ANTES das rotas com parâmetro
+// Rotas auxiliares
 app.get('/api/fazendas/produtos', (req, res) => {
     res.json({ success: true, data: filterData.produtos });
 });
@@ -148,292 +99,370 @@ app.get('/api/fazendas/fornecedores', (req, res) => {
     res.json({ success: true, data: filterData.fornecedores });
 });
 
-// POST criar
-app.post('/api/fazendas', (req, res) => {
+app.post('/api/fazendas', async (req, res) => {
     try {
         const { codigo, nome, regiao = '', area_total = 0, plantio_acumulado = 0, muda_acumulada = 0, observacoes = '' } = req.body || {};
         if (!codigo || !nome) return res.status(400).json({ success: false, message: 'codigo e nome são obrigatórios' });
-        if (fazendasStore.has(String(codigo))) return res.status(409).json({ success: false, message: 'Fazenda já existe' });
-        const item = { codigo: String(codigo), nome, regiao, area_total: Number(area_total)||0, plantio_acumulado: Number(plantio_acumulado)||0, muda_acumulada: Number(muda_acumulada)||0, observacoes };
-        fazendasStore.set(item.codigo, item);
-        res.json({ success: true, data: item });
-    } catch(e) { res.status(500).json({ success: false, message: 'Erro ao criar fazenda' }); }
-});
 
-// GET por código
-app.get('/api/fazendas/:codigo', (req, res) => {
-    try { const codigo = String(req.params.codigo); const f = fazendasStore.get(codigo); if (!f) return res.status(404).json({ success: false, message: 'Fazenda não encontrada' }); res.json({ success: true, data: f }); } catch(e) { res.status(500).json({ success: false, message: 'Erro ao buscar fazenda' }); }
-});
+        // Check if exists
+        const { data: existing } = await supabase.from('fazendas').select('codigo').eq('codigo', String(codigo)).single();
+        if (existing) return res.status(409).json({ success: false, message: 'Fazenda já existe' });
 
-// PUT atualizar
-app.put('/api/fazendas/:codigo', (req, res) => {
-    try {
-        const codigo = String(req.params.codigo);
-        if (!fazendasStore.has(codigo)) return res.status(404).json({ success: false, message: 'Fazenda não encontrada' });
-        const curr = fazendasStore.get(codigo);
-        const { nome, regiao, area_total, plantio_acumulado, muda_acumulada, observacoes } = req.body || {};
-        const updated = {
-            codigo,
-            nome: nome ?? curr.nome,
-            regiao: regiao ?? curr.regiao,
-            area_total: area_total != null ? Number(area_total)||0 : curr.area_total,
-            plantio_acumulado: plantio_acumulado != null ? Number(plantio_acumulado)||0 : curr.plantio_acumulado,
-            muda_acumulada: muda_acumulada != null ? Number(muda_acumulada)||0 : curr.muda_acumulada,
-            observacoes: observacoes ?? curr.observacoes
-        };
-        fazendasStore.set(codigo, updated);
-        res.json({ success: true, data: updated });
-    } catch(e) { res.status(500).json({ success: false, message: 'Erro ao atualizar fazenda' }); }
-});
-
-// DELETE apagar
-app.delete('/api/fazendas/:codigo', (req, res) => {
-    try { const codigo = String(req.params.codigo); if (!fazendasStore.has(codigo)) return res.status(404).json({ success: false, message: 'Fazenda não encontrada' }); fazendasStore.delete(codigo); res.json({ success: true }); } catch(e) { res.status(500).json({ success: false, message: 'Erro ao excluir fazenda' }); }
-});
-
-// Insumos - OXIFERTIL
-app.get('/api/insumos/oxifertil', (req, res) => {
-    try {
-        const { fazenda, frente } = req.query;
-        let data = insumosData.oxifertil;
-
-        if (fazenda && fazenda !== 'all') {
-            data = data.filter(item => item.fazenda === fazenda);
-        }
-        if (frente && frente !== 'all') {
-            data = data.filter(item => item.frente.toString() === frente);
-        }
-
-        res.json({ success: true, data: data, total: data.length });
-    } catch (error) {
-        res.status(500).json({ success: false, message: 'Erro ao buscar OXIFERTIL' });
-    }
-});
-
-// Insumos - INSUMOS FAZENDAS
-app.get('/api/insumos/insumos-fazendas', (req, res) => {
-    try {
-        const { produto, fazenda } = req.query;
-        let data = insumosData.insumosFazendas;
-
-        if (produto && produto !== 'all') {
-            data = data.filter(item => item.produto === produto);
-        }
-        if (fazenda && fazenda !== 'all') {
-            data = data.filter(item => item.fazenda === fazenda);
-        }
-
-        res.json({ success: true, data: data, total: data.length });
-    } catch (error) {
-        res.status(500).json({ success: false, message: 'Erro ao buscar insumos' });
-    }
-});
-
-// Removidos endpoints Santa Irene e Daniela
-
-// CRUD - Adicionar insumo
-app.post('/api/insumos', (req, res) => {
-    try {
-        const novoInsumo = {
-            id: Date.now(),
-            ...req.body
+        const item = { 
+            codigo: String(codigo), 
+            nome, 
+            regiao, 
+            area_total: Number(area_total)||0, 
+            plantio_acumulado: Number(plantio_acumulado)||0, 
+            muda_acumulada: Number(muda_acumulada)||0, 
+            observacoes 
         };
         
+        const { data, error } = await supabase.from('fazendas').insert([item]).select();
+        if (error) throw error;
+        
+        res.json({ success: true, data: data[0] });
+    } catch(e) { res.status(500).json({ success: false, message: 'Erro ao criar fazenda: ' + e.message }); }
+});
+
+app.get('/api/fazendas/:codigo', async (req, res) => {
+    try {
+        const codigo = String(req.params.codigo);
+        const { data, error } = await supabase.from('fazendas').select('*').eq('codigo', codigo).single();
+        if (error || !data) return res.status(404).json({ success: false, message: 'Fazenda não encontrada' });
+        res.json({ success: true, data });
+    } catch(e) { res.status(500).json({ success: false, message: 'Erro ao buscar fazenda' }); }
+});
+
+app.put('/api/fazendas/:codigo', async (req, res) => {
+    try {
+        const codigo = String(req.params.codigo);
+        const { nome, regiao, area_total, plantio_acumulado, muda_acumulada, observacoes } = req.body || {};
+        
+        const updates = {};
+        if (nome !== undefined) updates.nome = nome;
+        if (regiao !== undefined) updates.regiao = regiao;
+        if (area_total !== undefined) updates.area_total = Number(area_total);
+        if (plantio_acumulado !== undefined) updates.plantio_acumulado = Number(plantio_acumulado);
+        if (muda_acumulada !== undefined) updates.muda_acumulada = Number(muda_acumulada);
+        if (observacoes !== undefined) updates.observacoes = observacoes;
+
+        const { data, error } = await supabase.from('fazendas').update(updates).eq('codigo', codigo).select();
+        if (error) throw error;
+        if (!data || data.length === 0) return res.status(404).json({ success: false, message: 'Fazenda não encontrada' });
+
+        res.json({ success: true, data: data[0] });
+    } catch(e) { res.status(500).json({ success: false, message: 'Erro ao atualizar fazenda: ' + e.message }); }
+});
+
+app.delete('/api/fazendas/:codigo', async (req, res) => {
+    try {
+        const codigo = String(req.params.codigo);
+        const { error } = await supabase.from('fazendas').delete().eq('codigo', codigo);
+        if (error) throw error;
+        res.json({ success: true });
+    } catch(e) { res.status(500).json({ success: false, message: 'Erro ao excluir fazenda' }); }
+});
+
+// === Insumos - OXIFERTIL ===
+app.get('/api/insumos/oxifertil', async (req, res) => {
+    try {
+        const { fazenda, frente } = req.query;
+        let query = supabase.from('insumos_oxifertil').select('*');
+        
+        if (fazenda && fazenda !== 'all') query = query.eq('fazenda', fazenda);
+        if (frente && frente !== 'all') query = query.eq('frente', frente);
+
+        const { data, error } = await query;
+        if (error) throw error;
+
+        // Mapper para camelCase se necessário (Supabase retorna snake_case por padrão se a coluna for snake_case)
+        // O frontend espera camelCase. Vou mapear manualmente.
+        // As colunas no banco são snake_case (criadas no schema.sql).
+        // Frontend: areaTalhao, areaTotalAplicada, doseRecomendada, insumDoseAplicada, quantidadeAplicada
+        // DB: area_talhao, area_total_aplicada, dose_recomendada, insum_dose_aplicada, quantidade_aplicada
+        
+        const mappedData = data.map(d => ({
+            ...d,
+            areaTalhao: d.area_talhao,
+            areaTotalAplicada: d.area_total_aplicada,
+            doseRecomendada: d.dose_recomendada,
+            insumDoseAplicada: d.insum_dose_aplicada,
+            quantidadeAplicada: d.quantidade_aplicada
+        }));
+
+        res.json({ success: true, data: mappedData, total: mappedData.length });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Erro ao buscar OXIFERTIL: ' + error.message });
+    }
+});
+
+// === Insumos - INSUMOS FAZENDAS ===
+app.get('/api/insumos/insumos-fazendas', async (req, res) => {
+    try {
+        const { produto, fazenda } = req.query;
+        let query = supabase.from('insumos_fazendas').select('*');
+
+        if (produto && produto !== 'all') query = query.eq('produto', produto);
+        if (fazenda && fazenda !== 'all') query = query.eq('fazenda', fazenda);
+
+        const { data, error } = await query;
+        if (error) throw error;
+
+        const mappedData = data.map(d => ({
+            ...d,
+            areaTalhao: d.area_talhao,
+            areaTotalAplicada: d.area_total_aplicada,
+            doseRecomendada: d.dose_recomendada,
+            insumDoseAplicada: d.insum_dose_aplicada,
+            quantidadeAplicada: d.quantidade_aplicada
+        }));
+
+        res.json({ success: true, data: mappedData, total: mappedData.length });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Erro ao buscar insumos: ' + error.message });
+    }
+});
+
+// Endpoints legados para evitar erros no frontend
+app.get('/api/insumos/santa-irene', (req, res) => res.json({ success: true, data: [] }));
+app.get('/api/insumos/daniela', (req, res) => res.json({ success: true, data: [] }));
+
+// === CRUD - Adicionar insumo (Manual) ===
+app.post('/api/insumos', async (req, res) => {
+    try {
+        const novoInsumo = req.body;
+        
+        // Mapper para DB
+        const dbItem = {
+            produto: novoInsumo.produto,
+            fazenda: novoInsumo.fazenda,
+            frente: novoInsumo.frente,
+            area_talhao: novoInsumo.areaTalhao,
+            area_total_aplicada: novoInsumo.areaTotalAplicada,
+            dose_recomendada: novoInsumo.doseRecomendada,
+            insum_dose_aplicada: novoInsumo.insumDoseAplicada,
+            quantidade_aplicada: novoInsumo.quantidadeAplicada,
+            dif: novoInsumo.dif
+        };
+
+        let table = '';
         if (novoInsumo.fornecedor === 'oxifertil') {
-            insumosData.oxifertil.push(novoInsumo);
-        } else if (novoInsumo.fornecedor === 'insumosFazendas') {
-            insumosData.insumosFazendas.push(novoInsumo);
+            table = 'insumos_oxifertil';
+            dbItem.processo = novoInsumo.processo;
+            dbItem.subprocesso = novoInsumo.subprocesso;
+        } else {
+            table = 'insumos_fazendas';
+            dbItem.os = novoInsumo.os;
+            dbItem.cod = novoInsumo.cod;
         }
+
+        const { data, error } = await supabase.from(table).insert([dbItem]).select();
+        if (error) throw error;
 
         // Baixa automática de estoque
         const produto = novoInsumo.produto;
         const frenteNum = novoInsumo.frente;
         const qtd = novoInsumo.quantidadeAplicada || 0;
         const frenteNome = (frenteNum === 1) ? 'Frente 1' : (frenteNum === 2 ? 'Frente 2' : 'Frente Abençoada');
-        if (produto && qtd > 0 && estoque[frenteNome]) {
-            const atual = estoque[frenteNome][produto] || 0;
-            estoque[frenteNome][produto] = Math.max(0, atual - qtd);
+        
+        if (produto && qtd > 0) {
+            // Buscar estoque atual
+            const { data: estData } = await supabase.from('estoque').select('*').eq('frente', frenteNome).eq('produto', produto).single();
+            const atual = estData ? Number(estData.quantidade) : 0;
+            const novaQtd = Math.max(0, atual - qtd);
+            
+            await supabase.from('estoque').upsert({ frente: frenteNome, produto, quantidade: novaQtd }, { onConflict: 'frente, produto' });
         }
 
-        res.json({ success: true, message: 'Insumo adicionado!', data: novoInsumo });
+        res.json({ success: true, message: 'Insumo adicionado!', data: data[0] });
     } catch (error) {
-        res.status(500).json({ success: false, message: 'Erro ao adicionar' });
+        res.status(500).json({ success: false, message: 'Erro ao adicionar: ' + error.message });
     }
 });
 
-// Estoque endpoints
-app.get('/api/estoque', (req, res) => {
-    try { res.json({ success: true, data: estoque }); } catch(e) { res.status(500).json({ success: false }); }
+// === Estoque endpoints ===
+app.get('/api/estoque', async (req, res) => {
+    try {
+        const { data, error } = await supabase.from('estoque').select('*');
+        if (error) throw error;
+
+        // Transformar para formato aninhado esperado pelo frontend: { 'Frente 1': { 'Produto': 10 } }
+        const estoqueObj = { 'Frente 1': {}, 'Frente 2': {}, 'Frente Abençoada': {} };
+        data.forEach(item => {
+            if (!estoqueObj[item.frente]) estoqueObj[item.frente] = {};
+            estoqueObj[item.frente][item.produto] = Number(item.quantidade);
+        });
+
+        res.json({ success: true, data: estoqueObj });
+    } catch(e) { res.status(500).json({ success: false, message: 'Erro ao buscar estoque' }); }
 });
-app.post('/api/estoque', (req, res) => {
+
+app.post('/api/estoque', async (req, res) => {
     try {
         const { frente, produto, quantidade } = req.body;
         if (!frente || !produto || quantidade == null) return res.status(400).json({ success: false, message: 'Dados inválidos' });
-        if (!estoque[frente]) estoque[frente] = {};
-        const atual = estoque[frente][produto] || 0;
-        estoque[frente][produto] = atual + Number(quantidade);
-        res.json({ success: true, data: { frente, produto, quantidade: estoque[frente][produto] } });
-    } catch(e) { res.status(500).json({ success: false, message: 'Erro ao salvar estoque' }); }
+        
+        // Buscar atual para somar
+        const { data: curr } = await supabase.from('estoque').select('quantidade').eq('frente', frente).eq('produto', produto).single();
+        const atual = curr ? Number(curr.quantidade) : 0;
+        const novaQtd = atual + Number(quantidade);
+
+        const { data, error } = await supabase.from('estoque').upsert({ frente, produto, quantidade: novaQtd }, { onConflict: 'frente, produto' }).select();
+        if (error) throw error;
+
+        res.json({ success: true, data: { frente, produto, quantidade: novaQtd } });
+    } catch(e) { res.status(500).json({ success: false, message: 'Erro ao salvar estoque: ' + e.message }); }
 });
 
-app.delete('/api/estoque', (req, res) => {
+app.delete('/api/estoque', async (req, res) => {
     try {
         const { frente, produto } = req.body && Object.keys(req.body).length ? req.body : req.query;
         if (!frente || !produto) return res.status(400).json({ success: false, message: 'Dados inválidos' });
-        if (estoque[frente] && estoque[frente][produto] != null) {
-            delete estoque[frente][produto];
-            res.json({ success: true });
-        } else {
-            res.status(404).json({ success: false, message: 'Lançamento não encontrado' });
-        }
+        
+        const { error } = await supabase.from('estoque').delete().eq('frente', frente).eq('produto', produto);
+        if (error) throw error;
+        
+        res.json({ success: true });
     } catch(e) { res.status(500).json({ success: false, message: 'Erro ao excluir estoque' }); }
 });
 
-// CRUD - Editar insumo
-app.put('/api/insumos/:id', (req, res) => {
+// === CRUD - Editar/Excluir Insumo ===
+app.put('/api/insumos/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const dadosAtualizados = req.body;
+        const dados = req.body;
+        // Tenta atualizar em ambas as tabelas (ID pode colidir? Supabase identity gera IDs únicos por tabela, mas podem repetir entre tabelas. O frontend deve saber a origem ou tentamos as duas)
+        // O ideal seria o frontend enviar o 'tipo' ou 'fornecedor'.
+        // Assumindo tentativa e erro se não vier fornecedor.
         
-        let encontrado = false;
-        
-        // Buscar em OXIFERTIL
-        const indexOxifertil = insumosData.oxifertil.findIndex(item => item.id == id);
-        if (indexOxifertil !== -1) {
-            insumosData.oxifertil[indexOxifertil] = { ...insumosData.oxifertil[indexOxifertil], ...dadosAtualizados };
-            encontrado = true;
-        }
-        
-        // Buscar em INSUMOS FAZENDAS
-        const indexInsumos = insumosData.insumosFazendas.findIndex(item => item.id == id);
-        if (indexInsumos !== -1) {
-            insumosData.insumosFazendas[indexInsumos] = { ...insumosData.insumosFazendas[indexInsumos], ...dadosAtualizados };
-            encontrado = true;
-        }
+        const updates = {
+            produto: dados.produto,
+            fazenda: dados.fazenda,
+            frente: dados.frente,
+            area_talhao: dados.areaTalhao,
+            area_total_aplicada: dados.areaTotalAplicada,
+            dose_recomendada: dados.doseRecomendada,
+            insum_dose_aplicada: dados.insumDoseAplicada,
+            quantidade_aplicada: dados.quantidadeAplicada,
+            dif: dados.dif
+        };
+        // Remover undefined
+        Object.keys(updates).forEach(key => updates[key] === undefined && delete updates[key]);
 
-        if (!encontrado) {
-            return res.status(404).json({ success: false, message: 'Insumo não encontrado' });
-        }
+        // Tentar Oxifertil
+        let { data: d1, error: e1 } = await supabase.from('insumos_oxifertil').update(updates).eq('id', id).select();
+        if (d1 && d1.length > 0) return res.json({ success: true, message: 'Insumo atualizado (Oxifertil)!' });
 
-        res.json({ success: true, message: 'Insumo atualizado!' });
-    } catch (error) {
-        res.status(500).json({ success: false, message: 'Erro ao atualizar' });
-    }
+        // Tentar Insumos Fazendas
+        let { data: d2, error: e2 } = await supabase.from('insumos_fazendas').update(updates).eq('id', id).select();
+        if (d2 && d2.length > 0) return res.json({ success: true, message: 'Insumo atualizado (Fazendas)!' });
+
+        res.status(404).json({ success: false, message: 'Insumo não encontrado' });
+    } catch (error) { res.status(500).json({ success: false, message: 'Erro ao atualizar' }); }
 });
 
-// CRUD - Excluir insumo
-app.delete('/api/insumos/:id', (req, res) => {
+app.delete('/api/insumos/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        let encontrado = false;
         
-        // Remover de OXIFERTIL
-        const indexOxifertil = insumosData.oxifertil.findIndex(item => item.id == id);
-        if (indexOxifertil !== -1) {
-            insumosData.oxifertil.splice(indexOxifertil, 1);
-            encontrado = true;
-        }
-        
-        // Remover de INSUMOS FAZENDAS
-        const indexInsumos = insumosData.insumosFazendas.findIndex(item => item.id == id);
-        if (indexInsumos !== -1) {
-            insumosData.insumosFazendas.splice(indexInsumos, 1);
-            encontrado = true;
-        }
+        // Tentar Oxifertil
+        const { count: c1 } = await supabase.from('insumos_oxifertil').delete().eq('id', id, { count: 'exact' });
+        if (c1 > 0) return res.json({ success: true, message: 'Insumo excluído!' });
 
-        if (!encontrado) {
-            return res.status(404).json({ success: false, message: 'Insumo não encontrado' });
-        }
+        // Tentar Insumos Fazendas
+        const { count: c2 } = await supabase.from('insumos_fazendas').delete().eq('id', id, { count: 'exact' });
+        if (c2 > 0) return res.json({ success: true, message: 'Insumo excluído!' });
 
-        res.json({ success: true, message: 'Insumo excluído!' });
-    } catch (error) {
-        res.status(500).json({ success: false, message: 'Erro ao excluir' });
-    }
+        res.status(404).json({ success: false, message: 'Insumo não encontrado' });
+    } catch (error) { res.status(500).json({ success: false, message: 'Erro ao excluir' }); }
 });
 
-// ==================================================
-// ⭐⭐ USAR ROTAS REAIS DE IMPORTAÇÃO ⭐⭐
-// ==================================================
-
-// Rota para atualizar dados com importação REAL
-app.post('/api/insumos/atualizar-dados', (req, res) => {
+// === ATUALIZAR DADOS COM IMPORTAÇÃO REAL ===
+app.post('/api/insumos/atualizar-dados', async (req, res) => {
     try {
-        console.log('🔄 Atualizando dados com importação REAL...');
+        console.log('🔄 Atualizando dados no Supabase...');
         const { dados } = req.body;
-        
-        if (!dados) {
-            return res.status(400).json({
-                success: false,
-                message: 'Dados não fornecidos'
-            });
+        if (!dados) return res.status(400).json({ success: false, message: 'Dados não fornecidos' });
+
+        const updates = { oxifertil: 0, insumosFazendas: 0 };
+
+        // Processar Oxifertil
+        if (dados.oxifertil && Array.isArray(dados.oxifertil) && dados.oxifertil.length > 0) {
+            const mapped = dados.oxifertil.map(d => ({
+                processo: d.processo,
+                subprocesso: d.subprocesso,
+                produto: d.produto,
+                fazenda: d.fazenda,
+                area_talhao: d.areaTalhao,
+                area_total_aplicada: d.areaTotalAplicada,
+                dose_recomendada: d.doseRecomendada,
+                insum_dose_aplicada: d.insumDoseAplicada,
+                quantidade_aplicada: d.quantidadeAplicada,
+                dif: d.dif,
+                frente: d.frente
+            }));
+            const { error } = await supabase.from('insumos_oxifertil').insert(mapped); // Insert massivo
+            if (error) throw error;
+            updates.oxifertil = mapped.length;
         }
 
-        const updates = {};
-        
-        // Atualizar OXIFERTIL
-        if (dados.oxifertil && Array.isArray(dados.oxifertil)) {
-            insumosData.oxifertil = dados.oxifertil;
-            updates.oxifertil = insumosData.oxifertil.length;
-        }
-        
-        // Atualizar INSUMOS FAZENDAS
-        if (dados.insumosFazendas && Array.isArray(dados.insumosFazendas)) {
-            insumosData.insumosFazendas = dados.insumosFazendas;
-            updates.insumosFazendas = insumosData.insumosFazendas.length;
-        }
-
-        if (dados.santaIrene && Array.isArray(dados.santaIrene)) {
-            insumosData.santaIrene = dados.santaIrene;
-            updates.santaIrene = insumosData.santaIrene.length;
-        }
-
-        if (dados.daniela && Array.isArray(dados.daniela)) {
-            insumosData.daniela = dados.daniela;
-            updates.daniela = insumosData.daniela.length;
+        // Processar Insumos Fazendas
+        if (dados.insumosFazendas && Array.isArray(dados.insumosFazendas) && dados.insumosFazendas.length > 0) {
+            const mapped = dados.insumosFazendas.map(d => ({
+                os: d.os,
+                cod: d.cod,
+                fazenda: d.fazenda,
+                area_talhao: d.areaTalhao,
+                area_total_aplicada: d.areaTotalAplicada,
+                produto: d.produto,
+                dose_recomendada: d.doseRecomendada,
+                quantidade_aplicada: d.quantidadeAplicada,
+                frente: d.frente,
+                insum_dose_aplicada: d.insumDoseAplicada // As vezes vem mapeado
+            }));
+            const { error } = await supabase.from('insumos_fazendas').insert(mapped);
+            if (error) throw error;
+            updates.insumosFazendas = mapped.length;
         }
 
-        const totalAtualizado = Object.values(updates).reduce((sum, val) => sum + val, 0);
-        
-        console.log('✅ Dados atualizados:', updates);
-        
-        res.json({
-            success: true,
-            message: `Dados importados com sucesso! ${totalAtualizado} registros.`,
-            totals: updates
-        });
+        res.json({ success: true, message: 'Dados importados para o Supabase!', totals: updates });
     } catch (error) {
-        console.error('❌ Erro ao atualizar dados:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Erro ao atualizar dados com importação'
-        });
+        console.error('❌ Erro ao atualizar Supabase:', error);
+        res.status(500).json({ success: false, message: 'Erro ao atualizar dados: ' + error.message });
     }
 });
 
-// ==================================================
-// ⭐⭐ USAR AS ROTAS DO IMPORT-ROUTES.JS ⭐⭐
-// ==================================================
-
-// Use as rotas reais de importação
+// === IMPORT ROUTES ===
 app.use('/api/importar', importRoutes);
 
-// Login
-app.post('/api/auth/login', (req, res) => {
+// === AUTH ===
+app.post('/api/auth/login', async (req, res) => {
     const { username, password } = req.body || {};
-    const ok = users.find(u => u.username === username && u.password === password);
-    if (!ok) return res.status(401).json({ success: false, message: 'Credenciais inválidas' });
-    const token = signToken(username);
-    res.json({ success: true, token, user: { username } });
+    try {
+        const { data: user, error } = await supabase.from('users').select('*').eq('username', username).eq('password', password).single();
+        if (error || !user) return res.status(401).json({ success: false, message: 'Credenciais inválidas' });
+        
+        const token = signToken(username);
+        res.json({ success: true, token, user: { username } });
+    } catch(e) { res.status(500).json({ success: false, message: 'Erro no login' }); }
 });
-app.post('/api/auth/register', (req, res) => {
+
+app.post('/api/auth/register', async (req, res) => {
     const { username, password } = req.body || {};
-    if (!username || !password) return res.status(400).json({ success: false, message: 'Usuário e senha são obrigatórios' });
-    const exists = users.find(u => u.username === username);
-    if (exists) return res.status(409).json({ success: false, message: 'Usuário já existe' });
-    users.push({ username, password });
-    const token = signToken(username);
-    res.json({ success: true, token, user: { username } });
+    if (!username || !password) return res.status(400).json({ success: false, message: 'Campos obrigatórios' });
+    try {
+        const { data: existing } = await supabase.from('users').select('id').eq('username', username).single();
+        if (existing) return res.status(409).json({ success: false, message: 'Usuário já existe' });
+
+        const { error } = await supabase.from('users').insert([{ username, password }]);
+        if (error) throw error;
+
+        const token = signToken(username);
+        res.json({ success: true, token, user: { username } });
+    } catch(e) { res.status(500).json({ success: false, message: 'Erro no registro' }); }
 });
+
 app.get('/api/auth/me', requireAuth, (req, res) => {
     res.json({ success: true, user: { username: req.user.username } });
 });
@@ -441,11 +470,19 @@ app.post('/api/auth/logout', (req, res) => {
     res.json({ success: true });
 });
 
-// Plantio diário endpoints (antes do catch-all)
-app.get('/api/plantio-dia', (req, res) => {
-    try { res.json({ success: true, data: plantioDia }); } catch(e) { res.status(500).json({ success: false }); }
+// === PLANTIO DIÁRIO ===
+app.get('/api/plantio-dia', async (req, res) => {
+    try {
+        const { data, error } = await supabase.from('plantio_diario').select('*');
+        if (error) throw error;
+        // Converter id string p/ number se precisar? O frontend espera? 
+        // ID no banco é bigint, vem como number ou string. 
+        // JS max safe int é 2^53. Timestamp cabe.
+        res.json({ success: true, data });
+    } catch(e) { res.status(500).json({ success: false, message: 'Erro ao buscar plantio' }); }
 });
-app.post('/api/plantio-dia', requireAuth, (req, res) => {
+
+app.post('/api/plantio-dia', requireAuth, async (req, res) => {
     try {
         const payload = req.body || {};
         const id = Date.now();
@@ -460,51 +497,40 @@ app.post('/api/plantio-dia', requireAuth, (req, res) => {
             areaAcumulada: Number(f.areaAcumulada) || 0,
             plantioDiario: Number(f.plantioDiario) || 0,
         }));
+        
         const item = {
             id,
             data: payload.data,
             responsavel: payload.responsavel || '',
             observacoes: payload.observacoes || '',
-            frentes: normalizeFrentes,
+            frentes: normalizeFrentes, // Salva como JSONB
             insumos: Array.isArray(payload.insumos) ? payload.insumos : [],
             qualidade: payload.qualidade || {}
         };
-        plantioDia.push(item);
+
+        const { error } = await supabase.from('plantio_diario').insert([item]);
+        if (error) throw error;
+
         res.json({ success: true, data: item });
-    } catch(e) { res.status(500).json({ success: false, message: 'Erro ao registrar' }); }
+    } catch(e) { res.status(500).json({ success: false, message: 'Erro ao registrar: ' + e.message }); }
 });
-app.delete('/api/plantio-dia/:id', requireAuth, (req, res) => {
+
+app.delete('/api/plantio-dia/:id', requireAuth, async (req, res) => {
     try {
         const id = req.params.id;
-        const idx = plantioDia.findIndex(i => String(i.id) === String(id));
-        if (idx >= 0) { plantioDia.splice(idx, 1); return res.json({ success: true }); }
-        res.status(404).json({ success: false, message: 'Registro não encontrado' });
+        const { error } = await supabase.from('plantio_diario').delete().eq('id', id);
+        if (error) throw error;
+        res.json({ success: true });
     } catch(e) { res.status(500).json({ success: false, message: 'Erro ao excluir' }); }
 });
 
-// ⭐⭐ ROTA PARA O FRONTEND - SPA ⭐⭐
+// SPA Fallback
 app.get('*', (req, res) => {
     res.sendFile(path.join(frontendPath, 'index.html'));
 });
 
-// Iniciar servidor
+// Start
 app.listen(PORT, () => {
-    console.log(`🚀 Servidor rodando: http://localhost:${PORT}`);
+    console.log(`🚀 Servidor Supabase rodando: http://localhost:${PORT}`);
     console.log(`📁 Servindo frontend de: ${frontendPath}`);
-    console.log(`🔍 Health check: http://localhost:${PORT}/api/health`);
-    console.log(`🌱 API Insumos Agrícolas: http://localhost:${PORT}/api/insumos/insumos-fazendas`);
-    console.log(`📤 IMPORTAR (REAL): http://localhost:${PORT}/api/importar/excel`);
 });
-
-// Excluir todos os dados (insumos e estoque)
-app.delete('/api/all', (req, res) => {
-    try {
-        insumosData = { oxifertil: [], insumosFazendas: [], santaIrene: [], daniela: [] };
-        estoque = { 'Frente 1': {}, 'Frente 2': {}, 'Frente Abençoada': {} };
-        if (typeof plantioDia !== 'undefined') plantioDia = [];
-        res.json({ success: true, message: 'Todos os dados foram excluídos' });
-    } catch(e) {
-        res.status(500).json({ success: false, message: 'Erro ao excluir todos os dados' });
-    }
-});
-// Endpoints antigos de cadastro removidos em favor de /api/fazendas
