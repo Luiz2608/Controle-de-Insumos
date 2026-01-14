@@ -1,0 +1,16 @@
+{
+  "name": "controle-de-insumos",
+  "version": "1.0.0",
+  "description": "Sistema de Controle de Insumos",
+  "scripts": {
+    "start": "cd backend && node server.js",
+    "install-backend": "cd backend && npm install",
+    "postinstall": "npm run install-backend"
+  },
+  "engines": {
+    "node": "18.x"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
