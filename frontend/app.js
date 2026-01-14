@@ -336,6 +336,13 @@ forceReloadAllData() {
         if (viagemSaveBtn) viagemSaveBtn.addEventListener('click', async () => { await this.saveViagemAdubo(); });
         if (bagAddBtn) bagAddBtn.addEventListener('click', () => this.addBagRow());
 
+        const viagemDetailClose = document.getElementById('viagem-detail-close');
+        const viagemDetailCancel = document.getElementById('viagem-detail-cancel');
+        const viagemDetailPrint = document.getElementById('viagem-detail-print');
+        if (viagemDetailClose) viagemDetailClose.addEventListener('click', () => this.closeViagemDetail());
+        if (viagemDetailCancel) viagemDetailCancel.addEventListener('click', () => this.closeViagemDetail());
+        if (viagemDetailPrint) viagemDetailPrint.addEventListener('click', () => this.printViagemDetail());
+
         const fazendaInput = document.getElementById('fazenda');
         const codInput = document.getElementById('cod');
         if (fazendaInput) fazendaInput.addEventListener('change', () => this.autofillByFazenda());
@@ -348,6 +355,7 @@ forceReloadAllData() {
             const delPlantioBtn = e.target.closest('.btn-delete-plantio');
             const togglePlantioBtn = e.target.closest('.btn-toggle-plantio-details');
             const delBagRowBtn = e.target.closest('.btn-delete-bag-row');
+            const viewViagemBtn = e.target.closest('.btn-view-viagem-adubo');
             const delViagemBtn = e.target.closest('.btn-delete-viagem-adubo');
             if (editBtn) {
                 const id = editBtn.getAttribute('data-id');
@@ -390,6 +398,9 @@ forceReloadAllData() {
                     this.viagensAduboBagsDraft.splice(idx, 1);
                     this.renderBagsDraft();
                 }
+            } else if (viewViagemBtn) {
+                const id = viewViagemBtn.getAttribute('data-viagem-id');
+                this.openViagemDetail(id);
             } else if (delViagemBtn) {
                 const id = delViagemBtn.getAttribute('data-viagem-id');
                 const ok = window.confirm('Excluir viagem de adubo?');
@@ -902,6 +913,7 @@ forceReloadAllData() {
                     <td>${v.motorista || ''}</td>
                     <td>${v.caminhao || ''}</td>
                     <td>
+                        <button class="btn btn-secondary btn-view-viagem-adubo" data-viagem-id="${v.id}">👁️ Ver</button>
                         <button class="btn btn-delete-viagem-adubo" data-viagem-id="${v.id}">🗑️ Excluir</button>
                     </td>
                 </tr>
@@ -994,6 +1006,101 @@ forceReloadAllData() {
                 </tr>
             `;
         }).join('');
+    }
+
+    openViagemDetail(id) {
+        const modal = document.getElementById('viagem-detail-modal');
+        const body = document.getElementById('viagem-detail-body');
+        const title = document.getElementById('viagem-detail-title');
+        if (!modal || !body) return;
+        const list = Array.isArray(this.viagensAdubo) ? this.viagensAdubo : [];
+        const viagem = list.find(v => String(v.id) === String(id));
+        if (!viagem) {
+            if (this.ui && this.ui.showNotification) this.ui.showNotification('Viagem não encontrada', 'error');
+            return;
+        }
+        const q = viagem.quantidadeTotal != null ? viagem.quantidadeTotal : (viagem.quantidade_total != null ? viagem.quantidade_total : 0);
+        const qtd = typeof q === 'number' ? q : parseFloat(q) || 0;
+        const bags = Array.isArray(viagem.bags) ? viagem.bags : [];
+        if (title) title.textContent = 'Viagem de ' + (viagem.produto || '');
+        const infoRows = [
+            ['Data', viagem.data || ''],
+            ['Frente', viagem.frente || ''],
+            ['Fazenda', viagem.fazenda || ''],
+            ['Origem', viagem.origem || ''],
+            ['Destino', viagem.destino || ''],
+            ['Produto', viagem.produto || ''],
+            ['Quantidade', this.ui.formatNumber(qtd, 3)],
+            ['Unidade', viagem.unidade || ''],
+            ['Caminhão', viagem.caminhao || ''],
+            ['Carreta 1', viagem.carreta1 || ''],
+            ['Carreta 2', viagem.carreta2 || ''],
+            ['Motorista', viagem.motorista || ''],
+            ['Doc. Motorista', viagem.documento_motorista || viagem.documentoMotorista || ''],
+            ['Transportadora', viagem.transportadora || ''],
+            ['Observações', viagem.observacoes || '']
+        ];
+        const infoHtml = `
+            <table class="data-table" style="margin-bottom:16px;">
+                <tbody>
+                    ${infoRows.map(r => `
+                        <tr>
+                            <th style="text-align:left;width:160px;">${r[0]}</th>
+                            <td>${r[1]}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+        const bagsHtml = bags.length ? `
+            <h4 style="margin: 10px 0;">Bags</h4>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Identificação</th>
+                        <th>Peso</th>
+                        <th>Lacre</th>
+                        <th>Observações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${bags.map(b => {
+                        const p = typeof b.peso === 'number' ? b.peso : parseFloat(b.peso) || 0;
+                        return `
+                            <tr>
+                                <td>${b.identificacao || ''}</td>
+                                <td>${this.ui.formatNumber(p, 3)}</td>
+                                <td>${b.lacre || ''}</td>
+                                <td>${b.observacoes || ''}</td>
+                            </tr>
+                        `;
+                    }).join('')}
+                </tbody>
+            </table>
+        ` : '<p style="margin:0;">Nenhum bag cadastrado para esta viagem.</p>';
+        body.innerHTML = infoHtml + bagsHtml;
+        modal.style.display = 'flex';
+        this.currentViagemDetailId = viagem.id;
+    }
+
+    closeViagemDetail() {
+        const modal = document.getElementById('viagem-detail-modal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    printViagemDetail() {
+        const body = document.getElementById('viagem-detail-body');
+        const title = document.getElementById('viagem-detail-title');
+        if (!body) return;
+        const w = window.open('', '_blank');
+        if (!w) return;
+        w.document.write('<html><head><title>Viagem</title><link rel="stylesheet" href="main.css"></head><body>');
+        if (title) w.document.write('<h2>' + title.textContent + '</h2>');
+        w.document.write(body.innerHTML);
+        w.document.write('</body></html>');
+        w.document.close();
+        w.focus();
+        w.print();
     }
 
     updateInsumosFilters(data) {
