@@ -44,14 +44,38 @@ class UIManager {
     }
 
     formatNumber(number, decimals = 2) {
+        const n = (typeof number === 'number' && !isNaN(number)) ? number : 0;
         return new Intl.NumberFormat('pt-BR', {
             minimumFractionDigits: decimals,
             maximumFractionDigits: decimals
-        }).format(number);
+        }).format(n);
     }
 
     formatPercentage(number) {
         return `${this.formatNumber(number, 2)}%`;
+    }
+
+    formatDateBR(val) {
+        if (!val) return '-';
+        if (typeof val === 'string') {
+            const m = val.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+            if (m) return val;
+            const d = new Date(val);
+            if (!isNaN(d)) {
+                const dd = String(d.getDate()).padStart(2,'0');
+                const mm = String(d.getMonth()+1).padStart(2,'0');
+                const yyyy = d.getFullYear();
+                return `${dd}/${mm}/${yyyy}`;
+            }
+            return '-';
+        }
+        if (val instanceof Date) {
+            const dd = String(val.getDate()).padStart(2,'0');
+            const mm = String(val.getMonth()+1).padStart(2,'0');
+            const yyyy = val.getFullYear();
+            return `${dd}/${mm}/${yyyy}`;
+        }
+        return '-';
     }
 
     getDifferenceClass(difference) {
@@ -66,7 +90,7 @@ class UIManager {
         if (!data || data.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="14" class="loading">
+                    <td colspan="13" class="loading">
                         📭 Nenhum dado encontrado
                     </td>
                 </tr>

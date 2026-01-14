@@ -56,6 +56,7 @@ body {
 .header-actions {
     display: flex;
     gap: 10px;
+    align-items: center;
 }
 
 /* Botões */
@@ -116,7 +117,7 @@ body {
 }
 
 .tab:hover {
-    background: #f8f9fa;
+    background: rgba(0,0,0,0.03);
 }
 
 .tab.active {
@@ -138,11 +139,41 @@ body {
     display: block;
 }
 
+/* Charts */
+.charts {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px;
+}
+
+.chart-card.wide { }
+
+.chart-card canvas {
+    width: 100% !important;
+    height: auto !important;
+    max-height: 280px;
+}
+
+@media (max-width: 1024px) {
+    .chart-card canvas { max-height: 240px; }
+}
+@media (max-width: 768px) {
+    .chart-card canvas { max-height: 200px; }
+}
+
 /* Filtros */
 .filters {
     padding: 20px;
     border-bottom: 1px solid var(--border);
-    background: #f8f9fa;
+    background: var(--surface);
     display: flex;
     gap: 15px;
     align-items: end;
@@ -224,7 +255,7 @@ body {
 }
 
 .data-table tr:hover {
-    background: #f8f9fa;
+    background: rgba(0,0,0,0.03);
 }
 
 /* Status */
@@ -316,7 +347,7 @@ body {
 }
 
 .modal-content {
-    background: white;
+    background: var(--surface);
     border-radius: var(--radius);
     width: 100%;
     max-width: 500px;
@@ -349,6 +380,8 @@ body {
 
 .modal-body {
     padding: 20px;
+    background: var(--surface);
+    color: var(--text);
 }
 
 .modal-footer {
@@ -401,6 +434,14 @@ body {
     .header-actions {
         width: 100%;
         justify-content: center;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .btn {
+        padding: 8px 12px;
+        font-size: 12px;
+        gap: 4px;
     }
     
     .tabs {
@@ -424,4 +465,64 @@ body {
     .data-table td {
         padding: 8px 4px;
     }
+    .charts {
+        grid-template-columns: 1fr;
+        padding: 10px;
+        gap: 12px;
+    }
+
+    .chart-card.wide {
+        grid-column: auto;
+    }
 }
+
+@media (max-width: 480px) {
+    .header-actions { gap: 6px; }
+    .btn {
+        padding: 6px 10px;
+        font-size: 11px;
+        gap: 3px;
+    }
+}
+
+.theme-dark {
+    --primary: #2e7d32;
+    --primary-dark: #1b5e20;
+    --primary-light: #4caf50;
+    --secondary: #ff9800;
+    --background: #0f0f10;
+    --surface: #161719;
+    --text: #e0e0e0;
+    --text-light: #c0c0c0;
+    --border: #333333;
+    --error: #ef5350;
+    --success: #81c784;
+    --warning: #ffb74d;
+    --shadow: 0 2px 6px rgba(0,0,0,0.4);
+}
+
+.theme-dark .filters { background: var(--surface); }
+.theme-dark .tab { color: var(--text-light); }
+.theme-dark .tab.active { background: var(--surface); }
+.theme-dark .notification { color: var(--text); }
+.actions-dropdown { position: relative; }
+.dropdown-menu { position: absolute; top: 38px; right: 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 8px; display: none; z-index: 1000; }
+.dropdown-menu .btn { display: block; width: 100%; text-align: left; margin: 6px 0; }
+.dropdown-menu.show { display: block; }
+.details-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+.quality-block div { margin: 4px 0; }
+.plantio-details td { background: var(--surface); }
+.login-screen { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(2px); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.login-box { background: var(--surface); color: var(--text); border-radius: var(--radius); padding: 20px; width: 100%; max-width: 420px; box-shadow: 0 8px 20px rgba(0,0,0,0.2); }
+ .user-badge { background: rgba(0,0,0,0.1); color: var(--text); padding: 6px 10px; border-radius: 999px; font-size: 12px; margin-left: 8px; }
+.boletim-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+#plantio-dia .form-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+#plantio-dia .form-group { border: 1px solid var(--border); padding: 6px; border-radius: var(--radius); }
+#plantio-dia .form-group label { font-size: 12px; opacity: 0.8; }
+
+#plantio-dia .chart-card { border: 1px solid var(--border); }
