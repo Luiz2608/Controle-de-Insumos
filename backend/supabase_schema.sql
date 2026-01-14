@@ -80,3 +80,24 @@ create table if not exists users (
 insert into users (username, password)
 values ('admin', '123456')
 on conflict (username) do nothing;
+
+create table if not exists viagens_adubo (
+  id bigint primary key,
+  data text,
+  frente text,
+  fazenda text,
+  origem text,
+  destino text,
+  produto text,
+  quantidade_total numeric,
+  unidade text,
+  caminhao text,
+  carreta1 text,
+  carreta2 text,
+  motorista text,
+  documento_motorista text,
+  transportadora text,
+  observacoes text,
+  bags jsonb default '[]'::jsonb,
+  created_at timestamp with time zone default timezone('utc'::text, now())
+);

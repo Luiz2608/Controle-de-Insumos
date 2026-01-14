@@ -133,7 +133,21 @@ class ApiService {
         return this.request(`/fazendas/${codigo}`, { method: 'DELETE' });
     }
 
-    
+    async getViagensAdubo() {
+        return this.request('/viagens-adubo');
+    }
+
+    async addViagemAdubo(payload) {
+        return this.request('/viagens-adubo', { method: 'POST', body: JSON.stringify(payload) });
+    }
+
+    async updateViagemAdubo(id, payload) {
+        return this.request(`/viagens-adubo/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+    }
+
+    async deleteViagemAdubo(id) {
+        return this.request(`/viagens-adubo/${id}`, { method: 'DELETE' });
+    }
 
     async healthCheck() {
         return this.request('/health');

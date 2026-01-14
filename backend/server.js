@@ -524,6 +524,99 @@ app.delete('/api/plantio-dia/:id', requireAuth, async (req, res) => {
     } catch(e) { res.status(500).json({ success: false, message: 'Erro ao excluir' }); }
 });
 
+app.get('/api/viagens-adubo', async (req, res) => {
+    try {
+        const { data, error } = await supabase.from('viagens_adubo').select('*');
+        if (error) throw error;
+        const mapped = (data || []).map(v => ({
+            ...v,
+            quantidadeTotal: v.quantidade_total,
+            bags: Array.isArray(v.bags) ? v.bags : []
+        }));
+        res.json({ success: true, data: mapped });
+    } catch(e) { res.status(500).json({ success: false, message: 'Erro ao buscar viagens' }); }
+});
+
+app.post('/api/viagens-adubo', requireAuth, async (req, res) => {
+    try {
+        const payload = req.body || {};
+        const id = Date.now();
+        const item = {
+            id,
+            data: payload.data || null,
+            frente: payload.frente || null,
+            fazenda: payload.fazenda || null,
+            origem: payload.origem || null,
+            destino: payload.destino || null,
+            produto: payload.produto || null,
+            quantidade_total: payload.quantidadeTotal != null ? Number(payload.quantidadeTotal) : null,
+            unidade: payload.unidade || null,
+            caminhao: payload.caminhao || null,
+            carreta1: payload.carreta1 || null,
+            carreta2: payload.carreta2 || null,
+            motorista: payload.motorista || null,
+            documento_motorista: payload.documentoMotorista || null,
+            transportadora: payload.transportadora || null,
+            observacoes: payload.observacoes || null,
+            bags: Array.isArray(payload.bags) ? payload.bags : []
+        };
+        const { data, error } = await supabase.from('viagens_adubo').insert([item]).select();
+        if (error) throw error;
+        const saved = data && data[0] ? data[0] : item;
+        const mapped = {
+            ...saved,
+            quantidadeTotal: saved.quantidade_total,
+            bags: Array.isArray(saved.bags) ? saved.bags : []
+        };
+        res.json({ success: true, data: mapped });
+    } catch(e) { res.status(500).json({ success: false, message: 'Erro ao registrar viagem: ' + e.message }); }
+});
+
+app.put('/api/viagens-adubo/:id', requireAuth, async (req, res) => {
+    try {
+        const id = req.params.id;
+        const payload = req.body || {};
+        const updates = {
+            data: payload.data,
+            frente: payload.frente,
+            fazenda: payload.fazenda,
+            origem: payload.origem,
+            destino: payload.destino,
+            produto: payload.produto,
+            quantidade_total: payload.quantidadeTotal != null ? Number(payload.quantidadeTotal) : undefined,
+            unidade: payload.unidade,
+            caminhao: payload.caminhao,
+            carreta1: payload.carreta1,
+            carreta2: payload.carreta2,
+            motorista: payload.motorista,
+            documento_motorista: payload.documentoMotorista,
+            transportadora: payload.transportadora,
+            observacoes: payload.observacoes,
+            bags: Array.isArray(payload.bags) ? payload.bags : undefined
+        };
+        Object.keys(updates).forEach(k => updates[k] === undefined && delete updates[k]);
+        const { data, error } = await supabase.from('viagens_adubo').update(updates).eq('id', id).select();
+        if (error) throw error;
+        if (!data || !data.length) return res.status(404).json({ success: false, message: 'Viagem não encontrada' });
+        const saved = data[0];
+        const mapped = {
+            ...saved,
+            quantidadeTotal: saved.quantidade_total,
+            bags: Array.isArray(saved.bags) ? saved.bags : []
+        };
+        res.json({ success: true, data: mapped });
+    } catch(e) { res.status(500).json({ success: false, message: 'Erro ao atualizar viagem: ' + e.message }); }
+});
+
+app.delete('/api/viagens-adubo/:id', requireAuth, async (req, res) => {
+    try {
+        const id = req.params.id;
+        const { error } = await supabase.from('viagens_adubo').delete().eq('id', id);
+        if (error) throw error;
+        res.json({ success: true });
+    } catch(e) { res.status(500).json({ success: false, message: 'Erro ao excluir viagem' }); }
+});
+
 // SPA Fallback
 app.get('*', (req, res) => {
     res.sendFile(path.join(frontendPath, 'index.html'));

@@ -15,6 +15,16 @@ class InsumosApp {
         this.plantioInsumosDraft = [];
         this.fazendaIndex = { byName: {}, byCod: {} };
         this.plantioExpanded = new Set();
+        this.viagensAdubo = [];
+        this.viagensAduboBagsDraft = [];
+        this.viagensAduboFilters = {
+            data: '',
+            fazenda: '',
+            frente: '',
+            motorista: '',
+            caminhao: '',
+            lacre: ''
+        };
     }
 
     async autofetchFazendaByCodigoApi(codInputId) {
@@ -317,6 +327,15 @@ forceReloadAllData() {
             });
         }
 
+        const viagensApplyBtn = document.getElementById('apply-viagens-filters');
+        const viagensResetBtn = document.getElementById('reset-viagens-filters');
+        const viagemSaveBtn = document.getElementById('viagem-save-btn');
+        const bagAddBtn = document.getElementById('bag-add-btn');
+        if (viagensApplyBtn) viagensApplyBtn.addEventListener('click', () => this.applyViagensFilters());
+        if (viagensResetBtn) viagensResetBtn.addEventListener('click', () => this.resetViagensFilters());
+        if (viagemSaveBtn) viagemSaveBtn.addEventListener('click', async () => { await this.saveViagemAdubo(); });
+        if (bagAddBtn) bagAddBtn.addEventListener('click', () => this.addBagRow());
+
         const fazendaInput = document.getElementById('fazenda');
         const codInput = document.getElementById('cod');
         if (fazendaInput) fazendaInput.addEventListener('change', () => this.autofillByFazenda());
@@ -328,6 +347,8 @@ forceReloadAllData() {
             const delEstoqueBtn = e.target.closest('.btn-delete-estoque');
             const delPlantioBtn = e.target.closest('.btn-delete-plantio');
             const togglePlantioBtn = e.target.closest('.btn-toggle-plantio-details');
+            const delBagRowBtn = e.target.closest('.btn-delete-bag-row');
+            const delViagemBtn = e.target.closest('.btn-delete-viagem-adubo');
             if (editBtn) {
                 const id = editBtn.getAttribute('data-id');
                 this.startEdit(parseInt(id));
@@ -363,6 +384,24 @@ forceReloadAllData() {
                 const id = togglePlantioBtn.getAttribute('data-plantio-id');
                 if (this.plantioExpanded.has(id)) this.plantioExpanded.delete(id); else this.plantioExpanded.add(id);
                 this.renderPlantioDia();
+            } else if (delBagRowBtn) {
+                const idx = parseInt(delBagRowBtn.getAttribute('data-idx'));
+                if (!isNaN(idx)) {
+                    this.viagensAduboBagsDraft.splice(idx, 1);
+                    this.renderBagsDraft();
+                }
+            } else if (delViagemBtn) {
+                const id = delViagemBtn.getAttribute('data-viagem-id');
+                const ok = window.confirm('Excluir viagem de adubo?');
+                if (!ok) return;
+                this.api.deleteViagemAdubo(id).then(async (res) => {
+                    if (res && res.success) {
+                        this.ui.showNotification('Viagem excluída', 'success', 1500);
+                        await this.loadViagensAdubo();
+                    } else {
+                        this.ui.showNotification('Erro ao excluir viagem', 'error');
+                    }
+                }).catch(()=>this.ui.showNotification('Erro ao excluir viagem', 'error'));
             }
         });
 
@@ -576,6 +615,8 @@ forceReloadAllData() {
             await this.loadEstoqueAndRender();
         } else if (tabName === 'plantio-dia') {
             await this.loadPlantioDia();
+        } else if (tabName === 'viagens-adubo') {
+            await this.loadViagensAdubo();
         }
     }
 
@@ -779,6 +820,180 @@ forceReloadAllData() {
                 </tr>
             `;
         }
+    }
+
+    async loadViagensAdubo() {
+        try {
+            if (!this.api || !this.api.getViagensAdubo) {
+                this.api = window.apiService || (typeof ApiService !== 'undefined' ? new ApiService() : null);
+            }
+            const tbody = document.getElementById('viagens-adubo-table-body');
+            if (!tbody) return;
+            tbody.innerHTML = '<tr><td colspan="9" class="loading">📡 Carregando dados...</td></tr>';
+            const response = await this.api.getViagensAdubo();
+            if (response && response.success) {
+                this.viagensAdubo = Array.isArray(response.data) ? response.data : [];
+                this.renderViagensAdubo();
+            } else {
+                throw new Error(response && response.message ? response.message : 'Erro ao carregar viagens');
+            }
+        } catch (error) {
+            const tbody = document.getElementById('viagens-adubo-table-body');
+            if (tbody) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="9" class="loading" style="color: var(--error);">
+                            ❌ Erro ao carregar dados: ${error.message}
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+    }
+
+    renderViagensAdubo() {
+        const tbody = document.getElementById('viagens-adubo-table-body');
+        if (!tbody) return;
+        const filters = this.viagensAduboFilters || {};
+        let data = Array.isArray(this.viagensAdubo) ? [...this.viagensAdubo] : [];
+        const norm = (v) => (v == null ? '' : String(v)).toLowerCase();
+        if (filters.data) {
+            data = data.filter(v => (v.data || '').includes(filters.data));
+        }
+        if (filters.fazenda) {
+            const f = filters.fazenda.toLowerCase();
+            data = data.filter(v => norm(v.fazenda).includes(f));
+        }
+        if (filters.frente) {
+            const f = filters.frente.toLowerCase();
+            data = data.filter(v => norm(v.frente).includes(f));
+        }
+        if (filters.motorista) {
+            const f = filters.motorista.toLowerCase();
+            data = data.filter(v => norm(v.motorista).includes(f));
+        }
+        if (filters.caminhao) {
+            const f = filters.caminhao.toLowerCase();
+            data = data.filter(v => norm(v.caminhao).includes(f));
+        }
+        if (filters.lacre) {
+            const f = filters.lacre.toLowerCase();
+            data = data.filter(v => Array.isArray(v.bags) && v.bags.some(b => norm(b.lacre).includes(f)));
+        }
+        if (!data.length) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="9" class="loading">Nenhuma viagem encontrada</td>
+                </tr>
+            `;
+            return;
+        }
+        tbody.innerHTML = data.map(v => {
+            const q = v.quantidadeTotal != null ? v.quantidadeTotal : (v.quantidade_total != null ? v.quantidade_total : 0);
+            const qtd = typeof q === 'number' ? q : parseFloat(q) || 0;
+            return `
+                <tr>
+                    <td>${v.data || ''}</td>
+                    <td>${v.frente || ''}</td>
+                    <td>${v.fazenda || ''}</td>
+                    <td>${v.produto || ''}</td>
+                    <td>${this.ui.formatNumber(qtd, 3)}</td>
+                    <td>${v.unidade || ''}</td>
+                    <td>${v.motorista || ''}</td>
+                    <td>${v.caminhao || ''}</td>
+                    <td>
+                        <button class="btn btn-delete-viagem-adubo" data-viagem-id="${v.id}">🗑️ Excluir</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    applyViagensFilters() {
+        const dataEl = document.getElementById('viagens-data-filter');
+        const fazendaEl = document.getElementById('viagens-fazenda-filter');
+        const frenteEl = document.getElementById('viagens-frente-filter');
+        const motoristaEl = document.getElementById('viagens-motorista-filter');
+        const caminhaoEl = document.getElementById('viagens-caminhao-filter');
+        const lacreEl = document.getElementById('viagens-lacre-filter');
+        this.viagensAduboFilters = {
+            data: dataEl ? dataEl.value : '',
+            fazenda: fazendaEl ? fazendaEl.value : '',
+            frente: frenteEl ? frenteEl.value : '',
+            motorista: motoristaEl ? motoristaEl.value : '',
+            caminhao: caminhaoEl ? caminhaoEl.value : '',
+            lacre: lacreEl ? lacreEl.value : ''
+        };
+        this.renderViagensAdubo();
+    }
+
+    resetViagensFilters() {
+        const ids = [
+            'viagens-data-filter',
+            'viagens-fazenda-filter',
+            'viagens-frente-filter',
+            'viagens-motorista-filter',
+            'viagens-caminhao-filter',
+            'viagens-lacre-filter'
+        ];
+        ids.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+        this.viagensAduboFilters = {
+            data: '',
+            fazenda: '',
+            frente: '',
+            motorista: '',
+            caminhao: '',
+            lacre: ''
+        };
+        this.renderViagensAdubo();
+    }
+
+    addBagRow() {
+        const identEl = document.getElementById('bag-identificacao');
+        const pesoEl = document.getElementById('bag-peso');
+        const lacreEl = document.getElementById('bag-lacre');
+        const obsEl = document.getElementById('bag-observacoes');
+        const identificacao = identEl && identEl.value ? identEl.value.trim() : '';
+        const pesoRaw = pesoEl && pesoEl.value ? pesoEl.value : '0';
+        const pesoVal = parseFloat(pesoRaw);
+        const peso = isNaN(pesoVal) ? 0 : pesoVal;
+        const lacre = lacreEl && lacreEl.value ? lacreEl.value.trim() : '';
+        const observacoes = obsEl && obsEl.value ? obsEl.value.trim() : '';
+        if (!identificacao && !peso) {
+            if (this.ui && this.ui.showNotification) this.ui.showNotification('Informe identificação ou peso do bag', 'warning');
+            return;
+        }
+        if (!Array.isArray(this.viagensAduboBagsDraft)) this.viagensAduboBagsDraft = [];
+        this.viagensAduboBagsDraft.push({ identificacao, peso, lacre, observacoes });
+        this.renderBagsDraft();
+        if (identEl) identEl.value = '';
+        if (pesoEl) pesoEl.value = '';
+        if (lacreEl) lacreEl.value = '';
+        if (obsEl) obsEl.value = '';
+    }
+
+    renderBagsDraft() {
+        const tbody = document.getElementById('bags-table-body');
+        if (!tbody) return;
+        if (!Array.isArray(this.viagensAduboBagsDraft) || !this.viagensAduboBagsDraft.length) {
+            tbody.innerHTML = '';
+            return;
+        }
+        tbody.innerHTML = this.viagensAduboBagsDraft.map((b, idx) => {
+            const p = typeof b.peso === 'number' ? b.peso : parseFloat(b.peso) || 0;
+            return `
+                <tr>
+                    <td>${b.identificacao || ''}</td>
+                    <td>${this.ui.formatNumber(p, 3)}</td>
+                    <td>${b.lacre || ''}</td>
+                    <td>${b.observacoes || ''}</td>
+                    <td><button class="btn btn-delete-bag-row" data-idx="${idx}">🗑️</button></td>
+                </tr>
+            `;
+        }).join('');
     }
 
     updateInsumosFilters(data) {
@@ -1485,6 +1700,82 @@ InsumosApp.prototype.savePlantioDia = async function() {
             this.ui.showNotification('Erro ao registrar', 'error');
         }
     } catch(e) { this.ui.showNotification('Erro ao registrar', 'error'); }
+};
+
+InsumosApp.prototype.saveViagemAdubo = async function() {
+    const data = document.getElementById('viagem-data')?.value || '';
+    const frente = document.getElementById('viagem-frente')?.value || '';
+    const fazenda = document.getElementById('viagem-fazenda')?.value || '';
+    const origem = document.getElementById('viagem-origem')?.value || '';
+    const destino = document.getElementById('viagem-destino')?.value || '';
+    const produto = document.getElementById('viagem-produto')?.value || '';
+    const quantidadeRaw = document.getElementById('viagem-quantidade-total')?.value || '';
+    const unidade = document.getElementById('viagem-unidade')?.value || '';
+    const caminhao = document.getElementById('viagem-caminhao')?.value || '';
+    const carreta1 = document.getElementById('viagem-carreta1')?.value || '';
+    const carreta2 = document.getElementById('viagem-carreta2')?.value || '';
+    const motorista = document.getElementById('viagem-motorista')?.value || '';
+    const documentoMotorista = document.getElementById('viagem-documento-motorista')?.value || '';
+    const transportadora = document.getElementById('viagem-transportadora')?.value || '';
+    const observacoes = document.getElementById('viagem-observacoes')?.value || '';
+    if (!data || !produto) {
+        this.ui.showNotification('Informe data e produto da viagem', 'warning');
+        return;
+    }
+    const quantidadeVal = quantidadeRaw ? parseFloat(quantidadeRaw) : 0;
+    const quantidadeTotal = isNaN(quantidadeVal) ? 0 : quantidadeVal;
+    const payload = {
+        data,
+        frente,
+        fazenda,
+        origem,
+        destino,
+        produto,
+        quantidadeTotal,
+        unidade,
+        caminhao,
+        carreta1,
+        carreta2,
+        motorista,
+        documentoMotorista,
+        transportadora,
+        observacoes,
+        bags: Array.isArray(this.viagensAduboBagsDraft) ? this.viagensAduboBagsDraft.slice() : []
+    };
+    try {
+        const res = await this.api.addViagemAdubo(payload);
+        if (res && res.success) {
+            this.ui.showNotification('Viagem de adubo registrada', 'success', 1500);
+            this.viagensAduboBagsDraft = [];
+            if (typeof this.renderBagsDraft === 'function') this.renderBagsDraft();
+            const ids = [
+                'viagem-data',
+                'viagem-frente',
+                'viagem-fazenda',
+                'viagem-origem',
+                'viagem-destino',
+                'viagem-produto',
+                'viagem-quantidade-total',
+                'viagem-unidade',
+                'viagem-caminhao',
+                'viagem-carreta1',
+                'viagem-carreta2',
+                'viagem-motorista',
+                'viagem-documento-motorista',
+                'viagem-transportadora',
+                'viagem-observacoes'
+            ];
+            ids.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
+            await this.loadViagensAdubo();
+        } else {
+            this.ui.showNotification('Erro ao registrar viagem', 'error');
+        }
+    } catch(e) {
+        this.ui.showNotification('Erro ao registrar viagem', 'error');
+    }
 };
 
 InsumosApp.prototype.autofillPlantioByFazenda = function() {
