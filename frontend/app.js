@@ -265,11 +265,6 @@ class InsumosApp {
             this.ui.showNotification('Leitor de PDF não carregado', 'error');
             return;
         }
-        await this.ensureApiReady();
-        if (!this.api) {
-            this.ui.showNotification('API não disponível', 'error');
-            return;
-        }
         try {
             this.ui.showNotification('Lendo PDF de fazendas...', 'info', 2000);
             const buffer = await file.arrayBuffer();
@@ -287,40 +282,17 @@ class InsumosApp {
                 this.ui.showNotification('Nenhuma fazenda encontrada no PDF. Verifique o formato.', 'warning', 4000);
                 return;
             }
-            let created = 0;
-            for (const f of fazendas) {
-                try {
-                    const res = await this.api.createFazenda(f);
-                    if (res && res.success) created++;
-                } catch(e) {}
-            }
-            if (!created) {
-                this.ui.showNotification('Não foi possível criar cadastros a partir do PDF.', 'warning', 4000);
-                return;
-            }
-            const cadResp = await this.api.getFazendas();
-            if (cadResp && cadResp.success && Array.isArray(cadResp.data)) {
-                const list = cadResp.data.map(f => ({
-                    cod: f.codigo,
-                    nome: f.nome,
-                    areaTotal: f.area_total,
-                    plantioAcumulado: f.plantio_acumulado,
-                    mudaAcumulada: f.muda_acumulada,
-                    regiao: f.regiao
-                }));
-                this.buildCadastroIndex(list);
-                this.renderCadastroFazendas(cadResp.data);
-            }
-            this.ui.showNotification(`Importação de fazendas concluída: ${created} cadastro(s).`, 'success', 4000);
+            this.openFazendaImportPreview(fazendas);
         } catch (e) {
-            this.ui.showNotification('Erro ao importar fazendas do PDF', 'error', 4000);
+            this.ui.showNotification('Erro ao ler PDF de fazendas', 'error', 4000);
             console.error('Erro na leitura de PDF de fazendas:', e);
         }
     }
 
     parseFazendasFromText(text) {
         if (!text) return [];
-        const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l);
+        const cleaned = text.replace(/\r/g, '');
+        const lines = cleaned.split('\n').map(l => l.trim()).filter(l => l);
         const result = [];
         for (const line of lines) {
             const normalized = line.replace(/\s+/g, ' ');
@@ -353,7 +325,123 @@ class InsumosApp {
                 observacoes: 'Importado do PDF'
             });
         }
-        return result;
+        if (result.length) return result;
+        const headerIndex = lines.findIndex(l => /caderno de mapas/i.test(l));
+        let regiao = '';
+        if (headerIndex > 0) regiao = lines[headerIndex - 1];
+        const blocoMatch = cleaned.match(/(\d+)\s*·\s*([A-Z0-9ÇÃÕÁÉÍÓÚÂÊÔ\s]+)/);
+        let codigo = '';
+        let nome = '';
+        if (blocoMatch) {
+            codigo = blocoMatch[1];
+            nome = blocoMatch[2].trim();
+        }
+        const totalLine = lines.find(l => /total\/m[eé]dia/i.test(l)) || '';
+        const areaPattern = /(\d{1,3}(?:\.\d{3})*,\d{2})/g;
+        let areaMatch = null;
+        if (totalLine) {
+            const m = totalLine.match(areaPattern);
+            if (m && m.length) areaMatch = m[m.length - 1];
+        }
+        if (!areaMatch) {
+            const m = cleaned.match(areaPattern);
+            if (m && m.length) areaMatch = m[m.length - 1];
+        }
+        let areaTotal = 0;
+        if (areaMatch) {
+            const n = parseFloat(areaMatch.replace('.', '').replace(',', '.'));
+            if (!isNaN(n)) areaTotal = n;
+        }
+        if (codigo && nome) {
+            return [{
+                codigo,
+                nome,
+                regiao,
+                areaTotal,
+                plantioAcumulado: 0,
+                mudaAcumulada: 0,
+                observacoes: 'Importado do PDF (Caderno de Mapas)'
+            }];
+        }
+        return [];
+    }
+
+    openFazendaImportPreview(fazendas) {
+        this.fazendaImportPreview = Array.isArray(fazendas) ? fazendas : [];
+        const modal = document.getElementById('fazenda-import-modal');
+        const container = document.getElementById('fazenda-import-preview');
+        if (!modal || !container) return;
+        if (!this.fazendaImportPreview.length) {
+            container.innerHTML = '<p>Nenhum dado de fazenda encontrado.</p>';
+        } else {
+            const rows = this.fazendaImportPreview.slice(0, 100).map(f => `
+                <tr>
+                    <td>${f.codigo}</td>
+                    <td>${f.nome}</td>
+                    <td>${f.regiao || ''}</td>
+                    <td>${(f.areaTotal || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                </tr>
+            `).join('');
+            container.innerHTML = `
+                <p>Pré-visualização das fazendas detectadas no PDF (${this.fazendaImportPreview.length} registro(s)):</p>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Nome</th>
+                                <th>Região</th>
+                                <th>Área total (ha)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rows}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+        modal.style.display = 'flex';
+    }
+
+    async runFazendaImportFromPreview() {
+        const data = Array.isArray(this.fazendaImportPreview) ? this.fazendaImportPreview : [];
+        if (!data.length) {
+            this.ui.showNotification('Nenhuma fazenda para importar', 'warning', 3000);
+            return;
+        }
+        await this.ensureApiReady();
+        if (!this.api) {
+            this.ui.showNotification('API não disponível', 'error', 3000);
+            return;
+        }
+        let created = 0;
+        for (const f of data) {
+            try {
+                const res = await this.api.createFazenda(f);
+                if (res && res.success) created++;
+            } catch(e) {}
+        }
+        if (!created) {
+            this.ui.showNotification('Não foi possível criar cadastros a partir do PDF.', 'warning', 4000);
+            return;
+        }
+        const cadResp = await this.api.getFazendas();
+        if (cadResp && cadResp.success && Array.isArray(cadResp.data)) {
+            const list = cadResp.data.map(f => ({
+                cod: f.codigo,
+                nome: f.nome,
+                areaTotal: f.area_total,
+                plantioAcumulado: f.plantio_acumulado,
+                mudaAcumulada: f.muda_acumulada,
+                regiao: f.regiao
+            }));
+            this.buildCadastroIndex(list);
+            this.renderCadastroFazendas(cadResp.data);
+        }
+        const modal = document.getElementById('fazenda-import-modal');
+        if (modal) modal.style.display = 'none';
+        this.ui.showNotification(`Importação de fazendas concluída: ${created} cadastro(s).`, 'success', 4000);
     }
 
     useFazendaInPlantio(codigo) {
@@ -585,6 +673,26 @@ forceReloadAllData() {
             importFazendaPdfInput.addEventListener('change', (e) => {
                 const file = e.target.files && e.target.files[0];
                 if (file) this.handleFazendaPdfFile(file);
+            });
+        }
+
+        const fazendaImportClose = document.getElementById('fazenda-import-close');
+        const fazendaImportCancel = document.getElementById('fazenda-import-cancel');
+        const fazendaImportConfirm = document.getElementById('fazenda-import-confirm');
+        const fazendaImportModal = document.getElementById('fazenda-import-modal');
+        if (fazendaImportClose && fazendaImportModal) {
+            fazendaImportClose.addEventListener('click', () => {
+                fazendaImportModal.style.display = 'none';
+            });
+        }
+        if (fazendaImportCancel && fazendaImportModal) {
+            fazendaImportCancel.addEventListener('click', () => {
+                fazendaImportModal.style.display = 'none';
+            });
+        }
+        if (fazendaImportConfirm) {
+            fazendaImportConfirm.addEventListener('click', async () => {
+                await this.runFazendaImportFromPreview();
             });
         }
 
