@@ -712,6 +712,23 @@ forceReloadAllData() {
         if (toletesTotal) toletesTotal.addEventListener('input', bindToletes);
         if (toletesBons) toletesBons.addEventListener('input', bindToletes);
         if (toletesRuins) toletesRuins.addEventListener('input', bindToletes);
+
+        const gemasTotal = document.getElementById('qual-gemas-total');
+        const gemasBoas = document.getElementById('qual-gemas-boas');
+        const gemasRuins = document.getElementById('qual-gemas-ruins');
+        const bindGemas = () => this.updateGemasPercent();
+        if (gemasTotal) gemasTotal.addEventListener('input', bindGemas);
+        if (gemasBoas) gemasBoas.addEventListener('input', bindGemas);
+        if (gemasRuins) gemasRuins.addEventListener('input', bindGemas);
+
+        const mudasTotal = document.getElementById('qual-mudas-total');
+        const mudasBoas = document.getElementById('qual-mudas-boas');
+        const mudasRuins = document.getElementById('qual-mudas-ruins');
+        const bindMudas = () => this.updateMudasPercent();
+        if (mudasTotal) mudasTotal.addEventListener('input', bindMudas);
+        if (mudasBoas) mudasBoas.addEventListener('input', bindMudas);
+        if (mudasRuins) mudasRuins.addEventListener('input', bindMudas);
+
         const singleFrente = document.getElementById('single-frente');
         const singleCod = document.getElementById('single-cod');
         const singleFazenda = document.getElementById('single-fazenda');
@@ -1012,11 +1029,15 @@ forceReloadAllData() {
                 <div>
                     <h5>Qualidade / Condições</h5>
                     <div class="quality-block">
-                        <div>Gemas viáveis/m: ${this.ui.formatNumber(q.gemasOk||0)}</div>
-                        <div>Gemas não viáveis/m: ${this.ui.formatNumber(q.gemasNok||0)}</div>
+                        <div>Gemas totais: ${this.ui.formatNumber(q.gemasTotal||0)}</div>
+                        <div>Gemas boas: ${this.ui.formatNumber(q.gemasBoas||0)} (${this.ui.formatNumber(q.gemasBoasPct||0,2)}%)</div>
+                        <div>Gemas ruins: ${this.ui.formatNumber(q.gemasRuins||0)} (${this.ui.formatNumber(q.gemasRuinsPct||0,2)}%)</div>
                         <div>Toletes totais: ${this.ui.formatNumber(q.toletesTotal||0)}</div>
                         <div>Toletes bons: ${this.ui.formatNumber(q.toletesBons||0)} (${this.ui.formatNumber(q.toletesBonsPct||0,2)}%)</div>
                         <div>Toletes ruins: ${this.ui.formatNumber(q.toletesRuins||0)} (${this.ui.formatNumber(q.toletesRuinsPct||0,2)}%)</div>
+                        <div>Mudas totais: ${this.ui.formatNumber(q.mudasTotal||0)}</div>
+                        <div>Mudas boas: ${this.ui.formatNumber(q.mudasBoas||0)} (${this.ui.formatNumber(q.mudasBoasPct||0,2)}%)</div>
+                        <div>Mudas ruins: ${this.ui.formatNumber(q.mudasRuins||0)} (${this.ui.formatNumber(q.mudasRuinsPct||0,2)}%)</div>
                         <div>Muda (ton/ha): ${this.ui.formatNumber(q.mudaTonHa||0)}</div>
                         <div>Profundidade (cm): ${this.ui.formatNumber(q.profundidadeCm||0)}</div>
                         <div>Cobertura: ${q.cobertura||'—'}</div>
@@ -1993,6 +2014,58 @@ InsumosApp.prototype.exportPDF = function() {
     doc.save(`insumos_${Date.now()}.pdf`);
 };
 
+InsumosApp.prototype.updateGemasPercent = function() {
+    const totalEl = document.getElementById('qual-gemas-total');
+    const bonsEl = document.getElementById('qual-gemas-boas');
+    const ruinsEl = document.getElementById('qual-gemas-ruins');
+    const bonsPctEl = document.getElementById('qual-gemas-boas-pct');
+    const ruinsPctEl = document.getElementById('qual-gemas-ruins-pct');
+    if (!totalEl || !bonsEl || !ruinsEl || !bonsPctEl || !ruinsPctEl) return;
+    const total = parseFloat(totalEl.value || '0');
+    if (total > 0) {
+        let bons = parseFloat(bonsEl.value || '0');
+        let ruins = parseFloat(ruinsEl.value || '0');
+        if (bonsEl.value && !ruinsEl.value) {
+            ruins = total - bons;
+            ruinsEl.value = ruins;
+        } else if (ruinsEl.value && !bonsEl.value) {
+            bons = total - ruins;
+            bonsEl.value = bons;
+        }
+        bonsPctEl.value = ((bons / total) * 100).toFixed(2);
+        ruinsPctEl.value = ((ruins / total) * 100).toFixed(2);
+    } else {
+        bonsPctEl.value = '';
+        ruinsPctEl.value = '';
+    }
+};
+
+InsumosApp.prototype.updateMudasPercent = function() {
+    const totalEl = document.getElementById('qual-mudas-total');
+    const bonsEl = document.getElementById('qual-mudas-boas');
+    const ruinsEl = document.getElementById('qual-mudas-ruins');
+    const bonsPctEl = document.getElementById('qual-mudas-boas-pct');
+    const ruinsPctEl = document.getElementById('qual-mudas-ruins-pct');
+    if (!totalEl || !bonsEl || !ruinsEl || !bonsPctEl || !ruinsPctEl) return;
+    const total = parseFloat(totalEl.value || '0');
+    if (total > 0) {
+        let bons = parseFloat(bonsEl.value || '0');
+        let ruins = parseFloat(ruinsEl.value || '0');
+        if (bonsEl.value && !ruinsEl.value) {
+            ruins = total - bons;
+            ruinsEl.value = ruins;
+        } else if (ruinsEl.value && !bonsEl.value) {
+            bons = total - ruins;
+            bonsEl.value = bons;
+        }
+        bonsPctEl.value = ((bons / total) * 100).toFixed(2);
+        ruinsPctEl.value = ((ruins / total) * 100).toFixed(2);
+    } else {
+        bonsPctEl.value = '';
+        ruinsPctEl.value = '';
+    }
+};
+
 InsumosApp.prototype.updateToletesPercent = function() {
     const totalEl = document.getElementById('qual-toletes-total');
     const bonsEl = document.getElementById('qual-toletes-bons');
@@ -2092,9 +2165,34 @@ InsumosApp.prototype.savePlantioDia = async function() {
     const toletesRuinsVal = parseFloat(document.getElementById('qual-toletes-ruins')?.value || '0');
     const toletesBonsPctVal = toletesTotalVal > 0 ? (toletesBonsVal / toletesTotalVal) * 100 : 0;
     const toletesRuinsPctVal = toletesTotalVal > 0 ? (toletesRuinsVal / toletesTotalVal) * 100 : 0;
+
+    const gemasTotalVal = parseFloat(document.getElementById('qual-gemas-total')?.value || '0');
+    const gemasBoasVal = parseFloat(document.getElementById('qual-gemas-boas')?.value || '0');
+    const gemasRuinsVal = parseFloat(document.getElementById('qual-gemas-ruins')?.value || '0');
+    const gemasBoasPctVal = gemasTotalVal > 0 ? (gemasBoasVal / gemasTotalVal) * 100 : 0;
+    const gemasRuinsPctVal = gemasTotalVal > 0 ? (gemasRuinsVal / gemasTotalVal) * 100 : 0;
+
+    const mudasTotalVal = parseFloat(document.getElementById('qual-mudas-total')?.value || '0');
+    const mudasBoasVal = parseFloat(document.getElementById('qual-mudas-boas')?.value || '0');
+    const mudasRuinsVal = parseFloat(document.getElementById('qual-mudas-ruins')?.value || '0');
+    const mudasBoasPctVal = mudasTotalVal > 0 ? (mudasBoasVal / mudasTotalVal) * 100 : 0;
+    const mudasRuinsPctVal = mudasTotalVal > 0 ? (mudasRuinsVal / mudasTotalVal) * 100 : 0;
+
     const qualidade = {
-        gemasOk: parseFloat(document.getElementById('qual-gemas-ok')?.value || '0'),
-        gemasNok: parseFloat(document.getElementById('qual-gemas-nok')?.value || '0'),
+        gemasTotal: gemasTotalVal,
+        gemasBoas: gemasBoasVal,
+        gemasRuins: gemasRuinsVal,
+        gemasBoasPct: gemasBoasPctVal,
+        gemasRuinsPct: gemasRuinsPctVal,
+        gemasOk: gemasBoasVal,
+        gemasNok: gemasRuinsVal,
+
+        mudasTotal: mudasTotalVal,
+        mudasBoas: mudasBoasVal,
+        mudasRuins: mudasRuinsVal,
+        mudasBoasPct: mudasBoasPctVal,
+        mudasRuinsPct: mudasRuinsPctVal,
+
         toletesTotal: toletesTotalVal,
         toletesBons: toletesBonsVal,
         toletesRuins: toletesRuinsVal,

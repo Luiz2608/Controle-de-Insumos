@@ -2092,9 +2092,34 @@ InsumosApp.prototype.savePlantioDia = async function() {
     const toletesRuinsVal = parseFloat(document.getElementById('qual-toletes-ruins')?.value || '0');
     const toletesBonsPctVal = toletesTotalVal > 0 ? (toletesBonsVal / toletesTotalVal) * 100 : 0;
     const toletesRuinsPctVal = toletesTotalVal > 0 ? (toletesRuinsVal / toletesTotalVal) * 100 : 0;
+
+    const gemasTotalVal = parseFloat(document.getElementById('qual-gemas-total')?.value || '0');
+    const gemasBoasVal = parseFloat(document.getElementById('qual-gemas-boas')?.value || '0');
+    const gemasRuinsVal = parseFloat(document.getElementById('qual-gemas-ruins')?.value || '0');
+    const gemasBoasPctVal = gemasTotalVal > 0 ? (gemasBoasVal / gemasTotalVal) * 100 : 0;
+    const gemasRuinsPctVal = gemasTotalVal > 0 ? (gemasRuinsVal / gemasTotalVal) * 100 : 0;
+
+    const mudasTotalVal = parseFloat(document.getElementById('qual-mudas-total')?.value || '0');
+    const mudasBoasVal = parseFloat(document.getElementById('qual-mudas-boas')?.value || '0');
+    const mudasRuinsVal = parseFloat(document.getElementById('qual-mudas-ruins')?.value || '0');
+    const mudasBoasPctVal = mudasTotalVal > 0 ? (mudasBoasVal / mudasTotalVal) * 100 : 0;
+    const mudasRuinsPctVal = mudasTotalVal > 0 ? (mudasRuinsVal / mudasTotalVal) * 100 : 0;
+
     const qualidade = {
-        gemasOk: parseFloat(document.getElementById('qual-gemas-ok')?.value || '0'),
-        gemasNok: parseFloat(document.getElementById('qual-gemas-nok')?.value || '0'),
+        gemasTotal: gemasTotalVal,
+        gemasBoas: gemasBoasVal,
+        gemasRuins: gemasRuinsVal,
+        gemasBoasPct: gemasBoasPctVal,
+        gemasRuinsPct: gemasRuinsPctVal,
+        gemasOk: gemasBoasVal,
+        gemasNok: gemasRuinsVal,
+
+        mudasTotal: mudasTotalVal,
+        mudasBoas: mudasBoasVal,
+        mudasRuins: mudasRuinsVal,
+        mudasBoasPct: mudasBoasPctVal,
+        mudasRuinsPct: mudasRuinsPctVal,
+
         toletesTotal: toletesTotalVal,
         toletesBons: toletesBonsVal,
         toletesRuins: toletesRuinsVal,

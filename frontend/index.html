@@ -768,15 +768,33 @@
 
             <div class="chart-card">
                 <h4 style="margin: 0 0 10px 0;">4. Qualidade Muda/Plantio</h4>
+                
+                <h5 style="margin: 5px 0; color: #666;">Gemas</h5>
                 <div class="form-grid">
                     <div class="form-group">
-                        <label for="qual-gemas-ok">Gemas viáveis/m</label>
-                        <input type="number" id="qual-gemas-ok" step="0.01">
+                        <label for="qual-gemas-total">Gemas totais</label>
+                        <input type="number" id="qual-gemas-total" step="1">
                     </div>
                     <div class="form-group">
-                        <label for="qual-gemas-nok">Gemas não viáveis/m (≤)</label>
-                        <input type="number" id="qual-gemas-nok" step="0.01">
+                        <label for="qual-gemas-boas">Gemas boas</label>
+                        <input type="number" id="qual-gemas-boas" step="1">
                     </div>
+                    <div class="form-group">
+                        <label for="qual-gemas-ruins">Gemas ruins</label>
+                        <input type="number" id="qual-gemas-ruins" step="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="qual-gemas-boas-pct">% Gemas boas</label>
+                        <input type="number" id="qual-gemas-boas-pct" step="0.01" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label for="qual-gemas-ruins-pct">% Gemas ruins</label>
+                        <input type="number" id="qual-gemas-ruins-pct" step="0.01" readonly>
+                    </div>
+                </div>
+
+                <h5 style="margin: 5px 0; color: #666;">Toletes</h5>
+                <div class="form-grid">
                     <div class="form-group">
                         <label for="qual-toletes-total">Toletes totais</label>
                         <input type="number" id="qual-toletes-total" step="1">
@@ -797,6 +815,34 @@
                         <label for="qual-toletes-ruins-pct">% Toletes ruins</label>
                         <input type="number" id="qual-toletes-ruins-pct" step="0.01" readonly>
                     </div>
+                </div>
+
+                <h5 style="margin: 5px 0; color: #666;">Mudas (Qualidade)</h5>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="qual-mudas-total">Mudas totais</label>
+                        <input type="number" id="qual-mudas-total" step="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="qual-mudas-boas">Mudas boas</label>
+                        <input type="number" id="qual-mudas-boas" step="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="qual-mudas-ruins">Mudas ruins</label>
+                        <input type="number" id="qual-mudas-ruins" step="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="qual-mudas-boas-pct">% Mudas boas</label>
+                        <input type="number" id="qual-mudas-boas-pct" step="0.01" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label for="qual-mudas-ruins-pct">% Mudas ruins</label>
+                        <input type="number" id="qual-mudas-ruins-pct" step="0.01" readonly>
+                    </div>
+                </div>
+
+                <h5 style="margin: 5px 0; color: #666;">Outros Indicadores</h5>
+                <div class="form-grid">
                     <div class="form-group">
                         <label for="qual-muda">Muda (ton/ha)</label>
                         <input type="number" id="qual-muda" step="0.01">
