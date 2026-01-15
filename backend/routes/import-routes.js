@@ -30,16 +30,16 @@ const storage = multer.diskStorage({
 const upload = multer({ 
     storage: storage,
     fileFilter: (req, file, cb) => {
-        const allowedExtensions = ['.xlsx', '.xls', '.csv'];
+        const allowedExtensions = ['.xlsx', '.xls', '.csv', '.pdf'];
         const ext = path.extname(file.originalname).toLowerCase();
         if (allowedExtensions.includes(ext)) {
             cb(null, true);
         } else {
-            cb(new Error('Apenas arquivos Excel (.xlsx, .xls) e CSV são permitidos'));
+            cb(new Error('Formato de arquivo não suportado. Use Excel, CSV ou PDF.'));
         }
     },
     limits: {
-        fileSize: 10 * 1024 * 1024 // 10MB
+        fileSize: 50 * 1024 * 1024 // 50MB
     }
 });
 
@@ -451,8 +451,17 @@ router.post('/fazendas-gemini', upload.single('file'), async (req, res) => {
             });
         }
 
-        // Ler o arquivo PDF
-        const dataBuffer = fs.readFileSync(req.file.path);
+        // Ler o arquivo PDF de forma assíncrona
+        let dataBuffer;
+        try {
+            dataBuffer = await fs.promises.readFile(req.file.path);
+        } catch (readError) {
+            console.error('Erro ao ler arquivo do disco:', readError);
+            return res.status(500).json({
+                success: false,
+                message: 'Erro ao ler o arquivo enviado.'
+            });
+        }
         
         // Extrair texto do PDF usando pdf-parse
         let text = '';
