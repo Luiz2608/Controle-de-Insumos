@@ -14,6 +14,8 @@ class InsumosApp {
         this.plantioFrentesDraft = [];
         this.plantioInsumosDraft = [];
         this.fazendaIndex = { byName: {}, byCod: {} };
+        this.cadastroFazendas = [];
+        this.cadastroEditCodigo = null;
         this.plantioExpanded = new Set();
         this.viagensAdubo = [];
         this.viagensAduboBagsDraft = [];
@@ -65,15 +67,225 @@ class InsumosApp {
 
     
 
-    renderCadastroFazendas(list) {}
+    renderCadastroFazendas(list) {
+        this.cadastroFazendas = Array.isArray(list) ? list : [];
+        const tbody = document.getElementById('cadastro-fazendas-body');
+        if (!tbody) return;
+        if (!this.cadastroFazendas.length) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="loading">📭 Nenhuma fazenda cadastrada</td>
+                </tr>
+            `;
+            return;
+        }
+        tbody.innerHTML = '';
+        this.cadastroFazendas.forEach(f => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${f.codigo ?? ''}</td>
+                <td>${f.nome ?? ''}</td>
+                <td>${f.regiao ?? ''}</td>
+                <td>${f.area_total != null ? this.ui.formatNumber(f.area_total, 2) : ''}</td>
+                <td>${f.plantio_acumulado != null ? this.ui.formatNumber(f.plantio_acumulado, 2) : ''}</td>
+                <td>${f.muda_acumulada != null ? this.ui.formatNumber(f.muda_acumulada, 2) : ''}</td>
+                <td>
+                    <button class="btn btn-secondary btn-edit-fazenda" data-codigo="${f.codigo}">Editar</button>
+                    <button class="btn btn-secondary btn-use-fazenda-plantio" data-codigo="${f.codigo}">Usar no Plantio</button>
+                    <button class="btn btn-delete-fazenda" data-codigo="${f.codigo}">Excluir</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
 
-    async saveCadastroFazenda() {}
+    clearCadastroFazendaForm() {
+        const ids = [
+            'cadastro-fazenda-codigo',
+            'cadastro-fazenda-nome',
+            'cadastro-fazenda-regiao',
+            'cadastro-fazenda-area-total',
+            'cadastro-fazenda-plantio-acumulado',
+            'cadastro-fazenda-muda-acumulada',
+            'cadastro-fazenda-observacoes'
+        ];
+        ids.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+        const saveBtn = document.getElementById('cadastro-fazenda-save');
+        if (saveBtn) saveBtn.textContent = '💾 Salvar Fazenda';
+    }
 
-    async editCadastroFazenda() {}
+    async saveCadastroFazenda() {
+        await this.ensureApiReady();
+        const codigoEl = document.getElementById('cadastro-fazenda-codigo');
+        const nomeEl = document.getElementById('cadastro-fazenda-nome');
+        const regiaoEl = document.getElementById('cadastro-fazenda-regiao');
+        const areaTotalEl = document.getElementById('cadastro-fazenda-area-total');
+        const plantioAcumEl = document.getElementById('cadastro-fazenda-plantio-acumulado');
+        const mudaAcumEl = document.getElementById('cadastro-fazenda-muda-acumulada');
+        const obsEl = document.getElementById('cadastro-fazenda-observacoes');
 
-    async deleteCadastroFazenda() {}
+        const codigo = codigoEl && codigoEl.value ? codigoEl.value.trim() : '';
+        const nome = nomeEl && nomeEl.value ? nomeEl.value.trim() : '';
+        const regiao = regiaoEl && regiaoEl.value ? regiaoEl.value.trim() : '';
+        const areaTotal = areaTotalEl && areaTotalEl.value ? parseFloat(areaTotalEl.value) : 0;
+        const plantioAcumulado = plantioAcumEl && plantioAcumEl.value ? parseFloat(plantioAcumEl.value) : 0;
+        const mudaAcumulada = mudaAcumEl && mudaAcumEl.value ? parseFloat(mudaAcumEl.value) : 0;
+        const observacoes = obsEl && obsEl.value ? obsEl.value.trim() : '';
 
-    async handleCadastroActions() {}
+        if (!codigo || !nome) {
+            this.ui.showNotification('Informe código e nome da fazenda', 'warning');
+            return;
+        }
+
+        const payload = {
+            codigo,
+            nome,
+            regiao,
+            areaTotal,
+            plantioAcumulado,
+            mudaAcumulada,
+            observacoes
+        };
+
+        try {
+            let res;
+            if (this.cadastroEditCodigo) {
+                res = await this.api.updateFazenda(this.cadastroEditCodigo, payload);
+            } else {
+                res = await this.api.createFazenda(payload);
+            }
+            if (res && res.success) {
+                this.ui.showNotification('Fazenda salva com sucesso', 'success', 2000);
+                this.cadastroEditCodigo = null;
+                this.clearCadastroFazendaForm();
+                const cadResp = await this.api.getFazendas();
+                if (cadResp && cadResp.success && Array.isArray(cadResp.data)) {
+                    const list = cadResp.data.map(f => ({
+                        cod: f.codigo,
+                        nome: f.nome,
+                        areaTotal: f.area_total,
+                        plantioAcumulado: f.plantio_acumulado,
+                        mudaAcumulada: f.muda_acumulada,
+                        regiao: f.regiao
+                    }));
+                    this.buildCadastroIndex(list);
+                    this.renderCadastroFazendas(cadResp.data);
+                }
+            } else {
+                this.ui.showNotification('Erro ao salvar fazenda', 'error');
+            }
+        } catch (e) {
+            this.ui.showNotification('Erro ao salvar fazenda', 'error');
+        }
+    }
+
+    async editCadastroFazenda(codigo) {
+        if (!codigo || !this.cadastroFazendas || !this.cadastroFazendas.length) return;
+        const item = this.cadastroFazendas.find(f => String(f.codigo) === String(codigo));
+        if (!item) return;
+        const codigoEl = document.getElementById('cadastro-fazenda-codigo');
+        const nomeEl = document.getElementById('cadastro-fazenda-nome');
+        const regiaoEl = document.getElementById('cadastro-fazenda-regiao');
+        const areaTotalEl = document.getElementById('cadastro-fazenda-area-total');
+        const plantioAcumEl = document.getElementById('cadastro-fazenda-plantio-acumulado');
+        const mudaAcumEl = document.getElementById('cadastro-fazenda-muda-acumulada');
+        const obsEl = document.getElementById('cadastro-fazenda-observacoes');
+        if (codigoEl) codigoEl.value = item.codigo ?? '';
+        if (nomeEl) nomeEl.value = item.nome ?? '';
+        if (regiaoEl) regiaoEl.value = item.regiao ?? '';
+        if (areaTotalEl) areaTotalEl.value = item.area_total != null ? String(item.area_total) : '';
+        if (plantioAcumEl) plantioAcumEl.value = item.plantio_acumulado != null ? String(item.plantio_acumulado) : '';
+        if (mudaAcumEl) mudaAcumEl.value = item.muda_acumulada != null ? String(item.muda_acumulada) : '';
+        if (obsEl) obsEl.value = item.observacoes ?? '';
+        this.cadastroEditCodigo = item.codigo;
+        const saveBtn = document.getElementById('cadastro-fazenda-save');
+        if (saveBtn) saveBtn.textContent = '💾 Atualizar Fazenda';
+    }
+
+    async deleteCadastroFazenda(codigo) {
+        if (!codigo) return;
+        const ok = window.confirm('Excluir cadastro da fazenda?');
+        if (!ok) return;
+        await this.ensureApiReady();
+        try {
+            const res = await this.api.deleteFazenda(codigo);
+            if (res && res.success) {
+                this.ui.showNotification('Fazenda excluída', 'success', 2000);
+                const cadResp = await this.api.getFazendas();
+                if (cadResp && cadResp.success && Array.isArray(cadResp.data)) {
+                    const list = cadResp.data.map(f => ({
+                        cod: f.codigo,
+                        nome: f.nome,
+                        areaTotal: f.area_total,
+                        plantioAcumulado: f.plantio_acumulado,
+                        mudaAcumulada: f.muda_acumulada,
+                        regiao: f.regiao
+                    }));
+                    this.buildCadastroIndex(list);
+                    this.renderCadastroFazendas(cadResp.data);
+                }
+            } else {
+                this.ui.showNotification('Erro ao excluir fazenda', 'error');
+            }
+        } catch (e) {
+            this.ui.showNotification('Erro ao excluir fazenda', 'error');
+        }
+    }
+
+    useFazendaInPlantio(codigo) {
+        if (!codigo || !this.cadastroFazendas || !this.cadastroFazendas.length) return;
+        const item = this.cadastroFazendas.find(f => String(f.codigo) === String(codigo));
+        if (!item) return;
+        this.ui.switchTab('plantio-dia');
+        const fazendaSingle = document.getElementById('single-fazenda');
+        const codSingle = document.getElementById('single-cod');
+        const regiaoSingle = document.getElementById('single-regiao');
+        const areaTotalSingle = document.getElementById('single-area-total');
+        const plantioAcumSingle = document.getElementById('single-area-acumulada');
+        if (fazendaSingle) fazendaSingle.value = item.nome || '';
+        if (codSingle) codSingle.value = item.codigo || '';
+        if (regiaoSingle) regiaoSingle.value = item.regiao || '';
+        if (areaTotalSingle) areaTotalSingle.value = item.area_total != null ? String(item.area_total) : '';
+        if (plantioAcumSingle) plantioAcumSingle.value = item.plantio_acumulado != null ? String(item.plantio_acumulado) : '';
+        this.ui.showNotification('Fazenda aplicada no formulário de plantio', 'success', 1500);
+    }
+
+    async handleCadastroActions() {
+        const saveBtn = document.getElementById('cadastro-fazenda-save');
+        const novoBtn = document.getElementById('cadastro-fazenda-novo');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', async () => {
+                await this.saveCadastroFazenda();
+            });
+        }
+        if (novoBtn) {
+            novoBtn.addEventListener('click', () => {
+                this.cadastroEditCodigo = null;
+                this.clearCadastroFazendaForm();
+            });
+        }
+        const tabela = document.getElementById('cadastro-fazendas-table');
+        if (tabela) {
+            tabela.addEventListener('click', (e) => {
+                const editBtn = e.target.closest('.btn-edit-fazenda');
+                const deleteBtn = e.target.closest('.btn-delete-fazenda');
+                const usePlantioBtn = e.target.closest('.btn-use-fazenda-plantio');
+                if (editBtn) {
+                    const codigo = editBtn.getAttribute('data-codigo');
+                    this.editCadastroFazenda(codigo);
+                } else if (deleteBtn) {
+                    const codigo = deleteBtn.getAttribute('data-codigo');
+                    this.deleteCadastroFazenda(codigo);
+                } else if (usePlantioBtn) {
+                    const codigo = usePlantioBtn.getAttribute('data-codigo');
+                    this.useFazendaInPlantio(codigo);
+                }
+            });
+        }
+    }
     async init() {
         try {
             this.ui.showLoading();
@@ -477,10 +689,25 @@ forceReloadAllData() {
         const regBtn = document.getElementById('register-btn');
         if (loginBtn) loginBtn.addEventListener('click', () => this.handleLogin());
         if (logoutBtn) logoutBtn.addEventListener('click', () => this.handleLogout());
-        if (regToggle) regToggle.addEventListener('click', () => {
-            const area = document.getElementById('register-area');
-            if (area) area.style.display = (area.style.display === 'none' || !area.style.display) ? 'block' : 'none';
-        });
+        if (regToggle) {
+            regToggle.addEventListener('click', () => {
+                const registerArea = document.getElementById('register-area');
+                const loginGrid = document.querySelector('#login-screen .form-grid.boletim-grid');
+                const loginButton = document.getElementById('login-btn');
+                const isRegisterVisible = registerArea && registerArea.style.display === 'block';
+                if (!isRegisterVisible) {
+                    if (registerArea) registerArea.style.display = 'block';
+                    if (loginGrid) loginGrid.style.display = 'none';
+                    if (loginButton) loginButton.style.display = 'none';
+                    regToggle.textContent = 'Já tenho conta';
+                } else {
+                    if (registerArea) registerArea.style.display = 'none';
+                    if (loginGrid) loginGrid.style.display = 'grid';
+                    if (loginButton) loginButton.style.display = 'inline-block';
+                    regToggle.textContent = 'Cadastrar';
+                }
+            });
+        }
         if (regBtn) regBtn.addEventListener('click', () => this.handleRegister());
         const updateProfileBtn = document.getElementById('update-profile-btn');
         if (updateProfileBtn) updateProfileBtn.addEventListener('click', () => this.handleUpdateProfile());
@@ -620,8 +847,16 @@ forceReloadAllData() {
             try {
                 const cadResp = await this.api.getFazendas();
                 if (cadResp && cadResp.success && Array.isArray(cadResp.data)) {
-                    const list = cadResp.data.map(f => ({ cod: f.codigo, nome: f.nome, areaTotal: f.area_total, plantioAcumulado: f.plantio_acumulado, mudaAcumulada: f.muda_acumulada, regiao: f.regiao }));
+                    const list = cadResp.data.map(f => ({
+                        cod: f.codigo,
+                        nome: f.nome,
+                        areaTotal: f.area_total,
+                        plantioAcumulado: f.plantio_acumulado,
+                        mudaAcumulada: f.muda_acumulada,
+                        regiao: f.regiao
+                    }));
                     this.buildCadastroIndex(list);
+                    this.renderCadastroFazendas(cadResp.data);
                 }
             } catch (e) {}
         } catch (error) {
@@ -2109,5 +2344,16 @@ InsumosApp.prototype.updateCurrentUserUI = function() {
         else { el.style.display = 'none'; el.textContent = ''; }
     }
 };
-InsumosApp.prototype.showLoginScreen = function() { const el = document.getElementById('login-screen'); if (el) el.style.display = 'flex'; };
+InsumosApp.prototype.showLoginScreen = function() {
+    const el = document.getElementById('login-screen');
+    if (el) el.style.display = 'flex';
+    const registerArea = document.getElementById('register-area');
+    const loginGrid = document.querySelector('#login-screen .form-grid.boletim-grid');
+    const loginButton = document.getElementById('login-btn');
+    const regToggle = document.getElementById('login-register-toggle');
+    if (registerArea) registerArea.style.display = 'none';
+    if (loginGrid) loginGrid.style.display = 'grid';
+    if (loginButton) loginButton.style.display = 'inline-block';
+    if (regToggle) regToggle.textContent = 'Cadastrar';
+};
 InsumosApp.prototype.hideLoginScreen = function() { const el = document.getElementById('login-screen'); if (el) el.style.display = 'none'; };
