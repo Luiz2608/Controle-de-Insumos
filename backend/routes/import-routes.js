@@ -440,13 +440,42 @@ router.post('/excel', upload.single('file'), async (req, res) => {
     }
 });
 
-router.post('/fazendas-gemini', async (req, res) => {
+const pdf = require('pdf-parse');
+
+router.post('/fazendas-gemini', upload.single('file'), async (req, res) => {
     try {
-        const { text } = req.body || {};
-        if (!text || typeof text !== 'string') {
+        if (!req.file) {
             return res.status(400).json({
                 success: false,
-                message: 'Texto do PDF não enviado'
+                message: 'Arquivo PDF não enviado'
+            });
+        }
+
+        // Ler o arquivo PDF
+        const dataBuffer = fs.readFileSync(req.file.path);
+        
+        // Extrair texto do PDF usando pdf-parse
+        let text = '';
+        try {
+            const data = await pdf(dataBuffer);
+            text = data.text;
+        } catch (pdfError) {
+            console.error('Erro ao ler PDF com pdf-parse:', pdfError);
+            return res.status(500).json({
+                success: false,
+                message: 'Erro ao extrair texto do PDF: ' + pdfError.message
+            });
+        } finally {
+            // Limpar arquivo temporário
+            try {
+                fs.unlinkSync(req.file.path);
+            } catch (e) { console.warn('Não foi possível remover arquivo temporário do PDF'); }
+        }
+
+        if (!text || !text.trim()) {
+            return res.status(400).json({
+                success: false,
+                message: 'O PDF parece estar vazio ou não contém texto extraível'
             });
         }
 

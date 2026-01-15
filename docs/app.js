@@ -279,14 +279,17 @@ class InsumosApp {
             }
             let fazendas = [];
             try {
-                this.ui.showNotification('Analisando PDF com Gemini...', 'info', 3000);
+                this.ui.showNotification('Enviando PDF para análise (Gemini)...', 'info', 3000);
+                
+                // Preparar arquivo para envio
+                const formData = new FormData();
+                formData.append('file', file);
+
                 const response = await fetch('/api/importar/fazendas-gemini', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ text: fullText })
+                    body: formData
                 });
+                
                 if (response.ok) {
                     const payload = await response.json();
                     if (payload && payload.success && Array.isArray(payload.fazendas) && payload.fazendas.length) {
@@ -299,10 +302,34 @@ class InsumosApp {
                             mudaAcumulada: 0,
                             observacoes: 'Importado via Gemini'
                         }));
+                    } else {
+                        console.warn('Gemini não retornou fazendas ou falhou:', payload);
+                    }
+                } else {
+                    console.error('Erro na requisição ao Gemini:', response.status, response.statusText);
+                }
+            } catch (e) {
+                console.error('Exceção ao chamar Gemini:', e);
+            }
+            
+            if (!fazendas.length) {
+                // Fallback: usar leitura local com pdf.js
+                this.ui.showNotification('Usando leitor local (Gemini indisponível)...', 'info', 2000);
+                
+                // Se ainda não leu o texto localmente (agora só lemos se precisar do fallback)
+                if (!fullText) {
+                    const buffer = await file.arrayBuffer();
+                    const loadingTask = window.pdfjsLib.getDocument({ data: buffer, disableWorker: true });
+                    const pdfDoc = await loadingTask.promise;
+                    fullText = '';
+                    for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+                        const page = await pdfDoc.getPage(pageNum);
+                        const content = await page.getTextContent();
+                        const strings = content.items.map(item => item.str);
+                        fullText += '\n' + strings.join(' ');
                     }
                 }
-            } catch (e) {}
-            if (!fazendas.length) {
+                
                 const fallback = this.parseFazendasFromText(fullText);
                 if (Array.isArray(fallback) && fallback.length) {
                     fazendas = fallback;
@@ -615,6 +642,7 @@ forceReloadAllData() {
             });
         }
 
+        // Botões gerais
         const refreshBtn = document.getElementById('refresh-btn');
         if (refreshBtn) {
             refreshBtn.addEventListener('click', () => {
@@ -955,10 +983,33 @@ forceReloadAllData() {
         const toletesTotal = document.getElementById('qual-toletes-total');
         const toletesBons = document.getElementById('qual-toletes-bons');
         const toletesRuins = document.getElementById('qual-toletes-ruins');
+        const toletesAmostra = document.getElementById('qual-toletes-amostra');
         const bindToletes = () => this.updateToletesPercent();
         if (toletesTotal) toletesTotal.addEventListener('input', bindToletes);
         if (toletesBons) toletesBons.addEventListener('input', bindToletes);
         if (toletesRuins) toletesRuins.addEventListener('input', bindToletes);
+        if (toletesAmostra) toletesAmostra.addEventListener('input', bindToletes);
+
+        const gemasTotal = document.getElementById('qual-gemas-total');
+        const gemasBoas = document.getElementById('qual-gemas-boas');
+        const gemasRuins = document.getElementById('qual-gemas-ruins');
+        const gemasAmostra = document.getElementById('qual-gemas-amostra');
+        const bindGemas = () => this.updateGemasPercent();
+        if (gemasTotal) gemasTotal.addEventListener('input', bindGemas);
+        if (gemasBoas) gemasBoas.addEventListener('input', bindGemas);
+        if (gemasRuins) gemasRuins.addEventListener('input', bindGemas);
+        if (gemasAmostra) gemasAmostra.addEventListener('input', bindGemas);
+
+        const mudasTotal = document.getElementById('qual-mudas-total');
+        const mudasBoas = document.getElementById('qual-mudas-boas');
+        const mudasRuins = document.getElementById('qual-mudas-ruins');
+        const mudasAmostra = document.getElementById('qual-mudas-amostra');
+        const bindMudas = () => this.updateMudasPercent();
+        if (mudasTotal) mudasTotal.addEventListener('input', bindMudas);
+        if (mudasBoas) mudasBoas.addEventListener('input', bindMudas);
+        if (mudasRuins) mudasRuins.addEventListener('input', bindMudas);
+        if (mudasAmostra) mudasAmostra.addEventListener('input', bindMudas);
+
         const singleFrente = document.getElementById('single-frente');
         const singleCod = document.getElementById('single-cod');
         const singleFazenda = document.getElementById('single-fazenda');
@@ -1259,11 +1310,15 @@ forceReloadAllData() {
                 <div>
                     <h5>Qualidade / Condições</h5>
                     <div class="quality-block">
-                        <div>Gemas viáveis/m: ${this.ui.formatNumber(q.gemasOk||0)}</div>
-                        <div>Gemas não viáveis/m: ${this.ui.formatNumber(q.gemasNok||0)}</div>
+                        <div>Gemas totais: ${this.ui.formatNumber(q.gemasTotal||0)}</div>
+                        <div>Gemas boas: ${this.ui.formatNumber(q.gemasBoas||0)} (${this.ui.formatNumber(q.gemasBoasPct||0,2)}%)</div>
+                        <div>Gemas ruins: ${this.ui.formatNumber(q.gemasRuins||0)} (${this.ui.formatNumber(q.gemasRuinsPct||0,2)}%)</div>
                         <div>Toletes totais: ${this.ui.formatNumber(q.toletesTotal||0)}</div>
                         <div>Toletes bons: ${this.ui.formatNumber(q.toletesBons||0)} (${this.ui.formatNumber(q.toletesBonsPct||0,2)}%)</div>
                         <div>Toletes ruins: ${this.ui.formatNumber(q.toletesRuins||0)} (${this.ui.formatNumber(q.toletesRuinsPct||0,2)}%)</div>
+                        <div>Mudas totais: ${this.ui.formatNumber(q.mudasTotal||0)}</div>
+                        <div>Mudas boas: ${this.ui.formatNumber(q.mudasBoas||0)} (${this.ui.formatNumber(q.mudasBoasPct||0,2)}%)</div>
+                        <div>Mudas ruins: ${this.ui.formatNumber(q.mudasRuins||0)} (${this.ui.formatNumber(q.mudasRuinsPct||0,2)}%)</div>
                         <div>Muda (ton/ha): ${this.ui.formatNumber(q.mudaTonHa||0)}</div>
                         <div>Profundidade (cm): ${this.ui.formatNumber(q.profundidadeCm||0)}</div>
                         <div>Cobertura: ${q.cobertura||'—'}</div>
@@ -2240,24 +2295,109 @@ InsumosApp.prototype.exportPDF = function() {
     doc.save(`insumos_${Date.now()}.pdf`);
 };
 
+InsumosApp.prototype.updateGemasPercent = function() {
+    const totalEl = document.getElementById('qual-gemas-total');
+    const bonsEl = document.getElementById('qual-gemas-boas');
+    const ruinsEl = document.getElementById('qual-gemas-ruins');
+    const bonsPctEl = document.getElementById('qual-gemas-boas-pct');
+    const ruinsPctEl = document.getElementById('qual-gemas-ruins-pct');
+    const amostraEl = document.getElementById('qual-gemas-amostra');
+    const mediaEl = document.getElementById('qual-gemas-media');
+
+    if (!totalEl || !bonsEl || !ruinsEl || !bonsPctEl || !ruinsPctEl) return;
+    const total = parseFloat(totalEl.value || '0');
+    const amostra = parseFloat(amostraEl?.value || '0');
+
+    if (mediaEl) {
+        mediaEl.value = (amostra > 0 && total > 0) ? (total / amostra).toFixed(2) : '';
+    }
+
+    if (total > 0) {
+        let bons = parseFloat(bonsEl.value || '0');
+        let ruins = parseFloat(ruinsEl.value || '0');
+        if (bonsEl.value && !ruinsEl.value) {
+            ruins = total - bons;
+            ruinsEl.value = ruins;
+        } else if (ruinsEl.value && !bonsEl.value) {
+            bons = total - ruins;
+            bonsEl.value = bons;
+        }
+        bonsPctEl.value = ((bons / total) * 100).toFixed(2);
+        ruinsPctEl.value = ((ruins / total) * 100).toFixed(2);
+    } else {
+        bonsPctEl.value = '';
+        ruinsPctEl.value = '';
+    }
+};
+
+InsumosApp.prototype.updateMudasPercent = function() {
+    const totalEl = document.getElementById('qual-mudas-total');
+    const bonsEl = document.getElementById('qual-mudas-boas');
+    const ruinsEl = document.getElementById('qual-mudas-ruins');
+    const bonsPctEl = document.getElementById('qual-mudas-boas-pct');
+    const ruinsPctEl = document.getElementById('qual-mudas-ruins-pct');
+    const amostraEl = document.getElementById('qual-mudas-amostra');
+    const mediaEl = document.getElementById('qual-mudas-media');
+
+    if (!totalEl || !bonsEl || !ruinsEl || !bonsPctEl || !ruinsPctEl) return;
+    const total = parseFloat(totalEl.value || '0');
+    const amostra = parseFloat(amostraEl?.value || '0');
+
+    if (mediaEl) {
+        mediaEl.value = (amostra > 0 && total > 0) ? (total / amostra).toFixed(2) : '';
+    }
+
+    if (total > 0) {
+        let bons = parseFloat(bonsEl.value || '0');
+        let ruins = parseFloat(ruinsEl.value || '0');
+        if (bonsEl.value && !ruinsEl.value) {
+            ruins = total - bons;
+            ruinsEl.value = ruins;
+        } else if (ruinsEl.value && !bonsEl.value) {
+            bons = total - ruins;
+            bonsEl.value = bons;
+        }
+        bonsPctEl.value = ((bons / total) * 100).toFixed(2);
+        ruinsPctEl.value = ((ruins / total) * 100).toFixed(2);
+    } else {
+        bonsPctEl.value = '';
+        ruinsPctEl.value = '';
+    }
+};
+
 InsumosApp.prototype.updateToletesPercent = function() {
     const totalEl = document.getElementById('qual-toletes-total');
     const bonsEl = document.getElementById('qual-toletes-bons');
     const ruinsEl = document.getElementById('qual-toletes-ruins');
     const bonsPctEl = document.getElementById('qual-toletes-bons-pct');
     const ruinsPctEl = document.getElementById('qual-toletes-ruins-pct');
+    const amostraEl = document.getElementById('qual-toletes-amostra');
+    const mediaEl = document.getElementById('qual-toletes-media');
+
     if (!totalEl || !bonsEl || !ruinsEl || !bonsPctEl || !ruinsPctEl) return;
     const total = parseFloat(totalEl.value || '0');
-    const bons = parseFloat(bonsEl.value || '0');
-    const ruins = parseFloat(ruinsEl.value || '0');
-    let bonsPct = 0;
-    let ruinsPct = 0;
-    if (total > 0) {
-        bonsPct = (bons / total) * 100;
-        ruinsPct = (ruins / total) * 100;
+    const amostra = parseFloat(amostraEl?.value || '0');
+
+    if (mediaEl) {
+        mediaEl.value = (amostra > 0 && total > 0) ? (total / amostra).toFixed(2) : '';
     }
-    bonsPctEl.value = bonsPct ? bonsPct.toFixed(2) : '';
-    ruinsPctEl.value = ruinsPct ? ruinsPct.toFixed(2) : '';
+
+    if (total > 0) {
+        let bons = parseFloat(bonsEl.value || '0');
+        let ruins = parseFloat(ruinsEl.value || '0');
+        if (bonsEl.value && !ruinsEl.value) {
+            ruins = total - bons;
+            ruinsEl.value = ruins;
+        } else if (ruinsEl.value && !bonsEl.value) {
+            bons = total - ruins;
+            bonsEl.value = bons;
+        }
+        bonsPctEl.value = ((bons / total) * 100).toFixed(2);
+        ruinsPctEl.value = ((ruins / total) * 100).toFixed(2);
+    } else {
+        bonsPctEl.value = '';
+        ruinsPctEl.value = '';
+    }
 };
 
 // Plantio Diário helpers

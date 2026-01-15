@@ -279,14 +279,17 @@ class InsumosApp {
             }
             let fazendas = [];
             try {
-                this.ui.showNotification('Analisando PDF com Gemini...', 'info', 3000);
+                this.ui.showNotification('Enviando PDF para análise (Gemini)...', 'info', 3000);
+                
+                // Preparar arquivo para envio
+                const formData = new FormData();
+                formData.append('file', file);
+
                 const response = await fetch('/api/importar/fazendas-gemini', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ text: fullText })
+                    body: formData
                 });
+                
                 if (response.ok) {
                     const payload = await response.json();
                     if (payload && payload.success && Array.isArray(payload.fazendas) && payload.fazendas.length) {
@@ -299,10 +302,34 @@ class InsumosApp {
                             mudaAcumulada: 0,
                             observacoes: 'Importado via Gemini'
                         }));
+                    } else {
+                        console.warn('Gemini não retornou fazendas ou falhou:', payload);
+                    }
+                } else {
+                    console.error('Erro na requisição ao Gemini:', response.status, response.statusText);
+                }
+            } catch (e) {
+                console.error('Exceção ao chamar Gemini:', e);
+            }
+            
+            if (!fazendas.length) {
+                // Fallback: usar leitura local com pdf.js
+                this.ui.showNotification('Usando leitor local (Gemini indisponível)...', 'info', 2000);
+                
+                // Se ainda não leu o texto localmente (agora só lemos se precisar do fallback)
+                if (!fullText) {
+                    const buffer = await file.arrayBuffer();
+                    const loadingTask = window.pdfjsLib.getDocument({ data: buffer, disableWorker: true });
+                    const pdfDoc = await loadingTask.promise;
+                    fullText = '';
+                    for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+                        const page = await pdfDoc.getPage(pageNum);
+                        const content = await page.getTextContent();
+                        const strings = content.items.map(item => item.str);
+                        fullText += '\n' + strings.join(' ');
                     }
                 }
-            } catch (e) {}
-            if (!fazendas.length) {
+                
                 const fallback = this.parseFazendasFromText(fullText);
                 if (Array.isArray(fallback) && fallback.length) {
                     fazendas = fallback;
