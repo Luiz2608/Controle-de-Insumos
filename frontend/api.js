@@ -216,7 +216,13 @@ class ApiService {
             observacoes: payload.observacoes
         };
 
-        const { data, error } = await this.supabase.from('fazendas').insert([item]).select();
+        // Usar upsert para evitar erro 409 (Conflict) se o código já existir
+        // onConflict: 'codigo' assume que a coluna 'codigo' é UNIQUE no Supabase
+        const { data, error } = await this.supabase
+            .from('fazendas')
+            .upsert(item, { onConflict: 'codigo' })
+            .select();
+            
         if (error) throw error;
         return { success: true, data: data[0] };
     }
