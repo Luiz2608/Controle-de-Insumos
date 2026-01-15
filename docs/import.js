@@ -777,7 +777,11 @@ function processRowByPosition(mapping, row, rowIndex, sheetName) {
                                 clean = clean.replace(/[^\d.-]/g, '');
                             }
                             const numValue = parseFloat(clean);
-                            if (!isNaN(numValue)) item[fieldName] = numValue; else item[fieldName] = trimmed;
+                            if (!isNaN(numValue)) {
+                                item[fieldName] = numValue;
+                            } else {
+                                item[fieldName] = 0;
+                            }
                         }
                     }
                 } else if (typeof cellValue === 'number') {
@@ -803,6 +807,17 @@ function processRowByPosition(mapping, row, rowIndex, sheetName) {
                 const v = item[field];
                 if (v === undefined || v === null || v === '' || (typeof v === 'number' && isNaN(v))) {
                     item[field] = 0;
+                } else if (typeof v === 'string') {
+                    let clean = v;
+                    if (clean.includes('.') && clean.includes(',')) {
+                        clean = clean.replace(/\./g, '').replace(',', '.');
+                    } else if (clean.includes(',')) {
+                        clean = clean.replace(',', '.');
+                    } else {
+                        clean = clean.replace(/[^\d.-]/g, '');
+                    }
+                    const numValue = parseFloat(clean);
+                    item[field] = isNaN(numValue) ? 0 : numValue;
                 }
             }
         });
