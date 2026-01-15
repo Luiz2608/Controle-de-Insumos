@@ -189,31 +189,76 @@ class ImportManager {
 
     async processFileForPreview(file) {
         this.showMessage('📖 Analisando arquivo...', 'info');
-        
         try {
-            const formData = new FormData();
-            formData.append('file', file);
+            if (typeof XLSX === 'undefined' || !XLSX) {
+                throw new Error('Biblioteca Excel não carregada');
+            }
+            const buffer = await file.arrayBuffer();
+            const workbook = XLSX.read(buffer, { type: 'array' });
 
-            console.log('📤 Enviando arquivo para análise...');
-            const response = await fetch('/api/importar/excel', {
-                method: 'POST',
-                body: formData
+            const importResult = {
+                success: true,
+                message: 'Arquivo processado com sucesso!',
+                sheets: {},
+                totals: { insumosFazendas: 0, oxifertil: 0 }
+            };
+
+            const importedData = { insumosFazendas: [], oxifertil: [] };
+
+            workbook.SheetNames.forEach(sheetName => {
+                try {
+                    const worksheet = workbook.Sheets[sheetName];
+                    const jsonData = worksheetToGrid(worksheet);
+
+                    let mappingKey = Object.keys(columnMapping).find(key =>
+                        sheetName.toUpperCase().includes(key.toUpperCase())
+                    );
+                    if (!mappingKey && sheetName.toUpperCase().includes('INSUMOS')) {
+                        mappingKey = 'INSUMOS FAZENDAS';
+                    }
+
+                    if (!mappingKey) {
+                        importResult.sheets[sheetName] = { rows: 0, headers: [], sampleData: [], error: 'Sheet não mapeada' };
+                        return;
+                    }
+
+                    const mapping = columnMapping[mappingKey];
+                    forwardFillColumns(jsonData, mapping.startRow, mapping.columns);
+                    const rows = jsonData.slice(mapping.startRow);
+
+                    const processedData = rows.map((row, index) =>
+                        processRowByPosition(mapping, row, index, sheetName)
+                    ).filter(item => item !== null);
+
+                    importResult.sheets[sheetName] = {
+                        rows: processedData.length,
+                        headers: Object.values(mapping.columns),
+                        sampleData: processedData.slice(0, 10)
+                    };
+
+                    if (sheetName.toUpperCase().includes('INSUMOS')) {
+                        importResult.totals.insumosFazendas += processedData.length;
+                        importedData.insumosFazendas = importedData.insumosFazendas.concat(processedData);
+                    }
+
+                    if (sheetName.toUpperCase().includes('OXIFERTIL')) {
+                        importResult.totals.oxifertil += processedData.length;
+                        importedData.oxifertil = importedData.oxifertil.concat(processedData);
+                    }
+                } catch (sheetError) {
+                    importResult.sheets[sheetName] = { rows: 0, headers: [], sampleData: [], error: sheetError.message };
+                }
             });
 
-            if (!response.ok) {
-                throw new Error(`Erro HTTP: ${response.status}`);
+            this.importedData = importedData;
+
+            if (importResult.totals.insumosFazendas === 0 && importResult.totals.oxifertil === 0) {
+                throw new Error('Nenhum dado reconhecido nas planilhas');
             }
 
-            const result = await response.json();
-            console.log('📥 Resposta da análise:', result);
-            
-            if (result.success) {
-                this.showMessage('✅ Arquivo analisado com sucesso!', 'success');
-                this.showRealPreview(result);
-                document.getElementById('start-import').disabled = false;
-            } else {
-                throw new Error(result.message);
-            }
+            this.showMessage('✅ Arquivo analisado com sucesso!', 'success');
+            this.showRealPreview(importResult);
+            document.getElementById('start-import').disabled = false;
         } catch (error) {
             console.error('❌ Erro ao processar arquivo:', error);
             this.showMessage(`❌ Erro ao analisar arquivo: ${error.message}`, 'error');
@@ -367,109 +412,86 @@ class ImportManager {
             this.showMessage('❌ Nenhum arquivo selecionado', 'error');
             return;
         }
+        if (!this.importedData || (!this.importedData.insumosFazendas && !this.importedData.oxifertil)) {
+            this.showMessage('❌ Nenhum dado processado para importar', 'error');
+            return;
+        }
 
         this.showMessage('🔄 Importando dados...', 'info');
-        document.getElementById('start-import').disabled = true;
-        document.getElementById('start-import').textContent = '🔄 Importando...';
+        const startBtn = document.getElementById('start-import');
+        if (startBtn) {
+            startBtn.disabled = true;
+            startBtn.textContent = '🔄 Importando...';
+        }
 
         try {
-            const formData = new FormData();
-            formData.append('file', this.currentFile);
-
-            console.log('🚀 INICIANDO IMPORTACAO REAL...');
-
-            // 1. Fazer upload e processamento do arquivo
-            console.log('📝 Passo 1: Processando arquivo Excel...');
-            const response = await fetch('/api/importar/excel', {
-                method: 'POST',
-                body: formData
-            });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('❌ Erro no processamento do arquivo:', response.status, errorText);
-                throw new Error(`Erro no servidor: ${response.status}`);
+            const api = window.apiService;
+            if (!api || !api.supabase) {
+                throw new Error('Supabase não configurado');
             }
 
-            const result = await response.json();
-            console.log('📥 Resposta do processamento:', result);
-            
-            if (result.success) {
-                this.showMessage(`✅ Arquivo processado! ${Object.values(result.totals).reduce((a, b) => a + b, 0)} registros encontrados`, 'success');
-                
-                // Pequeno delay para garantir processamento
-                await new Promise(resolve => setTimeout(resolve, 500));
-                
-                // 2. Obter os dados processados
-                console.log('📝 Passo 2: Obtendo dados processados...');
-                const dadosResponse = await fetch('/api/importar/dados');
-                if (!dadosResponse.ok) {
-                    throw new Error(`Erro ao buscar dados: ${dadosResponse.status}`);
-                }
-                
-                const dadosResult = await dadosResponse.json();
-                console.log('📊 Dados obtidos para atualização:', dadosResult);
-                
-                if (dadosResult.success && dadosResult.data) {
-                    console.log('📝 Passo 3: Enviando dados para atualização...');
-                    
-                    // 3. Atualizar o sistema com os novos dados
-                    const updateResponse = await fetch('/api/insumos/atualizar-dados', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            dados: dadosResult.data
-                        })
-                    });
+            const supabase = api.supabase;
+            const dados = this.importedData;
+            const totals = { oxifertil: 0, insumosFazendas: 0 };
 
-                    console.log('📝 Status da atualização:', updateResponse.status);
-                    
-                    if (!updateResponse.ok) {
-                        let errorDetail = `Status: ${updateResponse.status}`;
-                        try {
-                            const errorData = await updateResponse.json();
-                            errorDetail += ` - ${errorData.message || 'Erro desconhecido'}`;
-                        } catch (e) {
-                            errorDetail += ' - Não foi possível ler detalhes do erro';
-                        }
-                        console.error('❌ Erro na atualização:', errorDetail);
-                        throw new Error(`Falha na atualização: ${errorDetail}`);
-                    }
-
-                    const updateResult = await updateResponse.json();
-                    console.log('🔄 Resultado da atualização:', updateResult);
-                    
-                    if (updateResult.success) {
-                        const totalRegistros = Object.values(updateResult.totals || {}).reduce((sum, val) => sum + val, 0);
-                        this.showMessage(`✅ Importação REAL concluída! ${totalRegistros} registros importados`, 'success');
-                        
-                        // Fechar modal após sucesso
-                        setTimeout(() => {
-                            this.closeImportModal();
-                            
-                            // 🔥 SOLUÇÃO: FORÇAR ATUALIZAÇÃO DA PÁGINA
-                            console.log('🔄 Recarregando página para exibir todos os dados...');
-                            setTimeout(() => {
-                                window.location.reload();
-                            }, 1000);
-                            
-                        }, 2000);
-                    } else {
-                        throw new Error(updateResult.message || 'Erro desconhecido na atualização');
-                    }
-                } else {
-                    throw new Error(dadosResult.message || 'Dados não processados corretamente');
+            if (dados.oxifertil && Array.isArray(dados.oxifertil) && dados.oxifertil.length > 0) {
+                const mappedOxifertil = dados.oxifertil.map(d => ({
+                    processo: d.processo,
+                    subprocesso: d.subprocesso,
+                    produto: d.produto,
+                    fazenda: d.fazenda,
+                    area_talhao: d.areaTalhao,
+                    area_total_aplicada: d.areaTotalAplicada,
+                    dose_recomendada: d.doseRecomendada,
+                    insum_dose_aplicada: d.insumDoseAplicada,
+                    quantidade_aplicada: d.quantidadeAplicada,
+                    dif: d.dif,
+                    frente: d.frente
+                }));
+                const { error: errOx } = await supabase.from('insumos_oxifertil').insert(mappedOxifertil);
+                if (errOx) {
+                    throw errOx;
                 }
-            } else {
-                throw new Error(result.message || 'Erro no processamento do arquivo');
+                totals.oxifertil = mappedOxifertil.length;
             }
+
+            if (dados.insumosFazendas && Array.isArray(dados.insumosFazendas) && dados.insumosFazendas.length > 0) {
+                const mappedInsumos = dados.insumosFazendas.map(d => ({
+                    os: d.os,
+                    cod: d.cod,
+                    fazenda: d.fazenda,
+                    area_talhao: d.areaTalhao,
+                    area_total_aplicada: d.areaTotalAplicada,
+                    produto: d.produto,
+                    dose_recomendada: d.doseRecomendada,
+                    quantidade_aplicada: d.quantidadeAplicada,
+                    frente: d.frente,
+                    insum_dose_aplicada: d.insumDoseAplicada
+                }));
+                const { error: errInsumos } = await supabase.from('insumos_fazendas').insert(mappedInsumos);
+                if (errInsumos) {
+                    throw errInsumos;
+                }
+                totals.insumosFazendas = mappedInsumos.length;
+            }
+
+            const totalRegistros = Object.values(totals).reduce((sum, val) => sum + val, 0);
+            this.showMessage(`✅ Importação concluída! ${totalRegistros} registros importados`, 'success');
+
+            setTimeout(() => {
+                this.closeImportModal();
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            }, 2000);
         } catch (error) {
             console.error('❌ Erro completo na importação:', error);
             this.showMessage(`❌ Falha na importação: ${error.message}`, 'error');
-            document.getElementById('start-import').disabled = false;
-            document.getElementById('start-import').textContent = '🚀 Iniciar Importação';
+            const btn = document.getElementById('start-import');
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = '🚀 Iniciar Importação';
+            }
         }
     }
 

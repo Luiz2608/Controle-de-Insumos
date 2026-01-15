@@ -189,31 +189,76 @@ class ImportManager {
 
     async processFileForPreview(file) {
         this.showMessage('📖 Analisando arquivo...', 'info');
-        
         try {
-            const formData = new FormData();
-            formData.append('file', file);
+            if (typeof XLSX === 'undefined' || !XLSX) {
+                throw new Error('Biblioteca Excel não carregada');
+            }
+            const buffer = await file.arrayBuffer();
+            const workbook = XLSX.read(buffer, { type: 'array' });
 
-            console.log('📤 Enviando arquivo para análise...');
-            const response = await fetch('/api/importar/excel', {
-                method: 'POST',
-                body: formData
+            const importResult = {
+                success: true,
+                message: 'Arquivo processado com sucesso!',
+                sheets: {},
+                totals: { insumosFazendas: 0, oxifertil: 0 }
+            };
+
+            const importedData = { insumosFazendas: [], oxifertil: [] };
+
+            workbook.SheetNames.forEach(sheetName => {
+                try {
+                    const worksheet = workbook.Sheets[sheetName];
+                    const jsonData = worksheetToGrid(worksheet);
+
+                    let mappingKey = Object.keys(columnMapping).find(key =>
+                        sheetName.toUpperCase().includes(key.toUpperCase())
+                    );
+                    if (!mappingKey && sheetName.toUpperCase().includes('INSUMOS')) {
+                        mappingKey = 'INSUMOS FAZENDAS';
+                    }
+
+                    if (!mappingKey) {
+                        importResult.sheets[sheetName] = { rows: 0, headers: [], sampleData: [], error: 'Sheet não mapeada' };
+                        return;
+                    }
+
+                    const mapping = columnMapping[mappingKey];
+                    forwardFillColumns(jsonData, mapping.startRow, mapping.columns);
+                    const rows = jsonData.slice(mapping.startRow);
+
+                    const processedData = rows.map((row, index) =>
+                        processRowByPosition(mapping, row, index, sheetName)
+                    ).filter(item => item !== null);
+
+                    importResult.sheets[sheetName] = {
+                        rows: processedData.length,
+                        headers: Object.values(mapping.columns),
+                        sampleData: processedData.slice(0, 10)
+                    };
+
+                    if (sheetName.toUpperCase().includes('INSUMOS')) {
+                        importResult.totals.insumosFazendas += processedData.length;
+                        importedData.insumosFazendas = importedData.insumosFazendas.concat(processedData);
+                    }
+
+                    if (sheetName.toUpperCase().includes('OXIFERTIL')) {
+                        importResult.totals.oxifertil += processedData.length;
+                        importedData.oxifertil = importedData.oxifertil.concat(processedData);
+                    }
+                } catch (sheetError) {
+                    importResult.sheets[sheetName] = { rows: 0, headers: [], sampleData: [], error: sheetError.message };
+                }
             });
 
-            if (!response.ok) {
-                throw new Error(`Erro HTTP: ${response.status}`);
+            this.importedData = importedData;
+
+            if (importResult.totals.insumosFazendas === 0 && importResult.totals.oxifertil === 0) {
+                throw new Error('Nenhum dado reconhecido nas planilhas');
             }
 
-            const result = await response.json();
-            console.log('📥 Resposta da análise:', result);
-            
-            if (result.success) {
-                this.showMessage('✅ Arquivo analisado com sucesso!', 'success');
-                this.showRealPreview(result);
-                document.getElementById('start-import').disabled = false;
-            } else {
-                throw new Error(result.message);
-            }
+            this.showMessage('✅ Arquivo analisado com sucesso!', 'success');
+            this.showRealPreview(importResult);
+            document.getElementById('start-import').disabled = false;
         } catch (error) {
             console.error('❌ Erro ao processar arquivo:', error);
             this.showMessage(`❌ Erro ao analisar arquivo: ${error.message}`, 'error');
@@ -367,109 +412,86 @@ class ImportManager {
             this.showMessage('❌ Nenhum arquivo selecionado', 'error');
             return;
         }
+        if (!this.importedData || (!this.importedData.insumosFazendas && !this.importedData.oxifertil)) {
+            this.showMessage('❌ Nenhum dado processado para importar', 'error');
+            return;
+        }
 
         this.showMessage('🔄 Importando dados...', 'info');
-        document.getElementById('start-import').disabled = true;
-        document.getElementById('start-import').textContent = '🔄 Importando...';
+        const startBtn = document.getElementById('start-import');
+        if (startBtn) {
+            startBtn.disabled = true;
+            startBtn.textContent = '🔄 Importando...';
+        }
 
         try {
-            const formData = new FormData();
-            formData.append('file', this.currentFile);
-
-            console.log('🚀 INICIANDO IMPORTACAO REAL...');
-
-            // 1. Fazer upload e processamento do arquivo
-            console.log('📝 Passo 1: Processando arquivo Excel...');
-            const response = await fetch('/api/importar/excel', {
-                method: 'POST',
-                body: formData
-            });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('❌ Erro no processamento do arquivo:', response.status, errorText);
-                throw new Error(`Erro no servidor: ${response.status}`);
+            const api = window.apiService;
+            if (!api || !api.supabase) {
+                throw new Error('Supabase não configurado');
             }
 
-            const result = await response.json();
-            console.log('📥 Resposta do processamento:', result);
-            
-            if (result.success) {
-                this.showMessage(`✅ Arquivo processado! ${Object.values(result.totals).reduce((a, b) => a + b, 0)} registros encontrados`, 'success');
-                
-                // Pequeno delay para garantir processamento
-                await new Promise(resolve => setTimeout(resolve, 500));
-                
-                // 2. Obter os dados processados
-                console.log('📝 Passo 2: Obtendo dados processados...');
-                const dadosResponse = await fetch('/api/importar/dados');
-                if (!dadosResponse.ok) {
-                    throw new Error(`Erro ao buscar dados: ${dadosResponse.status}`);
-                }
-                
-                const dadosResult = await dadosResponse.json();
-                console.log('📊 Dados obtidos para atualização:', dadosResult);
-                
-                if (dadosResult.success && dadosResult.data) {
-                    console.log('📝 Passo 3: Enviando dados para atualização...');
-                    
-                    // 3. Atualizar o sistema com os novos dados
-                    const updateResponse = await fetch('/api/insumos/atualizar-dados', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            dados: dadosResult.data
-                        })
-                    });
+            const supabase = api.supabase;
+            const dados = this.importedData;
+            const totals = { oxifertil: 0, insumosFazendas: 0 };
 
-                    console.log('📝 Status da atualização:', updateResponse.status);
-                    
-                    if (!updateResponse.ok) {
-                        let errorDetail = `Status: ${updateResponse.status}`;
-                        try {
-                            const errorData = await updateResponse.json();
-                            errorDetail += ` - ${errorData.message || 'Erro desconhecido'}`;
-                        } catch (e) {
-                            errorDetail += ' - Não foi possível ler detalhes do erro';
-                        }
-                        console.error('❌ Erro na atualização:', errorDetail);
-                        throw new Error(`Falha na atualização: ${errorDetail}`);
-                    }
-
-                    const updateResult = await updateResponse.json();
-                    console.log('🔄 Resultado da atualização:', updateResult);
-                    
-                    if (updateResult.success) {
-                        const totalRegistros = Object.values(updateResult.totals || {}).reduce((sum, val) => sum + val, 0);
-                        this.showMessage(`✅ Importação REAL concluída! ${totalRegistros} registros importados`, 'success');
-                        
-                        // Fechar modal após sucesso
-                        setTimeout(() => {
-                            this.closeImportModal();
-                            
-                            // 🔥 SOLUÇÃO: FORÇAR ATUALIZAÇÃO DA PÁGINA
-                            console.log('🔄 Recarregando página para exibir todos os dados...');
-                            setTimeout(() => {
-                                window.location.reload();
-                            }, 1000);
-                            
-                        }, 2000);
-                    } else {
-                        throw new Error(updateResult.message || 'Erro desconhecido na atualização');
-                    }
-                } else {
-                    throw new Error(dadosResult.message || 'Dados não processados corretamente');
+            if (dados.oxifertil && Array.isArray(dados.oxifertil) && dados.oxifertil.length > 0) {
+                const mappedOxifertil = dados.oxifertil.map(d => ({
+                    processo: d.processo,
+                    subprocesso: d.subprocesso,
+                    produto: d.produto,
+                    fazenda: d.fazenda,
+                    area_talhao: d.areaTalhao,
+                    area_total_aplicada: d.areaTotalAplicada,
+                    dose_recomendada: d.doseRecomendada,
+                    insum_dose_aplicada: d.insumDoseAplicada,
+                    quantidade_aplicada: d.quantidadeAplicada,
+                    dif: d.dif,
+                    frente: d.frente
+                }));
+                const { error: errOx } = await supabase.from('insumos_oxifertil').insert(mappedOxifertil);
+                if (errOx) {
+                    throw errOx;
                 }
-            } else {
-                throw new Error(result.message || 'Erro no processamento do arquivo');
+                totals.oxifertil = mappedOxifertil.length;
             }
+
+            if (dados.insumosFazendas && Array.isArray(dados.insumosFazendas) && dados.insumosFazendas.length > 0) {
+                const mappedInsumos = dados.insumosFazendas.map(d => ({
+                    os: d.os,
+                    cod: d.cod,
+                    fazenda: d.fazenda,
+                    area_talhao: d.areaTalhao,
+                    area_total_aplicada: d.areaTotalAplicada,
+                    produto: d.produto,
+                    dose_recomendada: d.doseRecomendada,
+                    quantidade_aplicada: d.quantidadeAplicada,
+                    frente: d.frente,
+                    insum_dose_aplicada: d.insumDoseAplicada
+                }));
+                const { error: errInsumos } = await supabase.from('insumos_fazendas').insert(mappedInsumos);
+                if (errInsumos) {
+                    throw errInsumos;
+                }
+                totals.insumosFazendas = mappedInsumos.length;
+            }
+
+            const totalRegistros = Object.values(totals).reduce((sum, val) => sum + val, 0);
+            this.showMessage(`✅ Importação concluída! ${totalRegistros} registros importados`, 'success');
+
+            setTimeout(() => {
+                this.closeImportModal();
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            }, 2000);
         } catch (error) {
             console.error('❌ Erro completo na importação:', error);
             this.showMessage(`❌ Falha na importação: ${error.message}`, 'error');
-            document.getElementById('start-import').disabled = false;
-            document.getElementById('start-import').textContent = '🚀 Iniciar Importação';
+            const btn = document.getElementById('start-import');
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = '🚀 Iniciar Importação';
+            }
         }
     }
 
@@ -525,3 +547,271 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('✅ Sistema de importação inicializado!');
     }, 500);
 });
+
+const columnMapping = {
+    OXIFERTIL: {
+        startRow: 1,
+        columns: {
+            0: 'processo',
+            1: 'subprocesso',
+            2: 'produto',
+            3: 'fazenda',
+            4: 'areaTalhao',
+            5: 'areaTotalAplicada',
+            6: 'doseRecomendada',
+            7: 'insumDoseAplicada',
+            8: 'quantidadeAplicada',
+            9: 'dif',
+            10: 'frente'
+        }
+    },
+    'INSUMOS FAZENDAS': {
+        startRow: 1,
+        columns: {
+            0: 'os',
+            1: 'cod',
+            2: 'fazenda',
+            3: 'areaTalhao',
+            4: 'areaTotalAplicada',
+            5: 'produto',
+            6: 'doseRecomendada',
+            7: 'insumDoseAplicada',
+            8: 'quantidadeAplicada',
+            9: 'dif',
+            10: 'frente',
+            11: 'dataInicio'
+        }
+    },
+    INSUMOS: {
+        startRow: 1,
+        columns: {
+            0: 'os',
+            1: 'cod',
+            2: 'fazenda',
+            3: 'areaTalhao',
+            4: 'areaTotalAplicada',
+            5: 'produto',
+            6: 'doseRecomendada',
+            7: 'insumDoseAplicada',
+            8: 'quantidadeAplicada',
+            9: 'dif',
+            10: 'frente',
+            11: 'dataInicio'
+        }
+    },
+    'INSUMOS AGRICOLAS': {
+        startRow: 1,
+        columns: {
+            0: 'os',
+            1: 'cod',
+            2: 'fazenda',
+            3: 'areaTalhao',
+            4: 'areaTotalAplicada',
+            5: 'produto',
+            6: 'doseRecomendada',
+            7: 'insumDoseAplicada',
+            8: 'quantidadeAplicada',
+            9: 'dif',
+            10: 'frente',
+            11: 'dataInicio'
+        }
+    },
+    'INSUMOS AGRÍCOLAS': {
+        startRow: 1,
+        columns: {
+            0: 'os',
+            1: 'cod',
+            2: 'fazenda',
+            3: 'areaTalhao',
+            4: 'areaTotalAplicada',
+            5: 'produto',
+            6: 'doseRecomendada',
+            7: 'insumDoseAplicada',
+            8: 'quantidadeAplicada',
+            9: 'dif',
+            10: 'frente',
+            11: 'dataInicio'
+        }
+    },
+    'SANTA IRENE (STEIN)': {
+        startRow: 1,
+        columns: {
+            0: 'cod',
+            1: 'fazenda',
+            2: 'areaTalhao',
+            3: 'areaTotalAplicada',
+            4: 'produto',
+            5: 'doseRecomendada',
+            6: 'insumDoseAplicada',
+            7: 'quantidadeAplicada',
+            8: 'dif',
+            9: 'frente'
+        }
+    },
+    DANIELA: {
+        startRow: 1,
+        columns: {
+            0: 'cod',
+            1: 'fazenda',
+            2: 'areaTotal',
+            3: 'areaTotalAplicada',
+            4: 'produto',
+            5: 'doseRecomendada',
+            6: 'insumDoseAplicada',
+            7: 'quantidadeAplicada',
+            8: 'dif',
+            9: 'frente'
+        }
+    }
+};
+
+function worksheetToGrid(ws) {
+    const ref = ws['!ref'];
+    if (!ref) return [];
+    const range = XLSX.utils.decode_range(ref);
+    const rows = [];
+    for (let r = range.s.r; r <= range.e.r; r++) {
+        const row = [];
+        for (let c = range.s.c; c <= range.e.c; c++) {
+            const addr = XLSX.utils.encode_cell({ r, c });
+            const cell = ws[addr];
+            let val = null;
+            if (cell) {
+                if (cell.t === 'n' && typeof cell.v === 'number' && cell.z && /[dmy]/i.test(String(cell.z))) {
+                    const d = XLSX.SSF.parse_date_code(cell.v);
+                    if (d) val = `${String(d.d).padStart(2, '0')}/${String(d.m).padStart(2, '0')}/${d.y}`;
+                } else {
+                    val = cell.w != null ? cell.w : cell.v;
+                }
+            }
+            row.push(val);
+        }
+        rows.push(row);
+    }
+    const merges = ws['!merges'] || [];
+    merges.forEach(m => {
+        const top = rows[m.s.r - range.s.r]?.[m.s.c - range.s.c];
+        if (top === undefined || top === null || top === '') return;
+        for (let r = m.s.r; r <= m.e.r; r++) {
+            for (let c = m.s.c; c <= m.e.c; c++) {
+                const rr = r - range.s.r;
+                const cc = c - range.s.c;
+                if (rows[rr]?.[cc] === undefined || rows[rr][cc] === null || rows[rr][cc] === '') {
+                    rows[rr][cc] = top;
+                }
+            }
+        }
+    });
+    return rows;
+}
+
+function forwardFillColumns(jsonData, startRow = 0, columnsMapping = {}) {
+    if (!Array.isArray(jsonData) || jsonData.length === 0) return;
+    const colCount = Math.max(...jsonData.map(r => Array.isArray(r) ? r.length : 0));
+    const lastVals = new Array(colCount).fill(undefined);
+    const allowedForward = new Set(['os', 'cod', 'fazenda', 'produto', 'processo', 'subprocesso', 'frente', 'dataInicio']);
+    const allowedIndexes = new Set(
+        Object.entries(columnsMapping)
+            .filter(([, field]) => allowedForward.has(field))
+            .map(([idx]) => parseInt(idx))
+    );
+    for (let r = 0; r < jsonData.length; r++) {
+        const row = jsonData[r] || [];
+        for (let c = 0; c < colCount; c++) {
+            if (!allowedIndexes.has(c)) continue;
+            const cell = row[c];
+            if (r < startRow) {
+                if (cell !== undefined && cell !== null && cell !== '') lastVals[c] = cell;
+                continue;
+            }
+            if (cell !== undefined && cell !== null && cell !== '') {
+                lastVals[c] = cell;
+            } else if (lastVals[c] !== undefined) {
+                row[c] = lastVals[c];
+            }
+        }
+    }
+}
+
+function processRowByPosition(mapping, row, rowIndex, sheetName) {
+    try {
+        const item = {
+            id: Date.now() + rowIndex,
+            _sheet: sheetName,
+            _row: rowIndex + 1
+        };
+        Object.entries(mapping.columns).forEach(([colIndex, fieldName]) => {
+            const numColIndex = parseInt(colIndex);
+            if (numColIndex < row.length && row[numColIndex] !== undefined && row[numColIndex] !== null && row[numColIndex] !== '') {
+                const cellValue = row[numColIndex];
+                if (typeof cellValue === 'string') {
+                    const trimmed = cellValue.trim();
+                    if (trimmed && trimmed !== 'N/A' && trimmed !== '-' && trimmed !== 'NULL') {
+                        const textFields = new Set(['produto', 'fazenda', 'processo', 'subprocesso']);
+                        if (fieldName.toLowerCase().includes('data')) {
+                            const m = trimmed.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+                            if (m) {
+                                item[fieldName] = `${m[1]}/${m[2]}/${m[3]}`;
+                            } else {
+                                const d = new Date(trimmed);
+                                if (!isNaN(d)) {
+                                    const dd = String(d.getDate()).padStart(2, '0');
+                                    const mm = String(d.getMonth() + 1).padStart(2, '0');
+                                    const yyyy = d.getFullYear();
+                                    item[fieldName] = `${dd}/${mm}/${yyyy}`;
+                                } else {
+                                    item[fieldName] = trimmed;
+                                }
+                            }
+                        } else if (textFields.has(fieldName)) {
+                            item[fieldName] = trimmed;
+                        } else if (fieldName === 'os' || fieldName === 'cod') {
+                            item[fieldName] = trimmed;
+                        } else {
+                            let clean = trimmed;
+                            if (clean.includes('.') && clean.includes(',')) {
+                                clean = clean.replace(/\./g, '').replace(',', '.');
+                            } else if (clean.includes(',')) {
+                                clean = clean.replace(',', '.');
+                            } else {
+                                clean = clean.replace(/[^\d.-]/g, '');
+                            }
+                            const numValue = parseFloat(clean);
+                            if (!isNaN(numValue)) item[fieldName] = numValue; else item[fieldName] = trimmed;
+                        }
+                    }
+                } else if (typeof cellValue === 'number') {
+                    if (fieldName.toLowerCase().includes('data')) {
+                        const d = XLSX.SSF.parse_date_code(cellValue);
+                        if (d) {
+                            const dd = String(d.d).padStart(2, '0');
+                            const mm = String(d.m).padStart(2, '0');
+                            const yyyy = d.y;
+                            item[fieldName] = `${dd}/${mm}/${yyyy}`;
+                        }
+                    } else if (fieldName === 'os' || fieldName === 'cod') {
+                        item[fieldName] = String(cellValue);
+                    } else {
+                        item[fieldName] = cellValue;
+                    }
+                }
+            }
+        });
+        const numericFields = new Set(['areaTalhao', 'areaTotal', 'areaTotalAplicada', 'doseRecomendada', 'insumDoseAplicada', 'doseAplicada', 'quantidadeAplicada', 'dif', 'frente']);
+        Object.values(mapping.columns).forEach(field => {
+            if (numericFields.has(field)) {
+                const v = item[field];
+                if (v === undefined || v === null || v === '' || (typeof v === 'number' && isNaN(v))) {
+                    item[field] = 0;
+                }
+            }
+        });
+        if (item.insumDoseAplicada !== undefined && item.insumDoseAplicada !== null) {
+            item.doseAplicada = item.insumDoseAplicada;
+        }
+        return item;
+    } catch (error) {
+        console.error(`❌ Erro na linha ${rowIndex + 1}:`, error);
+        return null;
+    }
+}
