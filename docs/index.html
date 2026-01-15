@@ -74,18 +74,47 @@
 
         
         <div class="tabs">
-            <button class="tab active" data-tab="insumos-fazendas">🌱 Insumos</button>
-            <button class="tab" data-tab="graficos">📈 Dashboard</button>
-            <button class="tab" data-tab="estoque">📦 Estoque</button>
-            <button class="tab" data-tab="viagens-adubo">🚚 Viagens Adubo</button>
+            <button class="tab active" data-tab="graficos">📈 Dashboard</button>
             <button class="tab" data-tab="plantio-dia">📅 Plantio</button>
+            <button class="tab" data-tab="viagens-adubo">🚚 Viagens Adubo</button>
+            <button class="tab" data-tab="insumos-fazendas">🌱 Insumos</button>
+            <button class="tab" data-tab="estoque">📦 Estoque</button>
         </div>
 
         <!-- Conteúdo das Tabs -->
         
 
+        <!-- Tab DASHBOARD -->
+        <div class="tab-content active" id="graficos">
+            <div class="filters">
+                <div class="filter-group">
+                    <label for="charts-order-select">Ordenação dos gráficos:</label>
+                    <select id="charts-order-select">
+                        <option value="az">A–Z (produtos)</option>
+                        <option value="za">Z–A (produtos)</option>
+                        <option value="diff_asc">Diferença crescente</option>
+                        <option value="diff_desc">Diferença decrescente</option>
+                    </select>
+                </div>
+            </div>
+            <div class="charts">
+                <div class="chart-card">
+                    <h4 style="margin: 0 0 10px 0;">Resumo Global: Recomendada x Aplicada</h4>
+                    <canvas id="chart-dose-global"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h4 style="margin: 0 0 10px 0;">Diferença por Produto (%)</h4>
+                    <canvas id="chart-diff-produtos"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h4 style="margin: 0 0 10px 0;">Comparação por Produto: Dose Recomendada x Dose Aplicada</h4>
+                    <canvas id="chart-dose-produtos"></canvas>
+                </div>
+            </div>
+        </div>
+
         <!-- Tab INSUMOS AGRÍCOLAS -->
-        <div class="tab-content active" id="insumos-fazendas">
+        <div class="tab-content" id="insumos-fazendas">
             <!-- Filtros INSUMOS FAZENDAS -->
             <div class="filters">
                 <div class="filter-group">
@@ -250,35 +279,6 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" id="cancel-insumo">Cancelar</button>
                 <button type="button" class="btn btn-primary" id="save-insumo">💾 Salvar Insumo</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Tab de Gráficos -->
-    <div class="tab-content" id="graficos">
-        <div class="filters">
-            <div class="filter-group">
-                <label for="charts-order-select">Ordenação dos gráficos:</label>
-                <select id="charts-order-select">
-                    <option value="az">A–Z (produtos)</option>
-                    <option value="za">Z–A (produtos)</option>
-                    <option value="diff_asc">Diferença crescente</option>
-                    <option value="diff_desc">Diferença decrescente</option>
-                </select>
-            </div>
-        </div>
-        <div class="charts">
-            <div class="chart-card">
-                <h4 style="margin: 0 0 10px 0;">Resumo Global: Recomendada x Aplicada</h4>
-                <canvas id="chart-dose-global"></canvas>
-            </div>
-            <div class="chart-card">
-                <h4 style="margin: 0 0 10px 0;">Diferença por Produto (%)</h4>
-                <canvas id="chart-diff-produtos"></canvas>
-            </div>
-            <div class="chart-card">
-                <h4 style="margin: 0 0 10px 0;">Comparação por Produto: Dose Recomendada x Dose Aplicada</h4>
-                <canvas id="chart-dose-produtos"></canvas>
             </div>
         </div>
     </div>
@@ -707,7 +707,7 @@
                     </div>
                 </div>
                 
-                <h4 style="margin: 0 0 10px 0;">5. Muda</h4>
+                <h4 style="margin: 0 0 10px 0;">4. Muda</h4>
                 <div class="form-grid boletim-grid">
                     <div class="form-group">
                         <label for="muda-consumo-total">Consumo total de muda</label>
