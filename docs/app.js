@@ -277,9 +277,40 @@ class InsumosApp {
                 const strings = content.items.map(item => item.str);
                 fullText += '\n' + strings.join(' ');
             }
-            const fazendas = this.parseFazendasFromText(fullText);
+            let fazendas = [];
+            try {
+                this.ui.showNotification('Analisando PDF com Gemini...', 'info', 3000);
+                const response = await fetch('/api/importar/fazendas-gemini', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ text: fullText })
+                });
+                if (response.ok) {
+                    const payload = await response.json();
+                    if (payload && payload.success && Array.isArray(payload.fazendas) && payload.fazendas.length) {
+                        fazendas = payload.fazendas.map(f => ({
+                            codigo: f.codigo,
+                            nome: f.nome,
+                            regiao: f.regiao || '',
+                            areaTotal: Number(f.areaTotal) || 0,
+                            plantioAcumulado: 0,
+                            mudaAcumulada: 0,
+                            observacoes: 'Importado via Gemini'
+                        }));
+                    }
+                }
+            } catch (e) {}
             if (!fazendas.length) {
-                this.ui.showNotification('Nenhuma fazenda encontrado no PDF. Verifique o formato.', 'warning', 4000);
+                const fallback = this.parseFazendasFromText(fullText);
+                if (Array.isArray(fallback) && fallback.length) {
+                    fazendas = fallback;
+                    this.ui.showNotification('Uso de leitura padrão do PDF (Gemini indisponível).', 'warning', 4000);
+                }
+            }
+            if (!fazendas.length) {
+                this.ui.showNotification('Nenhuma fazenda encontrada no PDF. Verifique o formato.', 'warning', 4000);
                 return;
             }
             this.openFazendaImportPreview(fazendas);

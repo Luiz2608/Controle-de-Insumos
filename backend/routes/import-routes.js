@@ -440,6 +440,152 @@ router.post('/excel', upload.single('file'), async (req, res) => {
     }
 });
 
+router.post('/fazendas-gemini', async (req, res) => {
+    try {
+        const { text } = req.body || {};
+        if (!text || typeof text !== 'string') {
+            return res.status(400).json({
+                success: false,
+                message: 'Texto do PDF não enviado'
+            });
+        }
+
+        const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+        if (!apiKey) {
+            return res.status(500).json({
+                success: false,
+                message: 'Chave da API Gemini não configurada no servidor'
+            });
+        }
+
+        const prompt = [
+            'Você recebe o texto bruto extraído de um PDF de Caderno de Mapas com fazendas e áreas em hectares.',
+            'Extraia todas as fazendas encontradas e devolva somente um JSON válido, sem nenhum texto adicional.',
+            'O formato do JSON deve ser exatamente:',
+            '{',
+            '  "fazendas": [',
+            '    { "codigo": "1/96", "nome": "FAZENDA EXEMPLO", "regiao": "OPCIONAL", "areaTotal": 123.45 }',
+            '  ],',
+            '  "resumoGeral": {',
+            '    "1": { "totalFazendas": 10, "areaTotal": 1234.56 }',
+            '  }',
+            '}',
+            'Regras:',
+            '- "codigo" deve seguir o padrão Bloco/Número (ex: "1/96").',
+            '- "nome" é o nome da fazenda.',
+            '- "regiao" pode ser vazio se não estiver claro.',
+            '- "areaTotal" deve ser número em hectares com ponto como separador decimal.',
+            '- Se a mesma fazenda aparecer em mais de uma página some as áreas em uma única entrada.',
+            '- No "resumoGeral", a chave é o número do bloco como string.',
+            '- Não inclua comentários, texto explicativo nem campos extras, apenas o JSON.'
+        ].join('\n');
+
+        const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + encodeURIComponent(apiKey);
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                contents: [
+                    {
+                        parts: [
+                            { text: prompt },
+                            { text }
+                        ]
+                    }
+                ]
+            })
+        });
+
+        if (!response.ok) {
+            const errText = await response.text().catch(() => '');
+            return res.status(500).json({
+                success: false,
+                message: 'Falha ao chamar a API Gemini',
+                details: errText
+            });
+        }
+
+        const data = await response.json();
+        const candidates = data && Array.isArray(data.candidates) ? data.candidates : [];
+        if (!candidates.length || !candidates[0].content || !Array.isArray(candidates[0].content.parts)) {
+            return res.status(500).json({
+                success: false,
+                message: 'Resposta inválida da API Gemini'
+            });
+        }
+
+        const rawText = candidates[0].content.parts.map(p => p.text || '').join('');
+        let cleaned = rawText.trim();
+        if (cleaned.startsWith('```')) {
+            cleaned = cleaned.replace(/^```json/i, '').replace(/^```/, '');
+            if (cleaned.endsWith('```')) {
+                cleaned = cleaned.slice(0, -3);
+            }
+            cleaned = cleaned.trim();
+        }
+
+        let parsed;
+        try {
+            parsed = JSON.parse(cleaned);
+        } catch (e) {
+            return res.status(500).json({
+                success: false,
+                message: 'Não foi possível interpretar a resposta da API Gemini como JSON'
+            });
+        }
+
+        const fazendasRaw = Array.isArray(parsed.fazendas) ? parsed.fazendas : [];
+        const fazendas = fazendasRaw.map(f => {
+            const codigo = f && f.codigo != null ? String(f.codigo).trim() : '';
+            const nome = f && f.nome != null ? String(f.nome).trim() : '';
+            const regiao = f && f.regiao != null ? String(f.regiao).trim() : '';
+            let area = 0;
+            if (f && typeof f.areaTotal === 'number') {
+                area = f.areaTotal;
+            } else if (f && typeof f.areaTotal === 'string') {
+                const n = parseFloat(f.areaTotal.replace('.', '').replace(',', '.'));
+                if (!Number.isNaN(n)) area = n;
+            } else if (f && typeof f.area_total === 'number') {
+                area = f.area_total;
+            } else if (f && typeof f.area_total === 'string') {
+                const n = parseFloat(f.area_total.replace('.', '').replace(',', '.'));
+                if (!Number.isNaN(n)) area = n;
+            }
+            return {
+                codigo,
+                nome,
+                regiao,
+                areaTotal: area
+            };
+        }).filter(f => f.codigo && f.nome);
+
+        const resumoGeral = parsed && parsed.resumoGeral ? parsed.resumoGeral : null;
+
+        if (!fazendas.length) {
+            return res.status(200).json({
+                success: false,
+                message: 'Nenhuma fazenda encontrada pelo Gemini',
+                fazendas: [],
+                resumoGeral
+            });
+        }
+
+        res.json({
+            success: true,
+            fazendas,
+            resumoGeral
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Erro ao processar fazendas com Gemini: ' + error.message
+        });
+    }
+});
+
 // Rota para obter dados
 router.get('/dados', (req, res) => {
     try {
