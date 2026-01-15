@@ -160,6 +160,13 @@ class ApiService {
         return { success: true, data: mappedData };
     }
 
+    async deleteInsumoFazenda(id) {
+        this.checkConfig();
+        const { error } = await this.supabase.from('insumos_fazendas').delete().eq('id', id);
+        if (error) throw error;
+        return { success: true };
+    }
+
     async getFazendas() {
         this.checkConfig();
         const { data, error } = await this.supabase.from('fazendas').select('*');

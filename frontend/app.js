@@ -1417,11 +1417,18 @@ forceReloadAllData() {
 
     async deleteInsumo(id) {
         try {
-            await this.api.request(`/insumos/${id}`, { method: 'DELETE' });
+            const tab = this.getCurrentTab();
+            if (tab === 'insumos-fazendas') {
+                await this.api.deleteInsumoFazenda(id);
+            } else {
+                throw new Error('Funcionalidade não implementada para esta aba: ' + tab);
+            }
+            
             this.ui.showNotification('Insumo excluído!', 'success', 2000);
             await this.loadTabData(this.getCurrentTab());
         } catch (err) {
-            this.ui.showNotification('Erro ao excluir', 'error');
+            console.error('Erro ao excluir insumo:', err);
+            this.ui.showNotification('Erro ao excluir: ' + (err.message || ''), 'error');
         }
     }
 
