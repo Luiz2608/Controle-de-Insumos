@@ -1759,6 +1759,7 @@ forceReloadAllData() {
 
 // Inicializar aplicação quando o DOM estiver carregado
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('App started - Version 20260115-3');
     // Verificar se já existe uma instância para evitar duplicação
     if (!window.insumosApp) {
         window.insumosApp = new InsumosApp();
