@@ -259,6 +259,103 @@ class InsumosApp {
         }
     }
 
+    async handleFazendaPdfFile(file) {
+        if (!file) return;
+        if (!window.pdfjsLib) {
+            this.ui.showNotification('Leitor de PDF não carregado', 'error');
+            return;
+        }
+        await this.ensureApiReady();
+        if (!this.api) {
+            this.ui.showNotification('API não disponível', 'error');
+            return;
+        }
+        try {
+            this.ui.showNotification('Lendo PDF de fazendas...', 'info', 2000);
+            const buffer = await file.arrayBuffer();
+            const loadingTask = window.pdfjsLib.getDocument({ data: buffer, disableWorker: true });
+            const pdf = await loadingTask.promise;
+            let fullText = '';
+            for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                const page = await pdf.getPage(pageNum);
+                const content = await page.getTextContent();
+                const strings = content.items.map(item => item.str);
+                fullText += '\n' + strings.join(' ');
+            }
+            const fazendas = this.parseFazendasFromText(fullText);
+            if (!fazendas.length) {
+                this.ui.showNotification('Nenhuma fazenda encontrada no PDF. Verifique o formato.', 'warning', 4000);
+                return;
+            }
+            let created = 0;
+            for (const f of fazendas) {
+                try {
+                    const res = await this.api.createFazenda(f);
+                    if (res && res.success) created++;
+                } catch(e) {}
+            }
+            if (!created) {
+                this.ui.showNotification('Não foi possível criar cadastros a partir do PDF.', 'warning', 4000);
+                return;
+            }
+            const cadResp = await this.api.getFazendas();
+            if (cadResp && cadResp.success && Array.isArray(cadResp.data)) {
+                const list = cadResp.data.map(f => ({
+                    cod: f.codigo,
+                    nome: f.nome,
+                    areaTotal: f.area_total,
+                    plantioAcumulado: f.plantio_acumulado,
+                    mudaAcumulada: f.muda_acumulada,
+                    regiao: f.regiao
+                }));
+                this.buildCadastroIndex(list);
+                this.renderCadastroFazendas(cadResp.data);
+            }
+            this.ui.showNotification(`Importação de fazendas concluída: ${created} cadastro(s).`, 'success', 4000);
+        } catch (e) {
+            this.ui.showNotification('Erro ao importar fazendas do PDF', 'error', 4000);
+            console.error('Erro na leitura de PDF de fazendas:', e);
+        }
+    }
+
+    parseFazendasFromText(text) {
+        if (!text) return [];
+        const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l);
+        const result = [];
+        for (const line of lines) {
+            const normalized = line.replace(/\s+/g, ' ');
+            if (!normalized) continue;
+            let parts;
+            if (normalized.includes(';')) {
+                parts = normalized.split(';').map(p => p.trim()).filter(p => p);
+            } else {
+                parts = normalized.split(/\s{2,}/).map(p => p.trim()).filter(p => p);
+            }
+            if (!parts.length) continue;
+            const codigoRaw = parts[0].replace(/[^\d]/g, '');
+            if (!codigoRaw) continue;
+            const codigo = codigoRaw;
+            const nome = parts[1] ? parts[1].trim() : '';
+            const regiao = parts[2] ? parts[2].trim() : '';
+            let areaTotal = 0;
+            if (parts[3]) {
+                const n = parseFloat(parts[3].replace('.', '').replace(',', '.'));
+                if (!isNaN(n)) areaTotal = n;
+            }
+            if (!nome) continue;
+            result.push({
+                codigo,
+                nome,
+                regiao,
+                areaTotal,
+                plantioAcumulado: 0,
+                mudaAcumulada: 0,
+                observacoes: 'Importado do PDF'
+            });
+        }
+        return result;
+    }
+
     useFazendaInPlantio(codigo) {
         if (!codigo || !this.cadastroFazendas || !this.cadastroFazendas.length) return;
         const item = this.cadastroFazendas.find(f => String(f.codigo) === String(codigo));
@@ -414,7 +511,6 @@ forceReloadAllData() {
             });
         }
 
-        // Botão de IMPORTAR (substitui o export-btn)
         const importBtn = document.getElementById('import-btn');
         if (importBtn) {
             importBtn.addEventListener('click', () => {
@@ -476,6 +572,19 @@ forceReloadAllData() {
                         this.ui.showNotification('Erro ao excluir todos os dados', 'error');
                     }
                 } catch(e) { this.ui.showNotification('Erro ao excluir todos os dados', 'error'); }
+            });
+        }
+
+        const importFazendaPdfBtn = document.getElementById('cadastro-fazenda-import-pdf');
+        const importFazendaPdfInput = document.getElementById('cadastro-fazenda-pdf-input');
+        if (importFazendaPdfBtn && importFazendaPdfInput) {
+            importFazendaPdfBtn.addEventListener('click', () => {
+                importFazendaPdfInput.value = '';
+                importFazendaPdfInput.click();
+            });
+            importFazendaPdfInput.addEventListener('change', (e) => {
+                const file = e.target.files && e.target.files[0];
+                if (file) this.handleFazendaPdfFile(file);
             });
         }
 

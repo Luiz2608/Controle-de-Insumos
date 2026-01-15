@@ -16,7 +16,6 @@
             <div class="header-actions">
                 <button id="refresh-btn" class="btn btn-secondary">🔄 Atualizar</button>
                 <button id="add-btn" class="btn btn-primary">➕ Adicionar</button>
-                <button id="import-btn" class="btn btn-success">📤 Importar Excel</button>
                 <div class="actions-dropdown">
                     <button id="more-actions-btn" class="btn btn-secondary">⋯ Mais Ações</button>
                     <div id="more-actions-menu" class="dropdown-menu">
@@ -161,6 +160,7 @@
                 </div>
                 <button id="apply-insumos-filters" class="btn btn-primary">🔍 Aplicar Filtros</button>
                 <button id="reset-insumos-filters" class="btn btn-secondary">🔄 Limpar</button>
+                <button id="import-btn" class="btn btn-success">📤 Importar Excel</button>
             </div>
 
             
@@ -234,6 +234,8 @@
                     <div style="margin-top:10px;display:flex;gap:10px;justify-content:flex-end;">
                         <button type="button" class="btn btn-secondary" id="cadastro-fazenda-novo">Novo</button>
                         <button type="button" class="btn btn-primary" id="cadastro-fazenda-save">💾 Salvar Fazenda</button>
+                        <button type="button" class="btn btn-secondary" id="cadastro-fazenda-import-pdf">📥 Importar PDF Fazendas</button>
+                        <input type="file" id="cadastro-fazenda-pdf-input" accept="application/pdf" style="display:none">
                     </div>
                 </div>
                 <div class="chart-card">
@@ -939,6 +941,7 @@
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.28/dist/jspdf.plugin.autotable.min.js"></script>
     <script src="api.js?v=20260115-3"></script>
