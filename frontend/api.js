@@ -76,7 +76,7 @@ class ApiService {
         return { success: true };
     }
 
-    async register(email, password) {
+    async register(email, password, metadata = {}) {
         this.checkConfig();
         let emailToUse = email;
         if (!email.includes('@')) {
@@ -85,14 +85,38 @@ class ApiService {
 
         const { data, error } = await this.supabase.auth.signUp({
             email: emailToUse,
-            password: password
+            password: password,
+            options: {
+                data: metadata
+            }
         });
 
         if (error) {
             return { success: false, message: error.message };
         }
 
-        return { success: true, user: data.user };
+        if (data.session) {
+            this.user = data.user;
+            localStorage.setItem('authUser', JSON.stringify(this.user));
+            localStorage.setItem('authToken', data.session.access_token);
+        }
+
+        return { success: true, user: data.user, session: data.session };
+    }
+
+    async updateProfile(metadata) {
+        this.checkConfig();
+        const { data, error } = await this.supabase.auth.updateUser({
+            data: metadata
+        });
+
+        if (error) {
+            return { success: false, message: error.message };
+        }
+
+        this.user = data.user;
+        localStorage.setItem('authUser', JSON.stringify(this.user));
+        return { success: true, user: this.user };
     }
 
     async me() {

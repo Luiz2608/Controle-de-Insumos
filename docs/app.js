@@ -82,7 +82,18 @@ class InsumosApp {
             await this.setupEventListeners();
             await this.ensureApiReady();
             await this.loadStaticData();
+            
             this.hideLoginScreen();
+            
+            // Verificar metadados se usuário estiver logado
+            if (this.api && this.api.user) {
+                const meta = this.api.user.user_metadata || {};
+                if (!meta.nome || !meta.matricula) {
+                    const updateScreen = document.getElementById('update-profile-screen');
+                    if (updateScreen) updateScreen.style.display = 'flex';
+                }
+            }
+
             this.updateCurrentUserUI();
             await this.loadInitialData();
             
@@ -471,6 +482,8 @@ forceReloadAllData() {
             if (area) area.style.display = (area.style.display === 'none' || !area.style.display) ? 'block' : 'none';
         });
         if (regBtn) regBtn.addEventListener('click', () => this.handleRegister());
+        const updateProfileBtn = document.getElementById('update-profile-btn');
+        if (updateProfileBtn) updateProfileBtn.addEventListener('click', () => this.handleUpdateProfile());
         const plantioFazenda = document.getElementById('plantio-fazenda');
         const plantioCod = document.getElementById('plantio-cod');
         if (plantioFazenda) plantioFazenda.addEventListener('change', () => this.autofillPlantioByFazenda());
@@ -2009,7 +2022,22 @@ InsumosApp.prototype.handleLogin = async function() {
     if (!u || !p) { this.ui.showNotification('Informe usuário e senha', 'warning'); return; }
     try {
         const res = await this.api.login(u, p);
-        if (res && res.success) { this.ui.showNotification('Login efetuado', 'success', 1500); this.hideLoginScreen(); this.updateCurrentUserUI(); await this.loadInitialData(); }
+        if (res && res.success) { 
+            this.ui.showNotification('Login efetuado', 'success', 1500);
+            
+            // Verificar se tem nome e matrícula
+            const meta = this.api.user.user_metadata || {};
+            if (!meta.nome || !meta.matricula) {
+                // Mostrar tela de atualização cadastral
+                this.hideLoginScreen();
+                const updateScreen = document.getElementById('update-profile-screen');
+                if (updateScreen) updateScreen.style.display = 'flex';
+            } else {
+                this.hideLoginScreen(); 
+                this.updateCurrentUserUI(); 
+                await this.loadInitialData(); 
+            }
+        }
         else this.ui.showNotification('Credenciais inválidas', 'error');
     } catch(e) { this.ui.showNotification('Erro de login', 'error'); }
 };
@@ -2017,18 +2045,41 @@ InsumosApp.prototype.handleLogin = async function() {
 InsumosApp.prototype.handleRegister = async function() {
     const u = document.getElementById('register-user')?.value || '';
     const p = document.getElementById('register-pass')?.value || '';
+    const nome = document.getElementById('register-name')?.value || '';
+    const matricula = document.getElementById('register-matricula')?.value || '';
+
     if (!u || !p) { this.ui.showNotification('Informe novo usuário e senha', 'warning'); return; }
     try {
-        const res = await this.api.register(u, p);
+        const res = await this.api.register(u, p, { nome, matricula });
         if (res && res.success) {
             this.ui.showNotification('Conta criada e login efetuado', 'success', 1500);
             this.hideLoginScreen();
             this.updateCurrentUserUI();
             await this.loadInitialData();
         } else {
-            this.ui.showNotification('Erro ao criar conta', 'error');
+            this.ui.showNotification('Erro ao criar conta: ' + (res.message||''), 'error');
         }
     } catch(e) { this.ui.showNotification('Erro ao criar conta', 'error'); }
+};
+
+InsumosApp.prototype.handleUpdateProfile = async function() {
+    const nome = document.getElementById('update-name')?.value || '';
+    const matricula = document.getElementById('update-matricula')?.value || '';
+
+    if (!nome || !matricula) { this.ui.showNotification('Preencha nome e matrícula', 'warning'); return; }
+
+    try {
+        const res = await this.api.updateProfile({ nome, matricula });
+        if (res && res.success) {
+            this.ui.showNotification('Cadastro atualizado!', 'success', 1500);
+            const updateScreen = document.getElementById('update-profile-screen');
+            if (updateScreen) updateScreen.style.display = 'none';
+            this.updateCurrentUserUI();
+            await this.loadInitialData();
+        } else {
+            this.ui.showNotification('Erro ao atualizar: ' + (res.message||''), 'error');
+        }
+    } catch(e) { this.ui.showNotification('Erro ao atualizar cadastro', 'error'); }
 };
 
 InsumosApp.prototype.handleLogout = async function() {
@@ -2042,7 +2093,17 @@ InsumosApp.prototype.updateLoginStatus = function() {
 };
 InsumosApp.prototype.updateCurrentUserUI = function() {
     const el = document.getElementById('current-user');
-    const u = (this.api && this.api.user && this.api.user.username) ? this.api.user.username : null;
+    let u = null;
+    if (this.api && this.api.user) {
+        if (this.api.user.user_metadata && this.api.user.user_metadata.nome) {
+            u = this.api.user.user_metadata.nome;
+        } else if (this.api.user.email) {
+            u = this.api.user.email;
+        } else if (this.api.user.username) {
+            u = this.api.user.username;
+        }
+    }
+
     if (el) {
         if (u) { el.style.display = 'inline-block'; el.textContent = `👤 ${u}`; }
         else { el.style.display = 'none'; el.textContent = ''; }

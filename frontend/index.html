@@ -57,17 +57,46 @@
                 <div id="register-area" style="display:none;margin-top:12px;">
                     <div class="form-grid">
                         <div class="form-group">
-                            <label for="register-user">Novo usuário</label>
+                            <label for="register-user">Novo usuário (Email)</label>
                             <input type="text" id="register-user" placeholder="ex.: joao">
                         </div>
                         <div class="form-group">
                             <label for="register-pass">Senha</label>
                             <input type="password" id="register-pass" placeholder="min. 6 caracteres">
                         </div>
+                        <div class="form-group">
+                            <label for="register-name">Nome Completo</label>
+                            <input type="text" id="register-name" placeholder="Nome Completo">
+                        </div>
+                        <div class="form-group">
+                            <label for="register-matricula">Matrícula</label>
+                            <input type="text" id="register-matricula" placeholder="12345">
+                        </div>
                     </div>
                     <div style="margin-top:10px;display:flex;gap:10px;justify-content:flex-end;">
                         <button id="register-btn" class="btn btn-success">Criar Conta</button>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tela de Atualização Cadastral -->
+        <div id="update-profile-screen" class="login-screen" style="display:none; z-index: 9999;">
+            <div class="login-box">
+                <h2>Atualização Cadastral</h2>
+                <p style="opacity:0.8;margin-bottom:12px;">Por favor, complete seu cadastro para continuar.</p>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="update-name">Nome Completo</label>
+                        <input type="text" id="update-name" placeholder="Nome Completo">
+                    </div>
+                    <div class="form-group">
+                        <label for="update-matricula">Matrícula</label>
+                        <input type="text" id="update-matricula" placeholder="12345">
+                    </div>
+                </div>
+                <div style="margin-top:10px;display:flex;gap:10px;justify-content:flex-end;">
+                    <button id="update-profile-btn" class="btn btn-primary">Salvar e Continuar</button>
                 </div>
             </div>
         </div>
