@@ -767,28 +767,36 @@
             
 
             <div class="chart-card">
-                <h4 style="margin: 0 0 10px 0;">4. Qualidade Muda/Plantio</h4>
+                <h4 style="margin: 0 0 10px 0;">3. Qualidade Muda/Plantio</h4>
                 
                 <h5 style="margin: 5px 0; color: #666;">Gemas</h5>
                 <div class="form-grid">
+                    <div class="form-group">
+                        <label for="qual-gemas-amostra">Amostra (m)</label>
+                        <input type="number" id="qual-gemas-amostra" step="0.1">
+                    </div>
                     <div class="form-group">
                         <label for="qual-gemas-total">Gemas totais</label>
                         <input type="number" id="qual-gemas-total" step="1">
                     </div>
                     <div class="form-group">
-                        <label for="qual-gemas-boas">Gemas boas</label>
+                        <label for="qual-gemas-media">Gemas/m</label>
+                        <input type="number" id="qual-gemas-media" step="0.01" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label for="qual-gemas-boas">Gemas viáveis</label>
                         <input type="number" id="qual-gemas-boas" step="1">
                     </div>
                     <div class="form-group">
-                        <label for="qual-gemas-ruins">Gemas ruins</label>
+                        <label for="qual-gemas-ruins">Gemas inviáveis</label>
                         <input type="number" id="qual-gemas-ruins" step="1">
                     </div>
                     <div class="form-group">
-                        <label for="qual-gemas-boas-pct">% Gemas boas</label>
+                        <label for="qual-gemas-boas-pct">% Gemas viáveis</label>
                         <input type="number" id="qual-gemas-boas-pct" step="0.01" readonly>
                     </div>
                     <div class="form-group">
-                        <label for="qual-gemas-ruins-pct">% Gemas ruins</label>
+                        <label for="qual-gemas-ruins-pct">% Gemas inviáveis</label>
                         <input type="number" id="qual-gemas-ruins-pct" step="0.01" readonly>
                     </div>
                 </div>
@@ -796,8 +804,16 @@
                 <h5 style="margin: 5px 0; color: #666;">Toletes</h5>
                 <div class="form-grid">
                     <div class="form-group">
+                        <label for="qual-toletes-amostra">Amostra (m)</label>
+                        <input type="number" id="qual-toletes-amostra" step="0.1">
+                    </div>
+                    <div class="form-group">
                         <label for="qual-toletes-total">Toletes totais</label>
                         <input type="number" id="qual-toletes-total" step="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="qual-toletes-media">Toletes/m</label>
+                        <input type="number" id="qual-toletes-media" step="0.01" readonly>
                     </div>
                     <div class="form-group">
                         <label for="qual-toletes-bons">Toletes bons</label>
@@ -820,8 +836,16 @@
                 <h5 style="margin: 5px 0; color: #666;">Mudas (Qualidade)</h5>
                 <div class="form-grid">
                     <div class="form-group">
+                        <label for="qual-mudas-amostra">Amostra (m)</label>
+                        <input type="number" id="qual-mudas-amostra" step="0.1">
+                    </div>
+                    <div class="form-group">
                         <label for="qual-mudas-total">Mudas totais</label>
                         <input type="number" id="qual-mudas-total" step="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="qual-mudas-media">Mudas/m</label>
+                        <input type="number" id="qual-mudas-media" step="0.01" readonly>
                     </div>
                     <div class="form-group">
                         <label for="qual-mudas-boas">Mudas boas</label>

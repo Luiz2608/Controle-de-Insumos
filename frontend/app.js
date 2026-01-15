@@ -708,26 +708,32 @@ forceReloadAllData() {
         const toletesTotal = document.getElementById('qual-toletes-total');
         const toletesBons = document.getElementById('qual-toletes-bons');
         const toletesRuins = document.getElementById('qual-toletes-ruins');
+        const toletesAmostra = document.getElementById('qual-toletes-amostra');
         const bindToletes = () => this.updateToletesPercent();
         if (toletesTotal) toletesTotal.addEventListener('input', bindToletes);
         if (toletesBons) toletesBons.addEventListener('input', bindToletes);
         if (toletesRuins) toletesRuins.addEventListener('input', bindToletes);
+        if (toletesAmostra) toletesAmostra.addEventListener('input', bindToletes);
 
         const gemasTotal = document.getElementById('qual-gemas-total');
         const gemasBoas = document.getElementById('qual-gemas-boas');
         const gemasRuins = document.getElementById('qual-gemas-ruins');
+        const gemasAmostra = document.getElementById('qual-gemas-amostra');
         const bindGemas = () => this.updateGemasPercent();
         if (gemasTotal) gemasTotal.addEventListener('input', bindGemas);
         if (gemasBoas) gemasBoas.addEventListener('input', bindGemas);
         if (gemasRuins) gemasRuins.addEventListener('input', bindGemas);
+        if (gemasAmostra) gemasAmostra.addEventListener('input', bindGemas);
 
         const mudasTotal = document.getElementById('qual-mudas-total');
         const mudasBoas = document.getElementById('qual-mudas-boas');
         const mudasRuins = document.getElementById('qual-mudas-ruins');
+        const mudasAmostra = document.getElementById('qual-mudas-amostra');
         const bindMudas = () => this.updateMudasPercent();
         if (mudasTotal) mudasTotal.addEventListener('input', bindMudas);
         if (mudasBoas) mudasBoas.addEventListener('input', bindMudas);
         if (mudasRuins) mudasRuins.addEventListener('input', bindMudas);
+        if (mudasAmostra) mudasAmostra.addEventListener('input', bindMudas);
 
         const singleFrente = document.getElementById('single-frente');
         const singleCod = document.getElementById('single-cod');
@@ -2020,8 +2026,17 @@ InsumosApp.prototype.updateGemasPercent = function() {
     const ruinsEl = document.getElementById('qual-gemas-ruins');
     const bonsPctEl = document.getElementById('qual-gemas-boas-pct');
     const ruinsPctEl = document.getElementById('qual-gemas-ruins-pct');
+    const amostraEl = document.getElementById('qual-gemas-amostra');
+    const mediaEl = document.getElementById('qual-gemas-media');
+
     if (!totalEl || !bonsEl || !ruinsEl || !bonsPctEl || !ruinsPctEl) return;
     const total = parseFloat(totalEl.value || '0');
+    const amostra = parseFloat(amostraEl?.value || '0');
+
+    if (mediaEl) {
+        mediaEl.value = (amostra > 0 && total > 0) ? (total / amostra).toFixed(2) : '';
+    }
+
     if (total > 0) {
         let bons = parseFloat(bonsEl.value || '0');
         let ruins = parseFloat(ruinsEl.value || '0');
@@ -2046,8 +2061,17 @@ InsumosApp.prototype.updateMudasPercent = function() {
     const ruinsEl = document.getElementById('qual-mudas-ruins');
     const bonsPctEl = document.getElementById('qual-mudas-boas-pct');
     const ruinsPctEl = document.getElementById('qual-mudas-ruins-pct');
+    const amostraEl = document.getElementById('qual-mudas-amostra');
+    const mediaEl = document.getElementById('qual-mudas-media');
+
     if (!totalEl || !bonsEl || !ruinsEl || !bonsPctEl || !ruinsPctEl) return;
     const total = parseFloat(totalEl.value || '0');
+    const amostra = parseFloat(amostraEl?.value || '0');
+
+    if (mediaEl) {
+        mediaEl.value = (amostra > 0 && total > 0) ? (total / amostra).toFixed(2) : '';
+    }
+
     if (total > 0) {
         let bons = parseFloat(bonsEl.value || '0');
         let ruins = parseFloat(ruinsEl.value || '0');
@@ -2072,18 +2096,33 @@ InsumosApp.prototype.updateToletesPercent = function() {
     const ruinsEl = document.getElementById('qual-toletes-ruins');
     const bonsPctEl = document.getElementById('qual-toletes-bons-pct');
     const ruinsPctEl = document.getElementById('qual-toletes-ruins-pct');
+    const amostraEl = document.getElementById('qual-toletes-amostra');
+    const mediaEl = document.getElementById('qual-toletes-media');
+
     if (!totalEl || !bonsEl || !ruinsEl || !bonsPctEl || !ruinsPctEl) return;
     const total = parseFloat(totalEl.value || '0');
-    const bons = parseFloat(bonsEl.value || '0');
-    const ruins = parseFloat(ruinsEl.value || '0');
-    let bonsPct = 0;
-    let ruinsPct = 0;
-    if (total > 0) {
-        bonsPct = (bons / total) * 100;
-        ruinsPct = (ruins / total) * 100;
+    const amostra = parseFloat(amostraEl?.value || '0');
+
+    if (mediaEl) {
+        mediaEl.value = (amostra > 0 && total > 0) ? (total / amostra).toFixed(2) : '';
     }
-    bonsPctEl.value = bonsPct ? bonsPct.toFixed(2) : '';
-    ruinsPctEl.value = ruinsPct ? ruinsPct.toFixed(2) : '';
+
+    if (total > 0) {
+        let bons = parseFloat(bonsEl.value || '0');
+        let ruins = parseFloat(ruinsEl.value || '0');
+        if (bonsEl.value && !ruinsEl.value) {
+            ruins = total - bons;
+            ruinsEl.value = ruins;
+        } else if (ruinsEl.value && !bonsEl.value) {
+            bons = total - ruins;
+            bonsEl.value = bons;
+        }
+        bonsPctEl.value = ((bons / total) * 100).toFixed(2);
+        ruinsPctEl.value = ((ruins / total) * 100).toFixed(2);
+    } else {
+        bonsPctEl.value = '';
+        ruinsPctEl.value = '';
+    }
 };
 
 // Plantio Diário helpers
@@ -2186,18 +2225,24 @@ InsumosApp.prototype.savePlantioDia = async function() {
         gemasRuinsPct: gemasRuinsPctVal,
         gemasOk: gemasBoasVal,
         gemasNok: gemasRuinsVal,
+        gemasAmostra: parseFloat(document.getElementById('qual-gemas-amostra')?.value || '0'),
+        gemasMedia: parseFloat(document.getElementById('qual-gemas-media')?.value || '0'),
 
         mudasTotal: mudasTotalVal,
         mudasBoas: mudasBoasVal,
         mudasRuins: mudasRuinsVal,
         mudasBoasPct: mudasBoasPctVal,
         mudasRuinsPct: mudasRuinsPctVal,
+        mudasAmostra: parseFloat(document.getElementById('qual-mudas-amostra')?.value || '0'),
+        mudasMedia: parseFloat(document.getElementById('qual-mudas-media')?.value || '0'),
 
         toletesTotal: toletesTotalVal,
         toletesBons: toletesBonsVal,
         toletesRuins: toletesRuinsVal,
         toletesBonsPct: toletesBonsPctVal,
         toletesRuinsPct: toletesRuinsPctVal,
+        toletesAmostra: parseFloat(document.getElementById('qual-toletes-amostra')?.value || '0'),
+        toletesMedia: parseFloat(document.getElementById('qual-toletes-media')?.value || '0'),
         mudaTonHa: parseFloat(document.getElementById('qual-muda')?.value || '0'),
         profundidadeCm: parseFloat(document.getElementById('qual-profundidade')?.value || '0'),
         cobertura: document.getElementById('qual-cobertura')?.value || '',
