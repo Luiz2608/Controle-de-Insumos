@@ -443,6 +443,13 @@ forceReloadAllData() {
         });
         const plantioSaveBtn = document.getElementById('plantio-save-btn');
         if (plantioSaveBtn) plantioSaveBtn.addEventListener('click', async () => { await this.savePlantioDia(); });
+        const toletesTotal = document.getElementById('qual-toletes-total');
+        const toletesBons = document.getElementById('qual-toletes-bons');
+        const toletesRuins = document.getElementById('qual-toletes-ruins');
+        const bindToletes = () => this.updateToletesPercent();
+        if (toletesTotal) toletesTotal.addEventListener('input', bindToletes);
+        if (toletesBons) toletesBons.addEventListener('input', bindToletes);
+        if (toletesRuins) toletesRuins.addEventListener('input', bindToletes);
         const singleFrente = document.getElementById('single-frente');
         const singleCod = document.getElementById('single-cod');
         const singleFazenda = document.getElementById('single-fazenda');
@@ -711,8 +718,9 @@ forceReloadAllData() {
                     <div class="quality-block">
                         <div>Gemas viáveis/m: ${this.ui.formatNumber(q.gemasOk||0)}</div>
                         <div>Gemas não viáveis/m: ${this.ui.formatNumber(q.gemasNok||0)}</div>
-                        <div>Toletes bons (≥%): ${this.ui.formatNumber(q.toletesBons||0)}</div>
-                        <div>Toletes ruins (≤%): ${this.ui.formatNumber(q.toletesRuins||0)}</div>
+                        <div>Toletes totais: ${this.ui.formatNumber(q.toletesTotal||0)}</div>
+                        <div>Toletes bons: ${this.ui.formatNumber(q.toletesBons||0)} (${this.ui.formatNumber(q.toletesBonsPct||0,2)}%)</div>
+                        <div>Toletes ruins: ${this.ui.formatNumber(q.toletesRuins||0)} (${this.ui.formatNumber(q.toletesRuinsPct||0,2)}%)</div>
                         <div>Muda (ton/ha): ${this.ui.formatNumber(q.mudaTonHa||0)}</div>
                         <div>Profundidade (cm): ${this.ui.formatNumber(q.profundidadeCm||0)}</div>
                         <div>Cobertura: ${q.cobertura||'—'}</div>
@@ -1688,6 +1696,26 @@ InsumosApp.prototype.exportPDF = function() {
     doc.save(`insumos_${Date.now()}.pdf`);
 };
 
+InsumosApp.prototype.updateToletesPercent = function() {
+    const totalEl = document.getElementById('qual-toletes-total');
+    const bonsEl = document.getElementById('qual-toletes-bons');
+    const ruinsEl = document.getElementById('qual-toletes-ruins');
+    const bonsPctEl = document.getElementById('qual-toletes-bons-pct');
+    const ruinsPctEl = document.getElementById('qual-toletes-ruins-pct');
+    if (!totalEl || !bonsEl || !ruinsEl || !bonsPctEl || !ruinsPctEl) return;
+    const total = parseFloat(totalEl.value || '0');
+    const bons = parseFloat(bonsEl.value || '0');
+    const ruins = parseFloat(ruinsEl.value || '0');
+    let bonsPct = 0;
+    let ruinsPct = 0;
+    if (total > 0) {
+        bonsPct = (bons / total) * 100;
+        ruinsPct = (ruins / total) * 100;
+    }
+    bonsPctEl.value = bonsPct ? bonsPct.toFixed(2) : '';
+    ruinsPctEl.value = ruinsPct ? ruinsPct.toFixed(2) : '';
+};
+
 // Plantio Diário helpers
 InsumosApp.prototype.getInsumoUnits = function() {
     return {
@@ -1762,11 +1790,19 @@ InsumosApp.prototype.savePlantioDia = async function() {
     const data = document.getElementById('plantio-data')?.value;
     const responsavel = document.getElementById('plantio-responsavel')?.value;
     const observacoes = document.getElementById('plantio-obs')?.value || '';
+    const toletesTotalVal = parseFloat(document.getElementById('qual-toletes-total')?.value || '0');
+    const toletesBonsVal = parseFloat(document.getElementById('qual-toletes-bons')?.value || '0');
+    const toletesRuinsVal = parseFloat(document.getElementById('qual-toletes-ruins')?.value || '0');
+    const toletesBonsPctVal = toletesTotalVal > 0 ? (toletesBonsVal / toletesTotalVal) * 100 : 0;
+    const toletesRuinsPctVal = toletesTotalVal > 0 ? (toletesRuinsVal / toletesTotalVal) * 100 : 0;
     const qualidade = {
         gemasOk: parseFloat(document.getElementById('qual-gemas-ok')?.value || '0'),
         gemasNok: parseFloat(document.getElementById('qual-gemas-nok')?.value || '0'),
-        toletesBons: parseFloat(document.getElementById('qual-toletes-bons')?.value || '0'),
-        toletesRuins: parseFloat(document.getElementById('qual-toletes-ruins')?.value || '0'),
+        toletesTotal: toletesTotalVal,
+        toletesBons: toletesBonsVal,
+        toletesRuins: toletesRuinsVal,
+        toletesBonsPct: toletesBonsPctVal,
+        toletesRuinsPct: toletesRuinsPctVal,
         mudaTonHa: parseFloat(document.getElementById('qual-muda')?.value || '0'),
         profundidadeCm: parseFloat(document.getElementById('qual-profundidade')?.value || '0'),
         cobertura: document.getElementById('qual-cobertura')?.value || '',
