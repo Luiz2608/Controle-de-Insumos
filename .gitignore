@@ -4,3 +4,5 @@ node_modules/
 .DS_Store
 backend/node_modules/
 backend/.env
+frontend/config.js
+docs/config.js
