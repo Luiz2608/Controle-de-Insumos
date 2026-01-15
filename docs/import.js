@@ -434,6 +434,21 @@ class ImportManager {
             const dados = this.importedData;
             const totals = { oxifertil: 0, insumosFazendas: 0 };
 
+            const toNumberOrZero = (value) => {
+                if (value === null || value === undefined || value === '') return 0;
+                if (typeof value === 'number') return isNaN(value) ? 0 : value;
+                let clean = String(value);
+                if (clean.includes('.') && clean.includes(',')) {
+                    clean = clean.replace(/\./g, '').replace(',', '.');
+                } else if (clean.includes(',')) {
+                    clean = clean.replace(',', '.');
+                } else {
+                    clean = clean.replace(/[^\d.-]/g, '');
+                }
+                const n = parseFloat(clean);
+                return isNaN(n) ? 0 : n;
+            };
+
             if (dados.oxifertil && Array.isArray(dados.oxifertil) && dados.oxifertil.length > 0) {
                 const mappedOxifertil = dados.oxifertil.map(d => ({
                     processo: d.processo,
@@ -457,15 +472,15 @@ class ImportManager {
 
             if (dados.insumosFazendas && Array.isArray(dados.insumosFazendas) && dados.insumosFazendas.length > 0) {
                 const mappedInsumos = dados.insumosFazendas.map(d => ({
-                    os: d.os,
-                    cod: d.cod,
+                    os: toNumberOrZero(d.os),
+                    cod: toNumberOrZero(d.cod),
                     fazenda: d.fazenda,
                     area_talhao: d.areaTalhao,
                     area_total_aplicada: d.areaTotalAplicada,
                     produto: d.produto,
                     dose_recomendada: d.doseRecomendada,
                     quantidade_aplicada: d.quantidadeAplicada,
-                    frente: d.frente,
+                    frente: toNumberOrZero(d.frente),
                     insum_dose_aplicada: d.insumDoseAplicada
                 }));
                 const { error: errInsumos } = await supabase.from('insumos_fazendas').insert(mappedInsumos);
