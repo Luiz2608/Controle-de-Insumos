@@ -37,6 +37,10 @@ class InsumosApp {
             const res = await this.api.getFazendaByCodigo(codigo);
             if (res && res.success && res.data) {
                 const f = res.data;
+                this.tempFazendaStats = {
+                    plantioAcumulado: f.plantio_acumulado || 0,
+                    mudaAcumulada: f.muda_acumulada || 0
+                };
                 const set = (id, val) => { const t = document.getElementById(id); if (t) t.value = val; };
                 set('single-fazenda', f.nome || '');
                 set('single-regiao', f.regiao || '');
@@ -44,10 +48,30 @@ class InsumosApp {
                 set('single-area-acumulada', String(f.plantio_acumulado || 0));
                 const mEl = document.getElementById('muda-consumo-acumulado');
                 if (mEl) mEl.value = String(f.muda_acumulada || 0);
+                this.updateAccumulatedStats();
             } else {
                 this.ui.showNotification('Fazenda não encontrada', 'warning', 2000);
             }
         } catch(e) {}
+    }
+
+    updateAccumulatedStats() {
+        if (!this.tempFazendaStats) return;
+        
+        const plantioDiaInput = document.getElementById('single-plantio-dia');
+        const mudaDiaInput = document.getElementById('muda-consumo-dia');
+        
+        const plantioDia = plantioDiaInput && plantioDiaInput.value ? parseFloat(plantioDiaInput.value) : 0;
+        const mudaDia = mudaDiaInput && mudaDiaInput.value ? parseFloat(mudaDiaInput.value) : 0;
+        
+        const newPlantioAcum = this.tempFazendaStats.plantioAcumulado + plantioDia;
+        const newMudaAcum = this.tempFazendaStats.mudaAcumulada + mudaDia;
+        
+        const plantioAcumEl = document.getElementById('single-area-acumulada');
+        const mudaAcumEl = document.getElementById('muda-consumo-acumulado');
+        
+        if (plantioAcumEl) plantioAcumEl.value = newPlantioAcum.toFixed(2);
+        if (mudaAcumEl) mudaAcumEl.value = newMudaAcum.toFixed(2);
     }
 
     
@@ -240,6 +264,12 @@ class InsumosApp {
         const item = this.cadastroFazendas.find(f => String(f.codigo) === String(codigo));
         if (!item) return;
         this.ui.switchTab('plantio-dia');
+
+        this.tempFazendaStats = {
+            plantioAcumulado: item.plantio_acumulado || 0,
+            mudaAcumulada: item.muda_acumulada || 0
+        };
+
         const fazendaSingle = document.getElementById('single-fazenda');
         const codSingle = document.getElementById('single-cod');
         const regiaoSingle = document.getElementById('single-regiao');
@@ -250,6 +280,9 @@ class InsumosApp {
         if (regiaoSingle) regiaoSingle.value = item.regiao || '';
         if (areaTotalSingle) areaTotalSingle.value = item.area_total != null ? String(item.area_total) : '';
         if (plantioAcumSingle) plantioAcumSingle.value = item.plantio_acumulado != null ? String(item.plantio_acumulado) : '';
+        
+        this.updateAccumulatedStats();
+        
         this.ui.showNotification('Fazenda aplicada no formulário de plantio', 'success', 1500);
     }
 
@@ -666,6 +699,12 @@ forceReloadAllData() {
         });
         const plantioSaveBtn = document.getElementById('plantio-save-btn');
         if (plantioSaveBtn) plantioSaveBtn.addEventListener('click', async () => { await this.savePlantioDia(); });
+
+        const singlePlantioDia = document.getElementById('single-plantio-dia');
+        const mudaConsumoDia = document.getElementById('muda-consumo-dia');
+        if (singlePlantioDia) singlePlantioDia.addEventListener('input', () => this.updateAccumulatedStats());
+        if (mudaConsumoDia) mudaConsumoDia.addEventListener('input', () => this.updateAccumulatedStats());
+
         const toletesTotal = document.getElementById('qual-toletes-total');
         const toletesBons = document.getElementById('qual-toletes-bons');
         const toletesRuins = document.getElementById('qual-toletes-ruins');
@@ -732,6 +771,12 @@ forceReloadAllData() {
         if (!cod || !this.fazendaIndex || !this.fazendaIndex.cadastroByCod) return;
         const info = this.fazendaIndex.cadastroByCod[cod];
         if (!info) return;
+
+        this.tempFazendaStats = {
+            plantioAcumulado: info.plantioAcumulado || 0,
+            mudaAcumulada: info.mudaAcumulada || 0
+        };
+
         const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
         if (info.nome) setVal('single-fazenda', info.nome);
         setVal('single-regiao', info.regiao || '');
@@ -740,6 +785,8 @@ forceReloadAllData() {
         // muda acumulada pode ser mostrada em seção de Muda
         const mudaAccumEl = document.getElementById('muda-consumo-acumulado');
         if (mudaAccumEl) mudaAccumEl.value = String(info.mudaAcumulada || 0);
+
+        this.updateAccumulatedStats();
     }
 
     sortInsumos() {
@@ -2091,6 +2138,27 @@ InsumosApp.prototype.savePlantioDia = async function() {
         const res = await this.api.addPlantioDia(payload);
         if (res && res.success) {
             this.ui.showNotification('Dia de plantio registrado', 'success', 1500);
+            if (frente.cod) {
+                try {
+                    await this.api.updateFazenda(frente.cod, {
+                        plantioAcumulado: frente.areaAcumulada,
+                        mudaAcumulada: qualidade.mudaConsumoAcumulado
+                    });
+                    const cadResp = await this.api.getFazendas();
+                    if (cadResp && cadResp.success && Array.isArray(cadResp.data)) {
+                        const list = cadResp.data.map(f => ({
+                            cod: f.codigo,
+                            nome: f.nome,
+                            areaTotal: f.area_total,
+                            plantioAcumulado: f.plantio_acumulado,
+                            mudaAcumulada: f.muda_acumulada,
+                            regiao: f.regiao
+                        }));
+                        this.buildCadastroIndex(list);
+                        this.renderCadastroFazendas(cadResp.data);
+                    }
+                } catch(e) {}
+            }
             this.plantioInsumosDraft = [];
             this.renderInsumosDraft();
             ['single-fazenda','single-cod','single-regiao','single-area','single-plantada','single-area-total','single-area-acumulada','single-plantio-dia'].forEach(id=>{ const el=document.getElementById(id); if (el) el.value=''; });
