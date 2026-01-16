@@ -14,6 +14,9 @@ class ApiService {
             this.supabase = window.supabase.createClient(window.SUPABASE_CONFIG.url, window.SUPABASE_CONFIG.key);
         }
 
+        // URL base da API (backend)
+        this.baseUrl = (window.API_CONFIG && window.API_CONFIG.baseUrl) || '';
+
         this.cache = new Map();
         this.user = null;
         

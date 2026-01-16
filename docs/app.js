@@ -290,7 +290,9 @@ class InsumosApp {
                 const formData = new FormData();
                 formData.append('file', file);
 
-                const response = await fetch('/api/importar/fazendas-gemini', {
+                // Usar URL base dinâmica se disponível (para suportar backend remoto)
+                const baseUrl = (this.api && this.api.baseUrl) || '';
+                const response = await fetch(`${baseUrl}/api/importar/fazendas-gemini`, {
                     method: 'POST',
                     body: formData
                 });
