@@ -1132,11 +1132,9 @@ forceReloadAllData() {
         const singleFazenda = document.getElementById('single-fazenda');
         if (singleFazenda) singleFazenda.addEventListener('change', () => {
             this.autofillRowByFazenda('single-fazenda', 'single-cod');
-            this.autofillCadastroFieldsByCod('single-cod');
         });
         if (singleCod) singleCod.addEventListener('change', async () => { 
             this.autofillRowByCod('single-fazenda', 'single-cod'); 
-            this.autofillCadastroFieldsByCod('single-cod');
             await this.autofetchFazendaByCodigoApi('single-cod');
         });
         
@@ -2830,14 +2828,43 @@ InsumosApp.prototype.autofillPlantioByCod = function() {
 InsumosApp.prototype.autofillRowByFazenda = function(fazId, codId) {
     const fEl = document.getElementById(fazId);
     const cEl = document.getElementById(codId);
-    const info = fEl && fEl.value ? this.fazendaIndex.byName[fEl.value] : null;
-    if (info && cEl) cEl.value = info.cod ?? '';
+    if (!fEl || !cEl || !this.fazendaIndex) return;
+    const nome = fEl.value || '';
+    let info = nome && this.fazendaIndex.byName ? this.fazendaIndex.byName[nome] : null;
+    if (!info && this.fazendaIndex.cadastroByCod) {
+        const match = Object.entries(this.fazendaIndex.cadastroByCod).find(([, v]) => (v.nome || '').toLowerCase() === nome.toLowerCase());
+        if (match) {
+            const cod = parseInt(match[0]);
+            const data = match[1];
+            info = { cod, ...data };
+        }
+    }
+    if (info && info.cod != null) {
+        cEl.value = String(info.cod);
+        this.autofillCadastroFieldsByCod(codId);
+    } else {
+        cEl.value = '';
+    }
 };
 InsumosApp.prototype.autofillRowByCod = function(fazId, codId) {
     const fEl = document.getElementById(fazId);
     const cEl = document.getElementById(codId);
-    const info = cEl && cEl.value ? this.fazendaIndex.byCod[parseInt(cEl.value)] : null;
-    if (info && fEl) fEl.value = info.fazenda ?? '';
+    if (!fEl || !cEl || !this.fazendaIndex) return;
+    const raw = cEl.value;
+    const code = raw ? parseInt(raw) : null;
+    if (!code) {
+        fEl.value = '';
+        return;
+    }
+    let info = this.fazendaIndex.byCod && this.fazendaIndex.byCod[code] ? this.fazendaIndex.byCod[code] : null;
+    if (!info && this.fazendaIndex.cadastroByCod) {
+        const cad = this.fazendaIndex.cadastroByCod[code];
+        if (cad) info = { fazenda: cad.nome, ...cad };
+    }
+    if (info) {
+        fEl.value = info.fazenda || info.nome || '';
+        this.autofillCadastroFieldsByCod(codId);
+    }
 };
 
 InsumosApp.prototype.savePlantioFrente = async function(frenteKey) {
