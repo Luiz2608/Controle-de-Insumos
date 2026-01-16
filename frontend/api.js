@@ -403,6 +403,40 @@ class ApiService {
         return { success: true };
     }
 
+    async clearImportData() {
+        this.checkConfig();
+        // Limpa dados importados (Insumos)
+        const { error: e1 } = await this.supabase.from('insumos_oxifertil').delete().neq('id', 0);
+        const { error: e2 } = await this.supabase.from('insumos_fazendas').delete().neq('id', 0);
+        
+        if (e1) throw e1;
+        if (e2) throw e2;
+        
+        return { success: true };
+    }
+
+    async clearAll() {
+        this.checkConfig();
+        try {
+            // Limpa tudo
+            await this.supabase.from('insumos_oxifertil').delete().neq('id', 0);
+            await this.supabase.from('insumos_fazendas').delete().neq('id', 0);
+            await this.supabase.from('viagens_adubo').delete().neq('id', 0);
+            await this.supabase.from('plantio_diario').delete().neq('id', 0);
+            
+            // Estoque (chave composta, deleta tudo que tem frente diferente de vazio)
+            await this.supabase.from('estoque').delete().neq('frente', '');
+            
+            // Fazendas (novo requisito)
+            await this.supabase.from('fazendas').delete().neq('codigo', '');
+            
+            return { success: true };
+        } catch (error) {
+            console.error('Erro ao limpar tudo:', error);
+            return { success: false, message: error.message };
+        }
+    }
+
     async healthCheck() {
         if (!this.supabase) return { success: false, message: 'Supabase não configurado' };
         // Teste simples
