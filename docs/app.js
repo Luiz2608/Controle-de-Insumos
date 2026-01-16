@@ -331,37 +331,7 @@ class InsumosApp {
                                 }
                             ],
                             generationConfig: {
-                                response_mime_type: 'application/json',
-                                response_schema: {
-                                    type: 'OBJECT',
-                                    properties: {
-                                        fazendas: {
-                                            type: 'ARRAY',
-                                            items: {
-                                                type: 'OBJECT',
-                                                properties: {
-                                                    codigo: { type: 'STRING' },
-                                                    nome: { type: 'STRING' },
-                                                    regiao: { type: 'STRING' },
-                                                    areaTotal: { type: 'NUMBER' }
-                                                },
-                                                required: ['codigo', 'nome', 'areaTotal']
-                                            }
-                                        },
-                                        resumoGeral: {
-                                            type: 'OBJECT',
-                                            additionalProperties: {
-                                                type: 'OBJECT',
-                                                properties: {
-                                                    totalFazendas: { type: 'INTEGER' },
-                                                    areaTotal: { type: 'NUMBER' }
-                                                },
-                                                required: ['totalFazendas', 'areaTotal']
-                                            }
-                                        }
-                                    },
-                                    required: ['fazendas']
-                                }
+                                response_mime_type: 'application/json'
                             }
                         })
                     });
@@ -372,32 +342,37 @@ class InsumosApp {
                         if (candidates.length && candidates[0].content && Array.isArray(candidates[0].content.parts)) {
                             const rawText = candidates[0].content.parts.map(p => p.text || '').join('');
                             console.log('Gemini raw text:', rawText);
-                            let cleaned = rawText.trim();
-                            if (cleaned.startsWith('```')) {
-                                cleaned = cleaned.replace(/^```json/i, '').replace(/^```/, '');
-                                if (cleaned.endsWith('```')) {
-                                    cleaned = cleaned.slice(0, -3);
+                            const parseGeminiJson = (text) => {
+                                if (!text) return null;
+                                let cleaned = String(text).trim();
+                                if (!cleaned) return null;
+                                if (cleaned.startsWith('```')) {
+                                    cleaned = cleaned.replace(/^```json/i, '').replace(/^```/, '');
+                                    if (cleaned.endsWith('```')) {
+                                        cleaned = cleaned.slice(0, -3);
+                                    }
+                                    cleaned = cleaned.trim();
                                 }
-                                cleaned = cleaned.trim();
-                            }
-                            
-                            let parsed;
-                            try {
-                                parsed = JSON.parse(cleaned);
-                            } catch (e) {
-                                console.error('Erro ao parsear JSON do Gemini', e);
+                                const tryParse = (value) => {
+                                    try {
+                                        return JSON.parse(value);
+                                    } catch (_) {
+                                        return null;
+                                    }
+                                };
+                                let parsed = tryParse(cleaned);
+                                if (parsed) return parsed;
                                 const firstBrace = cleaned.indexOf('{');
                                 const lastBrace = cleaned.lastIndexOf('}');
                                 if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-                                    const inner = cleaned.slice(firstBrace, lastBrace + 1);
-                                    try {
-                                        parsed = JSON.parse(inner);
-                                    } catch (e2) {
-                                        console.error('Falha ao parsear JSON mesmo após recorte de chaves', e2);
-                                    }
+                                    let inner = cleaned.slice(firstBrace, lastBrace + 1);
+                                    inner = inner.replace(/,\s*(?=[}\]])/g, '');
+                                    parsed = tryParse(inner);
+                                    if (parsed) return parsed;
                                 }
-                            }
-                            
+                                return null;
+                            };
+                            const parsed = parseGeminiJson(rawText);
                             if (parsed && Array.isArray(parsed.fazendas)) {
                                 fazendas = parsed.fazendas.map(f => ({
                                     codigo: f && f.codigo != null ? String(f.codigo).trim() : '',
@@ -411,7 +386,11 @@ class InsumosApp {
                             }
                         }
                     } else {
-                        console.error('Erro na requisição ao Gemini:', response.status, response.statusText);
+                        let errText = '';
+                        try {
+                            errText = await response.text();
+                        } catch (_) {}
+                        console.error('Erro na requisição ao Gemini:', response.status, response.statusText || '', errText);
                     }
                 } catch (e) {
                     console.error('Exceção ao chamar Gemini:', e);
