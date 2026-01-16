@@ -440,7 +440,8 @@ router.post('/excel', upload.single('file'), async (req, res) => {
     }
 });
 
-const pdf = require('pdf-parse');
+const pdfModule = require('pdf-parse');
+const pdfParse = typeof pdfModule === 'function' ? pdfModule : pdfModule.default;
 
 router.post('/fazendas-gemini', upload.single('file'), async (req, res) => {
     try {
@@ -466,7 +467,7 @@ router.post('/fazendas-gemini', upload.single('file'), async (req, res) => {
         // Extrair texto do PDF usando pdf-parse
         let text = '';
         try {
-            const data = await pdf(dataBuffer);
+            const data = await pdfParse(dataBuffer);
             text = data.text;
         } catch (pdfError) {
             console.error('Erro ao ler PDF com pdf-parse:', pdfError);
