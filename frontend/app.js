@@ -294,13 +294,17 @@ class InsumosApp {
                 fullText += '\n' + strings.join(' ');
             }
             let fazendas = [];
-            let geminiKey = localStorage.getItem('geminiApiKey') || ((window.API_CONFIG && window.API_CONFIG.geminiKey) || '');
-            if (!geminiKey || geminiKey.includes('SUA_CHAVE')) {
+            let geminiKey = localStorage.getItem('geminiApiKey') || '';
+            if (!geminiKey || geminiKey.trim().length < 20) {
                 geminiKey = await this.askGeminiKey();
             }
-            const useGemini = geminiKey && geminiKey.length > 20;
+            const useGemini = geminiKey && geminiKey.length >= 20;
+            if (!useGemini) {
+                this.ui.showNotification('Chave da API Gemini não informada ou inválida. Importação cancelada.', 'error', 4000);
+                return;
+            }
             
-            if (useGemini && fullText.trim().length > 0) {
+            if (fullText.trim().length > 0) {
                 try {
                     this.ui.showNotification('Enviando texto para análise (Gemini)...', 'info', 3000);
                     
@@ -407,34 +411,6 @@ class InsumosApp {
                 } catch (e) {
                     console.error('Exceção ao chamar Gemini:', e);
                 }
-            } else if (!useGemini) {
-                // Tentar backend se não tiver chave local configurada (fallback antigo)
-                try {
-                    this.ui.showNotification('Enviando PDF para backend (fallback)...', 'info', 3000);
-                    const formData = new FormData();
-                    formData.append('file', file);
-                    const baseUrl = (this.api && this.api.baseUrl) || '';
-                    if (baseUrl) {
-                        const response = await fetch(`${baseUrl}/api/importar/fazendas-gemini`, {
-                            method: 'POST',
-                            body: formData
-                        });
-                        if (response.ok) {
-                            const payload = await response.json();
-                            if (payload && payload.success && Array.isArray(payload.fazendas)) {
-                                fazendas = payload.fazendas.map(f => ({
-                                    codigo: f.codigo,
-                                    nome: f.nome,
-                                    regiao: f.regiao || '',
-                                    areaTotal: Number(f.areaTotal) || 0,
-                                    plantioAcumulado: 0,
-                                    mudaAcumulada: 0,
-                                    observacoes: 'Importado via Gemini (Backend)'
-                                }));
-                            }
-                        }
-                    }
-                } catch (e) { console.error('Backend fallback falhou:', e); }
             }
             
             if (!fazendas.length) {
