@@ -1308,12 +1308,22 @@ forceReloadAllData() {
                     }
                     const viagensFazendaFilter = document.getElementById('viagens-fazenda-filter');
                     if (viagensFazendaFilter) {
-                        viagensFazendaFilter.innerHTML = '<option value=\"\">Todas as Fazendas</option>';
+                        viagensFazendaFilter.innerHTML = '<option value="">Todas as Fazendas</option>';
                         nomes.forEach(n => {
                             const opt = document.createElement('option');
                             opt.value = n;
                             opt.textContent = n;
                             viagensFazendaFilter.appendChild(opt);
+                        });
+                    }
+                    const singleFazendaSelect = document.getElementById('single-fazenda');
+                    if (singleFazendaSelect) {
+                        singleFazendaSelect.innerHTML = '<option value="">Selecione a Fazenda</option>';
+                        nomes.forEach(n => {
+                            const opt = document.createElement('option');
+                            opt.value = n;
+                            opt.textContent = n;
+                            singleFazendaSelect.appendChild(opt);
                         });
                     }
                 }
