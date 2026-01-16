@@ -30,7 +30,7 @@ class InsumosApp {
 
         // Inicializar PDF.js worker
         if (window.pdfjsLib) {
-            window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
         }
     }
 
@@ -273,7 +273,7 @@ class InsumosApp {
         try {
             this.ui.showNotification('Lendo PDF de fazendas...', 'info', 2000);
             const buffer = await file.arrayBuffer();
-            const loadingTask = window.pdfjsLib.getDocument({ data: buffer, disableWorker: true });
+            const loadingTask = window.pdfjsLib.getDocument({ data: buffer });
             const pdf = await loadingTask.promise;
             let fullText = '';
             for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
@@ -324,7 +324,7 @@ class InsumosApp {
                 // Se ainda não leu o texto localmente (agora só lemos se precisar do fallback)
                 if (!fullText) {
                     const buffer = await file.arrayBuffer();
-                    const loadingTask = window.pdfjsLib.getDocument({ data: buffer, disableWorker: true });
+                    const loadingTask = window.pdfjsLib.getDocument({ data: buffer });
                     const pdfDoc = await loadingTask.promise;
                     fullText = '';
                     for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
