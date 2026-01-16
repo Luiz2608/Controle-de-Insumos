@@ -1184,25 +1184,7 @@ forceReloadAllData() {
     autofillCadastroFieldsByCod(codInputId) {
         const codEl = document.getElementById(codInputId);
         const cod = codEl && codEl.value ? parseInt(codEl.value) : null;
-        if (!cod || !this.fazendaIndex || !this.fazendaIndex.cadastroByCod) return;
-        const info = this.fazendaIndex.cadastroByCod[cod];
-        if (!info) return;
-
-        this.tempFazendaStats = {
-            plantioAcumulado: info.plantioAcumulado || 0,
-            mudaAcumulada: info.mudaAcumulada || 0
-        };
-
-        const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
-        if (info.nome) setVal('single-fazenda', info.nome);
-        setVal('single-regiao', info.regiao || '');
-        setVal('single-area-total', String(info.areaTotal || 0));
-        setVal('single-area-acumulada', String(info.plantioAcumulado || 0));
-        // muda acumulada pode ser mostrada em seção de Muda
-        const mudaAccumEl = document.getElementById('muda-consumo-acumulado');
-        if (mudaAccumEl) mudaAccumEl.value = String(info.mudaAcumulada || 0);
-
-        this.updateAccumulatedStats();
+        this.autofillCadastroFields(cod);
     }
 
     sortInsumos() {
@@ -2841,7 +2823,7 @@ InsumosApp.prototype.autofillRowByFazenda = function(fazId, codId) {
     }
     if (info && info.cod != null) {
         cEl.value = String(info.cod);
-        this.autofillCadastroFieldsByCod(codId);
+        this.autofillCadastroFields(info.cod);
     } else {
         cEl.value = '';
     }
@@ -2863,8 +2845,30 @@ InsumosApp.prototype.autofillRowByCod = function(fazId, codId) {
     }
     if (info) {
         fEl.value = info.fazenda || info.nome || '';
-        this.autofillCadastroFieldsByCod(codId);
+        this.autofillCadastroFields(code);
     }
+};
+
+InsumosApp.prototype.autofillCadastroFields = function(code) {
+    if (!code || !this.fazendaIndex || !this.fazendaIndex.cadastroByCod) return;
+    const info = this.fazendaIndex.cadastroByCod[code];
+    if (!info) return;
+
+    this.tempFazendaStats = {
+        plantioAcumulado: info.plantioAcumulado || 0,
+        mudaAcumulada: info.mudaAcumulada || 0
+    };
+
+    const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+    if (info.nome) setVal('single-fazenda', info.nome);
+    setVal('single-regiao', info.regiao || '');
+    setVal('single-area-total', String(info.areaTotal || 0));
+    setVal('single-area-acumulada', String(info.plantioAcumulado || 0));
+    
+    const mudaAccumEl = document.getElementById('muda-consumo-acumulado');
+    if (mudaAccumEl) mudaAccumEl.value = String(info.mudaAcumulada || 0);
+
+    this.updateAccumulatedStats();
 };
 
 InsumosApp.prototype.savePlantioFrente = async function(frenteKey) {
