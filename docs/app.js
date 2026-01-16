@@ -463,11 +463,25 @@ class InsumosApp {
                 parts = normalized.split(/\s{2,}/).map(p => p.trim()).filter(p => p);
             }
             if (!parts.length) continue;
-            const codigoRaw = parts[0].replace(/[^\d]/g, '');
-            if (!codigoRaw) continue;
-            const codigo = codigoRaw;
+            const numeros = (parts[0].match(/\d+/g) || []).map(n => n.trim()).filter(n => n);
+            if (!numeros.length) continue;
+            
+            let codigo = '';
+            let regiaoFromFirst = '';
+            
+            if (numeros.length >= 2) {
+                // Formato Região/Fazenda (ex: 1/96 -> 1=Região, 96=Fazenda)
+                regiaoFromFirst = numeros[0];
+                codigo = numeros[1];
+            } else {
+                codigo = numeros[0];
+            }
+
             const nome = parts[1] ? parts[1].trim() : '';
-            const regiao = parts[2] ? parts[2].trim() : '';
+            const regiaoCandidate = parts[2] ? parts[2].trim() : '';
+            const isAreaLike = regiaoCandidate && /,/.test(regiaoCandidate);
+            let regiao = regiaoCandidate;
+            if ((!regiao || isAreaLike) && regiaoFromFirst) regiao = regiaoFromFirst;
             let areaTotal = 0;
             if (parts[3]) {
                 const n = parseFloat(parts[3].replace('.', '').replace(',', '.'));

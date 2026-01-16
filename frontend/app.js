@@ -314,14 +314,15 @@ class InsumosApp {
                         'O formato do JSON deve ser exatamente:',
                         '{',
                         '  "fazendas": [',
-                        '    { "codigo": "1/96", "nome": "FAZENDA EXEMPLO", "regiao": "OPCIONAL", "areaTotal": 123.45 }',
+                        '    { "codigo": "96", "nome": "FAZENDA EXEMPLO", "regiao": "OPCIONAL", "areaTotal": 123.45 }',
                         '  ],',
                         '  "resumoGeral": {',
                         '    "1": { "totalFazendas": 10, "areaTotal": 1234.56 }',
                         '  }',
                         '}',
                         'Regras:',
-                        '- "codigo" deve seguir o padrão Bloco/Número (ex: "1/96").',
+                        '- "codigo" deve seguir o padrão Número (ex: "96").',
+                        '- "codigo da fazenda" deve seguir o padrão e Número (ex: "1").',
                         '- "nome" é o nome da fazenda.',
                         '- "regiao" pode ser vazio se não estiver claro.',
                         '- "areaTotal" deve ser número em hectares com ponto como separador decimal.',
@@ -463,11 +464,25 @@ class InsumosApp {
                 parts = normalized.split(/\s{2,}/).map(p => p.trim()).filter(p => p);
             }
             if (!parts.length) continue;
-            const codigoRaw = parts[0].replace(/[^\d]/g, '');
-            if (!codigoRaw) continue;
-            const codigo = codigoRaw;
+            const numeros = (parts[0].match(/\d+/g) || []).map(n => n.trim()).filter(n => n);
+            if (!numeros.length) continue;
+            
+            let codigo = '';
+            let regiaoFromFirst = '';
+            
+            if (numeros.length >= 2) {
+                // Formato Região/Fazenda (ex: 1/96 -> 1=Região, 96=Fazenda)
+                regiaoFromFirst = numeros[0];
+                codigo = numeros[1];
+            } else {
+                codigo = numeros[0];
+            }
+
             const nome = parts[1] ? parts[1].trim() : '';
-            const regiao = parts[2] ? parts[2].trim() : '';
+            const regiaoCandidate = parts[2] ? parts[2].trim() : '';
+            const isAreaLike = regiaoCandidate && /,/.test(regiaoCandidate);
+            let regiao = regiaoCandidate;
+            if ((!regiao || isAreaLike) && regiaoFromFirst) regiao = regiaoFromFirst;
             let areaTotal = 0;
             if (parts[3]) {
                 const n = parseFloat(parts[3].replace('.', '').replace(',', '.'));
