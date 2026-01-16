@@ -341,6 +341,7 @@ class InsumosApp {
                         const candidates = data && Array.isArray(data.candidates) ? data.candidates : [];
                         if (candidates.length && candidates[0].content && Array.isArray(candidates[0].content.parts)) {
                             const rawText = candidates[0].content.parts.map(p => p.text || '').join('');
+                            console.log('Gemini raw text:', rawText);
                             let cleaned = rawText.trim();
                             if (cleaned.startsWith('```')) {
                                 cleaned = cleaned.replace(/^```json/i, '').replace(/^```/, '');
@@ -355,6 +356,16 @@ class InsumosApp {
                                 parsed = JSON.parse(cleaned);
                             } catch (e) {
                                 console.error('Erro ao parsear JSON do Gemini', e);
+                                const firstBrace = cleaned.indexOf('{');
+                                const lastBrace = cleaned.lastIndexOf('}');
+                                if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+                                    const inner = cleaned.slice(firstBrace, lastBrace + 1);
+                                    try {
+                                        parsed = JSON.parse(inner);
+                                    } catch (e2) {
+                                        console.error('Falha ao parsear JSON mesmo após recorte de chaves', e2);
+                                    }
+                                }
                             }
                             
                             if (parsed && Array.isArray(parsed.fazendas)) {
