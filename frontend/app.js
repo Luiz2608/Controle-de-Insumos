@@ -1130,7 +1130,10 @@ forceReloadAllData() {
         const singleFrente = document.getElementById('single-frente');
         const singleCod = document.getElementById('single-cod');
         const singleFazenda = document.getElementById('single-fazenda');
-        if (singleFazenda) singleFazenda.addEventListener('change', () => this.autofillRowByFazenda('single-fazenda', 'single-cod'));
+        if (singleFazenda) singleFazenda.addEventListener('change', () => {
+            this.autofillRowByFazenda('single-fazenda', 'single-cod');
+            this.autofillCadastroFieldsByCod('single-cod');
+        });
         if (singleCod) singleCod.addEventListener('change', async () => { 
             this.autofillRowByCod('single-fazenda', 'single-cod'); 
             this.autofillCadastroFieldsByCod('single-cod');
