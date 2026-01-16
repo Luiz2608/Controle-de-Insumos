@@ -283,40 +283,123 @@ class InsumosApp {
                 fullText += '\n' + strings.join(' ');
             }
             let fazendas = [];
-            try {
-                this.ui.showNotification('Enviando PDF para análise (Gemini)...', 'info', 3000);
-                
-                // Preparar arquivo para envio
-                const formData = new FormData();
-                formData.append('file', file);
+            
+            // Tentar extrair usando Gemini se a chave estiver configurada
+            const geminiKey = (window.API_CONFIG && window.API_CONFIG.geminiKey) || '';
+            const useGemini = geminiKey && geminiKey.length > 20 && !geminiKey.includes('SUA_CHAVE');
+            
+            if (useGemini && fullText.trim().length > 0) {
+                try {
+                    this.ui.showNotification('Enviando texto para análise (Gemini)...', 'info', 3000);
+                    
+                    const prompt = [
+                        'Você recebe o texto bruto extraído de um PDF de Caderno de Mapas com fazendas e áreas em hectares.',
+                        'Extraia todas as fazendas encontradas e devolva somente um JSON válido, sem nenhum texto adicional.',
+                        'O formato do JSON deve ser exatamente:',
+                        '{',
+                        '  "fazendas": [',
+                        '    { "codigo": "1/96", "nome": "FAZENDA EXEMPLO", "regiao": "OPCIONAL", "areaTotal": 123.45 }',
+                        '  ],',
+                        '  "resumoGeral": {',
+                        '    "1": { "totalFazendas": 10, "areaTotal": 1234.56 }',
+                        '  }',
+                        '}',
+                        'Regras:',
+                        '- "codigo" deve seguir o padrão Bloco/Número (ex: "1/96").',
+                        '- "nome" é o nome da fazenda.',
+                        '- "regiao" pode ser vazio se não estiver claro.',
+                        '- "areaTotal" deve ser número em hectares com ponto como separador decimal.',
+                        '- Se a mesma fazenda aparecer em mais de uma página some as áreas em uma única entrada.',
+                        '- No "resumoGeral", a chave é o número do bloco como string.',
+                        '- Não inclua comentários, texto explicativo nem campos extras, apenas o JSON.'
+                    ].join('\n');
 
-                // Usar URL base dinâmica se disponível (para suportar backend remoto)
-                const baseUrl = (this.api && this.api.baseUrl) || '';
-                const response = await fetch(`${baseUrl}/api/importar/fazendas-gemini`, {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                if (response.ok) {
-                    const payload = await response.json();
-                    if (payload && payload.success && Array.isArray(payload.fazendas) && payload.fazendas.length) {
-                        fazendas = payload.fazendas.map(f => ({
-                            codigo: f.codigo,
-                            nome: f.nome,
-                            regiao: f.regiao || '',
-                            areaTotal: Number(f.areaTotal) || 0,
-                            plantioAcumulado: 0,
-                            mudaAcumulada: 0,
-                            observacoes: 'Importado via Gemini'
-                        }));
+                    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + geminiKey;
+                    
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            contents: [
+                                {
+                                    parts: [
+                                        { text: prompt },
+                                        { text: fullText }
+                                    ]
+                                }
+                            ]
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        const candidates = data && Array.isArray(data.candidates) ? data.candidates : [];
+                        if (candidates.length && candidates[0].content && Array.isArray(candidates[0].content.parts)) {
+                            const rawText = candidates[0].content.parts.map(p => p.text || '').join('');
+                            let cleaned = rawText.trim();
+                            if (cleaned.startsWith('```')) {
+                                cleaned = cleaned.replace(/^```json/i, '').replace(/^```/, '');
+                                if (cleaned.endsWith('```')) {
+                                    cleaned = cleaned.slice(0, -3);
+                                }
+                                cleaned = cleaned.trim();
+                            }
+                            
+                            let parsed;
+                            try {
+                                parsed = JSON.parse(cleaned);
+                            } catch (e) {
+                                console.error('Erro ao parsear JSON do Gemini', e);
+                            }
+                            
+                            if (parsed && Array.isArray(parsed.fazendas)) {
+                                fazendas = parsed.fazendas.map(f => ({
+                                    codigo: f && f.codigo != null ? String(f.codigo).trim() : '',
+                                    nome: f && f.nome != null ? String(f.nome).trim() : '',
+                                    regiao: f && f.regiao != null ? String(f.regiao).trim() : '',
+                                    areaTotal: Number(f.areaTotal) || 0,
+                                    plantioAcumulado: 0,
+                                    mudaAcumulada: 0,
+                                    observacoes: 'Importado via Gemini (Client-side)'
+                                })).filter(f => f.codigo && f.nome);
+                            }
+                        }
                     } else {
-                        console.warn('Gemini não retornou fazendas ou falhou:', payload);
+                        console.error('Erro na requisição ao Gemini:', response.status, response.statusText);
                     }
-                } else {
-                    console.error('Erro na requisição ao Gemini:', response.status, response.statusText);
+                } catch (e) {
+                    console.error('Exceção ao chamar Gemini:', e);
                 }
-            } catch (e) {
-                console.error('Exceção ao chamar Gemini:', e);
+            } else if (!useGemini) {
+                // Tentar backend se não tiver chave local configurada (fallback antigo)
+                try {
+                    this.ui.showNotification('Enviando PDF para backend (fallback)...', 'info', 3000);
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    const baseUrl = (this.api && this.api.baseUrl) || '';
+                    if (baseUrl) {
+                        const response = await fetch(`${baseUrl}/api/importar/fazendas-gemini`, {
+                            method: 'POST',
+                            body: formData
+                        });
+                        if (response.ok) {
+                            const payload = await response.json();
+                            if (payload && payload.success && Array.isArray(payload.fazendas)) {
+                                fazendas = payload.fazendas.map(f => ({
+                                    codigo: f.codigo,
+                                    nome: f.nome,
+                                    regiao: f.regiao || '',
+                                    areaTotal: Number(f.areaTotal) || 0,
+                                    plantioAcumulado: 0,
+                                    mudaAcumulada: 0,
+                                    observacoes: 'Importado via Gemini (Backend)'
+                                }));
+                            }
+                        }
+                    }
+                } catch (e) { console.error('Backend fallback falhou:', e); }
             }
             
             if (!fazendas.length) {

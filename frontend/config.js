@@ -1,6 +1,11 @@
 const SUPABASE_URL = 'https://tetzbcsbaghokarlsqzj.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRldHpiY3NiYWdob2thcmxzcXpqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc2MjIzNzYsImV4cCI6MjA4MzE5ODM3Nn0.CAE_DBSCgHuxwh7oPX9fKBjYps_oB8w8pujt7Oc8RFs';
 
+// Configuração da API do Gemini (Google)
+// ATENÇÃO: Em um projeto puramente frontend (GitHub Pages sem backend), a chave fica exposta.
+// Certifique-se de configurar restrições de domínio no console do Google Cloud se possível.
+const GEMINI_API_KEY = 'SUA_CHAVE_AQUI_OU_CONFIGURADA_MANUALMENTE';
+
 // Configuração da API do Backend (Gemini, etc)
 // Se estiver rodando no mesmo servidor (localhost:3000), usa URL relativa.
 // Se estiver rodando em outro lugar (GitHub Pages, Live Server), aponta para o backend local ou produção.
@@ -14,5 +19,6 @@ window.SUPABASE_CONFIG = {
 };
 
 window.API_CONFIG = {
-    baseUrl: API_URL
+    baseUrl: API_URL,
+    geminiKey: GEMINI_API_KEY
 };
