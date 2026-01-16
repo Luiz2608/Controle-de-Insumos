@@ -331,7 +331,37 @@ class InsumosApp {
                                 }
                             ],
                             generationConfig: {
-                                response_mime_type: 'application/json'
+                                response_mime_type: 'application/json',
+                                response_schema: {
+                                    type: 'OBJECT',
+                                    properties: {
+                                        fazendas: {
+                                            type: 'ARRAY',
+                                            items: {
+                                                type: 'OBJECT',
+                                                properties: {
+                                                    codigo: { type: 'STRING' },
+                                                    nome: { type: 'STRING' },
+                                                    regiao: { type: 'STRING' },
+                                                    areaTotal: { type: 'NUMBER' }
+                                                },
+                                                required: ['codigo', 'nome', 'areaTotal']
+                                            }
+                                        },
+                                        resumoGeral: {
+                                            type: 'OBJECT',
+                                            additionalProperties: {
+                                                type: 'OBJECT',
+                                                properties: {
+                                                    totalFazendas: { type: 'INTEGER' },
+                                                    areaTotal: { type: 'NUMBER' }
+                                                },
+                                                required: ['totalFazendas', 'areaTotal']
+                                            }
+                                        }
+                                    },
+                                    required: ['fazendas']
+                                }
                             }
                         })
                     });
