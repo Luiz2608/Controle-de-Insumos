@@ -4,7 +4,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 // Configuração da API do Gemini (Google)
 // ATENÇÃO: Em um projeto puramente frontend (GitHub Pages sem backend), a chave fica exposta.
 // Certifique-se de configurar restrições de domínio no console do Google Cloud se possível.
-const GEMINI_API_KEY = 'SUA_CHAVE_AQUI_OU_CONFIGURADA_MANUALMENTE';
+const GEMINI_API_KEY = 'AIzaSyBqRBIP4mxb3JFqnfegn9FdmAKkdZZVKzg';
 
 // Configuração da API do Backend (Gemini, etc)
 // Se estiver rodando no mesmo servidor (localhost:3000), usa URL relativa.
