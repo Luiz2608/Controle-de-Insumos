@@ -329,7 +329,10 @@ class InsumosApp {
                                         { text: fullText }
                                     ]
                                 }
-                            ]
+                            ],
+                            generationConfig: {
+                                response_mime_type: 'application/json'
+                            }
                         })
                     });
                     
