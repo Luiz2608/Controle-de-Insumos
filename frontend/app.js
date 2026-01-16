@@ -314,7 +314,7 @@ class InsumosApp {
                         '- Não inclua comentários, texto explicativo nem campos extras, apenas o JSON.'
                     ].join('\n');
 
-                    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + geminiKey;
+                    const url = 'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=' + geminiKey;
                     
                     const response = await fetch(url, {
                         method: 'POST',
