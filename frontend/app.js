@@ -1293,6 +1293,26 @@ forceReloadAllData() {
                         nomes,
                         'Todas as Fazendas'
                     );
+                    const viagemFazSelect = document.getElementById('viagem-fazenda');
+                    if (viagemFazSelect) {
+                        viagemFazSelect.innerHTML = '<option value=\"\">Selecione a Fazenda</option>';
+                        nomes.forEach(n => {
+                            const opt = document.createElement('option');
+                            opt.value = n;
+                            opt.textContent = n;
+                            viagemFazSelect.appendChild(opt);
+                        });
+                    }
+                    const viagensFazendaFilter = document.getElementById('viagens-fazenda-filter');
+                    if (viagensFazendaFilter) {
+                        viagensFazendaFilter.innerHTML = '<option value=\"\">Todas as Fazendas</option>';
+                        nomes.forEach(n => {
+                            const opt = document.createElement('option');
+                            opt.value = n;
+                            opt.textContent = n;
+                            viagensFazendaFilter.appendChild(opt);
+                        });
+                    }
                 }
             } catch(e) {}
 
