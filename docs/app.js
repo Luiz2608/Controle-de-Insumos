@@ -992,6 +992,10 @@ forceReloadAllData() {
         if (fazendaInput) fazendaInput.addEventListener('change', () => this.autofillByFazenda());
         if (codInput) codInput.addEventListener('change', async () => { this.autofillByCod(); await this.autofetchFazendaByCodigoApi('cod'); });
 
+        const viagemCodEl = document.getElementById('viagem-codigo-fazenda');
+        const viagemFazEl = document.getElementById('viagem-fazenda');
+        if (viagemCodEl) viagemCodEl.addEventListener('change', () => this.autofillRowByCod('viagem-fazenda', 'viagem-codigo-fazenda'));
+
         document.addEventListener('click', (e) => {
             const editBtn = e.target.closest('.btn-edit');
             const deleteBtn = e.target.closest('.btn-delete');
