@@ -621,6 +621,13 @@ class InsumosApp {
         if (!item) return;
         this.ui.switchTab('plantio-dia');
 
+        this.applyCadastroFazendaToPlantio(item);
+
+        this.ui.showNotification('Fazenda aplicada no formulário de plantio', 'success', 1500);
+    }
+
+    applyCadastroFazendaToPlantio(item) {
+        if (!item) return;
         this.tempFazendaStats = {
             plantioAcumulado: item.plantio_acumulado || 0,
             mudaAcumulada: item.muda_acumulada || 0
@@ -636,10 +643,8 @@ class InsumosApp {
         if (regiaoSingle) regiaoSingle.value = item.regiao || '';
         if (areaTotalSingle) areaTotalSingle.value = item.area_total != null ? String(item.area_total) : '';
         if (plantioAcumSingle) plantioAcumSingle.value = item.plantio_acumulado != null ? String(item.plantio_acumulado) : '';
-        
+
         this.updateAccumulatedStats();
-        
-        this.ui.showNotification('Fazenda aplicada no formulário de plantio', 'success', 1500);
     }
 
     async handleCadastroActions() {
@@ -1131,10 +1136,26 @@ forceReloadAllData() {
         const singleCod = document.getElementById('single-cod');
         const singleFazenda = document.getElementById('single-fazenda');
         if (singleFazenda) singleFazenda.addEventListener('change', () => {
+            if (this.cadastroFazendas && this.cadastroFazendas.length) {
+                const nome = singleFazenda.value;
+                const item = this.cadastroFazendas.find(f => (f.nome || '') === nome);
+                if (item) {
+                    this.applyCadastroFazendaToPlantio(item);
+                    return;
+                }
+            }
             this.autofillRowByFazenda('single-fazenda', 'single-cod');
         });
         if (singleCod) singleCod.addEventListener('change', async () => { 
-            this.autofillRowByCod('single-fazenda', 'single-cod'); 
+            if (this.cadastroFazendas && this.cadastroFazendas.length) {
+                const codigo = singleCod.value;
+                const item = this.cadastroFazendas.find(f => String(f.codigo) === String(codigo));
+                if (item) {
+                    this.applyCadastroFazendaToPlantio(item);
+                }
+            } else {
+                this.autofillRowByCod('single-fazenda', 'single-cod'); 
+            }
             await this.autofetchFazendaByCodigoApi('single-cod');
         });
         
