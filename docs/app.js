@@ -146,6 +146,17 @@ class InsumosApp {
         if (saveBtn) saveBtn.textContent = '💾 Salvar Fazenda';
     }
 
+    async askGeminiKey() {
+        const message = 'Informe sua chave da API Gemini. Ela será salva apenas neste navegador.';
+        const key = window.prompt(message, '');
+        if (key && key.trim().length > 0) {
+            const trimmed = key.trim();
+            localStorage.setItem('geminiApiKey', trimmed);
+            return trimmed;
+        }
+        return '';
+    }
+
     async saveCadastroFazenda() {
         await this.ensureApiReady();
         const codigoEl = document.getElementById('cadastro-fazenda-codigo');
@@ -283,10 +294,11 @@ class InsumosApp {
                 fullText += '\n' + strings.join(' ');
             }
             let fazendas = [];
-            
-            // Tentar extrair usando Gemini se a chave estiver configurada
-            const geminiKey = (window.API_CONFIG && window.API_CONFIG.geminiKey) || '';
-            const useGemini = geminiKey && geminiKey.length > 20 && !geminiKey.includes('SUA_CHAVE');
+            let geminiKey = localStorage.getItem('geminiApiKey') || ((window.API_CONFIG && window.API_CONFIG.geminiKey) || '');
+            if (!geminiKey || geminiKey.includes('SUA_CHAVE')) {
+                geminiKey = await this.askGeminiKey();
+            }
+            const useGemini = geminiKey && geminiKey.length > 20;
             
             if (useGemini && fullText.trim().length > 0) {
                 try {
