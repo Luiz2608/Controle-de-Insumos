@@ -968,12 +968,55 @@ forceReloadAllData() {
             chartsOrderSelect.addEventListener('change', () => {
                 this.chartOrder = chartsOrderSelect.value || 'az';
                 if (this.insumosFazendasData && this.insumosFazendasData.length) {
-            this.updateCharts(this.insumosFazendasData);
-            this.renderPlantioChart(); // Atualiza o novo gráfico também
+                    this.updateCharts(this.insumosFazendasData);
+                    this.renderPlantioChart(); // Atualiza o novo gráfico também
+                }
+            });
         }
+        
+        this.setupMetaListeners();
     }
 
     // === MÉTODOS DE METAS E GRÁFICO DE PLANTIO ===
+
+    setupMetaListeners() {
+        const btnConfigMetas = document.getElementById('btn-config-metas');
+        const metasModal = document.getElementById('metas-modal');
+        const closeMetasButtons = document.querySelectorAll('.close-metas-modal');
+        const btnSaveMeta = document.getElementById('btn-save-meta');
+
+        if (btnConfigMetas && metasModal) {
+            btnConfigMetas.addEventListener('click', () => {
+                metasModal.style.display = 'flex';
+                this.loadMetasUI();
+            });
+        }
+
+        closeMetasButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (metasModal) metasModal.style.display = 'none';
+            });
+        });
+
+        if (metasModal) {
+            window.addEventListener('click', (e) => {
+                if (e.target === metasModal) metasModal.style.display = 'none';
+            });
+        }
+
+        if (btnSaveMeta) {
+            btnSaveMeta.addEventListener('click', async () => {
+                await this.saveMetaUI();
+            });
+        }
+
+        const plantioFrenteFilter = document.getElementById('plantio-chart-frente');
+        if (plantioFrenteFilter) {
+            plantioFrenteFilter.addEventListener('change', () => {
+                this.renderPlantioChart();
+            });
+        }
+    }
 
     async loadMetasUI(silent = false) {
         if (!silent) this.ui.showLoading();
