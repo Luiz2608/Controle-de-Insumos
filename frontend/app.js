@@ -755,10 +755,26 @@ forceReloadAllData() {
         const closeFazendasButtons = document.querySelectorAll('.close-fazendas-modal');
 
         if (btnOpenFazendas && fazendasModal) {
-            btnOpenFazendas.addEventListener('click', () => {
-                fazendasModal.style.display = 'block';
-                // Re-renderizar se necessário
-                if (this.cadastroFazendas && this.cadastroFazendas.length > 0) {
+            btnOpenFazendas.addEventListener('click', async () => {
+                fazendasModal.style.display = 'flex';
+                
+                // Re-renderizar ou carregar se necessário
+                if (!this.cadastroFazendas || this.cadastroFazendas.length === 0) {
+                    const tbody = document.getElementById('cadastro-fazendas-body');
+                    if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="loading">🔄 Recarregando dados...</td></tr>';
+                    
+                    try {
+                        const res = await this.api.getFazendas();
+                        if (res && res.success && Array.isArray(res.data)) {
+                            this.renderCadastroFazendas(res.data);
+                        } else {
+                            if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="loading">⚠️ Não foi possível carregar as fazendas.</td></tr>';
+                        }
+                    } catch (e) {
+                        console.error('Erro ao carregar fazendas no modal:', e);
+                        if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="loading">❌ Erro ao carregar dados.</td></tr>';
+                    }
+                } else {
                     this.renderCadastroFazendas(this.cadastroFazendas);
                 }
             });
