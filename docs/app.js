@@ -967,11 +967,278 @@ forceReloadAllData() {
         if (chartsOrderSelect) {
             chartsOrderSelect.addEventListener('change', () => {
                 this.chartOrder = chartsOrderSelect.value || 'az';
-                if (this.insumosFazendasData && this.insumosFazendasData.length) this.updateCharts(this.insumosFazendasData);
+                if (this.insumosFazendasData && this.insumosFazendasData.length) {
+            this.updateCharts(this.insumosFazendasData);
+            this.renderPlantioChart(); // Atualiza o novo gráfico também
+        }
+    }
+
+    // === MÉTODOS DE METAS E GRÁFICO DE PLANTIO ===
+
+    async loadMetasUI(silent = false) {
+        if (!silent) this.ui.showLoading();
+        
+        // Carregar lista de frentes únicas para o datalist e filtro
+        const allData = this.insumosFazendasData || [];
+        const frentes = [...new Set(allData.map(i => i.frente).filter(Boolean))].sort();
+        
+        const datalist = document.getElementById('frentes-list');
+        if (datalist) {
+            datalist.innerHTML = frentes.map(f => `<option value="${f}">`).join('');
+        }
+
+        const filterSelect = document.getElementById('plantio-chart-frente');
+        if (filterSelect && filterSelect.options.length <= 1) { // Só 'all' existe
+             frentes.forEach(f => {
+                 const opt = document.createElement('option');
+                 opt.value = f;
+                 opt.textContent = f;
+                 filterSelect.appendChild(opt);
+             });
+        }
+
+        // Carregar metas salvas
+        try {
+            const res = await this.api.getMetas();
+            if (res.success && res.data) {
+                this.metasData = res.data; // Cache
+                
+                const tbody = document.getElementById('metas-table-body');
+                if (tbody && !silent) {
+                    tbody.innerHTML = '';
+                    res.data.forEach(m => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td>${m.frente}</td>
+                            <td>${parseFloat(m.meta_diaria).toFixed(2)}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                }
+                
+                // Se carregou silenciosamente, aproveita para renderizar o gráfico se houver dados
+                if (silent && this.insumosFazendasData) {
+                    this.renderPlantioChart();
+                }
+            }
+        } catch (e) {
+            console.warn('Erro ao carregar metas:', e);
+        } finally {
+            if (!silent) this.ui.hideLoading();
+        }
+    }
+
+    async saveMetaUI() {
+        const frenteInput = document.getElementById('meta-frente');
+        const valorInput = document.getElementById('meta-valor');
+        const frente = frenteInput.value.trim();
+        const valor = parseFloat(valorInput.value);
+
+        if (!frente || isNaN(valor)) {
+            alert('Preencha frente e valor corretamente.');
+            return;
+        }
+
+        this.ui.showLoading();
+        try {
+            const res = await this.api.saveMeta({ frente, meta_diaria: valor });
+            if (res.success) {
+                this.ui.showNotification('Meta salva com sucesso!', 'success');
+                frenteInput.value = '';
+                valorInput.value = '';
+                await this.loadMetasUI(); // Recarrega tabela e cache
+                this.renderPlantioChart(); // Atualiza gráfico
+            }
+        } catch (e) {
+            console.error(e);
+            this.ui.showNotification('Erro ao salvar meta.', 'error');
+        } finally {
+            this.ui.hideLoading();
+        }
+    }
+
+    renderPlantioChart() {
+        const canvas = document.getElementById('chart-plantio-diario');
+        if (!canvas) return;
+
+        // Dados base
+        const data = this.insumosFazendasData || [];
+        const metas = this.metasData || [];
+
+        // Filtro de frente
+        const filterFrente = document.getElementById('plantio-chart-frente')?.value || 'all';
+        
+        // Processamento: Agrupar por data e frente
+        const diario = {}; 
+        const frentesSet = new Set();
+        const datesSet = new Set();
+
+        data.forEach(item => {
+            // Considerar apenas itens com área aplicada e data
+            // E opcionalmente filtrar por 'PLANTIO' se houver campo de processo/atividade
+            // Como não tenho certeza do filtro 'PLANTIO', vou usar tudo que tem areaTotalAplicada > 0
+            if (!item.dataInicio || !item.areaTotalAplicada) return;
+            
+            const dataKey = item.dataInicio.split('T')[0]; // YYYY-MM-DD
+            const frente = item.frente || 'Geral';
+
+            if (filterFrente !== 'all' && frente !== filterFrente) return;
+
+            if (!diario[dataKey]) diario[dataKey] = {};
+            if (!diario[dataKey][frente]) diario[dataKey][frente] = 0;
+            
+            diario[dataKey][frente] += parseFloat(item.areaTotalAplicada);
+            frentesSet.add(frente);
+            datesSet.add(dataKey);
+        });
+
+        // Ordenar datas
+        const dates = Array.from(datesSet).sort();
+        // Se quiser limitar aos últimos 30 dias:
+        // const dates = Array.from(datesSet).sort().slice(-30);
+
+        const frentes = Array.from(frentesSet).sort();
+
+        // Datasets
+        const datasets = [];
+        const colors = ['#3498db', '#e74c3c', '#2ecc71', '#f1c40f', '#9b59b6', '#34495e', '#1abc9c', '#e67e22'];
+
+        frentes.forEach((frente, index) => {
+            const color = colors[index % colors.length];
+            
+            // Dados de Realizado (Barras)
+            const dataPoints = dates.map(d => diario[d] && diario[d][frente] ? diario[d][frente] : 0);
+            
+            datasets.push({
+                label: `Realizado - ${frente}`,
+                data: dataPoints,
+                backgroundColor: color,
+                borderColor: color,
+                borderWidth: 1,
+                type: 'bar',
+                order: 2
+            });
+
+            // Dados de Meta (Linha)
+            const meta = metas.find(m => m.frente === frente);
+            if (meta) {
+                const metaVal = parseFloat(meta.meta_diaria);
+                datasets.push({
+                    label: `Meta - ${frente}`,
+                    data: dates.map(() => metaVal),
+                    borderColor: color, // Mesma cor da barra
+                    borderWidth: 2,
+                    borderDash: [5, 5],
+                    type: 'line',
+                    pointRadius: 0,
+                    pointHoverRadius: 4,
+                    fill: false,
+                    tension: 0, // Linha reta
+                    order: 1
+                });
+            }
+        });
+
+        // Destruir anterior
+        if (this.plantioChartInstance) {
+            this.plantioChartInstance.destroy();
+        }
+
+        // Criar novo Chart
+        this.plantioChartInstance = new Chart(canvas, {
+            type: 'bar',
+            data: {
+                labels: dates.map(d => {
+                    const [y, m, day] = d.split('-');
+                    return `${day}/${m}`;
+                }),
+                datasets: datasets
+            },
+            options: {
+                responsive: true,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed.y !== null) {
+                                    label += context.parsed.y.toFixed(2) + ' ha';
+                                }
+                                return label;
+                            }
+                        }
+                    },
+                    legend: {
+                        position: 'bottom'
+                    }
+                },
+                scales: {
+                    x: {
+                        stacked: false // Lado a lado para facilitar comparação
+                    },
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Hectares (ha)'
+                        }
+                    }
+                }
+            }
+        });
+    }
+}        });
+        }
+
+        // === LISTENERS DE METAS E GRÁFICO DE PLANTIO ===
+        const btnConfigMetas = document.getElementById('btn-config-metas');
+        const metasModal = document.getElementById('metas-modal');
+        const closeMetasButtons = document.querySelectorAll('.close-metas-modal');
+        const btnSaveMeta = document.getElementById('btn-save-meta');
+
+        if (btnConfigMetas && metasModal) {
+            btnConfigMetas.addEventListener('click', () => {
+                metasModal.style.display = 'flex';
+                this.loadMetasUI();
             });
         }
 
+        closeMetasButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (metasModal) metasModal.style.display = 'none';
+            });
+        });
+
+        if (metasModal) {
+            window.addEventListener('click', (e) => {
+                if (e.target === metasModal) metasModal.style.display = 'none';
+            });
+        }
+
+        if (btnSaveMeta) {
+            btnSaveMeta.addEventListener('click', async () => {
+                await this.saveMetaUI();
+            });
+        }
+
+        const plantioFrenteFilter = document.getElementById('plantio-chart-frente');
+        if (plantioFrenteFilter) {
+            plantioFrenteFilter.addEventListener('change', () => {
+                this.renderPlantioChart();
+            });
+        }
         
+        // Carregar metas ao iniciar
+        this.loadMetasUI(true); // true = silent mode (sem abrir modal)
+
+
 
         const estoqueFrenteFilter = document.getElementById('estoque-frente-filter');
         const estoqueProdutoFilter = document.getElementById('estoque-produto-filter');

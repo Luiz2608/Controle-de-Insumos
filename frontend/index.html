@@ -124,8 +124,19 @@
                         <option value="diff_desc">Diferença decrescente</option>
                     </select>
                 </div>
+                <button id="btn-config-metas" class="btn btn-secondary">⚙️ Configurar Metas</button>
             </div>
             <div class="charts">
+                <div class="chart-card wide">
+                    <h4 style="margin: 0 0 10px 0;">Plantio Diário: Realizado vs Meta (ha)</h4>
+                    <div class="filters" style="margin-bottom: 10px;">
+                        <label for="plantio-chart-frente">Filtrar Frente:</label>
+                        <select id="plantio-chart-frente">
+                            <option value="all">Todas as Frentes</option>
+                        </select>
+                    </div>
+                    <canvas id="chart-plantio-diario"></canvas>
+                </div>
                 <div class="chart-card">
                     <h4 style="margin: 0 0 10px 0;">Resumo Global: Recomendada x Aplicada</h4>
                     <canvas id="chart-dose-global"></canvas>
@@ -975,6 +986,54 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" id="fazenda-import-cancel">Cancelar</button>
                 <button type="button" class="btn btn-primary" id="fazenda-import-confirm">🚀 Importar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Configuração de Metas -->
+    <div id="metas-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3>⚙️ Configurar Metas de Plantio</h3>
+                <button class="close-modal close-metas-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-grid" style="grid-template-columns: 1fr 1fr auto; align-items: end;">
+                    <div class="form-group">
+                        <label for="meta-frente">Frente</label>
+                        <input type="text" id="meta-frente" placeholder="Ex: 4001, Frente 1..." list="frentes-list">
+                        <datalist id="frentes-list">
+                            <!-- Preenchido via JS -->
+                        </datalist>
+                    </div>
+                    <div class="form-group">
+                        <label for="meta-valor">Meta Diária (ha)</label>
+                        <input type="number" id="meta-valor" step="0.01" placeholder="0.00">
+                    </div>
+                    <div class="form-group">
+                        <button id="btn-save-meta" class="btn btn-primary">💾 Salvar</button>
+                    </div>
+                </div>
+
+                <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+
+                <h4>Metas Definidas</h4>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Frente</th>
+                                <th>Meta Diária (ha)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="metas-table-body">
+                            <!-- Preenchido via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary close-metas-modal">Fechar</button>
             </div>
         </div>
     </div>

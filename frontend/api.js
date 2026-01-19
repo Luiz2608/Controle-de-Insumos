@@ -444,6 +444,36 @@ class ApiService {
         if (error) return { success: false, message: error.message };
         return { success: true, message: 'Supabase conectado' };
     }
+
+    // === METAS DE PLANTIO ===
+
+    async getMetas() {
+        this.checkConfig();
+        const { data, error } = await this.supabase.from('metas_plantio').select('*');
+        if (error) {
+            console.warn('Erro ao buscar metas (tabela pode não existir):', error);
+            return { success: false, error };
+        }
+        return { success: true, data };
+    }
+
+    async saveMeta(payload) {
+        this.checkConfig();
+        // payload: { frente, meta_diaria }
+        const item = {
+            frente: payload.frente,
+            meta_diaria: payload.meta_diaria,
+            updated_at: new Date()
+        };
+
+        const { data, error } = await this.supabase
+            .from('metas_plantio')
+            .upsert(item, { onConflict: 'frente' })
+            .select();
+
+        if (error) throw error;
+        return { success: true, data: data[0] };
+    }
 }
 
 // Instância global do serviço API
