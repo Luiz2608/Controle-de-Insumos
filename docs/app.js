@@ -975,6 +975,8 @@ forceReloadAllData() {
         }
         
         this.setupMetaListeners();
+        this.setupLegacyListeners();
+        this.loadMetasUI(true);
     }
 
     // === MÉTODOS DE METAS E GRÁFICO DE PLANTIO ===
@@ -1237,52 +1239,7 @@ forceReloadAllData() {
             }
         });
     }
-}        });
-        }
-
-        // === LISTENERS DE METAS E GRÁFICO DE PLANTIO ===
-        const btnConfigMetas = document.getElementById('btn-config-metas');
-        const metasModal = document.getElementById('metas-modal');
-        const closeMetasButtons = document.querySelectorAll('.close-metas-modal');
-        const btnSaveMeta = document.getElementById('btn-save-meta');
-
-        if (btnConfigMetas && metasModal) {
-            btnConfigMetas.addEventListener('click', () => {
-                metasModal.style.display = 'flex';
-                this.loadMetasUI();
-            });
-        }
-
-        closeMetasButtons.forEach(btn => {
-            btn.addEventListener('click', () => {
-                if (metasModal) metasModal.style.display = 'none';
-            });
-        });
-
-        if (metasModal) {
-            window.addEventListener('click', (e) => {
-                if (e.target === metasModal) metasModal.style.display = 'none';
-            });
-        }
-
-        if (btnSaveMeta) {
-            btnSaveMeta.addEventListener('click', async () => {
-                await this.saveMetaUI();
-            });
-        }
-
-        const plantioFrenteFilter = document.getElementById('plantio-chart-frente');
-        if (plantioFrenteFilter) {
-            plantioFrenteFilter.addEventListener('change', () => {
-                this.renderPlantioChart();
-            });
-        }
-        
-        // Carregar metas ao iniciar
-        this.loadMetasUI(true); // true = silent mode (sem abrir modal)
-
-
-
+    setupLegacyListeners() {
         const estoqueFrenteFilter = document.getElementById('estoque-frente-filter');
         const estoqueProdutoFilter = document.getElementById('estoque-produto-filter');
         if (estoqueFrenteFilter) {
