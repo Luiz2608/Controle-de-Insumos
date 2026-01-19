@@ -749,6 +749,7 @@ forceReloadAllData() {
 }
 
     async setupEventListeners() {
+        console.log('setupEventListeners started');
         // Modal de Gerenciar Fazendas
         const btnOpenFazendas = document.getElementById('btn-open-fazendas-modal');
         const fazendasModal = document.getElementById('fazendas-modal');
@@ -974,9 +975,24 @@ forceReloadAllData() {
             });
         }
         
-        this.setupMetaListeners();
-        this.setupLegacyListeners();
-        this.loadMetasUI(true);
+        try {
+            this.setupMetaListeners();
+        } catch (e) {
+            console.error('Error setting up meta listeners:', e);
+        }
+
+        try {
+            await this.setupLegacyListeners();
+        } catch (e) {
+            console.error('Error setting up legacy listeners:', e);
+        }
+
+        try {
+            await this.loadMetasUI(true);
+        } catch (e) {
+            console.error('Error loading metas UI:', e);
+        }
+        console.log('setupEventListeners completed');
     }
 
     // === MÉTODOS DE METAS E GRÁFICO DE PLANTIO ===
@@ -2538,11 +2554,11 @@ forceReloadAllData() {
 
 // Inicializar aplicação quando o DOM estiver carregado
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('App started - Version 20260115-3');
+    console.log('App started - Version 20260119-4-FIX');
     // Verificar se já existe uma instância para evitar duplicação
     if (!window.insumosApp) {
         window.insumosApp = new InsumosApp();
-        window.insumosApp.init();
+        window.insumosApp.init().catch(e => console.error('Init failed:', e));
     }
 });
 
