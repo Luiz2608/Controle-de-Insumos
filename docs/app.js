@@ -314,14 +314,15 @@ class InsumosApp {
                         'O formato do JSON deve ser exatamente:',
                         '{',
                         '  "fazendas": [',
-                        '    { "codigo": "1/96", "nome": "FAZENDA EXEMPLO", "regiao": "OPCIONAL", "areaTotal": 123.45 }',
+                        '    { "codigo": "96", "nome": "FAZENDA EXEMPLO", "regiao": "OPCIONAL", "areaTotal": 123.45 }',
                         '  ],',
                         '  "resumoGeral": {',
                         '    "1": { "totalFazendas": 10, "areaTotal": 1234.56 }',
                         '  }',
                         '}',
                         'Regras:',
-                        '- "codigo" deve seguir o padrão Bloco/Número (ex: "1/96").',
+                        '- "codigo" deve seguir o padrão Número (ex: "96").',
+                        '- "codigo da fazenda" deve seguir o padrão e Número (ex: "1").',
                         '- "nome" é o nome da fazenda.',
                         '- "regiao" pode ser vazio se não estiver claro.',
                         '- "areaTotal" deve ser número em hectares com ponto como separador decimal.',
@@ -390,7 +391,7 @@ class InsumosApp {
                             };
                             const parsed = parseGeminiJson(rawText);
                             if (parsed && Array.isArray(parsed.fazendas)) {
-                                fazendas = parsed.fazendas.map(f => ({
+                                const geminiFazendas = parsed.fazendas.map(f => ({
                                     codigo: f && f.codigo != null ? String(f.codigo).trim() : '',
                                     nome: f && f.nome != null ? String(f.nome).trim() : '',
                                     regiao: f && f.regiao != null ? String(f.regiao).trim() : '',
@@ -399,6 +400,7 @@ class InsumosApp {
                                     mudaAcumulada: 0,
                                     observacoes: 'Importado via Gemini (Client-side)'
                                 })).filter(f => f.codigo && f.nome);
+                                fazendas = geminiFazendas;
                             }
                         }
                     } else {
@@ -413,28 +415,38 @@ class InsumosApp {
                 }
             }
             
-            if (!fazendas.length) {
-                // Fallback: usar leitura local com pdf.js
-                this.ui.showNotification('Usando leitor local (Gemini indisponível)...', 'info', 2000);
-                
-                // Se ainda não leu o texto localmente (agora só lemos se precisar do fallback)
-                if (!fullText) {
-                    const buffer = await file.arrayBuffer();
-                    const loadingTask = window.pdfjsLib.getDocument({ data: buffer });
-                    const pdfDoc = await loadingTask.promise;
-                    fullText = '';
-                    for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
-                        const page = await pdfDoc.getPage(pageNum);
-                        const content = await page.getTextContent();
-                        const strings = content.items.map(item => item.str);
-                        fullText += '\n' + strings.join(' ');
-                    }
-                }
-                
-                const fallback = this.parseFazendasFromText(fullText);
-                if (Array.isArray(fallback) && fallback.length) {
+            const fallback = this.parseFazendasFromText(fullText);
+            if (Array.isArray(fallback) && fallback.length) {
+                if (!fazendas.length) {
                     fazendas = fallback;
                     this.ui.showNotification('Uso de leitura padrão do PDF (Gemini indisponível).', 'warning', 4000);
+                } else {
+                    const merged = {};
+                    const addList = (list) => {
+                        list.forEach(f => {
+                            const codigo = f && f.codigo != null ? String(f.codigo).trim() : '';
+                            const nome = f && f.nome != null ? String(f.nome).trim() : '';
+                            const regiao = f && f.regiao != null ? String(f.regiao).trim() : '';
+                            if (!codigo || !nome) return;
+                            const key = `${codigo}::${regiao.toUpperCase()}::${nome.toUpperCase()}`;
+                            if (!merged[key]) {
+                                merged[key] = {
+                                    codigo,
+                                    nome,
+                                    regiao,
+                                    areaTotal: f.areaTotal || 0,
+                                    plantioAcumulado: f.plantioAcumulado || 0,
+                                    mudaAcumulada: f.mudaAcumulada || 0,
+                                    observacoes: f.observacoes || ''
+                                };
+                            } else {
+                                merged[key].areaTotal += f.areaTotal || 0;
+                            }
+                        });
+                    };
+                    addList(fazendas);
+                    addList(fallback);
+                    fazendas = Object.values(merged);
                 }
             }
             if (!fazendas.length) {
@@ -737,6 +749,51 @@ forceReloadAllData() {
 }
 
     async setupEventListeners() {
+        // Modal de Gerenciar Fazendas
+        const btnOpenFazendas = document.getElementById('btn-open-fazendas-modal');
+        const fazendasModal = document.getElementById('fazendas-modal');
+        const closeFazendasButtons = document.querySelectorAll('.close-fazendas-modal');
+
+        if (btnOpenFazendas && fazendasModal) {
+            btnOpenFazendas.addEventListener('click', async () => {
+                fazendasModal.style.display = 'flex';
+                
+                // Re-renderizar ou carregar se necessário
+                if (!this.cadastroFazendas || this.cadastroFazendas.length === 0) {
+                    const tbody = document.getElementById('cadastro-fazendas-body');
+                    if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="loading">🔄 Recarregando dados...</td></tr>';
+                    
+                    try {
+                        const res = await this.api.getFazendas();
+                        if (res && res.success && Array.isArray(res.data)) {
+                            this.renderCadastroFazendas(res.data);
+                        } else {
+                            if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="loading">⚠️ Não foi possível carregar as fazendas.</td></tr>';
+                        }
+                    } catch (e) {
+                        console.error('Erro ao carregar fazendas no modal:', e);
+                        if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="loading">❌ Erro ao carregar dados.</td></tr>';
+                    }
+                } else {
+                    this.renderCadastroFazendas(this.cadastroFazendas);
+                }
+            });
+        }
+
+        closeFazendasButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (fazendasModal) fazendasModal.style.display = 'none';
+            });
+        });
+
+        if (fazendasModal) {
+            window.addEventListener('click', (e) => {
+                if (e.target === fazendasModal) {
+                    fazendasModal.style.display = 'none';
+                }
+            });
+        }
+
         // Navegação por tabs
         document.querySelectorAll('.tab').forEach(tab => {
             tab.addEventListener('click', (e) => {
