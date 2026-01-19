@@ -1255,7 +1255,8 @@ forceReloadAllData() {
             }
         });
     }
-    setupLegacyListeners() {
+    async setupLegacyListeners() {
+        console.log('setupLegacyListeners started');
         const estoqueFrenteFilter = document.getElementById('estoque-frente-filter');
         const estoqueProdutoFilter = document.getElementById('estoque-produto-filter');
         if (estoqueFrenteFilter) {
