@@ -749,6 +749,35 @@ forceReloadAllData() {
 }
 
     async setupEventListeners() {
+        // Modal de Gerenciar Fazendas
+        const btnOpenFazendas = document.getElementById('btn-open-fazendas-modal');
+        const fazendasModal = document.getElementById('fazendas-modal');
+        const closeFazendasButtons = document.querySelectorAll('.close-fazendas-modal');
+
+        if (btnOpenFazendas && fazendasModal) {
+            btnOpenFazendas.addEventListener('click', () => {
+                fazendasModal.style.display = 'block';
+                // Re-renderizar se necessário
+                if (this.cadastroFazendas && this.cadastroFazendas.length > 0) {
+                    this.renderCadastroFazendas(this.cadastroFazendas);
+                }
+            });
+        }
+
+        closeFazendasButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (fazendasModal) fazendasModal.style.display = 'none';
+            });
+        });
+
+        if (fazendasModal) {
+            window.addEventListener('click', (e) => {
+                if (e.target === fazendasModal) {
+                    fazendasModal.style.display = 'none';
+                }
+            });
+        }
+
         // Navegação por tabs
         document.querySelectorAll('.tab').forEach(tab => {
             tab.addEventListener('click', (e) => {

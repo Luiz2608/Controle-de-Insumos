@@ -106,7 +106,6 @@
             <button class="tab" data-tab="plantio-dia">📅 Plantio</button>
             <button class="tab" data-tab="viagens-adubo">🚚 Viagens Adubo</button>
             <button class="tab" data-tab="insumos-fazendas">🌱 Insumos</button>
-            <button class="tab" data-tab="cadastro-fazendas">🏡 Fazendas</button>
             <button class="tab" data-tab="estoque">📦 Estoque</button>
         </div>
 
@@ -196,73 +195,7 @@
             </div>
         </div>
 
-        <!-- Tab CADASTRO DE FAZENDAS -->
-        <div class="tab-content" id="cadastro-fazendas">
-            <div class="charts">
-                <div class="chart-card">
-                    <h4 style="margin: 0 0 10px 0;">Cadastro de Fazendas</h4>
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label for="cadastro-fazenda-codigo">Código da Fazenda</label>
-                            <input type="number" id="cadastro-fazenda-codigo" step="1">
-                        </div>
-                        <div class="form-group">
-                            <label for="cadastro-fazenda-nome">Nome</label>
-                            <input type="text" id="cadastro-fazenda-nome">
-                        </div>
-                        <div class="form-group">
-                            <label for="cadastro-fazenda-regiao">Código da Região</label>
-                            <input type="text" id="cadastro-fazenda-regiao">
-                        </div>
-                        <div class="form-group">
-                            <label for="cadastro-fazenda-area-total">Área total (ha)</label>
-                            <input type="number" id="cadastro-fazenda-area-total" step="0.01">
-                        </div>
-                        <div class="form-group">
-                            <label for="cadastro-fazenda-plantio-acumulado">Plantio acumulado (ha)</label>
-                            <input type="number" id="cadastro-fazenda-plantio-acumulado" step="0.01" readonly>
-                        </div>
-                        <div class="form-group">
-                            <label for="cadastro-fazenda-muda-acumulada">Muda acumulada</label>
-                            <input type="number" id="cadastro-fazenda-muda-acumulada" step="0.01" readonly>
-                        </div>
-                        <div class="form-group" style="grid-column: span 3;">
-                            <label for="cadastro-fazenda-observacoes">Observações</label>
-                            <input type="text" id="cadastro-fazenda-observacoes">
-                        </div>
-                    </div>
-                    <div style="margin-top:10px;display:flex;gap:10px;justify-content:flex-end;">
-                        <button type="button" class="btn btn-secondary" id="cadastro-fazenda-novo">Novo</button>
-                        <button type="button" class="btn btn-primary" id="cadastro-fazenda-save">💾 Salvar Fazenda</button>
-                        <button type="button" class="btn btn-secondary" id="cadastro-fazenda-import-pdf">📥 Importar PDF Fazendas</button>
-                        <input type="file" id="cadastro-fazenda-pdf-input" accept="application/pdf" style="display:none">
-                    </div>
-                </div>
-                <div class="chart-card">
-                    <h4 style="margin: 0 0 10px 0;">Fazendas Cadastradas</h4>
-                    <div class="table-container">
-                        <table id="cadastro-fazendas-table" class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>Código da Fazenda</th>
-                                    <th>Nome</th>
-                                    <th>Código da Região</th>
-                                    <th>Área total (ha)</th>
-                                    <th>Plantio acumulado (ha)</th>
-                                    <th>Muda acumulada</th>
-                                    <th>Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody id="cadastro-fazendas-body">
-                                <tr>
-                                    <td colspan="7" class="loading">📡 Carregando cadastro de fazendas...</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
+
     </div>
 
     <!-- Loading -->
@@ -673,6 +606,9 @@
 
     <!-- Tab Plantio Diário -->
     <div class="tab-content" id="plantio-dia">
+        <div style="margin-bottom: 15px;">
+            <button id="btn-open-fazendas-modal" class="btn btn-secondary">🏡 Gerenciar Fazendas</button>
+        </div>
         <div class="charts">
             <div class="chart-card">
                 <h4 style="margin: 0 0 10px 0;">1. Informações Gerais</h4>
@@ -946,6 +882,85 @@
         </div>
 
         
+    </div>
+
+    <!-- Modal Cadastro Fazendas -->
+    <div id="fazendas-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 95%;">
+            <div class="modal-header">
+                <h3>🏡 Gerenciar Fazendas</h3>
+                <button class="close-modal close-fazendas-modal">&times;</button>
+            </div>
+            <div class="modal-body" style="overflow-y: auto; max-height: 80vh;">
+                <div class="charts">
+                    <div class="chart-card">
+                        <h4 style="margin: 0 0 10px 0;">Cadastro de Fazendas</h4>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="cadastro-fazenda-codigo">Código da Fazenda</label>
+                                <input type="number" id="cadastro-fazenda-codigo" step="1">
+                            </div>
+                            <div class="form-group">
+                                <label for="cadastro-fazenda-nome">Nome</label>
+                                <input type="text" id="cadastro-fazenda-nome">
+                            </div>
+                            <div class="form-group">
+                                <label for="cadastro-fazenda-regiao">Código da Região</label>
+                                <input type="text" id="cadastro-fazenda-regiao">
+                            </div>
+                            <div class="form-group">
+                                <label for="cadastro-fazenda-area-total">Área total (ha)</label>
+                                <input type="number" id="cadastro-fazenda-area-total" step="0.01">
+                            </div>
+                            <div class="form-group">
+                                <label for="cadastro-fazenda-plantio-acumulado">Plantio acumulado (ha)</label>
+                                <input type="number" id="cadastro-fazenda-plantio-acumulado" step="0.01" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label for="cadastro-fazenda-muda-acumulada">Muda acumulada</label>
+                                <input type="number" id="cadastro-fazenda-muda-acumulada" step="0.01" readonly>
+                            </div>
+                            <div class="form-group" style="grid-column: span 3;">
+                                <label for="cadastro-fazenda-observacoes">Observações</label>
+                                <input type="text" id="cadastro-fazenda-observacoes">
+                            </div>
+                        </div>
+                        <div style="margin-top:10px;display:flex;gap:10px;justify-content:flex-end;">
+                            <button type="button" class="btn btn-secondary" id="cadastro-fazenda-novo">Novo</button>
+                            <button type="button" class="btn btn-primary" id="cadastro-fazenda-save">💾 Salvar Fazenda</button>
+                            <button type="button" class="btn btn-secondary" id="cadastro-fazenda-import-pdf">📥 Importar PDF Fazendas</button>
+                            <input type="file" id="cadastro-fazenda-pdf-input" accept="application/pdf" style="display:none">
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <h4 style="margin: 0 0 10px 0;">Fazendas Cadastradas</h4>
+                        <div class="table-container">
+                            <table id="cadastro-fazendas-table" class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Código da Fazenda</th>
+                                        <th>Nome</th>
+                                        <th>Código da Região</th>
+                                        <th>Área total (ha)</th>
+                                        <th>Plantio acumulado (ha)</th>
+                                        <th>Muda acumulada</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="cadastro-fazendas-body">
+                                    <tr>
+                                        <td colspan="7" class="loading">📡 Carregando cadastro de fazendas...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary close-fazendas-modal">Fechar</button>
+            </div>
+        </div>
     </div>
 
     <div id="fazenda-import-modal" class="modal" style="display:none;">
