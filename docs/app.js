@@ -884,8 +884,10 @@ forceReloadAllData() {
         const closeNovoLancamentoButtons = document.querySelectorAll('.close-novo-lancamento-modal');
 
         if (btnNovoLancamento && novoLancamentoModal) {
-            btnNovoLancamento.addEventListener('click', () => {
+            btnNovoLancamento.addEventListener('click', async () => {
                 novoLancamentoModal.style.display = 'flex';
+                // Garantir que a lista de OS e Frentes esteja carregada
+                await this.loadOSList();
             });
         }
 
@@ -1502,6 +1504,57 @@ forceReloadAllData() {
         }
     }
 
+    async updateEstoqueFromOS(frente) {
+        if (!frente) return;
+        try {
+            console.log(`🔄 Recalculando estoque para frente ${frente}...`);
+            const res = await this.api.getOSList();
+            if (!res.success || !res.data) return;
+            
+            // Filtrar OS da frente
+            const osList = res.data.filter(o => o.frente === frente);
+            
+            // Somar produtos planejados
+            const totais = {}; // produto -> qtd
+            let lastOS = null;
+
+            osList.forEach(os => {
+                lastOS = os.numero;
+                if (os.produtos && Array.isArray(os.produtos)) {
+                    os.produtos.forEach(p => {
+                        const nome = p.produto;
+                        let qtd = parseFloat(p.qtdTotal);
+                        if (isNaN(qtd)) qtd = parseFloat(p.total); 
+                        if (isNaN(qtd)) qtd = 0;
+
+                        if (nome && qtd > 0) {
+                            if (!totais[nome]) totais[nome] = 0;
+                            totais[nome] += qtd;
+                        }
+                    });
+                }
+            });
+
+            const promises = Object.entries(totais).map(([prod, qtd]) => {
+                return this.api.setEstoque(
+                    frente, 
+                    prod, 
+                    qtd, 
+                    String(lastOS || ''), 
+                    new Date().toISOString()
+                );
+            });
+            
+            if (promises.length > 0) {
+                await Promise.all(promises);
+                console.log(`✅ Estoque atualizado para ${frente}: ${promises.length} itens.`);
+            }
+            
+        } catch (e) {
+            console.error('Erro ao atualizar estoque from OS:', e);
+        }
+    }
+
     async saveOSForm() {
         this.ui.showLoading();
         try {
@@ -1590,6 +1643,12 @@ forceReloadAllData() {
             
             if (res && res.success) {
                 this.ui.showNotification('OS salva com sucesso!', 'success');
+                
+                // Atualizar estoque
+                if (payload.frente) {
+                    await this.updateEstoqueFromOS(payload.frente);
+                }
+
                 // Voltar para a lista e recarregar
                 this.showOSList();
                 this.loadOSList();
@@ -2538,6 +2597,8 @@ forceReloadAllData() {
 
     async loadInitialData() {
         await this.loadInsumosData();
+        // Carregar lista de OS para popular dropdowns de Frente/OS no Plantio
+        await this.loadOSList();
     }
 
     async loadTabData(tabName) {
