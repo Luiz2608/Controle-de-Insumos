@@ -745,6 +745,78 @@ class ImportManager {
                 if (errInsumos) {
                     throw errInsumos;
                 }
+
+                // === Sincronização de Estoque ===
+                try {
+                    console.log('🔄 Sincronizando estoque...');
+                    const resEstoque = await api.getEstoque();
+                    const estoqueList = (resEstoque && resEstoque.success && Array.isArray(resEstoque.data)) ? resEstoque.data : [];
+                    
+                    const estoqueUpdates = new Map();
+
+                    // Carregar estado atual
+                    estoqueList.forEach(e => {
+                        const key = `${e.frente}|${e.produto}`;
+                        estoqueUpdates.set(key, {
+                            frente: e.frente,
+                            produto: e.produto,
+                            quantidade: parseFloat(e.quantidade) || 0,
+                            os: e.os_numero,
+                            data: e.data_cadastro
+                        });
+                    });
+
+                    // Acumular novos dados
+                    mappedInsumos.forEach(item => {
+                        if (!item.frente || !item.produto || !item.quantidade_aplicada) return;
+                        
+                        const key = `${item.frente}|${item.produto}`;
+                        let entry = estoqueUpdates.get(key);
+                        
+                        if (!entry) {
+                            entry = {
+                                frente: item.frente,
+                                produto: item.produto,
+                                quantidade: 0,
+                                os: null,
+                                data: null
+                            };
+                            estoqueUpdates.set(key, entry);
+                        }
+                        
+                        entry.quantidade += parseFloat(item.quantidade_aplicada);
+                        entry.os = item.os;
+                        entry.data = new Date().toISOString();
+                    });
+
+                    // Identificar chaves afetadas para atualizar apenas o necessário
+                    const affectedKeys = new Set(mappedInsumos
+                        .filter(i => i.frente && i.produto && i.quantidade_aplicada)
+                        .map(i => `${i.frente}|${i.produto}`));
+
+                    const updatePromises = [];
+                    for (const key of affectedKeys) {
+                        const entry = estoqueUpdates.get(key);
+                        if (entry) {
+                            updatePromises.push(api.setEstoque(
+                                entry.frente,
+                                entry.produto,
+                                entry.quantidade,
+                                entry.os ? String(entry.os) : null,
+                                entry.data
+                            ));
+                        }
+                    }
+
+                    if (updatePromises.length > 0) {
+                        await Promise.all(updatePromises);
+                        console.log(`✅ Estoque sincronizado: ${updatePromises.length} itens atualizados.`);
+                    }
+                } catch (stockError) {
+                    console.error('⚠️ Erro ao sincronizar estoque na importação:', stockError);
+                    this.showMessage('⚠️ Insumos importados, mas houve erro ao atualizar estoque.', 'warning');
+                }
+
                 totals.insumosFazendas = mappedInsumos.length;
             }
 

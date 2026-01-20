@@ -943,6 +943,8 @@ forceReloadAllData() {
             btnNovoLancamento.addEventListener('click', () => {
                 this.resetPlantioForm();
                 novoLancamentoModal.style.display = 'flex';
+                // Garantir que a lista de OS e Frentes esteja carregada
+                await this.loadOSList();
             });
         }
 
@@ -1128,6 +1130,13 @@ forceReloadAllData() {
                 } catch(e) {
                     this.ui.showNotification('Erro ao salvar estoque', 'error');
                 }
+            });
+        }
+
+        const btnSyncEstoque = document.getElementById('btn-sync-estoque');
+        if (btnSyncEstoque) {
+            btnSyncEstoque.addEventListener('click', async () => {
+                await this.syncAllEstoqueFromOS();
             });
         }
 
@@ -1566,6 +1575,173 @@ forceReloadAllData() {
         }
     }
 
+    async updateEstoqueFromOS(frente) {
+        if (!frente) return 0;
+        try {
+            console.log(`🔄 Recalculando estoque para frente ${frente}...`);
+            const totais = {}; // produto -> qtd
+            let lastOS = null;
+
+            // 1. Buscar dados das OSs (Planejado/Manual)
+            const res = await this.api.getOSList();
+            let countOS = 0;
+            if (res.success && res.data) {
+                // Filtrar OS da frente (Case Insensitive)
+                const osList = res.data.filter(o => String(o.frente).trim().toLowerCase() === String(frente).trim().toLowerCase());
+                
+                osList.forEach(os => {
+                    lastOS = os.numero;
+                    if (os.produtos && Array.isArray(os.produtos)) {
+                        os.produtos.forEach(p => {
+                            const nome = p.produto;
+                            let qtd = 0;
+                            if (p.qtdTotal != null) qtd = parseFloat(p.qtdTotal);
+                            else if (p.total != null) qtd = parseFloat(p.total);
+                            else if (p.quantidade != null) qtd = parseFloat(p.quantidade);
+                            else if (p.qtd != null) qtd = parseFloat(p.qtd);
+                            
+                            if (isNaN(qtd)) qtd = 0;
+
+                            if (nome && qtd > 0) {
+                                const key = nome.trim();
+                                if (!totais[key]) totais[key] = 0;
+                                totais[key] += qtd;
+                                countOS++;
+                            }
+                        });
+                    }
+                });
+            }
+
+            // 2. Buscar dados Importados (Insumos Fazendas)
+            let countImport = 0;
+            try {
+                const { data: insumosFaz } = await this.api.supabase
+                    .from('insumos_fazendas')
+                    .select('produto, quantidade_aplicada, os')
+                    .ilike('frente', frente); // Case insensitive match
+
+                if (insumosFaz && insumosFaz.length > 0) {
+                    insumosFaz.forEach(i => {
+                        const nome = i.produto;
+                        const qtd = parseFloat(i.quantidade_aplicada) || 0;
+                        if (nome && qtd > 0) {
+                            const key = nome.trim();
+                            if (!totais[key]) totais[key] = 0;
+                            totais[key] += qtd;
+                            if (!lastOS && i.os) lastOS = i.os;
+                            countImport++;
+                        }
+                    });
+                }
+            } catch (errFaz) {
+                console.error('Erro ao buscar insumos_fazendas:', errFaz);
+            }
+
+            // 3. Buscar dados Importados (Insumos Oxifertil)
+            try {
+                const { data: insumosOxi } = await this.api.supabase
+                    .from('insumos_oxifertil')
+                    .select('produto, quantidade_aplicada')
+                    .ilike('frente', frente);
+
+                if (insumosOxi && insumosOxi.length > 0) {
+                    insumosOxi.forEach(i => {
+                        const nome = i.produto;
+                        const qtd = parseFloat(i.quantidade_aplicada) || 0;
+                        if (nome && qtd > 0) {
+                            const key = nome.trim();
+                            if (!totais[key]) totais[key] = 0;
+                            totais[key] += qtd;
+                            countImport++;
+                        }
+                    });
+                }
+            } catch (errOxi) {
+                console.error('Erro ao buscar insumos_oxifertil:', errOxi);
+            }
+
+            // Salvar no Estoque
+            const promises = Object.entries(totais).map(([prod, qtd]) => {
+                return this.api.setEstoque(
+                    frente, 
+                    prod, 
+                    qtd, 
+                    String(lastOS || ''), 
+                    new Date().toISOString()
+                );
+            });
+            
+            if (promises.length > 0) {
+                await Promise.all(promises);
+                console.log(`✅ Estoque atualizado para ${frente}: ${promises.length} produtos únicos. (OS: ${countOS}, Import: ${countImport})`);
+                return { 
+                    uniqueProducts: promises.length, 
+                    sources: { os: countOS, import: countImport } 
+                };
+            } else {
+                console.log(`⚠️ Nenhum produto encontrado para frente ${frente}.`);
+                return { uniqueProducts: 0, sources: { os: 0, import: 0 } };
+            }
+            
+        } catch (e) {
+            console.error('Erro ao atualizar estoque from OS:', e);
+            this.ui.showNotification(`Erro ao atualizar estoque da frente ${frente}: ${e.message}`, 'error');
+            return { uniqueProducts: 0, sources: { os: 0, import: 0 } };
+        }
+    }
+
+    async syncAllEstoqueFromOS() {
+        if (!confirm('Isso irá recalcular o estoque de TODAS as frentes baseado nas OSs e Importações. Deseja continuar?')) return;
+        
+        this.ui.showLoading();
+        try {
+            console.log('🔄 Sincronizando todo o estoque...');
+            const res = await this.api.getOSList();
+            
+            // Buscar também frentes das tabelas de insumos para garantir cobertura total
+            // (Opcional, mas recomendado se existirem frentes apenas no import)
+            let frentes = new Set();
+            if (res.success && res.data) {
+                res.data.forEach(os => {
+                    if (os.frente) frentes.add(os.frente);
+                });
+            }
+            
+            // Adicionar frentes dos insumos importados (pode demorar um pouco, mas garante consistência)
+            const { data: fazFrentes } = await this.api.supabase.from('insumos_fazendas').select('frente');
+            if (fazFrentes) fazFrentes.forEach(f => { if(f.frente) frentes.add(f.frente); });
+
+            const { data: oxiFrentes } = await this.api.supabase.from('insumos_oxifertil').select('frente');
+            if (oxiFrentes) oxiFrentes.forEach(f => { if(f.frente) frentes.add(f.frente); });
+
+            const frentesArray = [...frentes];
+            
+            let stats = [];
+            let totalUpdated = 0;
+
+            for (const frente of frentesArray) {
+                const result = await this.updateEstoqueFromOS(frente);
+                // result agora é um objeto
+                const count = result.uniqueProducts || 0;
+                const src = result.sources || { os: 0, import: 0 };
+                
+                stats.push(`${frente}: ${count} produtos (OS: ${src.os}, Imp: ${src.import})`);
+                if (count > 0) totalUpdated += count;
+            }
+            
+            let msg = `Sincronização concluída!\nTotal de produtos atualizados: ${totalUpdated}\n\nDetalhes:\n${stats.join('\n')}`;
+            alert(msg);
+
+            await this.loadEstoqueAndRender();
+        } catch (e) {
+            console.error('Erro ao sincronizar estoque:', e);
+            this.ui.showNotification('Erro fatal ao sincronizar estoque.', 'error');
+        } finally {
+            this.ui.hideLoading();
+        }
+    }
+
     async saveOSForm() {
         this.ui.showLoading();
         try {
@@ -1654,6 +1830,12 @@ forceReloadAllData() {
             
             if (res && res.success) {
                 this.ui.showNotification('OS salva com sucesso!', 'success');
+                
+                // Atualizar estoque
+                if (payload.frente) {
+                    await this.updateEstoqueFromOS(payload.frente);
+                }
+
                 // Voltar para a lista e recarregar
                 this.showOSList();
                 this.loadOSList();
@@ -2306,13 +2488,23 @@ forceReloadAllData() {
                 if (singleOs) {
                     singleOs.innerHTML = '<option value="">Selecione a OS</option>';
                     if (val && this.osListCache) {
-                        const osList = this.osListCache.filter(o => o.frente === val);
+                        // Comparação robusta (string e trim)
+                        const osList = this.osListCache.filter(o => String(o.frente).trim() === String(val).trim());
+                        
+                        if (osList.length === 0) {
+                            console.warn(`Nenhuma OS encontrada para a frente: "${val}"`);
+                        }
+
                         osList.forEach(os => {
                             const opt = document.createElement('option');
                             opt.value = os.numero;
                             opt.textContent = `${os.numero} - ${os.fazenda || 'Sem Fazenda'}`;
                             singleOs.appendChild(opt);
                         });
+                        
+                        // Sincronizar estoque para a frente selecionada
+                        // (Garante que se tiver estoque cadastrado, ele apareça na tabela abaixo se implementado)
+                        // await this.loadEstoqueByFrente(val); // Futuro: Implementar se necessário tabela de estoque aqui
                     }
                 }
             });
@@ -2323,15 +2515,25 @@ forceReloadAllData() {
                 const val = singleOs.value;
                 if (!val || !this.osListCache) return;
                 
-                const os = this.osListCache.find(o => String(o.numero) === String(val));
+                // Busca robusta
+                const os = this.osListCache.find(o => String(o.numero).trim() === String(val).trim());
                 if (os) {
+                    console.log('OS Selecionada:', os);
+
                     // Preencher Responsável
                     const respEl = document.getElementById('plantio-responsavel');
                     if (respEl && os.respAplicacao) respEl.value = os.respAplicacao;
                     
-                    // Preencher Área Total
-                    const areaEl = document.getElementById('single-area');
-                    if (areaEl && os.areaTotal) areaEl.value = os.areaTotal;
+                    // Preencher Área Total da OS
+                    const areaEl = document.getElementById('single-area-total'); // Corrigido para area-total ou single-area?
+                    // No form temos 'single-area' (área do talhão/frente) e 'single-area-total' (área total da fazenda/os).
+                    // Vamos preencher 'single-area' como sugestão inicial da área da OS, mas o usuário pode mudar.
+                    // E 'single-area-total' geralmente vem do cadastro da fazenda.
+                    
+                    if (os.areaTotal) {
+                         const areaEl = document.getElementById('single-area');
+                         if (areaEl) areaEl.value = os.areaTotal;
+                    }
 
                     // Referências aos campos
                     const fazendaEl = document.getElementById('single-fazenda');
@@ -2369,6 +2571,7 @@ forceReloadAllData() {
                             }
                         } else {
                             // Fallback: Cadastro não encontrado, preencher manualmente o possível
+                            console.warn('Fazenda da OS não encontrada no cadastro:', targetFazenda);
                             
                             // Tentar extrair código do nome da fazenda na OS
                             const matchCod = targetFazenda.match(/^(\d+)[\s\W]+(.+)$/);
@@ -2409,6 +2612,8 @@ forceReloadAllData() {
                     }
                     
                     this.ui.showNotification('Dados da OS preenchidos.', 'info', 1500);
+                } else {
+                    console.error('OS selecionada não encontrada no cache:', val);
                 }
             });
         }
@@ -2648,6 +2853,8 @@ forceReloadAllData() {
 
     async loadInitialData() {
         await this.loadInsumosData();
+        // Carregar lista de OS para popular dropdowns de Frente/OS no Plantio
+        await this.loadOSList();
     }
 
     async loadTabData(tabName) {
@@ -3696,12 +3903,76 @@ InsumosApp.prototype.updateCharts = function(data) {
 
 InsumosApp.prototype.loadEstoqueAndRender = async function() {
     try {
-        const res = await this.api.getEstoque();
-        if (!res || !res.success) return;
+        const [resEstoque, resOS] = await Promise.all([
+            this.api.getEstoque(),
+            this.api.getOSList() // Busca OSs para saber todas as frentes possíveis
+        ]);
+
+        if (!resEstoque || !resEstoque.success) return;
         
         // Dados vêm como array de objetos do Supabase: [{frente, produto, quantidade, os_numero, data_cadastro}, ...]
-        const estoqueList = Array.isArray(res.data) ? res.data : [];
+        const estoqueList = Array.isArray(resEstoque.data) ? resEstoque.data : [];
+        const osList = (resOS && resOS.success && Array.isArray(resOS.data)) ? resOS.data : [];
+
+        // Coletar frentes únicas de AMBOS (estoque e OS) para popular filtros
+        const frentesEstoque = estoqueList.map(e => e.frente).filter(Boolean);
+        const frentesOS = osList.map(o => o.frente).filter(Boolean);
+        const todasFrentes = [...new Set([...frentesEstoque, ...frentesOS])].sort((a,b) => 
+            a.localeCompare(b, undefined, {numeric: true, sensitivity: 'base'})
+        );
+
+        // === DROPDOWNS POPULATION ===
+        // Popular filtro de Frente
+        const updateSelect = (id, options, includeAllOption = false) => {
+            const sel = document.getElementById(id);
+            if (!sel) return;
+            const currentVal = sel.value;
+            
+            let html = '';
+            if (includeAllOption) html += '<option value="all">Todas as Frentes</option>';
+            else html += '<option value="">Selecione ou Digite</option>'; 
+
+            options.forEach(opt => {
+                html += `<option value="${opt}">${opt}</option>`;
+            });
+            
+            // Só atualiza se mudou significativamente
+            if (sel.innerHTML.length < 50 || sel.options.length !== (options.length + (includeAllOption?1:1))) {
+                 sel.innerHTML = html;
+                 if (currentVal && (options.includes(currentVal) || currentVal === 'all')) {
+                     sel.value = currentVal;
+                 } else if (includeAllOption) {
+                     sel.value = 'all';
+                 }
+            }
+        };
+
+        updateSelect('estoque-frente-filter', todasFrentes, true);
+        updateSelect('estoque-frente', todasFrentes, false);
+
+        // Popular Dropdown de PRODUTOS (novo)
+        // Coletar produtos únicos de AMBOS (estoque e OS)
+        const prodsEstoque = estoqueList.map(e => e.produto).filter(Boolean);
+        const prodsOS = [];
+        osList.forEach(os => {
+            if (os.produtos && Array.isArray(os.produtos)) {
+                os.produtos.forEach(p => {
+                    if (p.produto) prodsOS.push(p.produto);
+                });
+            }
+        });
+
+        const todosProdutos = [...new Set([...prodsEstoque, ...prodsOS])].sort();
         
+        // Atualizar dropdown de produtos manual
+        updateSelect('estoque-produto', todosProdutos, false);
+        
+        // Se a lista de produtos estiver vazia, adicionar alguns padrão
+        if (todosProdutos.length === 0) {
+            const padrao = ['BIOZYME', '04-30-10', 'QUALITY', 'AZOKOP', 'SURVEY (FIPRONIL)', 'OXIFERTIL', 'LANEX 800 WG (REGENTE)', 'COMET', 'COMPOSTO', '10-49-00', 'PEREGRINO', 'NO-NEMA'];
+             updateSelect('estoque-produto', padrao.sort(), false);
+        }
+
         // === CHART PREPARATION ===
         // Precisamos agrupar por frente para o gráfico
         // Estrutura para gráfico: { 'Frente 1': { 'Produto A': 10 }, ... }
@@ -3714,42 +3985,49 @@ InsumosApp.prototype.loadEstoqueAndRender = async function() {
         });
 
         const ctx = document.getElementById('chart-estoque-frente');
-        if (!ctx) return;
-        
-        if (!this._charts) this._charts = {};
-        let chartData;
-        let chartOpts = { responsive: true, maintainAspectRatio: true, aspectRatio: 2, plugins: { legend: { display: true, position: 'top' } } };
-        
-        if (this.estoqueFilters.frente === 'all') {
-            chartData = { labels: [], datasets: [{ label: 'Selecione uma frente', data: [], backgroundColor: '#9C27B0' }] };
-            chartOpts = { ...chartOpts };
-        } else {
-            const f = this.estoqueFilters.frente;
-            const byProd = estoqueMap[f] || {};
-            const rows = Object.entries(byProd);
-            const filteredRows = this.estoqueFilters.produto ? rows.filter(([prod]) => prod.toLowerCase().includes(this.estoqueFilters.produto.toLowerCase())) : rows;
+        if (ctx) {
+            if (!this._charts) this._charts = {};
+            let chartData;
+            let chartOpts = { responsive: true, maintainAspectRatio: true, aspectRatio: 2, plugins: { legend: { display: true, position: 'top' } } };
             
-            const labels = filteredRows.map(([prod]) => prod);
-            const values = filteredRows.map(([,v]) => v);
+            // Se o filtro atual não estiver na lista (ex: usuário digitou algo manual no filtro?), fallback para 'all'
+            // Mas o filtro é um select agora.
+            const currentFilter = document.getElementById('estoque-frente-filter')?.value || 'all';
+            this.estoqueFilters.frente = currentFilter;
+
+            if (this.estoqueFilters.frente === 'all') {
+                chartData = { labels: [], datasets: [{ label: 'Selecione uma frente', data: [], backgroundColor: '#9C27B0' }] };
+                chartOpts = { ...chartOpts };
+            } else {
+                const f = this.estoqueFilters.frente;
+                const byProd = estoqueMap[f] || {};
+                const rows = Object.entries(byProd);
+                const filteredRows = this.estoqueFilters.produto ? rows.filter(([prod]) => prod.toLowerCase().includes(this.estoqueFilters.produto.toLowerCase())) : rows;
+                
+                const labels = filteredRows.map(([prod]) => prod);
+                const values = filteredRows.map(([,v]) => v);
+                
+                chartData = { labels, datasets: [{ label: `Estoque - ${f}`, data: values, backgroundColor: '#9C27B0' }] };
+                chartOpts = { ...chartOpts, indexAxis: 'y' };
+            }
             
-            chartData = { labels, datasets: [{ label: `Estoque - ${f}`, data: values, backgroundColor: '#9C27B0' }] };
-            chartOpts = { ...chartOpts, indexAxis: 'y' };
-        }
-        
-        if (this._charts.estoqueFrente) { 
-            this._charts.estoqueFrente.data = chartData; 
-            this._charts.estoqueFrente.options = chartOpts; 
-            this._charts.estoqueFrente.update(); 
-        } else {
-            this._charts.estoqueFrente = new Chart(ctx, { type: 'bar', data: chartData, options: chartOpts });
+            if (this._charts.estoqueFrente) { 
+                this._charts.estoqueFrente.data = chartData; 
+                this._charts.estoqueFrente.options = chartOpts; 
+                this._charts.estoqueFrente.update(); 
+            } else {
+                this._charts.estoqueFrente = new Chart(ctx, { type: 'bar', data: chartData, options: chartOpts });
+            }
         }
 
         // === TABLE RENDER ===
         const tbody = document.getElementById('estoque-table-body');
         if (tbody) {
             // Filtrar lista
+            const currentFilter = document.getElementById('estoque-frente-filter')?.value || 'all';
+            
             let filteredList = estoqueList.filter(item => {
-                const matchFrente = this.estoqueFilters.frente === 'all' || item.frente === this.estoqueFilters.frente;
+                const matchFrente = currentFilter === 'all' || item.frente === currentFilter;
                 const matchProd = !this.estoqueFilters.produto || item.produto.toLowerCase().includes(this.estoqueFilters.produto.toLowerCase());
                 return matchFrente && matchProd;
             });
@@ -3762,18 +4040,22 @@ InsumosApp.prototype.loadEstoqueAndRender = async function() {
                 return (dateB - dateA) || a.frente.localeCompare(b.frente) || a.produto.localeCompare(b.produto);
             });
 
-            tbody.innerHTML = filteredList.map(r => {
-                const qtd = parseFloat(r.quantidade) || 0;
-                return `
-                <tr>
-                    <td>${this.ui.formatDateBR(r.data_cadastro)}</td>
-                    <td>${r.os_numero || '-'}</td>
-                    <td>${r.frente}</td>
-                    <td>${r.produto}</td>
-                    <td>${this.ui.formatNumber(qtd, 3)}</td>
-                    <td><button class="btn btn-delete-estoque" data-frente="${r.frente}" data-produto="${r.produto}">🗑️ Excluir</button></td>
-                </tr>
-            `}).join('');
+            if (filteredList.length === 0) {
+                 tbody.innerHTML = '<tr><td colspan="6" class="text-center">Nenhum registro de estoque encontrado.</td></tr>';
+            } else {
+                tbody.innerHTML = filteredList.map(r => {
+                    const qtd = parseFloat(r.quantidade) || 0;
+                    return `
+                    <tr>
+                        <td>${this.ui.formatDateBR(r.data_cadastro)}</td>
+                        <td>${r.os_numero || '-'}</td>
+                        <td>${r.frente}</td>
+                        <td>${r.produto}</td>
+                        <td>${this.ui.formatNumber(qtd, 3)}</td>
+                        <td><button class="btn btn-delete-estoque" data-frente="${r.frente}" data-produto="${r.produto}">🗑️ Excluir</button></td>
+                    </tr>
+                `}).join('');
+            }
         }
     } catch(e) {
         console.error('Error loading estoque:', e);
