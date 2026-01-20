@@ -1512,14 +1512,14 @@ forceReloadAllData() {
     }
 
     async updateEstoqueFromOS(frente) {
-        if (!frente) return;
+        if (!frente) return 0;
         try {
             console.log(`🔄 Recalculando estoque para frente ${frente}...`);
             const res = await this.api.getOSList();
-            if (!res.success || !res.data) return;
+            if (!res.success || !res.data) return 0;
             
-            // Filtrar OS da frente
-            const osList = res.data.filter(o => String(o.frente).trim() === String(frente).trim());
+            // Filtrar OS da frente (Case Insensitive)
+            const osList = res.data.filter(o => String(o.frente).trim().toLowerCase() === String(frente).trim().toLowerCase());
             
             // Somar produtos planejados
             const totais = {}; // produto -> qtd
@@ -1530,13 +1530,23 @@ forceReloadAllData() {
                 if (os.produtos && Array.isArray(os.produtos)) {
                     os.produtos.forEach(p => {
                         const nome = p.produto;
-                        let qtd = parseFloat(p.qtdTotal);
-                        if (isNaN(qtd)) qtd = parseFloat(p.total); 
+                        
+                        // Tentar extrair quantidade de várias propriedades possíveis
+                        let qtd = 0;
+                        if (p.qtdTotal != null) qtd = parseFloat(p.qtdTotal);
+                        else if (p.total != null) qtd = parseFloat(p.total);
+                        else if (p.quantidade != null) qtd = parseFloat(p.quantidade);
+                        else if (p.qtd != null) qtd = parseFloat(p.qtd); // Tentativa extra
+                        
                         if (isNaN(qtd)) qtd = 0;
 
                         if (nome && qtd > 0) {
-                            if (!totais[nome]) totais[nome] = 0;
-                            totais[nome] += qtd;
+                            const key = nome.trim();
+                            if (!totais[key]) totais[key] = 0;
+                            totais[key] += qtd;
+                        } else {
+                            // Log para debug de produtos ignorados
+                            if (nome) console.warn(`Produto ignorado (qtd=0): ${nome}`, p);
                         }
                     });
                 }
@@ -1555,10 +1565,16 @@ forceReloadAllData() {
             if (promises.length > 0) {
                 await Promise.all(promises);
                 console.log(`✅ Estoque atualizado para ${frente}: ${promises.length} itens.`);
+                return promises.length;
+            } else {
+                console.log(`⚠️ Nenhum produto encontrado nas OSs da frente ${frente}.`);
+                return 0;
             }
             
         } catch (e) {
             console.error('Erro ao atualizar estoque from OS:', e);
+            this.ui.showNotification(`Erro ao atualizar estoque da frente ${frente}: ${e.message}`, 'error');
+            return 0;
         }
     }
 
@@ -1577,17 +1593,22 @@ forceReloadAllData() {
             // Frentes únicas
             const frentes = [...new Set(res.data.map(os => os.frente).filter(Boolean))];
             
-            let count = 0;
+            let stats = [];
+            let totalUpdated = 0;
+
             for (const frente of frentes) {
-                await this.updateEstoqueFromOS(frente);
-                count++;
+                const count = await this.updateEstoqueFromOS(frente);
+                stats.push(`${frente}: ${count} produtos`);
+                totalUpdated += count;
             }
             
-            this.ui.showNotification(`Estoque sincronizado para ${count} frentes.`, 'success');
+            let msg = `Sincronização concluída!\nTotal de atualizações: ${totalUpdated}\n\nDetalhes:\n${stats.join('\n')}`;
+            alert(msg); // Usar alert para garantir que o usuário veja os detalhes
+
             await this.loadEstoqueAndRender();
         } catch (e) {
             console.error('Erro ao sincronizar estoque:', e);
-            this.ui.showNotification('Erro ao sincronizar estoque.', 'error');
+            this.ui.showNotification('Erro fatal ao sincronizar estoque.', 'error');
         } finally {
             this.ui.hideLoading();
         }
@@ -3648,26 +3669,25 @@ InsumosApp.prototype.loadEstoqueAndRender = async function() {
             a.localeCompare(b, undefined, {numeric: true, sensitivity: 'base'})
         );
 
-        // Atualizar Dropdowns se necessário
-        const updateSelect = (id, includeAllOption = false) => {
+        // === DROPDOWNS POPULATION ===
+        // Popular filtro de Frente
+        const updateSelect = (id, options, includeAllOption = false) => {
             const sel = document.getElementById(id);
             if (!sel) return;
             const currentVal = sel.value;
             
             let html = '';
             if (includeAllOption) html += '<option value="all">Todas as Frentes</option>';
-            else html += '<option value="">Selecione ou Digite</option>'; // Para input manual
+            else html += '<option value="">Selecione ou Digite</option>'; 
 
-            todasFrentes.forEach(f => {
-                html += `<option value="${f}">${f}</option>`;
+            options.forEach(opt => {
+                html += `<option value="${opt}">${opt}</option>`;
             });
             
-            // Só atualiza se mudou o número de opções (evitar resetar se o usuário já selecionou algo e estamos re-renderizando)
-            // Mas se for a primeira vez ou se houver novas frentes, atualiza.
-            // Para simplificar, vamos atualizar sempre, mas tentar manter o valor.
-            if (sel.innerHTML.length < 100 || sel.options.length !== (todasFrentes.length + (includeAllOption?1:1))) {
+            // Só atualiza se mudou significativamente
+            if (sel.innerHTML.length < 50 || sel.options.length !== (options.length + (includeAllOption?1:1))) {
                  sel.innerHTML = html;
-                 if (currentVal && (todasFrentes.includes(currentVal) || currentVal === 'all')) {
+                 if (currentVal && (options.includes(currentVal) || currentVal === 'all')) {
                      sel.value = currentVal;
                  } else if (includeAllOption) {
                      sel.value = 'all';
@@ -3675,8 +3695,31 @@ InsumosApp.prototype.loadEstoqueAndRender = async function() {
             }
         };
 
-        updateSelect('estoque-frente-filter', true);
-        updateSelect('estoque-frente', false);
+        updateSelect('estoque-frente-filter', todasFrentes, true);
+        updateSelect('estoque-frente', todasFrentes, false);
+
+        // Popular Dropdown de PRODUTOS (novo)
+        // Coletar produtos únicos de AMBOS (estoque e OS)
+        const prodsEstoque = estoqueList.map(e => e.produto).filter(Boolean);
+        const prodsOS = [];
+        osList.forEach(os => {
+            if (os.produtos && Array.isArray(os.produtos)) {
+                os.produtos.forEach(p => {
+                    if (p.produto) prodsOS.push(p.produto);
+                });
+            }
+        });
+
+        const todosProdutos = [...new Set([...prodsEstoque, ...prodsOS])].sort();
+        
+        // Atualizar dropdown de produtos manual
+        updateSelect('estoque-produto', todosProdutos, false);
+        
+        // Se a lista de produtos estiver vazia, adicionar alguns padrão
+        if (todosProdutos.length === 0) {
+            const padrao = ['BIOZYME', '04-30-10', 'QUALITY', 'AZOKOP', 'SURVEY (FIPRONIL)', 'OXIFERTIL', 'LANEX 800 WG (REGENTE)', 'COMET', 'COMPOSTO', '10-49-00', 'PEREGRINO', 'NO-NEMA'];
+             updateSelect('estoque-produto', padrao.sort(), false);
+        }
 
         // === CHART PREPARATION ===
         // Precisamos agrupar por frente para o gráfico
