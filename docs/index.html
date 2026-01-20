@@ -619,6 +619,8 @@
     <div class="tab-content" id="plantio-dia">
         <div style="margin-bottom: 15px;">
             <button id="btn-open-fazendas-modal" class="btn btn-secondary">🏡 Gerenciar Fazendas</button>
+            <button id="btn-liberacao-colheita" class="btn btn-secondary">🌾 Liberação de Colheita</button>
+            <button id="btn-os" class="btn btn-secondary">📋 OS</button>
         </div>
         <div class="charts">
             <div class="chart-card">
@@ -628,9 +630,6 @@
                         <label for="single-frente">Frente</label>
                         <select id="single-frente">
                             <option value="">Selecione</option>
-                            <option value="4001">4001</option>
-                            <option value="4002">4002</option>
-                            <option value="4009 Abençoada">4009 Abençoada</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -895,6 +894,166 @@
         
     </div>
 
+    <div id="os-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 95%;">
+            <div class="modal-header">
+                <h3>📋 Cadastro de Ordem de Serviço (OS)</h3>
+                <button class="close-modal close-os-modal">&times;</button>
+            </div>
+            <div class="modal-body" style="overflow-y: auto; max-height: 80vh;">
+                
+                <!-- LISTA DE OS (Visão Principal) -->
+                <div id="os-view-list" class="chart-card">
+                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h4 style="margin: 0;">Todas as OS Cadastradas</h4>
+                        <button class="btn btn-primary" id="btn-nova-os">➕ Nova OS</button>
+                     </div>
+                     <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Número</th>
+                                    <th>Status</th>
+                                    <th>Fazenda</th>
+                                    <th>Data Abertura</th>
+                                    <th>Responsável</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="os-list-body">
+                                <tr>
+                                    <td colspan="6" class="loading">Carregando...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                     </div>
+                </div>
+
+                <!-- FORMULÁRIO DE OS (Oculto por padrão) -->
+                <div id="os-view-form" style="display: none;">
+                    <button class="btn btn-secondary" id="btn-voltar-os-list" style="margin-bottom: 10px;">⬅ Voltar para Lista</button>
+
+                    <div class="charts">
+                        <div class="chart-card">
+                            <h4 style="margin: 0 0 10px 0;">Dados da OS</h4>
+                        <div style="margin-bottom: 15px; padding: 10px; background-color: #f5f5f5; border-radius: 4px; display: flex; align-items: center; justify-content: space-between;">
+                            <span>Importar dados de arquivo (PDF/Imagem):</span>
+                            <div>
+                                <input type="file" id="os-file-input" accept="application/pdf,image/*" style="display: none;">
+                                <button class="btn btn-secondary" onclick="document.getElementById('os-file-input').click()">📂 Selecionar Arquivo</button>
+                            </div>
+                        </div>
+
+                        <div class="form-grid boletim-grid">
+                            <!-- Cabeçalho -->
+                            <div class="form-group">
+                                <label for="os-numero">Número da OS</label>
+                                <input type="text" id="os-numero">
+                            </div>
+                            <div class="form-group">
+                                <label for="os-status">Status</label>
+                                <input type="text" id="os-status">
+                            </div>
+                            <div class="form-group">
+                                <label for="os-data-abertura">Abertura</label>
+                                <input type="date" id="os-data-abertura">
+                            </div>
+                            <div class="form-group">
+                                <label for="os-data-inicio">Início Prev.</label>
+                                <input type="date" id="os-data-inicio">
+                            </div>
+                            <div class="form-group">
+                                <label for="os-data-final">Final Prev.</label>
+                                <input type="date" id="os-data-final">
+                            </div>
+                            
+                            <!-- Info Principal -->
+                            <div class="form-group">
+                                <label for="os-resp">Resp. Aplicação</label>
+                                <input type="text" id="os-resp">
+                            </div>
+                            <div class="form-group">
+                                <label for="os-empresa">Empresa</label>
+                                <input type="text" id="os-empresa">
+                            </div>
+                            <div class="form-group">
+                                <label for="os-frente">Frente</label>
+                                <input type="text" id="os-frente">
+                            </div>
+                             <div class="form-group">
+                                <label for="os-processo">Processo</label>
+                                <input type="text" id="os-processo">
+                            </div>
+                             <div class="form-group">
+                                <label for="os-subprocesso">SubProcesso</label>
+                                <input type="text" id="os-subprocesso">
+                            </div>
+                            
+                            <!-- Localização -->
+                             <div class="form-group">
+                                <label for="os-fazenda">Fazenda</label>
+                                <input type="text" id="os-fazenda">
+                            </div>
+                             <div class="form-group">
+                                <label for="os-setor">Setor</label>
+                                <input type="text" id="os-setor">
+                            </div>
+                            <div class="form-group">
+                                <label for="os-area-total">Área Total (ha)</label>
+                                <input type="number" id="os-area-total" step="0.01">
+                            </div>
+                        </div>
+
+                        <!-- Talhões -->
+                        <h5 style="margin: 15px 0 5px 0;">Talhões</h5>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Talhão</th>
+                                        <th>Área (ha)</th>
+                                        <th>Proprietário</th>
+                                        <th>Fundo Agrícola</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="os-talhoes-body">
+                                    <!-- Preenchido via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Produtos -->
+                        <h5 style="margin: 15px 0 5px 0;">Produtos Planejados</h5>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Produto</th>
+                                        <th>Dose Rec.</th>
+                                        <th>Unid.</th>
+                                        <th>Qtd. Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="os-produtos-body">
+                                    <!-- Preenchido via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div style="margin-top:20px;display:flex;gap:10px;justify-content:flex-end;">
+                            <button type="button" class="btn btn-secondary" id="os-novo">Limpar</button>
+                            <button type="button" class="btn btn-primary" id="os-save">💾 Salvar OS</button>
+                        </div>
+                    </div>
+                </div>
+            </div> <!-- Fim de os-view-form -->
+            </div> <!-- Fim de modal-body -->
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary close-os-modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal Cadastro Fazendas -->
     <div id="fazendas-modal" class="modal" style="display: none;">
         <div class="modal-content" style="max-width: 95%;">
@@ -1035,6 +1194,16 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary close-metas-modal">Fechar</button>
             </div>
+        </div>
+    </div>
+
+    <div id="progress-modal" class="modal" style="display:none; z-index: 2000;">
+        <div class="modal-content" style="max-width: 400px; text-align: center;">
+            <h3 id="progress-title" style="margin-top:0;">Processando...</h3>
+            <div style="width: 100%; background-color: #e0e0e0; border-radius: 8px; margin: 20px 0; overflow: hidden;">
+                <div id="progress-bar" style="width: 0%; height: 24px; background-color: #4CAF50; transition: width 0.3s ease;"></div>
+            </div>
+            <p id="progress-text" style="font-weight: bold; color: #555;">0%</p>
         </div>
     </div>
 
