@@ -402,6 +402,21 @@ class ApiService {
         return { success: true, data: data[0] };
     }
 
+    async updatePlantioDia(id, payload) {
+        this.checkConfig();
+        // Remove id do payload se existir para evitar conflito, mas mantemos o id na query
+        const { id: _, ...updateData } = payload;
+        
+        const { data, error } = await this.supabase
+            .from('plantio_diario')
+            .update(updateData)
+            .eq('id', id)
+            .select();
+            
+        if (error) throw error;
+        return { success: true, data: data[0] };
+    }
+
     async deletePlantioDia(id) {
         this.checkConfig();
         const { error } = await this.supabase.from('plantio_diario').delete().eq('id', id);
@@ -542,6 +557,17 @@ class ApiService {
 
         if (error) throw error;
         return { success: true, data: data[0] };
+    }
+
+    async deleteOS(numero) {
+        this.checkConfig();
+        const { error } = await this.supabase
+            .from('os_agricola')
+            .delete()
+            .eq('numero', numero);
+        
+        if (error) throw error;
+        return { success: true };
     }
 }
 

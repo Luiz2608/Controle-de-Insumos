@@ -664,45 +664,101 @@ class InsumosApp {
         if (!name) return null;
         
         // Se this.cadastroFazendas não estiver definido, tenta usar o índice
-        if (!this.cadastroFazendas) {
+        if (!this.cadastroFazendas || !this.cadastroFazendas.length) {
             if (this.fazendaIndex && this.fazendaIndex.byName) {
                 const info = this.fazendaIndex.byName[name];
                 if (info) return { ...info, codigo: info.cod, nome: name };
             }
+            // Tenta recarregar se vazio? Não, síncrono.
             return null;
         }
 
-        const normalizedName = name.trim().toLowerCase();
-        
+        const normalize = (s) => (s || '').trim().toLowerCase()
+            .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Remove acentos
+            .replace(/[^a-z0-9\s]/g, " ") // Remove chars especiais
+            .replace(/\s+/g, " ") // Remove espaços duplos
+            .replace(/^(fazenda|faz|sitio|st|sto|nsa|chacara|unidade|propriedade)\s+/i, "") // Remove prefixos
+            .replace(/\b(sra)\b/g, "senhora") // Expandir abreviações comuns
+            .replace(/\b(sto)\b/g, "santo")
+            .replace(/\b(sta)\b/g, "santa")
+            .replace(/\b(nsa)\b/g, "nossa")
+            .trim();
+
+        const targetNorm = normalize(name);
+        const targetRaw = (name || '').trim().toLowerCase();
+
         // Estratégia 1: Match exato ou case insensitive
-        let found = this.cadastroFazendas.find(f => (f.nome || '').trim().toLowerCase() === normalizedName);
+        let found = this.cadastroFazendas.find(f => {
+            const fNorm = normalize(f.nome);
+            const fRaw = (f.nome || '').trim().toLowerCase();
+            return fRaw === targetRaw || fNorm === targetNorm;
+        });
         if (found) return found;
 
-        // Estratégia 2: O nome procurado contém o código (ex: "123 - Fazenda") e no cadastro é só "Fazenda"
-        const matchCod = normalizedName.match(/^(\d+)\s*[-–]\s*(.+)$/);
+        // Estratégia 2: Extração de código do nome alvo (ex: "123 - Fazenda")
+        // Aceita hífens, espaços ou outros separadores
+        const matchCod = targetRaw.match(/^(\d+)[\s\W]+(.+)$/);
         if (matchCod) {
-            const nomeSemCod = matchCod[2].trim();
-            // Tenta achar pelo nome limpo
-            found = this.cadastroFazendas.find(f => (f.nome || '').trim().toLowerCase() === nomeSemCod);
-            if (found) return found;
+            const nomeSemCod = normalize(matchCod[2]);
+            const codExt = parseInt(matchCod[1]);
 
             // Tenta achar pelo código
-            const codExt = parseInt(matchCod[1]);
             found = this.cadastroFazendas.find(f => parseInt(f.codigo) === codExt);
+            if (found) return found;
+
+            // Tenta achar pelo nome limpo
+            found = this.cadastroFazendas.find(f => normalize(f.nome) === nomeSemCod);
             if (found) return found;
         }
 
-        // Estratégia 3: O nome no cadastro contém código ("123 - Fazenda") e procuramos "Fazenda"
+        // Estratégia 3: Busca no cadastro por código ou nome embutido
         found = this.cadastroFazendas.find(f => {
             const fNome = (f.nome || '').trim().toLowerCase();
-            const match = fNome.match(/^\d+\s*[-–]\s*(.+)$/);
-            return match && match[1].trim() === normalizedName;
+            const fNorm = normalize(f.nome);
+            
+            // Check regex no cadastro (se o nome no banco for "123 - Fazenda")
+            const match = fNome.match(/^(\d+)[\s\W]+(.+)$/);
+            if (match && normalize(match[2]) === targetNorm) return true;
+
+            return false;
         });
         
         if (found) return found;
 
         // Estratégia 4: Busca parcial (contém)
-        found = this.cadastroFazendas.find(f => (f.nome || '').trim().toLowerCase().includes(normalizedName) || normalizedName.includes((f.nome || '').trim().toLowerCase()));
+        found = this.cadastroFazendas.find(f => {
+            const fNorm = normalize(f.nome);
+            // Verifica se um contém o outro (apenas se tiverem tamanho razoável)
+            if (targetNorm.length > 1 && fNorm.length > 1) {
+                return fNorm.includes(targetNorm) || targetNorm.includes(fNorm);
+            }
+            return false;
+        });
+
+        if (found) return found;
+
+        // Estratégia 5: Token Overlap (Palavras coincidentes)
+        // Útil para "Nossa Sra Gui" vs "Nossa Senhora da Guia"
+        if (targetNorm.length > 3) {
+             const tokensTarget = targetNorm.split(' ').filter(t => t.length > 1);
+             if (tokensTarget.length > 0) {
+                 found = this.cadastroFazendas.find(f => {
+                     const fNorm = normalize(f.nome);
+                     const tokensF = fNorm.split(' ');
+                     
+                     // Conta quantos tokens do target estão presentes no fazenda (match exato ou prefixo)
+                     let matches = 0;
+                     tokensTarget.forEach(t => {
+                         if (tokensF.some(tf => tf === t || tf.startsWith(t) || t.startsWith(tf))) {
+                             matches++;
+                         }
+                     });
+                     
+                     // Se a maioria dos tokens baterem
+                     return matches >= Math.ceil(tokensTarget.length * 0.7);
+                 });
+             }
+        }
 
         return found;
     }
@@ -885,6 +941,7 @@ forceReloadAllData() {
 
         if (btnNovoLancamento && novoLancamentoModal) {
             btnNovoLancamento.addEventListener('click', () => {
+                this.resetPlantioForm();
                 novoLancamentoModal.style.display = 'flex';
             });
         }
@@ -892,6 +949,7 @@ forceReloadAllData() {
         closeNovoLancamentoButtons.forEach(btn => {
             btn.addEventListener('click', () => {
                 if (novoLancamentoModal) novoLancamentoModal.style.display = 'none';
+                this.resetPlantioForm();
             });
         });
 
@@ -899,6 +957,7 @@ forceReloadAllData() {
             window.addEventListener('click', (e) => {
                 if (e.target === novoLancamentoModal) {
                     novoLancamentoModal.style.display = 'none';
+                    this.resetPlantioForm();
                 }
             });
         }
@@ -1204,9 +1263,14 @@ forceReloadAllData() {
         if (listBody) {
              listBody.addEventListener('click', (e) => {
                  const btnEdit = e.target.closest('.btn-edit-os');
+                 const btnDelete = e.target.closest('.btn-delete-os');
+                 
                  if (btnEdit) {
                      const numero = btnEdit.getAttribute('data-numero');
                      this.handleEditOS(numero);
+                 } else if (btnDelete) {
+                     const numero = btnDelete.getAttribute('data-numero');
+                     this.handleDeleteOS(numero);
                  }
              });
         }
@@ -1681,6 +1745,7 @@ forceReloadAllData() {
                             <td>${os.respAplicacao || '-'}</td>
                             <td>
                                 <button class="btn btn-sm btn-secondary btn-edit-os" data-numero="${os.numero}">✏️ Editar</button>
+                                <button class="btn btn-sm btn-delete-os" data-numero="${os.numero}" style="background-color: #e74c3c; color: white; margin-left: 5px;">🗑️ Excluir</button>
                             </td>
                         </tr>
                     `).join('');
@@ -1711,6 +1776,28 @@ forceReloadAllData() {
             this.showOSForm();
             // Precisamos garantir que currentOSData tenha os arrays mesmo que venham do banco
             // O getOSList deve retornar tudo. Se o banco retorna JSONB, deve estar ok.
+        }
+    }
+
+    async handleDeleteOS(numero) {
+        if (!numero) return;
+        const ok = window.confirm(`Tem certeza que deseja excluir a OS ${numero}?`);
+        if (!ok) return;
+
+        try {
+            this.ui.showLoading();
+            const res = await this.api.deleteOS(numero);
+            if (res.success) {
+                this.ui.showNotification('OS excluída com sucesso', 'success');
+                await this.loadOSList();
+            } else {
+                this.ui.showNotification('Erro ao excluir OS', 'error');
+            }
+        } catch (e) {
+            console.error('Erro ao excluir OS:', e);
+            this.ui.showNotification('Erro ao excluir OS', 'error');
+        } finally {
+            this.ui.hideLoading();
         }
     }
 
@@ -2068,16 +2155,27 @@ forceReloadAllData() {
             const deleteBtn = e.target.closest('.btn-delete');
             const delEstoqueBtn = e.target.closest('.btn-delete-estoque');
             const delPlantioBtn = e.target.closest('.btn-delete-plantio');
+            const editPlantioBtn = e.target.closest('.btn-edit-plantio');
             const togglePlantioBtn = e.target.closest('.btn-toggle-plantio-details');
             const delBagRowBtn = e.target.closest('.btn-delete-bag-row');
             const viewViagemBtn = e.target.closest('.btn-view-viagem-adubo');
             const delViagemBtn = e.target.closest('.btn-delete-viagem-adubo');
+            
+            const editOSBtn = e.target.closest('.btn-edit-os');
+            const deleteOSBtn = e.target.closest('.btn-delete-os');
+
             if (editBtn) {
                 const id = editBtn.getAttribute('data-id');
                 this.startEdit(parseInt(id));
             } else if (deleteBtn) {
                 const id = deleteBtn.getAttribute('data-id');
                 this.deleteInsumo(parseInt(id));
+            } else if (editOSBtn) {
+                const numero = editOSBtn.getAttribute('data-numero');
+                this.handleEditOS(numero);
+            } else if (deleteOSBtn) {
+                const numero = deleteOSBtn.getAttribute('data-numero');
+                this.handleDeleteOS(numero);
             } else if (delEstoqueBtn) {
                 const frente = delEstoqueBtn.getAttribute('data-frente');
                 const produto = delEstoqueBtn.getAttribute('data-produto');
@@ -2103,6 +2201,9 @@ forceReloadAllData() {
                         this.ui.showNotification('Erro ao excluir', 'error');
                     }
                 }).catch(()=>this.ui.showNotification('Erro ao excluir', 'error'));
+            } else if (editPlantioBtn) {
+                const id = editPlantioBtn.getAttribute('data-plantio-id');
+                this.handleEditPlantio(id);
             } else if (togglePlantioBtn) {
                 const id = togglePlantioBtn.getAttribute('data-plantio-id');
                 if (this.plantioExpanded.has(id)) this.plantioExpanded.delete(id); else this.plantioExpanded.add(id);
@@ -2245,23 +2346,32 @@ forceReloadAllData() {
                     // 2. Tentar preencher Fazenda e Código
                     if (os.fazenda) {
                         const targetFazenda = os.fazenda.trim();
-                        // Tentar encontrar no cadastro para ter o objeto completo e acumulados
-                        const fazendaObj = this.findFazendaByName(targetFazenda);
+                        
+                        // Tentar encontrar no cadastro (por nome ou código extraído)
+                        let fazendaObj = this.findFazendaByName(targetFazenda);
+                        
+                        if (!fazendaObj) {
+                             // Se não achou pelo nome, tenta extrair código e buscar pelo código
+                             const matchCod = targetFazenda.match(/^(\d+)[\s\W]+(.+)$/);
+                             if (matchCod) {
+                                 const codExt = parseInt(matchCod[1]);
+                                 fazendaObj = this.cadastroFazendas.find(f => parseInt(f.codigo) === codExt);
+                             }
+                        }
 
                         if (fazendaObj) {
-                            // Se achou no cadastro, aplica os dados (incluindo acumulados)
+                            // Se achou no cadastro, aplica os dados completos (incluindo acumulados)
                             this.applyCadastroFazendaToPlantio(fazendaObj);
                             
-                            // IMPORTANTE: Restaurar a Região/Setor da OS se ela existir, 
-                            // pois a OS pode ser específica de um setor e o cadastro ser genérico
+                            // IMPORTANTE: Restaurar a Região/Setor da OS se ela existir
                             if (regiaoEl && os.setor) {
                                 regiaoEl.value = os.setor;
                             }
                         } else {
                             // Fallback: Cadastro não encontrado, preencher manualmente o possível
                             
-                            // Tentar extrair código do nome da fazenda na OS (ex: "123 - Fazenda X")
-                            const matchCod = targetFazenda.match(/^(\d+)\s*[-–]\s*(.+)$/);
+                            // Tentar extrair código do nome da fazenda na OS
+                            const matchCod = targetFazenda.match(/^(\d+)[\s\W]+(.+)$/);
                             if (matchCod && codInput) {
                                 codInput.value = matchCod[1];
                             }
@@ -2282,10 +2392,10 @@ forceReloadAllData() {
                                         break;
                                     }
                                     
-                                    // Match parcial se tiver código na OS e não no select
+                                    // Match parcial se tiver código na OS
                                     if (matchCod) {
                                         const nomeSemCod = matchCod[2].trim().toLowerCase();
-                                        if (optText === nomeSemCod || optVal === nomeSemCod) {
+                                        if (optText.includes(nomeSemCod) || optVal.includes(nomeSemCod)) {
                                             fazendaEl.selectedIndex = i;
                                             foundInSelect = true;
                                             break;
@@ -2293,9 +2403,7 @@ forceReloadAllData() {
                                     }
                                 }
                                 
-                                // Se não achou no select e o select for editável ou apenas visual, 
-                                // não podemos forçar valor que não existe no select padrão HTML.
-                                // Mas podemos tentar setar value se for um input texto disfarçado (não é, é select).
+                                if (foundInSelect) fazendaEl.dispatchEvent(new Event('change'));
                             }
                         }
                     }
@@ -2462,11 +2570,14 @@ forceReloadAllData() {
             // Carregar lista de OS (para dropdowns e modal)
             await this.loadOSList();
 
+            let fazendasList = [];
             try {
                 const fazendasResponse = await this.api.getFazendas();
                 if (fazendasResponse.success) {
-                    const list = Array.isArray(fazendasResponse.data) ? fazendasResponse.data : [];
-                    const nomes = list.map(f => (typeof f === 'string') ? f : (f.nome || f.codigo)).filter(Boolean);
+                    fazendasList = Array.isArray(fazendasResponse.data) ? fazendasResponse.data : [];
+                    
+                    // Popula dropdowns
+                    const nomes = fazendasList.map(f => (typeof f === 'string') ? f : (f.nome || f.codigo)).filter(Boolean);
                     this.ui.populateSelect(
                         document.getElementById('fazenda-insumos-filter'),
                         nomes,
@@ -2474,7 +2585,7 @@ forceReloadAllData() {
                     );
                     const viagemFazSelect = document.getElementById('viagem-fazenda');
                     if (viagemFazSelect) {
-                        viagemFazSelect.innerHTML = '<option value=\"\">Selecione a Fazenda</option>';
+                        viagemFazSelect.innerHTML = '<option value="">Selecione a Fazenda</option>';
                         nomes.forEach(n => {
                             const opt = document.createElement('option');
                             opt.value = n;
@@ -2502,8 +2613,22 @@ forceReloadAllData() {
                             singleFazendaSelect.appendChild(opt);
                         });
                     }
+                    
+                    // Popula cadastro interno e índice
+                    const listForIndex = fazendasList.map(f => ({
+                        cod: f.codigo,
+                        nome: f.nome,
+                        areaTotal: f.area_total,
+                        plantioAcumulado: f.plantio_acumulado,
+                        mudaAcumulada: f.muda_acumulada,
+                        regiao: f.regiao
+                    }));
+                    this.buildCadastroIndex(listForIndex);
+                    this.renderCadastroFazendas(fazendasList);
                 }
-            } catch(e) {}
+            } catch(e) {
+                console.error('Erro ao carregar fazendas:', e);
+            }
 
             try {
                 const produtosResponse = await this.api.getProdutos();
@@ -2516,21 +2641,6 @@ forceReloadAllData() {
                 }
             } catch(e) {}
 
-            try {
-                const cadResp = await this.api.getFazendas();
-                if (cadResp && cadResp.success && Array.isArray(cadResp.data)) {
-                    const list = cadResp.data.map(f => ({
-                        cod: f.codigo,
-                        nome: f.nome,
-                        areaTotal: f.area_total,
-                        plantioAcumulado: f.plantio_acumulado,
-                        mudaAcumulada: f.muda_acumulada,
-                        regiao: f.regiao
-                    }));
-                    this.buildCadastroIndex(list);
-                    this.renderCadastroFazendas(cadResp.data);
-                }
-            } catch (e) {}
         } catch (error) {
             console.error('Error loading static data:', error);
         }
@@ -2571,13 +2681,22 @@ forceReloadAllData() {
     renderPlantioDia() {
         const tbody = document.getElementById('plantio-table-body');
         if (!tbody) return;
+        
         const rows = (this.plantioDia || []).slice().sort((a,b)=> String(a.data||'').localeCompare(String(b.data||'')));
+        
+        if (rows.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 20px; color: #666;">Nenhum registro de plantio encontrado.</td></tr>';
+            return;
+        }
+
         tbody.innerHTML = rows.map(r => {
             const sumArea = (r.frentes||[]).reduce((s,x)=> s + (Number(x.area)||0), 0);
-        const resumoFrentes = (r.frentes||[]).map(f => `${f.frente}: ${f.fazenda||'—'}${f.regiao?(' / '+f.regiao):''}`).join(' | ');
+            const resumoFrentes = (r.frentes||[]).map(f => `${f.frente}: ${f.fazenda||'—'}${f.regiao?(' / '+f.regiao):''}`).join(' | ');
             const expanded = this.plantioExpanded.has(String(r.id));
             const details = expanded ? this.getPlantioDetailsHTML(r) : '';
-            const toggleText = expanded ? 'Ocultar detalhes' : 'Ver detalhes';
+            const toggleIcon = expanded ? '🔼' : '🔽';
+            const toggleText = expanded ? 'Ocultar' : 'Detalhes';
+            
             return `
             <tr>
                 <td>${this.ui.formatDateBR(r.data)}</td>
@@ -2585,8 +2704,17 @@ forceReloadAllData() {
                 <td>${this.ui.formatNumber(sumArea)}</td>
                 
                 <td>
-                    <button class="btn btn-secondary btn-toggle-plantio-details" data-plantio-id="${r.id}">${toggleText}</button>
-                    <button class="btn btn-delete-plantio" data-plantio-id="${r.id}">🗑️</button>
+                    <div style="display: flex; gap: 5px;">
+                        <button class="btn btn-sm btn-secondary btn-toggle-plantio-details" data-plantio-id="${r.id}">
+                            ${toggleIcon} ${toggleText}
+                        </button>
+                        <button class="btn btn-sm btn-secondary btn-edit-plantio" data-plantio-id="${r.id}" title="Editar Registro">
+                            ✏️
+                        </button>
+                        <button class="btn btn-sm btn-delete-plantio" data-plantio-id="${r.id}" style="background-color: #e74c3c; color: white;" title="Excluir Registro">
+                            🗑️
+                        </button>
+                    </div>
                 </td>
             </tr>
             ${details}`;
@@ -2600,14 +2728,13 @@ forceReloadAllData() {
                 <td>${f.fazenda||'—'}</td>
                 <td>${f.cod!=null?f.cod:'—'}</td>
                 <td>${f.regiao||'—'}</td>
-                <td>${this.ui.formatNumber(f.area||0)}</td>
-                <td>${this.ui.formatNumber(f.plantada||0)}</td>
-                <td>${this.ui.formatNumber(f.areaAcumulada||0)}</td>
                 <td>${this.ui.formatNumber(f.areaTotal||0)}</td>
-                <td>${this.ui.formatNumber(f.plantioDiario||0)}</td>
+                <td>${this.ui.formatNumber(f.area||0)}</td>
                 <td>${this.ui.formatNumber(f.areaAcumulada||0)}</td>
+                <td>${this.ui.formatNumber(f.plantioDiario||0)}</td>
             </tr>
         `).join('');
+        
         const insumosRows = (r.insumos||[]).map(i => `
             <tr>
                 <td>${i.produto}</td>
@@ -2615,51 +2742,83 @@ forceReloadAllData() {
                 <td>${i.unid||''}</td>
             </tr>
         `).join('');
+        
         const q = r.qualidade||{};
+        
+        // Helper para item de qualidade
+        const qualItem = (label, val, sub = '') => `
+            <div class="quality-item">
+                <div class="label" title="${label}">${label}</div>
+                <div class="value">${val}${sub ? `<span class="sub-value">${sub}</span>` : ''}</div>
+            </div>
+        `;
+
         return `
-        <tr class="plantio-details"><td colspan="5">
-            <div class="details-grid">
-                <div>
-                    <h5>Frentes</h5>
-                    <table class="data-table">
-                        <thead><tr><th>Frente</th><th>Fazenda</th><th>Cód</th><th>Região</th><th>Área total (ha)</th><th>Área plantada (ha)</th><th>Área total acumulada (ha)</th><th>Plantio total (ha)</th><th>Plantio diário (ha)</th><th>Plantio acumulado (ha)</th></tr></thead>
-                        <tbody>${frentesRows || '<tr><td colspan="8">—</td></tr>'}</tbody>
-                    </table>
+        <tr class="plantio-details-row"><td colspan="4">
+            <div class="plantio-details-container">
+                <!-- Seção 1: Frentes -->
+                <div class="details-card" style="grid-column: 1 / -1;">
+                    <h5>🚜 Frentes e Áreas</h5>
+                    <div style="overflow-x: auto;">
+                        <table class="details-inner-table">
+                            <thead>
+                                <tr>
+                                    <th>Frente</th>
+                                    <th>Fazenda</th>
+                                    <th>Cód</th>
+                                    <th>Região</th>
+                                    <th>Área Total (Fazenda)</th>
+                                    <th>Área OS</th>
+                                    <th>Área Acum. (OS)</th>
+                                    <th>Plantio Dia</th>
+                                </tr>
+                            </thead>
+                            <tbody>${frentesRows || '<tr><td colspan="8" style="text-align:center;">—</td></tr>'}</tbody>
+                        </table>
+                    </div>
                 </div>
-                <div>
-                    <h5>Insumos</h5>
-                    <table class="data-table">
-                        <thead><tr><th>Produto</th><th>Dose</th><th>Unid</th></tr></thead>
-                        <tbody>${insumosRows || '<tr><td colspan="3">—</td></tr>'}</tbody>
-                    </table>
+
+                <!-- Seção 2: Insumos -->
+                <div class="details-card">
+                    <h5>🧪 Insumos Aplicados</h5>
+                    <div style="overflow-x: auto;">
+                        <table class="details-inner-table">
+                            <thead><tr><th>Produto</th><th>Dose</th><th>Unid</th></tr></thead>
+                            <tbody>${insumosRows || '<tr><td colspan="3" style="text-align:center;">—</td></tr>'}</tbody>
+                        </table>
+                    </div>
                 </div>
-                <div>
-                    <h5>Qualidade / Condições</h5>
-                    <div class="quality-block">
-                        <div>Gemas totais: ${this.ui.formatNumber(q.gemasTotal||0)}</div>
-                        <div>Gemas boas: ${this.ui.formatNumber(q.gemasBoas||0)} (${this.ui.formatNumber(q.gemasBoasPct||0,2)}%)</div>
-                        <div>Gemas ruins: ${this.ui.formatNumber(q.gemasRuins||0)} (${this.ui.formatNumber(q.gemasRuinsPct||0,2)}%)</div>
-                        <div>Toletes totais: ${this.ui.formatNumber(q.toletesTotal||0)}</div>
-                        <div>Toletes bons: ${this.ui.formatNumber(q.toletesBons||0)} (${this.ui.formatNumber(q.toletesBonsPct||0,2)}%)</div>
-                        <div>Toletes ruins: ${this.ui.formatNumber(q.toletesRuins||0)} (${this.ui.formatNumber(q.toletesRuinsPct||0,2)}%)</div>
-                        <div>Mudas totais: ${this.ui.formatNumber(q.mudasTotal||0)}</div>
-                        <div>Mudas boas: ${this.ui.formatNumber(q.mudasBoas||0)} (${this.ui.formatNumber(q.mudasBoasPct||0,2)}%)</div>
-                        <div>Mudas ruins: ${this.ui.formatNumber(q.mudasRuins||0)} (${this.ui.formatNumber(q.mudasRuinsPct||0,2)}%)</div>
-                        <div>Muda (ton/ha): ${this.ui.formatNumber(q.mudaTonHa||0)}</div>
-                        <div>Profundidade (cm): ${this.ui.formatNumber(q.profundidadeCm||0)}</div>
-                        <div>Cobertura: ${q.cobertura||'—'}</div>
-                        <div>Alinhamento: ${q.alinhamento||'—'}</div>
-                        <div>Chuva (mm): ${this.ui.formatNumber(q.chuvaMm||0,1)}</div>
-                        <div>GPS: ${q.gps? 'Sim':'Não'}</div>
+
+                <!-- Seção 3: Qualidade e Condições -->
+                <div class="details-card" style="flex: 2;">
+                    <h5>📊 Qualidade e Condições</h5>
+                    <div class="quality-grid">
+                        ${qualItem('Gemas Totais', this.ui.formatNumber(q.gemasTotal||0))}
+                        ${qualItem('Gemas Boas', this.ui.formatNumber(q.gemasBoas||0), `(${this.ui.formatNumber(q.gemasBoasPct||0,1)}%)`)}
+                        ${qualItem('Gemas Ruins', this.ui.formatNumber(q.gemasRuins||0), `(${this.ui.formatNumber(q.gemasRuinsPct||0,1)}%)`)}
                         
-                        <div>Cobrição (dia): ${this.ui.formatNumber(q.cobricaoDia||0,2)}</div>
-                        <div>Cobrição (acum.): ${this.ui.formatNumber(q.cobricaoAcumulada||0,2)}</div>
-                        <div>Consumo total de muda: ${this.ui.formatNumber(q.mudaConsumoTotal||0,2)}</div>
-                        <div>Consumo acumulado: ${this.ui.formatNumber(q.mudaConsumoAcumulado||0,2)}</div>
-                        <div>Consumo total do dia: ${this.ui.formatNumber(q.mudaConsumoDia||0,2)}</div>
-                        <div>Previsto das mudas: ${this.ui.formatNumber(q.mudaPrevisto||0,2)}</div>
-                        <div>Liberação fazenda: ${q.mudaLiberacaoFazenda||'—'}</div>
-                        <div>Variedade: ${q.mudaVariedade||'—'}</div>
+                        ${qualItem('Toletes Totais', this.ui.formatNumber(q.toletesTotal||0))}
+                        ${qualItem('Toletes Bons', this.ui.formatNumber(q.toletesBons||0), `(${this.ui.formatNumber(q.toletesBonsPct||0,1)}%)`)}
+                        ${qualItem('Toletes Ruins', this.ui.formatNumber(q.toletesRuins||0), `(${this.ui.formatNumber(q.toletesRuinsPct||0,1)}%)`)}
+                        
+                        ${qualItem('Mudas Totais', this.ui.formatNumber(q.mudasTotal||0))}
+                        ${qualItem('Mudas Boas', this.ui.formatNumber(q.mudasBoas||0), `(${this.ui.formatNumber(q.mudasBoasPct||0,1)}%)`)}
+                        ${qualItem('Mudas Ruins', this.ui.formatNumber(q.mudasRuins||0), `(${this.ui.formatNumber(q.mudasRuinsPct||0,1)}%)`)}
+                        
+                        ${qualItem('Muda (ton/ha)', this.ui.formatNumber(q.mudaTonHa||0))}
+                        ${qualItem('Profundidade', this.ui.formatNumber(q.profundidadeCm||0), 'cm')}
+                        ${qualItem('Cobertura', q.cobertura||'—')}
+                        ${qualItem('Alinhamento', q.alinhamento||'—')}
+                        ${qualItem('Chuva', this.ui.formatNumber(q.chuvaMm||0,1), 'mm')}
+                        ${qualItem('GPS', q.gps ? 'Sim' : 'Não')}
+                        
+                        ${qualItem('Cobrição Dia', this.ui.formatNumber(q.cobricaoDia||0,2))}
+                        ${qualItem('Cobrição Acum.', this.ui.formatNumber(q.cobricaoAcumulada||0,2))}
+                        
+                        ${qualItem('Consumo Muda Dia', this.ui.formatNumber(q.mudaConsumoDia||0,2))}
+                        ${qualItem('Consumo Muda Total', this.ui.formatNumber(q.mudaConsumoTotal||0,2))}
+                        ${qualItem('Muda Previsto', this.ui.formatNumber(q.mudaPrevisto||0,2))}
+                        ${qualItem('Variedade', q.mudaVariedade||'—')}
                     </div>
                 </div>
             </div>
@@ -3859,7 +4018,132 @@ InsumosApp.prototype.renderInsumosDraft = function() {
     `).join('');
 };
 
+InsumosApp.prototype.resetPlantioForm = function() {
+    this.currentPlantioId = null;
+    this.plantioInsumosDraft = [];
+    this.renderInsumosDraft();
+
+    const ids = [
+        'plantio-data', 'plantio-responsavel', 'plantio-obs',
+        'qual-toletes-total', 'qual-toletes-bons', 'qual-toletes-ruins', 'qual-toletes-amostra',
+        'qual-gemas-total', 'qual-gemas-boas', 'qual-gemas-ruins', 'qual-gemas-amostra', 'qual-gemas-media',
+        'qual-mudas-total', 'qual-mudas-boas', 'qual-mudas-ruins', 'qual-mudas-amostra', 'qual-mudas-media',
+        'qual-muda', 'qual-profundidade', 'qual-cobertura', 'qual-alinhamento', 'chuva-mm',
+        'oxifertil-dose', 'cobricao-dia', 'cobricao-acumulada',
+        'muda-consumo-total', 'muda-consumo-acumulado', 'muda-consumo-dia', 'muda-previsto',
+        'muda-liberacao-fazenda', 'muda-variedade',
+        'single-frente', 'single-fazenda', 'single-cod', 'single-regiao',
+        'single-area', 'single-plantada', 'single-area-total', 'single-area-acumulada', 'single-plantio-dia'
+    ];
+    ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+
+    const gps = document.getElementById('plantio-gps');
+    if (gps) gps.checked = false;
+
+    const saveBtn = document.getElementById('plantio-save-btn');
+    if (saveBtn) saveBtn.textContent = '💾 Registrar Dia';
+
+    this.updateToletesPercent();
+    this.updateGemasPercent();
+    this.updateMudasPercent();
+};
+
+InsumosApp.prototype.handleEditPlantio = function(id) {
+    if (!this.plantioDia) return;
+    const record = this.plantioDia.find(r => String(r.id) === String(id));
+    if (!record) return;
+
+    this.resetPlantioForm();
+    this.currentPlantioId = record.id;
+    console.log('Editando Plantio:', record);
+
+    const saveBtn = document.getElementById('plantio-save-btn');
+    if (saveBtn) saveBtn.textContent = '💾 Salvar Alterações';
+
+    // Campos Gerais
+    const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+    const setCheck = (id, val) => { const el = document.getElementById(id); if (el) el.checked = !!val; };
+
+    set('plantio-data', record.data);
+    set('plantio-responsavel', record.responsavel);
+    set('plantio-obs', record.observacoes);
+
+    // Qualidade
+    const q = record.qualidade || {};
+    set('qual-toletes-total', q.toletesTotal);
+    set('qual-toletes-bons', q.toletesBons);
+    set('qual-toletes-ruins', q.toletesRuins);
+    set('qual-toletes-amostra', q.toletesAmostra);
+    
+    set('qual-gemas-total', q.gemasTotal);
+    set('qual-gemas-boas', q.gemasBoas);
+    set('qual-gemas-ruins', q.gemasRuins);
+    set('qual-gemas-amostra', q.gemasAmostra);
+    set('qual-gemas-media', q.gemasMedia);
+
+    set('qual-mudas-total', q.mudasTotal);
+    set('qual-mudas-boas', q.mudasBoas);
+    set('qual-mudas-ruins', q.mudasRuins);
+    set('qual-mudas-amostra', q.mudasAmostra);
+    set('qual-mudas-media', q.mudasMedia);
+
+    set('qual-muda', q.mudaTonHa);
+    set('qual-profundidade', q.profundidadeCm);
+    set('qual-cobertura', q.cobertura);
+    set('qual-alinhamento', q.alinhamento);
+    set('chuva-mm', q.chuvaMm);
+    setCheck('plantio-gps', q.gps);
+    
+    set('oxifertil-dose', q.oxifertilDose);
+    set('cobricao-dia', q.cobricaoDia);
+    set('cobricao-acumulada', q.cobricaoAcumulada);
+    
+    set('muda-consumo-total', q.mudaConsumoTotal);
+    set('muda-consumo-acumulado', q.mudaConsumoAcumulado);
+    set('muda-consumo-dia', q.mudaConsumoDia);
+    set('muda-previsto', q.mudaPrevisto);
+    set('muda-liberacao-fazenda', q.mudaLiberacaoFazenda);
+    set('muda-variedade', q.mudaVariedade);
+
+    // Frentes (pega a primeira se houver)
+    if (record.frentes && record.frentes.length > 0) {
+        const f = record.frentes[0];
+        set('single-frente', f.frente);
+        
+        // Trigger change para carregar OS list se necessário, mas pode ser assíncrono
+        // Vamos setar diretamente por enquanto
+        const singleFrente = document.getElementById('single-frente');
+        if (singleFrente) singleFrente.dispatchEvent(new Event('change'));
+
+        set('single-fazenda', f.fazenda);
+        set('single-cod', f.cod);
+        set('single-regiao', f.regiao);
+        set('single-area', f.area);
+        set('single-plantada', f.plantada);
+        set('single-area-total', f.areaTotal);
+        set('single-area-acumulada', f.areaAcumulada);
+        set('single-plantio-dia', f.plantioDiario);
+    }
+
+    // Insumos
+    this.plantioInsumosDraft = Array.isArray(record.insumos) ? record.insumos.slice() : [];
+    this.renderInsumosDraft();
+
+    // Abrir Modal
+    const modal = document.getElementById('novo-lancamento-modal');
+    if (modal) modal.style.display = 'flex';
+    
+    // Atualizar labels de porcentagem
+    this.updateToletesPercent();
+    this.updateGemasPercent();
+    this.updateMudasPercent();
+};
+
 InsumosApp.prototype.savePlantioDia = async function() {
+    console.log('Iniciando savePlantioDia...');
     const data = document.getElementById('plantio-data')?.value;
     const responsavel = document.getElementById('plantio-responsavel')?.value;
     const observacoes = document.getElementById('plantio-obs')?.value || '';
@@ -3924,8 +4208,6 @@ InsumosApp.prototype.savePlantioDia = async function() {
         mudaVariedade: document.getElementById('muda-variedade')?.value || ''
     };
     let fazendaNome = document.getElementById('single-fazenda')?.value || '';
-    // Tentar remover código do início do nome (ex: "1387 - Fazenda X" -> "Fazenda X")
-    // O usuário relatou que o código está aparecendo junto com o nome
     const matchCod = fazendaNome.match(/^(\d+)\s*[-–]\s*(.+)$/);
     let codExtraido = null;
     if (matchCod) {
@@ -3934,7 +4216,11 @@ InsumosApp.prototype.savePlantioDia = async function() {
     }
 
     const frenteKey = document.getElementById('single-frente')?.value || '';
-    if (!data || !frenteKey) { this.ui.showNotification('Informe data e frente', 'warning'); return; }
+    if (!data || !frenteKey) { 
+        console.warn('Validação falhou: data ou frente vazios', { data, frenteKey });
+        this.ui.showNotification('Informe data e frente', 'warning'); 
+        return; 
+    }
     
     const codInput = document.getElementById('single-cod')?.value;
     const codFinal = codInput ? parseInt(codInput) : (codExtraido || undefined);
@@ -3956,10 +4242,20 @@ InsumosApp.prototype.savePlantioDia = async function() {
         insumos: this.plantioInsumosDraft.slice(),
         qualidade
     };
+    
     try {
-        const res = await this.api.addPlantioDia(payload);
+        let res;
+        if (this.currentPlantioId) {
+            console.log('Atualizando registro:', this.currentPlantioId);
+            res = await this.api.updatePlantioDia(this.currentPlantioId, payload);
+        } else {
+            console.log('Criando novo registro');
+            res = await this.api.addPlantioDia(payload);
+        }
+
         if (res && res.success) {
-            this.ui.showNotification('Dia de plantio registrado', 'success', 1500);
+            this.ui.showNotification(this.currentPlantioId ? 'Registro atualizado' : 'Dia de plantio registrado', 'success', 1500);
+            
             if (frente.cod) {
                 try {
                     await this.api.updateFazenda(frente.cod, {
@@ -3967,30 +4263,27 @@ InsumosApp.prototype.savePlantioDia = async function() {
                         mudaAcumulada: qualidade.mudaConsumoAcumulado,
                         cobricaoAcumulada: qualidade.cobricaoAcumulada
                     });
+                    // Atualiza cache de fazendas
                     const cadResp = await this.api.getFazendas();
                     if (cadResp && cadResp.success && Array.isArray(cadResp.data)) {
-                        const list = cadResp.data.map(f => ({
-                            cod: f.codigo,
-                            nome: f.nome,
-                            areaTotal: f.area_total,
-                            plantioAcumulado: f.plantio_acumulado,
-                            mudaAcumulada: f.muda_acumulada,
-                            cobricaoAcumulada: f.cobricao_acumulada,
-                            regiao: f.regiao
-                        }));
-                        this.buildCadastroIndex(list);
                         this.renderCadastroFazendas(cadResp.data);
                     }
-                } catch(e) {}
+                } catch(e) { console.error('Erro ao atualizar fazenda:', e); }
             }
-            this.plantioInsumosDraft = [];
-            this.renderInsumosDraft();
-            ['single-fazenda','single-cod','single-regiao','single-area','single-plantada','single-area-total','single-area-acumulada','single-plantio-dia','cobricao-dia','cobricao-acumulada'].forEach(id=>{ const el=document.getElementById(id); if (el) el.value=''; });
+            
+            this.resetPlantioForm();
             await this.loadPlantioDia();
+            
+            const modal = document.getElementById('novo-lancamento-modal');
+            if (modal) modal.style.display = 'none';
         } else {
+            console.error('Erro na resposta da API:', res);
             this.ui.showNotification('Erro ao registrar', 'error');
         }
-    } catch(e) { this.ui.showNotification('Erro ao registrar', 'error'); }
+    } catch(e) { 
+        console.error('Exceção ao salvar plantio:', e);
+        this.ui.showNotification('Erro ao registrar', 'error'); 
+    }
 };
 
 InsumosApp.prototype.saveViagemAdubo = async function() {
