@@ -65,18 +65,23 @@ class InsumosApp {
         
         const plantioDiaInput = document.getElementById('single-plantio-dia');
         const mudaDiaInput = document.getElementById('muda-consumo-dia');
+        const cobricaoDiaInput = document.getElementById('cobricao-dia');
         
         const plantioDia = plantioDiaInput && plantioDiaInput.value ? parseFloat(plantioDiaInput.value) : 0;
         const mudaDia = mudaDiaInput && mudaDiaInput.value ? parseFloat(mudaDiaInput.value) : 0;
+        const cobricaoDia = cobricaoDiaInput && cobricaoDiaInput.value ? parseFloat(cobricaoDiaInput.value) : 0;
         
-        const newPlantioAcum = this.tempFazendaStats.plantioAcumulado + plantioDia;
-        const newMudaAcum = this.tempFazendaStats.mudaAcumulada + mudaDia;
+        const newPlantioAcum = (this.tempFazendaStats.plantioAcumulado || 0) + plantioDia;
+        const newMudaAcum = (this.tempFazendaStats.mudaAcumulada || 0) + mudaDia;
+        const newCobricaoAcum = (this.tempFazendaStats.cobricaoAcumulada || 0) + cobricaoDia;
         
         const plantioAcumEl = document.getElementById('single-area-acumulada');
         const mudaAcumEl = document.getElementById('muda-consumo-acumulado');
+        const cobricaoAcumEl = document.getElementById('cobricao-acumulada');
         
         if (plantioAcumEl) plantioAcumEl.value = newPlantioAcum.toFixed(2);
         if (mudaAcumEl) mudaAcumEl.value = newMudaAcum.toFixed(2);
+        if (cobricaoAcumEl) cobricaoAcumEl.value = newCobricaoAcum.toFixed(2);
     }
 
     
@@ -118,6 +123,7 @@ class InsumosApp {
                 <td>${f.area_total != null ? this.ui.formatNumber(f.area_total, 2) : ''}</td>
                 <td>${f.plantio_acumulado != null ? this.ui.formatNumber(f.plantio_acumulado, 2) : ''}</td>
                 <td>${f.muda_acumulada != null ? this.ui.formatNumber(f.muda_acumulada, 2) : ''}</td>
+                <td>${f.cobricao_acumulada != null ? this.ui.formatNumber(f.cobricao_acumulada, 2) : ''}</td>
                 <td>
                     <button class="btn btn-secondary btn-edit-fazenda" data-codigo="${f.codigo}">Editar</button>
                     <button class="btn btn-secondary btn-use-fazenda-plantio" data-codigo="${f.codigo}">Usar no Plantio</button>
@@ -209,6 +215,7 @@ class InsumosApp {
                         areaTotal: f.area_total,
                         plantioAcumulado: f.plantio_acumulado,
                         mudaAcumulada: f.muda_acumulada,
+                        cobricaoAcumulada: f.cobricao_acumulada,
                         regiao: f.regiao
                     }));
                     this.buildCadastroIndex(list);
@@ -275,6 +282,23 @@ class InsumosApp {
         }
     }
 
+    showProgress(title, percent, text) {
+        const modal = document.getElementById('progress-modal');
+        const titleEl = document.getElementById('progress-title');
+        const bar = document.getElementById('progress-bar');
+        const textEl = document.getElementById('progress-text');
+        
+        if (modal) modal.style.display = 'flex';
+        if (titleEl) titleEl.textContent = title;
+        if (bar) bar.style.width = `${percent}%`;
+        if (textEl) textEl.textContent = text || `${Math.floor(percent)}%`;
+    }
+
+    hideProgress() {
+        const modal = document.getElementById('progress-modal');
+        if (modal) modal.style.display = 'none';
+    }
+
     async handleFazendaPdfFile(file) {
         if (!file) return;
         if (!window.pdfjsLib) {
@@ -282,24 +306,33 @@ class InsumosApp {
             return;
         }
         try {
-            this.ui.showNotification('Lendo PDF de fazendas...', 'info', 2000);
+            this.showProgress('Lendo PDF...', 0, 'Iniciando leitura...');
             const buffer = await file.arrayBuffer();
             const loadingTask = window.pdfjsLib.getDocument({ data: buffer });
             const pdf = await loadingTask.promise;
             let fullText = '';
             for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                const percent = (pageNum / pdf.numPages) * 50; // 50% para leitura
+                this.showProgress('Lendo PDF...', percent, `Lendo página ${pageNum} de ${pdf.numPages}`);
+                
                 const page = await pdf.getPage(pageNum);
                 const content = await page.getTextContent();
                 const strings = content.items.map(item => item.str);
                 fullText += '\n' + strings.join(' ');
             }
+            
+            this.showProgress('Processando...', 60, 'Interpretando dados com IA...');
+            
             let fazendas = [];
             let geminiKey = localStorage.getItem('geminiApiKey') || '';
             if (!geminiKey || geminiKey.trim().length < 20) {
+                this.hideProgress(); // O prompt vai aparecer
                 geminiKey = await this.askGeminiKey();
+                this.showProgress('Processando...', 60, 'Interpretando dados com IA...');
             }
             const useGemini = geminiKey && geminiKey.length >= 20;
             if (!useGemini) {
+                this.hideProgress();
                 this.ui.showNotification('Chave da API Gemini não informada ou inválida. Importação cancelada.', 'error', 4000);
                 return;
             }
@@ -416,39 +449,16 @@ class InsumosApp {
             }
             
             const fallback = this.parseFazendasFromText(fullText);
-            if (Array.isArray(fallback) && fallback.length) {
-                if (!fazendas.length) {
-                    fazendas = fallback;
-                    this.ui.showNotification('Uso de leitura padrão do PDF (Gemini indisponível).', 'warning', 4000);
-                } else {
-                    const merged = {};
-                    const addList = (list) => {
-                        list.forEach(f => {
-                            const codigo = f && f.codigo != null ? String(f.codigo).trim() : '';
-                            const nome = f && f.nome != null ? String(f.nome).trim() : '';
-                            const regiao = f && f.regiao != null ? String(f.regiao).trim() : '';
-                            if (!codigo || !nome) return;
-                            const key = `${codigo}::${regiao.toUpperCase()}::${nome.toUpperCase()}`;
-                            if (!merged[key]) {
-                                merged[key] = {
-                                    codigo,
-                                    nome,
-                                    regiao,
-                                    areaTotal: f.areaTotal || 0,
-                                    plantioAcumulado: f.plantioAcumulado || 0,
-                                    mudaAcumulada: f.mudaAcumulada || 0,
-                                    observacoes: f.observacoes || ''
-                                };
-                            } else {
-                                merged[key].areaTotal += f.areaTotal || 0;
-                            }
-                        });
-                    };
-                    addList(fazendas);
-                    addList(fallback);
-                    fazendas = Object.values(merged);
-                }
+            
+            // Lógica de prioridade: Se o Gemini retornou dados, confiamos nele e ignoramos o fallback.
+            // Se o Gemini falhou ou não retornou nada, usamos o fallback.
+            if (fazendas.length > 0) {
+                this.ui.showNotification(`IA identificou ${fazendas.length} fazendas.`, 'success', 3000);
+            } else if (Array.isArray(fallback) && fallback.length) {
+                fazendas = fallback;
+                this.ui.showNotification('Uso de leitura padrão do PDF (IA não retornou dados).', 'warning', 4000);
             }
+
             if (!fazendas.length) {
                 this.ui.showNotification('Nenhuma fazenda encontrada no PDF. Verifique o formato.', 'warning', 4000);
                 return;
@@ -600,13 +610,23 @@ class InsumosApp {
             this.ui.showNotification('API não disponível', 'error', 3000);
             return;
         }
+
+        this.showProgress('Importando...', 0, `0 de ${data.length}`);
         let created = 0;
-        for (const f of data) {
+        
+        for (let i = 0; i < data.length; i++) {
+            const f = data[i];
             try {
                 const res = await this.api.createFazenda(f);
                 if (res && res.success) created++;
             } catch(e) {}
+            
+            const percent = ((i + 1) / data.length) * 100;
+            this.showProgress('Importando...', percent, `${i + 1} de ${data.length} (${Math.floor(percent)}%)`);
         }
+        
+        this.hideProgress();
+
         if (!created) {
             this.ui.showNotification('Não foi possível criar cadastros a partir do PDF.', 'warning', 4000);
             return;
@@ -640,11 +660,59 @@ class InsumosApp {
         this.ui.showNotification('Fazenda aplicada no formulário de plantio', 'success', 1500);
     }
 
+    findFazendaByName(name) {
+        if (!name) return null;
+        
+        // Se this.cadastroFazendas não estiver definido, tenta usar o índice
+        if (!this.cadastroFazendas) {
+            if (this.fazendaIndex && this.fazendaIndex.byName) {
+                const info = this.fazendaIndex.byName[name];
+                if (info) return { ...info, codigo: info.cod, nome: name };
+            }
+            return null;
+        }
+
+        const normalizedName = name.trim().toLowerCase();
+        
+        // Estratégia 1: Match exato ou case insensitive
+        let found = this.cadastroFazendas.find(f => (f.nome || '').trim().toLowerCase() === normalizedName);
+        if (found) return found;
+
+        // Estratégia 2: O nome procurado contém o código (ex: "123 - Fazenda") e no cadastro é só "Fazenda"
+        const matchCod = normalizedName.match(/^(\d+)\s*[-–]\s*(.+)$/);
+        if (matchCod) {
+            const nomeSemCod = matchCod[2].trim();
+            // Tenta achar pelo nome limpo
+            found = this.cadastroFazendas.find(f => (f.nome || '').trim().toLowerCase() === nomeSemCod);
+            if (found) return found;
+
+            // Tenta achar pelo código
+            const codExt = parseInt(matchCod[1]);
+            found = this.cadastroFazendas.find(f => parseInt(f.codigo) === codExt);
+            if (found) return found;
+        }
+
+        // Estratégia 3: O nome no cadastro contém código ("123 - Fazenda") e procuramos "Fazenda"
+        found = this.cadastroFazendas.find(f => {
+            const fNome = (f.nome || '').trim().toLowerCase();
+            const match = fNome.match(/^\d+\s*[-–]\s*(.+)$/);
+            return match && match[1].trim() === normalizedName;
+        });
+        
+        if (found) return found;
+
+        // Estratégia 4: Busca parcial (contém)
+        found = this.cadastroFazendas.find(f => (f.nome || '').trim().toLowerCase().includes(normalizedName) || normalizedName.includes((f.nome || '').trim().toLowerCase()));
+
+        return found;
+    }
+
     applyCadastroFazendaToPlantio(item) {
         if (!item) return;
         this.tempFazendaStats = {
             plantioAcumulado: item.plantio_acumulado || 0,
-            mudaAcumulada: item.muda_acumulada || 0
+            mudaAcumulada: item.muda_acumulada || 0,
+            cobricaoAcumulada: item.cobricao_acumulada || 0
         };
 
         const fazendaSingle = document.getElementById('single-fazenda');
@@ -652,11 +720,26 @@ class InsumosApp {
         const regiaoSingle = document.getElementById('single-regiao');
         const areaTotalSingle = document.getElementById('single-area-total');
         const plantioAcumSingle = document.getElementById('single-area-acumulada');
-        if (fazendaSingle) fazendaSingle.value = item.nome || '';
-        if (codSingle) codSingle.value = item.codigo || '';
+        const cobricaoAcumSingle = document.getElementById('cobricao-acumulada');
+        
+        // Lógica de correção: Se o nome vier no formato "1387 - Nome", separar.
+        let nomeFinal = item.nome || '';
+        let codigoFinal = item.codigo;
+
+        const matchCod = nomeFinal.match(/^(\d+)\s*[-–]\s*(.+)$/);
+        if (matchCod) {
+            // Prioriza o código extraído do nome, pois o código do banco pode ser gerado aleatório (5 dígitos)
+            codigoFinal = matchCod[1];
+            // Opcional: Se quiser limpar visualmente o nome no select, teria que alterar as options, 
+            // mas como é um select pré-populado, mantemos o valor para casar a seleção.
+        }
+
+        if (fazendaSingle) fazendaSingle.value = nomeFinal;
+        if (codSingle) codSingle.value = codigoFinal || '';
         if (regiaoSingle) regiaoSingle.value = item.regiao || '';
         if (areaTotalSingle) areaTotalSingle.value = item.area_total != null ? String(item.area_total) : '';
         if (plantioAcumSingle) plantioAcumSingle.value = item.plantio_acumulado != null ? String(item.plantio_acumulado) : '';
+        if (cobricaoAcumSingle) cobricaoAcumSingle.value = item.cobricao_acumulada != null ? String(item.cobricao_acumulada) : '';
 
         this.updateAccumulatedStats();
     }
@@ -791,6 +874,31 @@ forceReloadAllData() {
             window.addEventListener('click', (e) => {
                 if (e.target === fazendasModal) {
                     fazendasModal.style.display = 'none';
+                }
+            });
+        }
+
+        // Modal Novo Lançamento Plantio
+        const btnNovoLancamento = document.getElementById('btn-novo-lancamento');
+        const novoLancamentoModal = document.getElementById('novo-lancamento-modal');
+        const closeNovoLancamentoButtons = document.querySelectorAll('.close-novo-lancamento-modal');
+
+        if (btnNovoLancamento && novoLancamentoModal) {
+            btnNovoLancamento.addEventListener('click', () => {
+                novoLancamentoModal.style.display = 'flex';
+            });
+        }
+
+        closeNovoLancamentoButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (novoLancamentoModal) novoLancamentoModal.style.display = 'none';
+            });
+        });
+
+        if (novoLancamentoModal) {
+            window.addEventListener('click', (e) => {
+                if (e.target === novoLancamentoModal) {
+                    novoLancamentoModal.style.display = 'none';
                 }
             });
         }
@@ -992,7 +1100,618 @@ forceReloadAllData() {
         } catch (e) {
             console.error('Error loading metas UI:', e);
         }
+        this.setupOSListeners();
         console.log('setupEventListeners completed');
+    }
+
+    // === MÉTODOS DE OS ===
+    setupOSListeners() {
+        const btnOS = document.getElementById('btn-os');
+        const modal = document.getElementById('os-modal');
+        const closeBtns = document.querySelectorAll('.close-os-modal');
+        const fileInput = document.getElementById('os-file-input');
+
+        // Inputs de Fazenda na OS para lógica de split e verificação
+        const osCodFazendaInput = document.getElementById('os-cod-fazenda');
+        const osFazendaInput = document.getElementById('os-fazenda');
+
+        if (osCodFazendaInput && osFazendaInput) {
+            const bindSplit = () => {
+                const val = osFazendaInput.value;
+                const match = val.match(/^(\d+)[\W_]+(.+)$/);
+                if (match) {
+                    // Se encontrar padrão "1387 - Nome", separa
+                    osCodFazendaInput.value = match[1];
+                    osFazendaInput.value = match[2].trim();
+                    // Dispara verificação de existência
+                    checkFazendaExists();
+                }
+            };
+
+            const checkFazendaExists = () => {
+                const codigo = osCodFazendaInput.value ? parseInt(osCodFazendaInput.value) : null;
+                const nome = osFazendaInput.value.trim();
+                if (!codigo && !nome) return;
+
+                const normalize = (s) => (s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+                const nomeNorm = normalize(nome);
+
+                const exists = this.cadastroFazendas && this.cadastroFazendas.find(f => {
+                    const fNomeNorm = normalize(f.nome);
+                    const matchName = nome && fNomeNorm === nomeNorm;
+                    const matchCode = codigo && String(f.codigo) === String(codigo);
+                    return matchName || matchCode;
+                });
+
+                if (exists) {
+                    this.ui.showNotification(`Fazenda já cadastrada: ${exists.nome} (Cód: ${exists.codigo})`, 'success');
+                    if (!osCodFazendaInput.value && exists.codigo) {
+                        osCodFazendaInput.value = exists.codigo;
+                    }
+                    // Se o nome estiver diferente (ex: "Fazenda X" vs "X"), atualiza para o oficial
+                    if (exists.nome && exists.nome !== osFazendaInput.value) {
+                         // Opcional: Atualizar para o nome oficial? Pode ser intrusivo.
+                         // osFazendaInput.value = exists.nome;
+                    }
+                } else {
+                    this.ui.showNotification('Fazenda não cadastrada. Será necessário cadastrar ao salvar.', 'warning');
+                }
+            };
+
+            osFazendaInput.addEventListener('input', bindSplit);
+            osFazendaInput.addEventListener('blur', checkFazendaExists);
+            osCodFazendaInput.addEventListener('blur', checkFazendaExists);
+        }
+
+        // Navegação
+        const btnNovaOS = document.getElementById('btn-nova-os');
+        const btnVoltarList = document.getElementById('btn-voltar-os-list');
+
+        if (btnOS && modal) {
+            btnOS.addEventListener('click', () => {
+                modal.style.display = 'flex';
+                this.showOSList(); // Mostrar lista por padrão
+                this.loadOSList(); // Carregar dados
+            });
+        }
+        
+        if (btnNovaOS) {
+            btnNovaOS.addEventListener('click', () => {
+                this.showOSForm(); // Novo
+            });
+        }
+        
+        if (btnVoltarList) {
+            btnVoltarList.addEventListener('click', () => {
+                this.showOSList();
+            });
+        }
+
+        closeBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (modal) modal.style.display = 'none';
+            });
+        });
+
+        if (modal) {
+            window.addEventListener('click', (e) => {
+                if (e.target === modal) modal.style.display = 'none';
+            });
+        }
+
+        // Listener para editar itens da lista
+        const listBody = document.getElementById('os-list-body');
+        if (listBody) {
+             listBody.addEventListener('click', (e) => {
+                 const btnEdit = e.target.closest('.btn-edit-os');
+                 if (btnEdit) {
+                     const numero = btnEdit.getAttribute('data-numero');
+                     this.handleEditOS(numero);
+                 }
+             });
+        }
+
+        const btnSave = document.getElementById('os-save');
+        if (btnSave) {
+            btnSave.addEventListener('click', async () => {
+                await this.saveOSForm();
+            });
+        }
+
+        if (fileInput) {
+            // Remover listeners antigos para evitar duplicação se chamado múltiplas vezes
+            const newFileInput = fileInput.cloneNode(true);
+            fileInput.parentNode.replaceChild(newFileInput, fileInput);
+            
+            newFileInput.addEventListener('change', (e) => {
+                console.log('Arquivo selecionado:', e.target.files[0]);
+                const file = e.target.files && e.target.files[0];
+                if (file) {
+                    this.handleOSFile(file);
+                    newFileInput.value = ''; // Reset para permitir selecionar o mesmo arquivo
+                }
+            });
+        } else {
+            console.error('Elemento #os-file-input não encontrado no DOM');
+        }
+    }
+
+    async handleOSFile(file) {
+        console.log('Iniciando processamento do arquivo:', file.name, file.type);
+        if (!file) return;
+
+        this.ui.showNotification('Processando arquivo da OS...', 'info', 3000);
+
+        try {
+            let content = '';
+            let inlineData = null; // Para imagem ou PDF convertido em imagem
+
+            // Configurar Worker do PDF.js se necessário (importante para renderização)
+            if (window.pdfjsLib && !window.pdfjsLib.GlobalWorkerOptions.workerSrc) {
+                window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            }
+            
+            console.log('Tipo do arquivo:', file.type);
+
+            if (file.type === 'application/pdf') {
+                if (!window.pdfjsLib) {
+                    this.ui.showNotification('Leitor de PDF não carregado', 'error');
+                    console.error('pdfjsLib não encontrado');
+                    return;
+                }
+                
+                try {
+                    const buffer = await file.arrayBuffer();
+                    const loadingTask = window.pdfjsLib.getDocument({ data: buffer });
+                    const pdf = await loadingTask.promise;
+                    
+                    // Tentar extrair texto primeiro
+                    let fullText = '';
+                    for (let pageNum = 1; pageNum <= Math.min(pdf.numPages, 3); pageNum++) {
+                        const page = await pdf.getPage(pageNum);
+                        const textContent = await page.getTextContent();
+                        const strings = textContent.items.map(item => item.str);
+                        fullText += strings.join(' ') + '\n';
+                    }
+
+                    console.log('Texto extraído (chars):', fullText.length);
+
+                    // Lógica de Fallback: Se tiver pouco texto (< 50 chars), renderizar como imagem
+                    if (fullText.replace(/\s/g, '').length < 50) {
+                        console.warn('PDF com pouco texto detectado. Convertendo página 1 para imagem...');
+                        this.ui.showNotification('PDF escaneado detectado. Lendo como imagem...', 'info', 2000);
+
+                        const page = await pdf.getPage(1);
+                        const viewport = page.getViewport({ scale: 2.0 }); // Alta resolução
+                        const canvas = document.createElement('canvas');
+                        const context = canvas.getContext('2d');
+                        canvas.height = viewport.height;
+                        canvas.width = viewport.width;
+
+                        await page.render({ canvasContext: context, viewport: viewport }).promise;
+                        
+                        // Converter canvas para base64 (JPEG para reduzir tamanho)
+                        const base64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+                        inlineData = { mime_type: 'image/jpeg', data: base64 };
+                    } else {
+                        content = fullText;
+                    }
+                } catch (pdfErr) {
+                    console.error('Erro no processamento do PDF:', pdfErr);
+                    this.ui.showNotification('Erro ao ler PDF.', 'error');
+                    return;
+                }
+
+            } else if (file.type.startsWith('image/')) {
+                // Converter imagem para Base64
+                content = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result.split(',')[1]); // Remove o prefixo data:image/...;base64,
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
+                inlineData = { mime_type: file.type, data: content };
+                content = ''; // Limpar content texto pois usaremos inlineData
+            } else {
+                this.ui.showNotification('Formato não suportado. Use PDF ou Imagem.', 'error');
+                console.error('Formato não suportado:', file.type);
+                return;
+            }
+
+            // Chamar Gemini
+            let geminiKey = localStorage.getItem('geminiApiKey') || '';
+            if (!geminiKey || geminiKey.trim().length < 20) {
+                geminiKey = await this.askGeminiKey();
+            }
+
+            if (!geminiKey || geminiKey.length < 20) {
+                this.ui.showNotification('Chave API necessária.', 'error');
+                return;
+            }
+
+            this.ui.showNotification('Enviando para análise inteligente...', 'info', 3000);
+
+            const prompt = `
+                Você é um assistente especializado em extração de dados de Ordens de Serviço (OS) Agrícolas.
+                Analise o documento fornecido (imagem ou texto) e extraia os dados para preencher o formulário.
+                
+                ATENÇÃO: Retorne APENAS um JSON válido. Não use Markdown (\`\`\`json). Não inclua explicações.
+                
+                Estrutura do JSON:
+                {
+                    "numero": "string (número da OS)",
+                    "status": "string (ex: Planejada, Executada)",
+                    "abertura": "YYYY-MM-DD",
+                    "inicioPrev": "YYYY-MM-DD",
+                    "finalPrev": "YYYY-MM-DD",
+                    "respAplicacao": "string (Responsável Aplicação)",
+                    "empresa": "string",
+                    "frente": "string",
+                    "processo": "string",
+                    "subprocesso": "string",
+                    "fazenda": "string",
+                    "setor": "string",
+                    "areaTotal": number,
+                    "talhoes": [
+                        { "talhao": "string", "area": number, "proprietario": "string", "fundo": "string" }
+                    ],
+                    "produtos": [
+                        { "produto": "string", "doseRec": number, "unidade": "string", "qtdTotal": number }
+                    ]
+                }
+                Se algum campo não for encontrado, use null.
+            `;
+
+            const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + geminiKey;
+            
+            // Montar payload
+            const parts = [{ text: prompt }];
+            if (inlineData) {
+                parts.push({ inline_data: inlineData });
+            } else {
+                parts.push({ text: content });
+            }
+
+            const requestBody = {
+                contents: [{ parts: parts }],
+                generationConfig: {
+                    response_mime_type: 'application/json'
+                }
+            };
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestBody)
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                console.log('Gemini Full Response:', data);
+
+                if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+                    const text = data.candidates[0].content.parts[0].text;
+                    console.log('Gemini Raw Text:', text);
+                    
+                    let json = null;
+                    try {
+                        // Limpeza e extração robusta de JSON
+                        let cleanText = text.trim();
+                        // Tentar extrair apenas o bloco JSON usando regex
+                        const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
+                        if (jsonMatch) {
+                            cleanText = jsonMatch[0];
+                        }
+                        
+                        console.log('Cleaned JSON Text:', cleanText);
+                        json = JSON.parse(cleanText);
+                    } catch(e) {
+                        console.error('Erro ao parsear JSON do Gemini:', e);
+                        this.ui.showNotification('Erro ao interpretar resposta da IA.', 'error');
+                    }
+
+                    if (json) {
+                        console.log('JSON Parseado com sucesso:', json);
+                        this.fillOSForm(json);
+                        this.ui.showNotification('Dados extraídos com sucesso!', 'success');
+                    } else {
+                        this.ui.showNotification('Não foi possível estruturar os dados.', 'warning');
+                    }
+                } else {
+                    console.error('Resposta do Gemini sem candidatos válidos');
+                    this.ui.showNotification('IA não retornou dados válidos.', 'error');
+                }
+            } else {
+                console.error('Erro HTTP Gemini:', response.status, response.statusText);
+                this.ui.showNotification('Erro na análise do documento.', 'error');
+            }
+
+        } catch (e) {
+            console.error('Exceção no processamento:', e);
+            this.ui.showNotification('Erro ao processar arquivo.', 'error');
+        }
+    }
+
+    fillOSForm(data) {
+        console.log('Preenchendo formulário com:', data);
+        this.currentOSData = data; // Armazena dados atuais para salvar posteriormente
+        const set = (id, val) => { 
+            const el = document.getElementById(id); 
+            if (el) {
+                el.value = val || ''; 
+            } else {
+                console.warn('Campo não encontrado:', id);
+            }
+        };
+        
+        set('os-numero', data.numero);
+        set('os-status', data.status);
+        set('os-data-abertura', data.abertura);
+        set('os-data-inicio', data.inicioPrev);
+        set('os-data-final', data.finalPrev);
+        set('os-resp', data.respAplicacao);
+        set('os-empresa', data.empresa);
+        set('os-frente', data.frente);
+        set('os-processo', data.processo);
+        set('os-subprocesso', data.subprocesso);
+        set('os-fazenda', data.fazenda);
+        
+        // Disparar evento input para ativar a lógica de split e verificação de fazenda
+        const fazendaEl = document.getElementById('os-fazenda');
+        if (fazendaEl && data.fazenda) {
+            fazendaEl.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+
+        set('os-setor', data.setor);
+        set('os-area-total', data.areaTotal);
+
+        const talhoesBody = document.getElementById('os-talhoes-body');
+        if (talhoesBody) {
+            if (data.talhoes && Array.isArray(data.talhoes)) {
+                talhoesBody.innerHTML = data.talhoes.map(t => `
+                    <tr>
+                        <td>${t.talhao || ''}</td>
+                        <td>${t.area || ''}</td>
+                        <td>${t.proprietario || ''}</td>
+                        <td>${t.fundo || ''}</td>
+                    </tr>
+                `).join('');
+            } else {
+                console.warn('Dados de talhões inválidos ou vazios');
+            }
+        } else {
+            console.error('Tabela de talhões não encontrada (os-talhoes-body)');
+        }
+
+        const produtosBody = document.getElementById('os-produtos-body');
+        if (produtosBody) {
+            if (data.produtos && Array.isArray(data.produtos)) {
+                produtosBody.innerHTML = data.produtos.map(p => `
+                    <tr>
+                        <td>${p.produto || ''}</td>
+                        <td>${p.doseRec || ''}</td>
+                        <td>${p.unidade || ''}</td>
+                        <td>${p.qtdTotal || ''}</td>
+                    </tr>
+                `).join('');
+            } else {
+                console.warn('Dados de produtos inválidos ou vazios');
+            }
+        } else {
+            console.error('Tabela de produtos não encontrada (os-produtos-body)');
+        }
+    }
+
+    async saveOSForm() {
+        this.ui.showLoading();
+        try {
+            // Coletar dados do formulário
+            const getVal = (id) => {
+                const el = document.getElementById(id);
+                return el ? el.value : '';
+            };
+
+            const payload = {
+                numero: getVal('os-numero'),
+                status: getVal('os-status'),
+                abertura: getVal('os-data-abertura'),
+                inicioPrev: getVal('os-data-inicio'),
+                finalPrev: getVal('os-data-final'),
+                respAplicacao: getVal('os-resp'),
+                empresa: getVal('os-empresa'),
+                frente: getVal('os-frente'),
+                processo: getVal('os-processo'),
+                subprocesso: getVal('os-subprocesso'),
+                fazenda: getVal('os-fazenda'),
+                setor: getVal('os-setor'),
+                areaTotal: parseFloat(getVal('os-area-total')) || 0,
+                // Manter arrays originais se existirem
+                talhoes: this.currentOSData ? this.currentOSData.talhoes : [],
+                produtos: this.currentOSData ? this.currentOSData.produtos : []
+            };
+
+            if (!payload.numero) {
+                this.ui.showNotification('Número da OS é obrigatório.', 'warning');
+                this.ui.hideLoading();
+                return;
+            }
+
+            // Validação de Fazenda ANTES de salvar
+            const fazendaNome = payload.fazenda.trim();
+            const fazendaCodInput = document.getElementById('os-cod-fazenda');
+            const fazendaCod = fazendaCodInput ? parseInt(fazendaCodInput.value) : null;
+
+            if (fazendaNome) {
+                const normalize = (s) => (s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+                const nomeNorm = normalize(fazendaNome);
+
+                const exists = this.cadastroFazendas && this.cadastroFazendas.find(f => {
+                    const fNomeNorm = normalize(f.nome);
+                    const matchName = nomeNorm && fNomeNorm === nomeNorm;
+                    const matchCode = fazendaCod && String(f.codigo) === String(fazendaCod);
+                    return matchName || matchCode;
+                });
+
+                if (!exists) {
+                    const confirmCadastro = window.confirm(`A fazenda "${fazendaNome}" não possui cadastro. Deseja cadastrar agora?`);
+                    if (confirmCadastro) {
+                        this.ui.hideLoading();
+                        // Abrir modal de cadastro de fazenda
+                        const fazendasModal = document.getElementById('fazendas-modal');
+                        if (fazendasModal) {
+                            fazendasModal.style.display = 'flex';
+                            
+                            // Preencher dados
+                            const cNome = document.getElementById('cadastro-fazenda-nome');
+                            const cCod = document.getElementById('cadastro-fazenda-codigo');
+                            const cRegiao = document.getElementById('cadastro-fazenda-regiao');
+                            const cArea = document.getElementById('cadastro-fazenda-area-total');
+
+                            if (cNome) cNome.value = fazendaNome;
+                            if (cCod && fazendaCod) cCod.value = fazendaCod;
+                            if (cRegiao) cRegiao.value = payload.setor || '';
+                            if (cArea) cArea.value = payload.areaTotal || '';
+                            
+                            this.ui.showNotification('Preencha os dados da fazenda e salve.', 'info', 4000);
+                        }
+                        return; // Interrompe o salvamento da OS
+                    }
+                    // Se usuário cancelar, assume que quer salvar a OS sem cadastrar a fazenda
+                } else {
+                    // Se existe, garantir que o código está correto no payload se não estiver
+                    if (exists.codigo && !fazendaCod) {
+                        // Opcional: atualizar payload se tiver campo de código no backend da OS
+                        // payload.codFazenda = exists.codigo;
+                    }
+                }
+            }
+
+            const res = await this.api.saveOS(payload);
+            
+            if (res && res.success) {
+                this.ui.showNotification('OS salva com sucesso!', 'success');
+                // Voltar para a lista e recarregar
+                this.showOSList();
+                this.loadOSList();
+            } else {
+                this.ui.showNotification('Erro ao salvar OS.', 'error');
+            }
+
+        } catch (e) {
+            console.error('Erro ao salvar OS:', e);
+            this.ui.showNotification('Erro ao salvar OS: ' + e.message, 'error');
+        } finally {
+            this.ui.hideLoading();
+        }
+    }
+
+    showOSList() {
+        const viewList = document.getElementById('os-view-list');
+        const viewForm = document.getElementById('os-view-form');
+        if (viewList) viewList.style.display = 'block';
+        if (viewForm) viewForm.style.display = 'none';
+        this.currentOSData = null; // Limpar dados em edição
+    }
+
+    showOSForm() {
+        const viewList = document.getElementById('os-view-list');
+        const viewForm = document.getElementById('os-view-form');
+        if (viewList) viewList.style.display = 'none';
+        if (viewForm) viewForm.style.display = 'block';
+        
+        // Limpar formulário para nova inserção se não estiver editando
+        // (Mas se estiver vindo de handleEditOS, já estará preenchido. 
+        //  Se for 'Nova OS', deve limpar. Vamos assumir que quem chama lida com isso 
+        //  ou implementamos um clear aqui se currentOSData for null)
+        if (!this.currentOSData) {
+            this.clearOSForm();
+        }
+    }
+
+    clearOSForm() {
+        const ids = [
+            'os-numero', 'os-status', 'os-data-abertura', 'os-data-inicio', 
+            'os-data-final', 'os-resp', 'os-empresa', 'os-frente', 
+            'os-processo', 'os-subprocesso', 'os-fazenda', 'os-setor', 'os-area-total'
+        ];
+        ids.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+        document.getElementById('os-talhoes-body').innerHTML = '';
+        document.getElementById('os-produtos-body').innerHTML = '';
+        this.currentOSData = null;
+    }
+
+    async loadOSList() {
+        const tbody = document.getElementById('os-list-body');
+        
+        if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="loading">Carregando...</td></tr>';
+
+        try {
+            const res = await this.api.getOSList();
+            if (res.success && res.data) {
+                this.osListCache = res.data; // Cache para edição
+                
+                // Populate Frente dropdown
+                const singleFrente = document.getElementById('single-frente');
+                if (singleFrente) {
+                    singleFrente.innerHTML = '<option value="">Selecione</option>';
+                    const frentes = [...new Set(res.data.map(os => os.frente).filter(Boolean))].sort();
+                    frentes.forEach(frente => {
+                        const option = document.createElement('option');
+                        option.value = frente;
+                        option.textContent = frente;
+                        singleFrente.appendChild(option);
+                    });
+                }
+
+                if (tbody) {
+                    if (res.data.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="6" class="loading">Nenhuma OS encontrada.</td></tr>';
+                        return;
+                    }
+
+                    tbody.innerHTML = res.data.map(os => `
+                        <tr>
+                            <td>${os.numero || '-'}</td>
+                            <td><span class="status-badge ${this.getStatusClass(os.status)}">${os.status || 'Pendente'}</span></td>
+                            <td>${os.fazenda || '-'}</td>
+                            <td>${this.ui.formatDateBR(os.abertura)}</td>
+                            <td>${os.respAplicacao || '-'}</td>
+                            <td>
+                                <button class="btn btn-sm btn-secondary btn-edit-os" data-numero="${os.numero}">✏️ Editar</button>
+                            </td>
+                        </tr>
+                    `).join('');
+                }
+            } else {
+                if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="error">Erro ao carregar dados.</td></tr>';
+            }
+        } catch (e) {
+            console.error('Erro ao carregar lista de OS:', e);
+            if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="error">Erro de conexão.</td></tr>';
+        }
+    }
+
+    getStatusClass(status) {
+        if (!status) return '';
+        const s = status.toLowerCase();
+        if (s.includes('executad') || s.includes('concluid')) return 'status-success'; // Verde
+        if (s.includes('planejad') || s.includes('abert')) return 'status-warning'; // Amarelo
+        if (s.includes('cancel')) return 'status-danger'; // Vermelho
+        return '';
+    }
+
+    handleEditOS(numero) {
+        if (!this.osListCache) return;
+        const os = this.osListCache.find(i => String(i.numero) === String(numero));
+        if (os) {
+            this.fillOSForm(os);
+            this.showOSForm();
+            // Precisamos garantir que currentOSData tenha os arrays mesmo que venham do banco
+            // O getOSList deve retornar tudo. Se o banco retorna JSONB, deve estar ok.
+        }
     }
 
     // === MÉTODOS DE METAS E GRÁFICO DE PLANTIO ===
@@ -1442,8 +2161,10 @@ forceReloadAllData() {
 
         const singlePlantioDia = document.getElementById('single-plantio-dia');
         const mudaConsumoDia = document.getElementById('muda-consumo-dia');
+        const cobricaoDia = document.getElementById('cobricao-dia');
         if (singlePlantioDia) singlePlantioDia.addEventListener('input', () => this.updateAccumulatedStats());
         if (mudaConsumoDia) mudaConsumoDia.addEventListener('input', () => this.updateAccumulatedStats());
+        if (cobricaoDia) cobricaoDia.addEventListener('input', () => this.updateAccumulatedStats());
 
         const toletesTotal = document.getElementById('qual-toletes-total');
         const toletesBons = document.getElementById('qual-toletes-bons');
@@ -1476,12 +2197,120 @@ forceReloadAllData() {
         if (mudasAmostra) mudasAmostra.addEventListener('input', bindMudas);
 
         const singleFrente = document.getElementById('single-frente');
+        const singleOs = document.getElementById('single-os');
+
+        if (singleFrente) {
+            singleFrente.addEventListener('change', () => {
+                const val = singleFrente.value;
+                if (singleOs) {
+                    singleOs.innerHTML = '<option value="">Selecione a OS</option>';
+                    if (val && this.osListCache) {
+                        const osList = this.osListCache.filter(o => o.frente === val);
+                        osList.forEach(os => {
+                            const opt = document.createElement('option');
+                            opt.value = os.numero;
+                            opt.textContent = `${os.numero} - ${os.fazenda || 'Sem Fazenda'}`;
+                            singleOs.appendChild(opt);
+                        });
+                    }
+                }
+            });
+        }
+
+        if (singleOs) {
+            singleOs.addEventListener('change', () => {
+                const val = singleOs.value;
+                if (!val || !this.osListCache) return;
+                
+                const os = this.osListCache.find(o => String(o.numero) === String(val));
+                if (os) {
+                    // Preencher Responsável
+                    const respEl = document.getElementById('plantio-responsavel');
+                    if (respEl && os.respAplicacao) respEl.value = os.respAplicacao;
+                    
+                    // Preencher Área Total
+                    const areaEl = document.getElementById('single-area');
+                    if (areaEl && os.areaTotal) areaEl.value = os.areaTotal;
+
+                    // Referências aos campos
+                    const fazendaEl = document.getElementById('single-fazenda');
+                    const codInput = document.getElementById('single-cod');
+                    const regiaoEl = document.getElementById('single-regiao');
+
+                    // 1. Tentar preencher Região (Setor da OS) - Prioridade inicial
+                    if (regiaoEl && os.setor) {
+                        regiaoEl.value = os.setor;
+                    }
+
+                    // 2. Tentar preencher Fazenda e Código
+                    if (os.fazenda) {
+                        const targetFazenda = os.fazenda.trim();
+                        // Tentar encontrar no cadastro para ter o objeto completo e acumulados
+                        const fazendaObj = this.findFazendaByName(targetFazenda);
+
+                        if (fazendaObj) {
+                            // Se achou no cadastro, aplica os dados (incluindo acumulados)
+                            this.applyCadastroFazendaToPlantio(fazendaObj);
+                            
+                            // IMPORTANTE: Restaurar a Região/Setor da OS se ela existir, 
+                            // pois a OS pode ser específica de um setor e o cadastro ser genérico
+                            if (regiaoEl && os.setor) {
+                                regiaoEl.value = os.setor;
+                            }
+                        } else {
+                            // Fallback: Cadastro não encontrado, preencher manualmente o possível
+                            
+                            // Tentar extrair código do nome da fazenda na OS (ex: "123 - Fazenda X")
+                            const matchCod = targetFazenda.match(/^(\d+)\s*[-–]\s*(.+)$/);
+                            if (matchCod && codInput) {
+                                codInput.value = matchCod[1];
+                            }
+
+                            // Tentar selecionar no dropdown de fazendas
+                            if (fazendaEl) {
+                                let foundInSelect = false;
+                                const targetLower = targetFazenda.toLowerCase();
+                                
+                                for (let i = 0; i < fazendaEl.options.length; i++) {
+                                    const optText = fazendaEl.options[i].text.trim().toLowerCase();
+                                    const optVal = fazendaEl.options[i].value.trim().toLowerCase();
+                                    
+                                    // Match exato
+                                    if (optText === targetLower || optVal === targetLower) {
+                                        fazendaEl.selectedIndex = i;
+                                        foundInSelect = true;
+                                        break;
+                                    }
+                                    
+                                    // Match parcial se tiver código na OS e não no select
+                                    if (matchCod) {
+                                        const nomeSemCod = matchCod[2].trim().toLowerCase();
+                                        if (optText === nomeSemCod || optVal === nomeSemCod) {
+                                            fazendaEl.selectedIndex = i;
+                                            foundInSelect = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                                
+                                // Se não achou no select e o select for editável ou apenas visual, 
+                                // não podemos forçar valor que não existe no select padrão HTML.
+                                // Mas podemos tentar setar value se for um input texto disfarçado (não é, é select).
+                            }
+                        }
+                    }
+                    
+                    this.ui.showNotification('Dados da OS preenchidos.', 'info', 1500);
+                }
+            });
+        }
+
         const singleCod = document.getElementById('single-cod');
         const singleFazenda = document.getElementById('single-fazenda');
         if (singleFazenda) singleFazenda.addEventListener('change', () => {
             if (this.cadastroFazendas && this.cadastroFazendas.length) {
                 const nome = singleFazenda.value;
-                const item = this.cadastroFazendas.find(f => (f.nome || '') === nome);
+                const item = this.findFazendaByName(nome);
                 if (item) {
                     this.applyCadastroFazendaToPlantio(item);
                     return;
@@ -1629,6 +2458,9 @@ forceReloadAllData() {
         try {
             await this.ensureApiReady();
             if (!this.api) throw new Error('API não inicializada');
+
+            // Carregar lista de OS (para dropdowns e modal)
+            await this.loadOSList();
 
             try {
                 const fazendasResponse = await this.api.getFazendas();
@@ -3091,12 +3923,26 @@ InsumosApp.prototype.savePlantioDia = async function() {
         mudaLiberacaoFazenda: document.getElementById('muda-liberacao-fazenda')?.value || '',
         mudaVariedade: document.getElementById('muda-variedade')?.value || ''
     };
+    let fazendaNome = document.getElementById('single-fazenda')?.value || '';
+    // Tentar remover código do início do nome (ex: "1387 - Fazenda X" -> "Fazenda X")
+    // O usuário relatou que o código está aparecendo junto com o nome
+    const matchCod = fazendaNome.match(/^(\d+)\s*[-–]\s*(.+)$/);
+    let codExtraido = null;
+    if (matchCod) {
+        codExtraido = parseInt(matchCod[1]);
+        fazendaNome = matchCod[2].trim();
+    }
+
     const frenteKey = document.getElementById('single-frente')?.value || '';
     if (!data || !frenteKey) { this.ui.showNotification('Informe data e frente', 'warning'); return; }
+    
+    const codInput = document.getElementById('single-cod')?.value;
+    const codFinal = codInput ? parseInt(codInput) : (codExtraido || undefined);
+
     const frente = {
         frente: frenteKey,
-        fazenda: document.getElementById('single-fazenda')?.value || '',
-        cod: document.getElementById('single-cod')?.value ? parseInt(document.getElementById('single-cod')?.value) : undefined,
+        fazenda: fazendaNome,
+        cod: codFinal,
         regiao: document.getElementById('single-regiao')?.value || '',
         area: parseFloat(document.getElementById('single-area')?.value || '0'),
         plantada: parseFloat(document.getElementById('single-plantada')?.value || '0'),
@@ -3118,7 +3964,8 @@ InsumosApp.prototype.savePlantioDia = async function() {
                 try {
                     await this.api.updateFazenda(frente.cod, {
                         plantioAcumulado: frente.areaAcumulada,
-                        mudaAcumulada: qualidade.mudaConsumoAcumulado
+                        mudaAcumulada: qualidade.mudaConsumoAcumulado,
+                        cobricaoAcumulada: qualidade.cobricaoAcumulada
                     });
                     const cadResp = await this.api.getFazendas();
                     if (cadResp && cadResp.success && Array.isArray(cadResp.data)) {
@@ -3128,6 +3975,7 @@ InsumosApp.prototype.savePlantioDia = async function() {
                             areaTotal: f.area_total,
                             plantioAcumulado: f.plantio_acumulado,
                             mudaAcumulada: f.muda_acumulada,
+                            cobricaoAcumulada: f.cobricao_acumulada,
                             regiao: f.regiao
                         }));
                         this.buildCadastroIndex(list);
@@ -3137,7 +3985,7 @@ InsumosApp.prototype.savePlantioDia = async function() {
             }
             this.plantioInsumosDraft = [];
             this.renderInsumosDraft();
-            ['single-fazenda','single-cod','single-regiao','single-area','single-plantada','single-area-total','single-area-acumulada','single-plantio-dia'].forEach(id=>{ const el=document.getElementById(id); if (el) el.value=''; });
+            ['single-fazenda','single-cod','single-regiao','single-area','single-plantada','single-area-total','single-area-acumulada','single-plantio-dia','cobricao-dia','cobricao-acumulada'].forEach(id=>{ const el=document.getElementById(id); if (el) el.value=''; });
             await this.loadPlantioDia();
         } else {
             this.ui.showNotification('Erro ao registrar', 'error');
@@ -3283,7 +4131,8 @@ InsumosApp.prototype.autofillCadastroFields = function(code) {
 
     this.tempFazendaStats = {
         plantioAcumulado: info.plantioAcumulado || 0,
-        mudaAcumulada: info.mudaAcumulada || 0
+        mudaAcumulada: info.mudaAcumulada || 0,
+        cobricaoAcumulada: info.cobricaoAcumulada || 0
     };
 
     const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
@@ -3291,6 +4140,7 @@ InsumosApp.prototype.autofillCadastroFields = function(code) {
     setVal('single-regiao', info.regiao || '');
     setVal('single-area-total', String(info.areaTotal || 0));
     setVal('single-area-acumulada', String(info.plantioAcumulado || 0));
+    setVal('cobricao-acumulada', String(info.cobricaoAcumulada || 0));
     
     const mudaAccumEl = document.getElementById('muda-consumo-acumulado');
     if (mudaAccumEl) mudaAccumEl.value = String(info.mudaAcumulada || 0);

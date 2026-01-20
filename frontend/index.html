@@ -620,264 +620,12 @@
     <!-- Tab Plantio Diário -->
     <div class="tab-content" id="plantio-dia">
         <div style="margin-bottom: 15px;">
+            <button id="btn-novo-lancamento" class="btn btn-primary">➕ NOVO Lançamento</button>
             <button id="btn-open-fazendas-modal" class="btn btn-secondary">🏡 Gerenciar Fazendas</button>
+            <button id="btn-liberacao-colheita" class="btn btn-secondary">🌾 Liberação de Colheita</button>
+            <button id="btn-os" class="btn btn-secondary">📋 OS</button>
         </div>
-        <div class="charts">
-            <div class="chart-card">
-                <h4 style="margin: 0 0 10px 0;">1. Informações Gerais</h4>
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label for="single-frente">Frente</label>
-                        <select id="single-frente">
-                            <option value="">Selecione</option>
-                            <option value="4001">4001</option>
-                            <option value="4002">4002</option>
-                            <option value="4009 Abençoada">4009 Abençoada</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="plantio-data">Data</label>
-                        <input type="date" id="plantio-data">
-                    </div>
-                    <div class="form-group">
-                        <label for="plantio-responsavel">Responsável</label>
-                        <input type="text" id="plantio-responsavel">
-                    </div>
-                    <div class="form-group">
-                        <label for="plantio-obs">Observações</label>
-                        <input type="text" id="plantio-obs" placeholder="Opcional">
-                    </div>
-                    <div class="form-group">
-                        <label for="chuva-mm">Chuva (mm)</label>
-                        <input type="number" id="chuva-mm" step="0.1">
-                    </div>
-                    <div class="form-group">
-                        <label for="plantio-gps">GPS</label>
-                        <select id="plantio-gps">
-                            <option value="Não" selected>Não</option>
-                            <option value="Sim">Sim</option>
-                        </select>
-                        <div id="gps-coords" style="display:none; grid-column: span 3; margin-top:8px;">
-                            <div class="form-group">
-                                <label for="gps-lat">Latitude</label>
-                                <input type="text" id="gps-lat" placeholder="-23.12345">
-                            </div>
-                            <div class="form-group">
-                                <label for="gps-lon">Longitude</label>
-                                <input type="text" id="gps-lon" placeholder="-46.12345">
-                            </div>
-                            <div class="form-group">
-                                <label for="gps-alt">Altitude (m)</label>
-                                <input type="number" id="gps-alt" step="0.1">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="chart-card">
-                <h4 style="margin: 0 0 10px 0;">2. Relatório Diário - Frente</h4>
-                <div class="form-grid boletim-grid">
-                    
-                    <div class="form-group">
-                        <label for="single-fazenda">Fazenda</label>
-                        <select id="single-fazenda">
-                            <option value="">Selecione a Fazenda</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="single-cod">Código</label>
-                        <input type="text" id="single-cod">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="single-regiao">Região</label>
-                        <input type="text" id="single-regiao">
-                    </div>
-                    <div class="form-group">
-                        <label for="single-area">Área total (ha)</label>
-                        <input type="number" id="single-area" step="0.01">
-                    </div>
-                    <div class="form-group">
-                        <label for="single-plantada">Área Plantada (ha)</label>
-                        <input type="number" id="single-plantada" step="0.01">
-                    </div>
-                    <div class="form-group">
-                        <label for="single-area-total">Área total Acumulada</label>
-                        <input type="number" id="single-area-total" step="0.01">
-                    </div>
-                    <div class="form-group">
-                        <label for="single-area-acumulada">Plantio acumulado (ha)</label>
-                        <input type="number" id="single-area-acumulada" step="0.01">
-                    </div>
-                    <div class="form-group">
-                        <label for="single-plantio-dia">Plantio total (ha)</label>
-                        <input type="number" id="single-plantio-dia" step="0.01">
-                    </div>
-                    <div class="form-group">
-                        <label for="cobricao-dia">Cobrição (dia)</label>
-                        <input type="number" id="cobricao-dia" step="0.01">
-                    </div>
-                    <div class="form-group">
-                        <label for="cobricao-acumulada">Cobrição (acumulada)</label>
-                        <input type="number" id="cobricao-acumulada" step="0.01">
-                    </div>
-                </div>
-            </div>
-
-            
-
-            <div class="chart-card">
-                <h4 style="margin: 0 0 10px 0;">3. Qualidade Muda/Plantio</h4>
-                
-                <h5 style="margin: 5px 0; color: #666;">Gemas</h5>
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label for="qual-gemas-amostra">Amostra (m)</label>
-                        <input type="number" id="qual-gemas-amostra" step="0.1">
-                    </div>
-                    <div class="form-group">
-                        <label for="qual-gemas-total">Gemas totais</label>
-                        <input type="number" id="qual-gemas-total" step="1">
-                    </div>
-                    <div class="form-group">
-                        <label for="qual-gemas-media">Gemas/m</label>
-                        <input type="number" id="qual-gemas-media" step="0.01" readonly>
-                    </div>
-                    <div class="form-group">
-                        <label for="qual-gemas-boas">Gemas viáveis</label>
-                        <input type="number" id="qual-gemas-boas" step="1">
-                    </div>
-                    <div class="form-group">
-                        <label for="qual-gemas-ruins">Gemas inviáveis</label>
-                        <input type="number" id="qual-gemas-ruins" step="1">
-                    </div>
-                    <div class="form-group">
-                        <label for="qual-gemas-boas-pct">% Gemas viáveis</label>
-                        <input type="number" id="qual-gemas-boas-pct" step="0.01" readonly>
-                    </div>
-                    <div class="form-group">
-                        <label for="qual-gemas-ruins-pct">% Gemas inviáveis</label>
-                        <input type="number" id="qual-gemas-ruins-pct" step="0.01" readonly>
-                    </div>
-                </div>
-
-                <h5 style="margin: 5px 0; color: #666;">Toletes</h5>
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label for="qual-toletes-amostra">Amostra (m)</label>
-                        <input type="number" id="qual-toletes-amostra" step="0.1">
-                    </div>
-                    <div class="form-group">
-                        <label for="qual-toletes-total">Toletes totais</label>
-                        <input type="number" id="qual-toletes-total" step="1">
-                    </div>
-                    <div class="form-group">
-                        <label for="qual-toletes-media">Toletes/m</label>
-                        <input type="number" id="qual-toletes-media" step="0.01" readonly>
-                    </div>
-                    <div class="form-group">
-                        <label for="qual-toletes-bons">Toletes bons</label>
-                        <input type="number" id="qual-toletes-bons" step="1">
-                    </div>
-                    <div class="form-group">
-                        <label for="qual-toletes-ruins">Toletes ruins</label>
-                        <input type="number" id="qual-toletes-ruins" step="1">
-                    </div>
-                    <div class="form-group">
-                        <label for="qual-toletes-bons-pct">% Toletes bons</label>
-                        <input type="number" id="qual-toletes-bons-pct" step="0.01" readonly>
-                    </div>
-                    <div class="form-group">
-                        <label for="qual-toletes-ruins-pct">% Toletes ruins</label>
-                        <input type="number" id="qual-toletes-ruins-pct" step="0.01" readonly>
-                    </div>
-                </div>
-
-                <h5 style="margin: 5px 0; color: #666;">Mudas (Qualidade)</h5>
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label for="qual-mudas-amostra">Amostra (m)</label>
-                        <input type="number" id="qual-mudas-amostra" step="0.1">
-                    </div>
-                    <div class="form-group">
-                        <label for="qual-mudas-total">Mudas totais</label>
-                        <input type="number" id="qual-mudas-total" step="1">
-                    </div>
-                    <div class="form-group">
-                        <label for="qual-mudas-media">Mudas/m</label>
-                        <input type="number" id="qual-mudas-media" step="0.01" readonly>
-                    </div>
-                    <div class="form-group">
-                        <label for="qual-mudas-boas">Mudas boas</label>
-                        <input type="number" id="qual-mudas-boas" step="1">
-                    </div>
-                    <div class="form-group">
-                        <label for="qual-mudas-ruins">Mudas ruins</label>
-                        <input type="number" id="qual-mudas-ruins" step="1">
-                    </div>
-                    <div class="form-group">
-                        <label for="qual-mudas-boas-pct">% Mudas boas</label>
-                        <input type="number" id="qual-mudas-boas-pct" step="0.01" readonly>
-                    </div>
-                    <div class="form-group">
-                        <label for="qual-mudas-ruins-pct">% Mudas ruins</label>
-                        <input type="number" id="qual-mudas-ruins-pct" step="0.01" readonly>
-                    </div>
-                </div>
-
-                <h5 style="margin: 5px 0; color: #666;">Outros Indicadores</h5>
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label for="qual-muda">Muda (ton/ha)</label>
-                        <input type="number" id="qual-muda" step="0.01">
-                    </div>
-                    <div class="form-group">
-                        <label for="qual-profundidade">Profundidade (cm)</label>
-                        <input type="number" id="qual-profundidade" step="0.1">
-                    </div>
-                    <div class="form-group">
-                        <label for="qual-cobertura">Cobertura</label>
-                        <input type="text" id="qual-cobertura">
-                    </div>
-                    <div class="form-group">
-                        <label for="qual-alinhamento">Alinhamento</label>
-                        <input type="text" id="qual-alinhamento">
-                    </div>
-                </div>
-                
-                <h4 style="margin: 0 0 10px 0;">4. Muda</h4>
-                <div class="form-grid boletim-grid">
-                    <div class="form-group">
-                        <label for="muda-consumo-total">Consumo total de muda</label>
-                        <input type="number" id="muda-consumo-total" step="0.01">
-                    </div>
-                    <div class="form-group">
-                        <label for="muda-consumo-acumulado">Consumo acumulado</label>
-                        <input type="number" id="muda-consumo-acumulado" step="0.01">
-                    </div>
-                    <div class="form-group">
-                        <label for="muda-consumo-dia">Consumo total do dia</label>
-                        <input type="number" id="muda-consumo-dia" step="0.01">
-                    </div>
-                    <div class="form-group">
-                        <label for="muda-previsto">Previsto das mudas</label>
-                        <input type="number" id="muda-previsto" step="0.01">
-                    </div>
-                    <div class="form-group">
-                        <label for="muda-liberacao-fazenda">Liberação fazenda</label>
-                        <input type="text" id="muda-liberacao-fazenda">
-                    </div>
-                    <div class="form-group">
-                        <label for="muda-variedade">Variedade</label>
-                        <input type="text" id="muda-variedade">
-                    </div>
-                </div>
-                
-                <div style="margin-top:10px; display:flex; gap:10px;">
-                    <button id="plantio-save-btn" class="btn btn-primary">💾 Registrar Dia</button>
-                </div>
-            </div>
+        <!-- Sections moved to modal -->
 
             <div class="table-container">
                 <table class="data-table" id="plantio-table">
@@ -895,6 +643,170 @@
         </div>
 
         
+    </div>
+
+    <div id="os-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 95%;">
+            <div class="modal-header">
+                <h3>📋 Cadastro de Ordem de Serviço (OS)</h3>
+                <button class="close-modal close-os-modal">&times;</button>
+            </div>
+            <div class="modal-body" style="overflow-y: auto; max-height: 80vh;">
+                
+                <!-- LISTA DE OS (Visão Principal) -->
+                <div id="os-view-list" class="chart-card">
+                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h4 style="margin: 0;">Todas as OS Cadastradas</h4>
+                        <button class="btn btn-primary" id="btn-nova-os">➕ Nova OS</button>
+                     </div>
+                     <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Número</th>
+                                    <th>Status</th>
+                                    <th>Fazenda</th>
+                                    <th>Data Abertura</th>
+                                    <th>Responsável</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="os-list-body">
+                                <tr>
+                                    <td colspan="6" class="loading">Carregando...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                     </div>
+                </div>
+
+                <!-- FORMULÁRIO DE OS (Oculto por padrão) -->
+                <div id="os-view-form" style="display: none;">
+                    <button class="btn btn-secondary" id="btn-voltar-os-list" style="margin-bottom: 10px;">⬅ Voltar para Lista</button>
+
+                    <div class="charts">
+                        <div class="chart-card">
+                            <h4 style="margin: 0 0 10px 0;">Dados da OS</h4>
+                        <div style="margin-bottom: 15px; padding: 10px; background-color: #f5f5f5; border-radius: 4px; display: flex; align-items: center; justify-content: space-between;">
+                            <span>Importar dados de arquivo (PDF/Imagem):</span>
+                            <div>
+                                <input type="file" id="os-file-input" accept="application/pdf,image/*" style="display: none;">
+                                <button class="btn btn-secondary" onclick="document.getElementById('os-file-input').click()">📂 Selecionar Arquivo</button>
+                            </div>
+                        </div>
+
+                        <div class="form-grid boletim-grid">
+                            <!-- Cabeçalho -->
+                            <div class="form-group">
+                                <label for="os-numero">Número da OS</label>
+                                <input type="text" id="os-numero">
+                            </div>
+                            <div class="form-group">
+                                <label for="os-status">Status</label>
+                                <input type="text" id="os-status">
+                            </div>
+                            <div class="form-group">
+                                <label for="os-data-abertura">Abertura</label>
+                                <input type="date" id="os-data-abertura">
+                            </div>
+                            <div class="form-group">
+                                <label for="os-data-inicio">Início Prev.</label>
+                                <input type="date" id="os-data-inicio">
+                            </div>
+                            <div class="form-group">
+                                <label for="os-data-final">Final Prev.</label>
+                                <input type="date" id="os-data-final">
+                            </div>
+                            
+                            <!-- Info Principal -->
+                            <div class="form-group">
+                                <label for="os-resp">Resp. Aplicação</label>
+                                <input type="text" id="os-resp">
+                            </div>
+                            <div class="form-group">
+                                <label for="os-empresa">Empresa</label>
+                                <input type="text" id="os-empresa">
+                            </div>
+                            <div class="form-group">
+                                <label for="os-frente">Frente</label>
+                                <input type="text" id="os-frente">
+                            </div>
+                             <div class="form-group">
+                                <label for="os-processo">Processo</label>
+                                <input type="text" id="os-processo">
+                            </div>
+                             <div class="form-group">
+                                <label for="os-subprocesso">SubProcesso</label>
+                                <input type="text" id="os-subprocesso">
+                            </div>
+                            
+                            <!-- Localização -->
+                             <div class="form-group">
+                                <label for="os-cod-fazenda">Cód. Fazenda</label>
+                                <input type="number" id="os-cod-fazenda" step="1" placeholder="Cód.">
+                            </div>
+                             <div class="form-group">
+                                <label for="os-fazenda">Fazenda</label>
+                                <input type="text" id="os-fazenda">
+                            </div>
+                             <div class="form-group">
+                                <label for="os-setor">Setor</label>
+                                <input type="text" id="os-setor">
+                            </div>
+                            <div class="form-group">
+                                <label for="os-area-total">Área Total (ha)</label>
+                                <input type="number" id="os-area-total" step="0.01">
+                            </div>
+                        </div>
+
+                        <!-- Talhões -->
+                        <h5 style="margin: 15px 0 5px 0;">Talhões</h5>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Talhão</th>
+                                        <th>Área (ha)</th>
+                                        <th>Proprietário</th>
+                                        <th>Fundo Agrícola</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="os-talhoes-body">
+                                    <!-- Preenchido via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Produtos -->
+                        <h5 style="margin: 15px 0 5px 0;">Produtos Planejados</h5>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Produto</th>
+                                        <th>Dose Rec.</th>
+                                        <th>Unid.</th>
+                                        <th>Qtd. Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="os-produtos-body">
+                                    <!-- Preenchido via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div style="margin-top:20px;display:flex;gap:10px;justify-content:flex-end;">
+                            <button type="button" class="btn btn-secondary" id="os-novo">Limpar</button>
+                            <button type="button" class="btn btn-primary" id="os-save">💾 Salvar OS</button>
+                        </div>
+                    </div>
+                </div>
+            </div> <!-- Fim de os-view-form -->
+            </div> <!-- Fim de modal-body -->
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary close-os-modal">Fechar</button>
+            </div>
+        </div>
     </div>
 
     <!-- Modal Cadastro Fazendas -->
@@ -1040,6 +952,16 @@
         </div>
     </div>
 
+    <div id="progress-modal" class="modal" style="display:none; z-index: 2000;">
+        <div class="modal-content" style="max-width: 400px; text-align: center;">
+            <h3 id="progress-title" style="margin-top:0;">Processando...</h3>
+            <div style="width: 100%; background-color: #e0e0e0; border-radius: 8px; margin: 20px 0; overflow: hidden;">
+                <div id="progress-bar" style="width: 0%; height: 24px; background-color: #4CAF50; transition: width 0.3s ease;"></div>
+            </div>
+            <p id="progress-text" style="font-weight: bold; color: #555;">0%</p>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -1050,5 +972,262 @@
     <script src="ui.js?v=20260119-5"></script>
     <script src="import.js?v=20260119-5"></script>
     <script src="app.js?v=20260119-5"></script>
+    <!-- Modal Novo Lançamento Plantio -->
+    <div id="novo-lancamento-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 95%;">
+            <div class="modal-header">
+                <h3>Novo Lançamento de Plantio</h3>
+                <button class="close-modal close-novo-lancamento-modal">&times;</button>
+            </div>
+            <div class="modal-body" style="overflow-y: auto; max-height: 80vh;">
+                <div class="charts">
+                    <div class="chart-card">
+                        <h4 style="margin: 0 0 10px 0;">1. Informações Gerais</h4>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="single-frente">Frente</label>
+                                <select id="single-frente">
+                                    <option value="">Selecione</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="single-os">OS do Plantio</label>
+                                <select id="single-os">
+                                    <option value="">Selecione a Frente primeiro</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="plantio-data">Data</label>
+                                <input type="date" id="plantio-data">
+                            </div>
+                            <div class="form-group">
+                                <label for="plantio-responsavel">Responsável</label>
+                                <input type="text" id="plantio-responsavel">
+                            </div>
+                            <div class="form-group">
+                                <label for="plantio-obs">Observações</label>
+                                <input type="text" id="plantio-obs" placeholder="Opcional">
+                            </div>
+                            <div class="form-group">
+                                <label for="chuva-mm">Chuva (mm)</label>
+                                <input type="number" id="chuva-mm" step="0.1">
+                            </div>
+                            <div class="form-group">
+                                <label for="plantio-gps">GPS</label>
+                                <select id="plantio-gps">
+                                    <option value="Não" selected>Não</option>
+                                    <option value="Sim">Sim</option>
+                                </select>
+                                <div id="gps-coords" style="display:none; grid-column: span 3; margin-top:8px;">
+                                    <div class="form-group">
+                                        <label for="gps-lat">Latitude</label>
+                                        <input type="text" id="gps-lat" placeholder="-23.12345">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="gps-lon">Longitude</label>
+                                        <input type="text" id="gps-lon" placeholder="-46.12345">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="gps-alt">Altitude (m)</label>
+                                        <input type="number" id="gps-alt" step="0.1">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="chart-card">
+                        <h4 style="margin: 0 0 10px 0;">2. Relatório Diário - Frente</h4>
+                        <div class="form-grid boletim-grid">
+                            <div class="form-group">
+                                <label for="single-cod">Código</label>
+                                <input type="text" id="single-cod">
+                            </div>
+                            <div class="form-group">
+                                <label for="single-fazenda">Fazenda</label>
+                                <select id="single-fazenda">
+                                    <option value="">Selecione a Fazenda</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="single-regiao">Região</label>
+                                <input type="text" id="single-regiao">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="single-plantio-dia">Plantio dia</label>
+                                <input type="number" id="single-plantio-dia" step="0.01">
+                            </div>
+                            <div class="form-group">
+                                <label for="single-area-acumulada">Acumulado plantio</label>
+                                <input type="number" id="single-area-acumulada" step="0.01" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label for="cobricao-dia">Cobrição Dia</label>
+                                <input type="number" id="cobricao-dia" step="0.01">
+                            </div>
+                            <div class="form-group">
+                                <label for="cobricao-acumulada">Cobrição Acumulado</label>
+                                <input type="number" id="cobricao-acumulada" step="0.01" readonly>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="chart-card">
+                        <h4 style="margin: 0 0 10px 0;">3. Qualidade Muda/Plantio</h4>
+                        
+                        <h5 style="margin: 5px 0; color: #666;">Gemas</h5>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="qual-gemas-amostra">Amostra (m)</label>
+                                <input type="number" id="qual-gemas-amostra" step="0.1">
+                            </div>
+                            <div class="form-group">
+                                <label for="qual-gemas-total">Gemas totais</label>
+                                <input type="number" id="qual-gemas-total" step="1">
+                            </div>
+                            <div class="form-group">
+                                <label for="qual-gemas-media">Gemas/m</label>
+                                <input type="number" id="qual-gemas-media" step="0.01" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label for="qual-gemas-boas">Gemas viáveis</label>
+                                <input type="number" id="qual-gemas-boas" step="1">
+                            </div>
+                            <div class="form-group">
+                                <label for="qual-gemas-ruins">Gemas inviáveis</label>
+                                <input type="number" id="qual-gemas-ruins" step="1">
+                            </div>
+                            <div class="form-group">
+                                <label for="qual-gemas-boas-pct">% Gemas viáveis</label>
+                                <input type="number" id="qual-gemas-boas-pct" step="0.01" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label for="qual-gemas-ruins-pct">% Gemas inviáveis</label>
+                                <input type="number" id="qual-gemas-ruins-pct" step="0.01" readonly>
+                            </div>
+                        </div>
+
+                        <h5 style="margin: 5px 0; color: #666;">Toletes</h5>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="qual-toletes-amostra">Amostra (m)</label>
+                                <input type="number" id="qual-toletes-amostra" step="0.1">
+                            </div>
+                            <div class="form-group">
+                                <label for="qual-toletes-total">Toletes totais</label>
+                                <input type="number" id="qual-toletes-total" step="1">
+                            </div>
+                            <div class="form-group">
+                                <label for="qual-toletes-media">Toletes/m</label>
+                                <input type="number" id="qual-toletes-media" step="0.01" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label for="qual-toletes-bons">Toletes bons</label>
+                                <input type="number" id="qual-toletes-bons" step="1">
+                            </div>
+                            <div class="form-group">
+                                <label for="qual-toletes-ruins">Toletes ruins</label>
+                                <input type="number" id="qual-toletes-ruins" step="1">
+                            </div>
+                            <div class="form-group">
+                                <label for="qual-toletes-bons-pct">% Toletes bons</label>
+                                <input type="number" id="qual-toletes-bons-pct" step="0.01" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label for="qual-toletes-ruins-pct">% Toletes ruins</label>
+                                <input type="number" id="qual-toletes-ruins-pct" step="0.01" readonly>
+                            </div>
+                        </div>
+
+                        <h5 style="margin: 5px 0; color: #666;">Mudas (Qualidade)</h5>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="qual-mudas-amostra">Amostra (m)</label>
+                                <input type="number" id="qual-mudas-amostra" step="0.1">
+                            </div>
+                            <div class="form-group">
+                                <label for="qual-mudas-total">Mudas totais</label>
+                                <input type="number" id="qual-mudas-total" step="1">
+                            </div>
+                            <div class="form-group">
+                                <label for="qual-mudas-media">Mudas/m</label>
+                                <input type="number" id="qual-mudas-media" step="0.01" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label for="qual-mudas-boas">Mudas boas</label>
+                                <input type="number" id="qual-mudas-boas" step="1">
+                            </div>
+                            <div class="form-group">
+                                <label for="qual-mudas-ruins">Mudas ruins</label>
+                                <input type="number" id="qual-mudas-ruins" step="1">
+                            </div>
+                            <div class="form-group">
+                                <label for="qual-mudas-boas-pct">% Mudas boas</label>
+                                <input type="number" id="qual-mudas-boas-pct" step="0.01" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label for="qual-mudas-ruins-pct">% Mudas ruins</label>
+                                <input type="number" id="qual-mudas-ruins-pct" step="0.01" readonly>
+                            </div>
+                        </div>
+
+                        <h5 style="margin: 5px 0; color: #666;">Outros Indicadores</h5>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="qual-muda">Muda (ton/ha)</label>
+                                <input type="number" id="qual-muda" step="0.01">
+                            </div>
+                            <div class="form-group">
+                                <label for="qual-profundidade">Profundidade (cm)</label>
+                                <input type="number" id="qual-profundidade" step="0.1">
+                            </div>
+                            <div class="form-group">
+                                <label for="qual-cobertura">Cobertura</label>
+                                <input type="text" id="qual-cobertura">
+                            </div>
+                            <div class="form-group">
+                                <label for="qual-alinhamento">Alinhamento</label>
+                                <input type="text" id="qual-alinhamento">
+                            </div>
+                        </div>
+                        
+                        <h4 style="margin: 0 0 10px 0;">4. Muda</h4>
+                        <div class="form-grid boletim-grid">
+                            <div class="form-group">
+                                <label for="muda-consumo-total">Consumo total de muda</label>
+                                <input type="number" id="muda-consumo-total" step="0.01">
+                            </div>
+                            <div class="form-group">
+                                <label for="muda-consumo-acumulado">Consumo acumulado</label>
+                                <input type="number" id="muda-consumo-acumulado" step="0.01">
+                            </div>
+                            <div class="form-group">
+                                <label for="muda-consumo-dia">Consumo total do dia</label>
+                                <input type="number" id="muda-consumo-dia" step="0.01">
+                            </div>
+                            <div class="form-group">
+                                <label for="muda-previsto">Previsto das mudas</label>
+                                <input type="number" id="muda-previsto" step="0.01">
+                            </div>
+                            <div class="form-group">
+                                <label for="muda-liberacao-fazenda">Liberação fazenda</label>
+                                <input type="text" id="muda-liberacao-fazenda">
+                            </div>
+                            <div class="form-group">
+                                <label for="muda-variedade">Variedade</label>
+                                <input type="text" id="muda-variedade">
+                            </div>
+                        </div>
+                        
+                        <div style="margin-top:10px; display:flex; gap:10px;">
+                            <button id="plantio-save-btn" class="btn btn-primary">💾 Registrar Dia</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+>>>>>>> 90b22224f7862bf4226368c1bc9bf8f39ff2af28
 </body>
 </html>
