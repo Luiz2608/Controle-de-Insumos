@@ -2264,13 +2264,23 @@ forceReloadAllData() {
                 if (singleOs) {
                     singleOs.innerHTML = '<option value="">Selecione a OS</option>';
                     if (val && this.osListCache) {
-                        const osList = this.osListCache.filter(o => o.frente === val);
+                        // Comparação robusta (string e trim)
+                        const osList = this.osListCache.filter(o => String(o.frente).trim() === String(val).trim());
+                        
+                        if (osList.length === 0) {
+                            console.warn(`Nenhuma OS encontrada para a frente: "${val}"`);
+                        }
+
                         osList.forEach(os => {
                             const opt = document.createElement('option');
                             opt.value = os.numero;
                             opt.textContent = `${os.numero} - ${os.fazenda || 'Sem Fazenda'}`;
                             singleOs.appendChild(opt);
                         });
+                        
+                        // Sincronizar estoque para a frente selecionada
+                        // (Garante que se tiver estoque cadastrado, ele apareça na tabela abaixo se implementado)
+                        // await this.loadEstoqueByFrente(val); // Futuro: Implementar se necessário tabela de estoque aqui
                     }
                 }
             });
@@ -2281,15 +2291,25 @@ forceReloadAllData() {
                 const val = singleOs.value;
                 if (!val || !this.osListCache) return;
                 
-                const os = this.osListCache.find(o => String(o.numero) === String(val));
+                // Busca robusta
+                const os = this.osListCache.find(o => String(o.numero).trim() === String(val).trim());
                 if (os) {
+                    console.log('OS Selecionada:', os);
+
                     // Preencher Responsável
                     const respEl = document.getElementById('plantio-responsavel');
                     if (respEl && os.respAplicacao) respEl.value = os.respAplicacao;
                     
-                    // Preencher Área Total
-                    const areaEl = document.getElementById('single-area');
-                    if (areaEl && os.areaTotal) areaEl.value = os.areaTotal;
+                    // Preencher Área Total da OS
+                    const areaEl = document.getElementById('single-area-total'); // Corrigido para area-total ou single-area?
+                    // No form temos 'single-area' (área do talhão/frente) e 'single-area-total' (área total da fazenda/os).
+                    // Vamos preencher 'single-area' como sugestão inicial da área da OS, mas o usuário pode mudar.
+                    // E 'single-area-total' geralmente vem do cadastro da fazenda.
+                    
+                    if (os.areaTotal) {
+                         const areaEl = document.getElementById('single-area');
+                         if (areaEl) areaEl.value = os.areaTotal;
+                    }
 
                     // Referências aos campos
                     const fazendaEl = document.getElementById('single-fazenda');
@@ -2303,7 +2323,7 @@ forceReloadAllData() {
 
                     // 2. Tentar preencher Fazenda e Código
                     if (os.fazenda) {
-                        const targetFazenda = os.fazenda.trim();
+                        const targetFazenda = String(os.fazenda).trim();
                         // Tentar encontrar no cadastro para ter o objeto completo e acumulados
                         const fazendaObj = this.findFazendaByName(targetFazenda);
 
@@ -2318,48 +2338,22 @@ forceReloadAllData() {
                             }
                         } else {
                             // Fallback: Cadastro não encontrado, preencher manualmente o possível
+                            console.warn('Fazenda da OS não encontrada no cadastro:', targetFazenda);
                             
                             // Tentar extrair código do nome da fazenda na OS (ex: "123 - Fazenda X")
                             const matchCod = targetFazenda.match(/^(\d+)\s*[-–]\s*(.+)$/);
-                            if (matchCod && codInput) {
-                                codInput.value = matchCod[1];
-                            }
-
-                            // Tentar selecionar no dropdown de fazendas
-                            if (fazendaEl) {
-                                let foundInSelect = false;
-                                const targetLower = targetFazenda.toLowerCase();
-                                
-                                for (let i = 0; i < fazendaEl.options.length; i++) {
-                                    const optText = fazendaEl.options[i].text.trim().toLowerCase();
-                                    const optVal = fazendaEl.options[i].value.trim().toLowerCase();
-                                    
-                                    // Match exato
-                                    if (optText === targetLower || optVal === targetLower) {
-                                        fazendaEl.selectedIndex = i;
-                                        foundInSelect = true;
-                                        break;
-                                    }
-                                    
-                                    // Match parcial se tiver código na OS e não no select
-                                    if (matchCod) {
-                                        const nomeSemCod = matchCod[2].trim().toLowerCase();
-                                        if (optText === nomeSemCod || optVal === nomeSemCod) {
-                                            fazendaEl.selectedIndex = i;
-                                            foundInSelect = true;
-                                            break;
-                                        }
-                                    }
-                                }
-                                
-                                // Se não achou no select e o select for editável ou apenas visual, 
-                                // não podemos forçar valor que não existe no select padrão HTML.
-                                // Mas podemos tentar setar value se for um input texto disfarçado (não é, é select).
+                            if (matchCod) {
+                                if (codInput) codInput.value = matchCod[1];
+                                if (fazendaEl) fazendaEl.value = matchCod[2].trim();
+                            } else {
+                                if (fazendaEl) fazendaEl.value = targetFazenda;
                             }
                         }
                     }
                     
                     this.ui.showNotification('Dados da OS preenchidos.', 'info', 1500);
+                } else {
+                    console.error('OS selecionada não encontrada no cache:', val);
                 }
             });
         }
