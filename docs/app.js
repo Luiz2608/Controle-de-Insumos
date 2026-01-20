@@ -4026,14 +4026,32 @@ InsumosApp.prototype.loadEstoqueAndRender = async function() {
             this.estoqueFilters.frente = currentFilter;
 
             if (this.estoqueFilters.frente === 'all') {
-                chartData = { labels: [], datasets: [{ label: 'Selecione uma frente', data: [], backgroundColor: '#9C27B0' }] };
-                chartOpts = { ...chartOpts };
+                const aggregated = {};
+                Object.values(estoqueMap).forEach(prodMap => {
+                    Object.entries(prodMap).forEach(([prod, qtd]) => {
+                        aggregated[prod] = (aggregated[prod] || 0) + qtd;
+                    });
+                });
+                const rows = Object.entries(aggregated);
+                const filteredRows = this.estoqueFilters.produto ? rows.filter(([prod]) => prod.toLowerCase().includes(this.estoqueFilters.produto.toLowerCase())) : rows;
+                
+                // Sort by quantity desc
+                filteredRows.sort((a,b) => b[1] - a[1]);
+
+                const labels = filteredRows.map(([prod]) => prod);
+                const values = filteredRows.map(([,v]) => v);
+                
+                chartData = { labels, datasets: [{ label: 'Estoque Total (Todas as Frentes)', data: values, backgroundColor: '#9C27B0' }] };
+                chartOpts = { ...chartOpts, indexAxis: 'y' };
             } else {
                 const f = this.estoqueFilters.frente;
                 const byProd = estoqueMap[f] || {};
                 const rows = Object.entries(byProd);
                 const filteredRows = this.estoqueFilters.produto ? rows.filter(([prod]) => prod.toLowerCase().includes(this.estoqueFilters.produto.toLowerCase())) : rows;
                 
+                // Sort by quantity desc
+                filteredRows.sort((a,b) => b[1] - a[1]);
+
                 const labels = filteredRows.map(([prod]) => prod);
                 const values = filteredRows.map(([,v]) => v);
                 
