@@ -340,13 +340,18 @@
             </div>
             <button id="btn-sync-estoque" class="btn btn-secondary" style="margin-left: auto;">🔄 Sincronizar com OSs</button>
         </div>
-        <div class="charts">
-            <div class="chart-card wide">
-                <h4 style="margin: 0 0 10px 0;">Estoque por Produto (frente selecionada)</h4>
-                <canvas id="chart-estoque-frente"></canvas>
+        <div class="content-section">
+            <div class="chart-card full-width">
+                <h4 style="margin: 0 0 15px 0; border-bottom: 1px solid var(--border); padding-bottom: 10px;">📊 Análise de Estoque</h4>
+                <div style="height: 400px; position: relative;">
+                    <canvas id="chart-estoque-frente"></canvas>
+                </div>
             </div>
-            <div class="chart-card">
-                <h4 style="margin: 0 0 10px 0;">Lançar Estoque Manual</h4>
+        </div>
+
+        <div class="content-section">
+            <div class="chart-card full-width">
+                <h4 style="margin: 0 0 15px 0; border-bottom: 1px solid var(--border); padding-bottom: 10px;">📝 Lançamento Manual de Estoque</h4>
                 <div class="form-grid boletim-grid">
                     <div class="form-group">
                         <label for="estoque-frente">Frente</label>
@@ -380,26 +385,29 @@
                     </div>
                     <div class="form-group">
                         <label for="estoque-quantidade">Quantidade</label>
-                        <input type="number" id="estoque-quantidade" step="0.000001">
+                        <input type="number" id="estoque-quantidade" step="0.000001" placeholder="0.00">
                     </div>
-                    <button id="estoque-save-btn" class="btn btn-primary">💾 Salvar Estoque</button>
+                    <div class="form-group" style="display: flex; align-items: flex-end;">
+                        <button id="estoque-save-btn" class="btn btn-primary" style="width: 100%; justify-content: center;">💾 Salvar Lançamento</button>
+                    </div>
                 </div>
             </div>
-            <div class="table-container">
-                <table id="estoque-table" class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Data</th>
-                            <th>Nº O.S.</th>
-                            <th>Frente</th>
-                            <th>Produto</th>
-                            <th>Quantidade</th>
-                            <th>Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody id="estoque-table-body"></tbody>
-                </table>
-            </div>
+        </div>
+
+        <div class="table-container">
+            <table id="estoque-table" class="data-table">
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Nº O.S.</th>
+                        <th>Frente</th>
+                        <th>Produto</th>
+                        <th>Quantidade</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="estoque-table-body"></tbody>
+            </table>
         </div>
     </div>
 

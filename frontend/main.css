@@ -168,6 +168,17 @@ body {
     box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
 }
 
+/* Sections for vertical layout */
+.content-section {
+    margin-bottom: 25px;
+    width: 100%;
+}
+
+.full-width {
+    width: 100%;
+    grid-column: 1 / -1;
+}
+
 /* Tabelas */
 .table-container {
     background: var(--surface);
@@ -178,30 +189,52 @@ body {
     border: 1px solid rgba(0,0,0,0.03);
 }
 
+/* Enhanced Table Styling */
 .data-table {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: separate; /* Allows border-radius */
+    border-spacing: 0;
+    border-radius: 8px;
+    overflow: hidden;
 }
 
-.data-table th,
-.data-table td {
-    padding: 15px 20px;
-    text-align: left;
-    border-bottom: 1px solid var(--border);
-    font-size: 1rem; /* Aumentado de 0.85em/default */
+.data-table thead tr {
+    background-color: var(--primary);
+    color: white;
 }
 
 .data-table th {
-    background: rgba(0,0,0,0.02);
+    background: transparent; /* Override default */
+    color: white; /* Override default */
     font-weight: 600;
-    color: var(--text-light);
-    font-size: 0.9rem; /* Slightly smaller than body but readable */
+    padding: 16px;
+    font-size: 0.95rem;
     text-transform: uppercase;
-    letter-spacing: 0.8px;
+    letter-spacing: 0.5px;
+    border-bottom: none;
 }
 
-.data-table tr:last-child td { border-bottom: none; }
-.data-table tr:hover { background: rgba(0,0,0,0.015); }
+.data-table td {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    vertical-align: middle;
+}
+
+.data-table tbody tr:nth-child(even) {
+    background-color: rgba(0,0,0,0.02);
+}
+
+.data-table tbody tr:hover {
+    background-color: rgba(76, 175, 80, 0.08); /* Light primary hover */
+    transition: background-color 0.2s;
+}
+
+/* Specific styling for action buttons in table */
+.data-table .btn-sm {
+    padding: 6px 12px;
+    margin: 0 2px;
+}
 
 /* Modern Buttons */
 .btn {
