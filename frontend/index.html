@@ -154,16 +154,30 @@
                     </div>
                 </div>
                 <div class="kpi-card">
+                    <div class="kpi-icon">🚚</div>
+                    <div class="kpi-info">
+                        <span class="kpi-label">Viagens Adubo</span>
+                        <span class="kpi-value" id="kpi-viagens-total">0</span>
+                    </div>
+                </div>
+                <div class="kpi-card">
                     <div class="kpi-icon">📦</div>
                     <div class="kpi-info">
                         <span class="kpi-label">Produtos em Estoque</span>
                         <span class="kpi-value" id="kpi-estoque-items">0</span>
                     </div>
                 </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon">🏗️</div>
+                    <div class="kpi-info">
+                        <span class="kpi-label">Vol. Transportado</span>
+                        <span class="kpi-value" id="kpi-volume-total">0 t</span>
+                    </div>
+                </div>
             </div>
 
             <div class="charts">
-                <!-- Linha 1: Plantio e OS -->
+                <!-- Linha 1: Plantio e Progresso Geral -->
                 <div class="chart-card wide">
                     <h4 style="margin: 0 0 10px 0;">Plantio Diário: Realizado vs Meta (ha)</h4>
                     <div class="filters" style="margin-bottom: 10px;">
@@ -176,11 +190,22 @@
                 </div>
                 
                 <div class="chart-card">
+                    <h4>Progresso por Fazenda (%)</h4>
+                    <canvas id="chart-fazenda-progresso"></canvas>
+                </div>
+
+                <!-- Linha 2: OS e Logística -->
+                <div class="chart-card">
                     <h4>Status das Ordens de Serviço</h4>
                     <canvas id="chart-os-status"></canvas>
                 </div>
 
-                <!-- Linha 2: Insumos e Estoque -->
+                <div class="chart-card">
+                    <h4>Logística: Viagens Diárias</h4>
+                    <canvas id="chart-viagens-diarias"></canvas>
+                </div>
+
+                <!-- Linha 3: Insumos e Estoque -->
                 <div class="chart-card">
                     <h4>Comparativo de Insumos (Geral)</h4>
                     <canvas id="chart-dose-global"></canvas>
@@ -197,7 +222,7 @@
                     <canvas id="chart-estoque-geral"></canvas>
                 </div>
                 
-                <!-- Linha 3: Detalhes Insumos -->
+                <!-- Linha 4: Detalhes Insumos -->
                 <div class="chart-card">
                      <h4>Diferença por Produto (%)</h4>
                      <canvas id="chart-diff-produtos"></canvas>
