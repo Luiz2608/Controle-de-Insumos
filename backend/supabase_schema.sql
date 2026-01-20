@@ -51,6 +51,8 @@ create table if not exists estoque (
   frente text not null,
   produto text not null,
   quantidade numeric default 0,
+  os_numero text,
+  data_cadastro text,
   created_at timestamp with time zone default timezone('utc'::text, now()),
   unique(frente, produto)
 );
