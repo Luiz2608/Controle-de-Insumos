@@ -1515,43 +1515,89 @@ forceReloadAllData() {
         if (!frente) return 0;
         try {
             console.log(`🔄 Recalculando estoque para frente ${frente}...`);
-            const res = await this.api.getOSList();
-            if (!res.success || !res.data) return 0;
-            
-            // Filtrar OS da frente (Case Insensitive)
-            const osList = res.data.filter(o => String(o.frente).trim().toLowerCase() === String(frente).trim().toLowerCase());
-            
-            // Somar produtos planejados
             const totais = {}; // produto -> qtd
             let lastOS = null;
 
-            osList.forEach(os => {
-                lastOS = os.numero;
-                if (os.produtos && Array.isArray(os.produtos)) {
-                    os.produtos.forEach(p => {
-                        const nome = p.produto;
-                        
-                        // Tentar extrair quantidade de várias propriedades possíveis
-                        let qtd = 0;
-                        if (p.qtdTotal != null) qtd = parseFloat(p.qtdTotal);
-                        else if (p.total != null) qtd = parseFloat(p.total);
-                        else if (p.quantidade != null) qtd = parseFloat(p.quantidade);
-                        else if (p.qtd != null) qtd = parseFloat(p.qtd); // Tentativa extra
-                        
-                        if (isNaN(qtd)) qtd = 0;
+            // 1. Buscar dados das OSs (Planejado/Manual)
+            const res = await this.api.getOSList();
+            let countOS = 0;
+            if (res.success && res.data) {
+                // Filtrar OS da frente (Case Insensitive)
+                const osList = res.data.filter(o => String(o.frente).trim().toLowerCase() === String(frente).trim().toLowerCase());
+                
+                osList.forEach(os => {
+                    lastOS = os.numero;
+                    if (os.produtos && Array.isArray(os.produtos)) {
+                        os.produtos.forEach(p => {
+                            const nome = p.produto;
+                            let qtd = 0;
+                            if (p.qtdTotal != null) qtd = parseFloat(p.qtdTotal);
+                            else if (p.total != null) qtd = parseFloat(p.total);
+                            else if (p.quantidade != null) qtd = parseFloat(p.quantidade);
+                            else if (p.qtd != null) qtd = parseFloat(p.qtd);
+                            
+                            if (isNaN(qtd)) qtd = 0;
 
+                            if (nome && qtd > 0) {
+                                const key = nome.trim();
+                                if (!totais[key]) totais[key] = 0;
+                                totais[key] += qtd;
+                                countOS++;
+                            }
+                        });
+                    }
+                });
+            }
+
+            // 2. Buscar dados Importados (Insumos Fazendas)
+            let countImport = 0;
+            try {
+                const { data: insumosFaz } = await this.api.supabase
+                    .from('insumos_fazendas')
+                    .select('produto, quantidade_aplicada, os')
+                    .ilike('frente', frente); // Case insensitive match
+
+                if (insumosFaz && insumosFaz.length > 0) {
+                    insumosFaz.forEach(i => {
+                        const nome = i.produto;
+                        const qtd = parseFloat(i.quantidade_aplicada) || 0;
                         if (nome && qtd > 0) {
                             const key = nome.trim();
                             if (!totais[key]) totais[key] = 0;
                             totais[key] += qtd;
-                        } else {
-                            // Log para debug de produtos ignorados
-                            if (nome) console.warn(`Produto ignorado (qtd=0): ${nome}`, p);
+                            if (!lastOS && i.os) lastOS = i.os;
+                            countImport++;
                         }
                     });
                 }
-            });
+            } catch (errFaz) {
+                console.error('Erro ao buscar insumos_fazendas:', errFaz);
+            }
 
+            // 3. Buscar dados Importados (Insumos Oxifertil)
+            try {
+                const { data: insumosOxi } = await this.api.supabase
+                    .from('insumos_oxifertil')
+                    .select('produto, quantidade_aplicada')
+                    .ilike('frente', frente);
+
+                if (insumosOxi && insumosOxi.length > 0) {
+                    insumosOxi.forEach(i => {
+                        const nome = i.produto;
+                        const qtd = parseFloat(i.quantidade_aplicada) || 0;
+                        if (nome && qtd > 0) {
+                            const key = nome.trim();
+                            if (!totais[key]) totais[key] = 0;
+                            totais[key] += qtd;
+                            countImport++;
+                        }
+                    });
+                }
+            } catch (errOxi) {
+                console.error('Erro ao buscar insumos_oxifertil:', errOxi);
+            }
+
+            // Salvar no Estoque
             const promises = Object.entries(totais).map(([prod, qtd]) => {
                 return this.api.setEstoque(
                     frente, 
@@ -1564,46 +1610,64 @@ forceReloadAllData() {
             
             if (promises.length > 0) {
                 await Promise.all(promises);
-                console.log(`✅ Estoque atualizado para ${frente}: ${promises.length} itens.`);
-                return promises.length;
+                console.log(`✅ Estoque atualizado para ${frente}: ${promises.length} produtos únicos. (OS: ${countOS}, Import: ${countImport})`);
+                return { 
+                    uniqueProducts: promises.length, 
+                    sources: { os: countOS, import: countImport } 
+                };
             } else {
-                console.log(`⚠️ Nenhum produto encontrado nas OSs da frente ${frente}.`);
-                return 0;
+                console.log(`⚠️ Nenhum produto encontrado para frente ${frente}.`);
+                return { uniqueProducts: 0, sources: { os: 0, import: 0 } };
             }
             
         } catch (e) {
             console.error('Erro ao atualizar estoque from OS:', e);
             this.ui.showNotification(`Erro ao atualizar estoque da frente ${frente}: ${e.message}`, 'error');
-            return 0;
+            return { uniqueProducts: 0, sources: { os: 0, import: 0 } };
         }
     }
 
     async syncAllEstoqueFromOS() {
-        if (!confirm('Isso irá recalcular o estoque de TODAS as frentes baseado nas OSs cadastradas. Deseja continuar?')) return;
+        if (!confirm('Isso irá recalcular o estoque de TODAS as frentes baseado nas OSs e Importações. Deseja continuar?')) return;
         
         this.ui.showLoading();
         try {
             console.log('🔄 Sincronizando todo o estoque...');
             const res = await this.api.getOSList();
-            if (!res.success || !res.data) {
-                this.ui.showNotification('Erro ao carregar OSs.', 'error');
-                return;
+            
+            // Buscar também frentes das tabelas de insumos para garantir cobertura total
+            // (Opcional, mas recomendado se existirem frentes apenas no import)
+            let frentes = new Set();
+            if (res.success && res.data) {
+                res.data.forEach(os => {
+                    if (os.frente) frentes.add(os.frente);
+                });
             }
             
-            // Frentes únicas
-            const frentes = [...new Set(res.data.map(os => os.frente).filter(Boolean))];
+            // Adicionar frentes dos insumos importados (pode demorar um pouco, mas garante consistência)
+            const { data: fazFrentes } = await this.api.supabase.from('insumos_fazendas').select('frente');
+            if (fazFrentes) fazFrentes.forEach(f => { if(f.frente) frentes.add(f.frente); });
+
+            const { data: oxiFrentes } = await this.api.supabase.from('insumos_oxifertil').select('frente');
+            if (oxiFrentes) oxiFrentes.forEach(f => { if(f.frente) frentes.add(f.frente); });
+
+            const frentesArray = [...frentes];
             
             let stats = [];
             let totalUpdated = 0;
 
-            for (const frente of frentes) {
-                const count = await this.updateEstoqueFromOS(frente);
-                stats.push(`${frente}: ${count} produtos`);
-                totalUpdated += count;
+            for (const frente of frentesArray) {
+                const result = await this.updateEstoqueFromOS(frente);
+                // result agora é um objeto
+                const count = result.uniqueProducts || 0;
+                const src = result.sources || { os: 0, import: 0 };
+                
+                stats.push(`${frente}: ${count} produtos (OS: ${src.os}, Imp: ${src.import})`);
+                if (count > 0) totalUpdated += count;
             }
             
-            let msg = `Sincronização concluída!\nTotal de atualizações: ${totalUpdated}\n\nDetalhes:\n${stats.join('\n')}`;
-            alert(msg); // Usar alert para garantir que o usuário veja os detalhes
+            let msg = `Sincronização concluída!\nTotal de produtos atualizados: ${totalUpdated}\n\nDetalhes:\n${stats.join('\n')}`;
+            alert(msg);
 
             await this.loadEstoqueAndRender();
         } catch (e) {
