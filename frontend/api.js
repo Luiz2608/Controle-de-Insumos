@@ -363,9 +363,14 @@ class ApiService {
     async setEstoque(frente, produto, quantidade, os_numero = null, data_cadastro = null) {
         this.checkConfig();
         // Upsert no Supabase
+        // NOTA: O schema do banco 'estoque' tem apenas: frente, produto, quantidade, created_at.
+        // Campos extras como os_numero e data_cadastro causam erro se a tabela não tiver essas colunas.
+        // Por segurança, vamos enviar apenas o que existe no schema conhecido.
         const payload = { frente, produto, quantidade };
-        if (os_numero) payload.os_numero = os_numero;
-        if (data_cadastro) payload.data_cadastro = data_cadastro;
+        
+        // Se no futuro as colunas forem criadas no banco, descomentar abaixo:
+        // if (os_numero) payload.os_numero = os_numero;
+        // if (data_cadastro) payload.data_cadastro = data_cadastro;
 
         const { data, error } = await this.supabase.from('estoque')
             .upsert(payload, { onConflict: 'frente, produto' })
