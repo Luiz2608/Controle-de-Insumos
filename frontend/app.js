@@ -1115,12 +1115,15 @@ forceReloadAllData() {
                 const produto = document.getElementById('estoque-produto')?.value;
                 const quantidadeStr = document.getElementById('estoque-quantidade')?.value;
                 const quantidade = quantidadeStr ? parseFloat(quantidadeStr) : 0;
+                const osManual = document.getElementById('estoque-os-manual')?.value;
+
                 if (!frente || !produto || !quantidade || isNaN(quantidade)) {
                     this.ui.showNotification('Preencha frente, produto e quantidade', 'warning');
                     return;
                 }
                 try {
-                    const res = await this.api.setEstoque(frente, produto, quantidade);
+                    // Passando OS manual se selecionada
+                    const res = await this.api.setEstoque(frente, produto, quantidade, osManual);
                     if (res && res.success) {
                         this.ui.showNotification('Estoque salvo!', 'success', 2000);
                         await this.loadEstoqueAndRender();
@@ -1168,9 +1171,249 @@ forceReloadAllData() {
         } catch (e) {
             console.error('Error loading metas UI:', e);
         }
+        
+        this.setupDashboardListeners();
         this.setupOSListeners();
         console.log('setupEventListeners completed');
     }
+
+    setupDashboardListeners() {
+        const btnRefresh = document.getElementById('btn-refresh-dashboard');
+        if (btnRefresh) {
+            btnRefresh.addEventListener('click', () => this.loadDashboard());
+        }
+
+        const periodoSelect = document.getElementById('dashboard-periodo');
+        if (periodoSelect) {
+            periodoSelect.addEventListener('change', () => this.loadDashboard());
+        }
+        
+        // Config metas button
+        const btnConfigMetas = document.getElementById('btn-config-metas');
+        if (btnConfigMetas) {
+            btnConfigMetas.addEventListener('click', () => {
+                 this.openMetasModal();
+            });
+        }
+    }
+
+    async loadDashboard() {
+        this.ui.showLoading();
+        try {
+            console.log('🔄 Loading Dashboard...');
+            
+            // Carregar dados em paralelo
+            const [plantioRes, osRes, insumosRes, estoqueRes] = await Promise.all([
+                this.api.getPlantioDiaList(),
+                this.api.getOSList(),
+                this.api.getInsumosFazendas(),
+                this.api.getEstoque()
+            ]);
+
+            if (plantioRes.success) this.plantioDiarioData = plantioRes.data;
+            if (osRes.success) this.osListCache = osRes.data;
+            if (insumosRes.success) this.insumosFazendasData = insumosRes.data;
+            if (estoqueRes.success) this.estoqueList = estoqueRes.data;
+
+            this.calculateKPIs();
+            this.renderDashboardCharts();
+            
+            this.ui.showNotification('Dashboard atualizado!', 'success');
+        } catch (e) {
+            console.error('Error loading dashboard:', e);
+            this.ui.showNotification('Erro ao carregar dashboard', 'error');
+        } finally {
+            this.ui.hideLoading();
+        }
+    }
+
+    calculateKPIs() {
+        const periodo = document.getElementById('dashboard-periodo')?.value || '30';
+        const now = new Date();
+        
+        const filterDate = (dateStr) => {
+            if (periodo === 'all') return true;
+            if (!dateStr) return false;
+            const d = new Date(dateStr);
+            const diffTime = Math.abs(now - d);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            return diffDays <= parseInt(periodo);
+        };
+
+        // 1. Área Plantada Total (Plantio Diário)
+        const plantioFiltered = (this.plantioDiarioData || []).filter(p => filterDate(p.data));
+        const totalArea = plantioFiltered.reduce((acc, curr) => acc + (parseFloat(curr.area_plantada) || 0), 0);
+        
+        // 2. OS Ativas
+        const osActive = (this.osListCache || []).filter(os => {
+            const status = (os.status || '').toLowerCase();
+            return status !== 'concluido' && status !== 'cancelada';
+        }).length;
+
+        // 3. Eficiência (Área Plantada / Área Total das Fazendas envolvidas)
+        // Estimativa simples: Soma das áreas plantadas / Soma das áreas totais das OSs no período (se houver)
+        // Ou % de conclusão das metas
+        let efficiency = 0;
+        const metas = this.metasData || [];
+        if (metas.length && totalArea > 0) {
+            // Se tiver metas, calcula % atingido
+            // Simplificação: Eficiência média de operação (ha/dia) ou algo assim
+            // Vamos usar: Área Plantada / (Área Plantada + Área Pendente de OS) ?
+            // Melhor: Apenas mostrar a Eficiência Operacional se tiver dados de horas, senão mostrar % Conclusão de OS
+            const totalOSArea = (this.osListCache || []).filter(os => filterDate(os.created_at)).reduce((acc, curr) => acc + (parseFloat(curr.areaTotal) || 0), 0);
+            if (totalOSArea > 0) efficiency = (totalArea / totalOSArea) * 100;
+        }
+
+        // 4. Produtos em Estoque
+        // Conta quantos produtos únicos têm saldo > 0
+        const produtosComSaldo = (this.estoqueList || []).filter(e => parseFloat(e.quantidade) > 0).length;
+
+        // Update DOM
+        const setTxt = (id, txt) => { const el = document.getElementById(id); if(el) el.textContent = txt; };
+        
+        setTxt('kpi-area-plantada', `${totalArea.toLocaleString('pt-BR', {maximumFractionDigits: 1})} ha`);
+        setTxt('kpi-os-ativas', osActive);
+        setTxt('kpi-eficiencia', `${efficiency > 0 ? efficiency.toFixed(1) : 0}%`); // Ex: % de cobertura da safra
+        setTxt('kpi-estoque-items', produtosComSaldo);
+    }
+
+    renderDashboardCharts() {
+        this.renderPlantioChart();
+        this.renderOSStatusChart();
+        this.renderInsumosGlobalChart();
+        this.renderEstoqueGeralChart();
+        this.renderProductDetailsCharts();
+    }
+
+    renderOSStatusChart() {
+        const ctx = document.getElementById('chart-os-status');
+        if (!ctx) return;
+
+        const data = this.osListCache || [];
+        const statusCounts = {};
+        
+        data.forEach(os => {
+            const s = (os.status || 'Indefinido').toUpperCase();
+            statusCounts[s] = (statusCounts[s] || 0) + 1;
+        });
+
+        const labels = Object.keys(statusCounts);
+        const values = Object.values(statusCounts);
+        const colors = labels.map(s => {
+            if(s.includes('CONCLU')) return '#4CAF50';
+            if(s.includes('ANDAMENTO') || s.includes('ABERTA')) return '#2196F3';
+            if(s.includes('CANCEL')) return '#F44336';
+            return '#FF9800';
+        });
+
+        if (this._charts.osStatus) {
+            this._charts.osStatus.destroy();
+        }
+
+        this._charts.osStatus = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: values,
+                    backgroundColor: colors,
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { position: 'bottom' }
+                }
+            }
+        });
+    }
+
+    renderInsumosGlobalChart() {
+        const ctx = document.getElementById('chart-dose-global');
+        if (!ctx) return;
+        
+        // Agrupar insumos por produto e comparar Planejado vs Realizado
+        // Usando dados de InsumosFazendas (Realizado) vs OS (Planejado) seria ideal
+        // Por enquanto vamos usar o dado já processado em updateCharts que compara dose
+        
+        // Reutilizar lógica existente ou simplificar
+        // Vamos focar no GLOBAL: Total Kg Planejado vs Total Kg Aplicado
+        // (Isso requer normalização de unidades, assumindo Kg/L)
+        
+        const data = this.insumosFazendasData || [];
+        let totalPlan = 0;
+        let totalReal = 0;
+        
+        data.forEach(item => {
+             totalPlan += parseFloat(item.doseRecomendada || 0) * parseFloat(item.areaTalhao || 0);
+             totalReal += parseFloat(item.quantidade || 0);
+        });
+
+        if (this._charts.insumosGlobal) {
+            this._charts.insumosGlobal.destroy();
+        }
+
+        this._charts.insumosGlobal = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Planejado', 'Realizado'],
+                datasets: [{
+                    label: 'Volume Total (Estimado)',
+                    data: [totalPlan, totalReal],
+                    backgroundColor: ['#2196F3', '#4CAF50']
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } }
+            }
+        });
+    }
+
+    renderEstoqueGeralChart() {
+         const ctx = document.getElementById('chart-estoque-geral');
+         if (!ctx) return;
+         
+         const data = this.estoqueList || [];
+         // Agrupar por Frente
+         const porFrente = {};
+         data.forEach(item => {
+             const f = item.frente || 'Geral';
+             if (!porFrente[f]) porFrente[f] = 0;
+             porFrente[f] += parseFloat(item.quantidade || 0);
+         });
+         
+         const labels = Object.keys(porFrente);
+         const values = Object.values(porFrente);
+
+         if (this._charts.estoqueGeral) {
+             this._charts.estoqueGeral.destroy();
+         }
+
+         this._charts.estoqueGeral = new Chart(ctx, {
+             type: 'bar',
+             data: {
+                 labels: labels,
+                 datasets: [{
+                     label: 'Quantidade em Estoque',
+                     data: values,
+                     backgroundColor: '#9C27B0'
+                 }]
+             },
+             options: {
+                 responsive: true
+             }
+         });
+    }
+
+    renderProductDetailsCharts() {
+         // Wrapper para chamar a antiga updateCharts com os dados atuais
+         if (this.insumosFazendasData) {
+             this.updateCharts(this.insumosFazendasData);
+         }
+    }
+
 
     // === MÉTODOS DE OS ===
     setupOSListeners() {
@@ -1864,6 +2107,8 @@ forceReloadAllData() {
                 // Atualizar estoque
                 if (payload.frente) {
                     await this.updateEstoqueFromOS(payload.frente);
+                    // Forçar atualização visual do estoque se possível
+                    await this.loadEstoqueAndRender(); 
                 }
 
                 // Voltar para a lista e recarregar
@@ -3933,9 +4178,10 @@ InsumosApp.prototype.updateCharts = function(data) {
 
 InsumosApp.prototype.loadEstoqueAndRender = async function() {
     try {
-        const [resEstoque, resOS] = await Promise.all([
+        const [resEstoque, resOS, resImport] = await Promise.all([
             this.api.getEstoque(),
-            this.api.getOSList() // Busca OSs para saber todas as frentes possíveis
+            this.api.getOSList(), // Busca OSs para saber todas as frentes possíveis
+            this.api.supabase.from('insumos_fazendas').select('os, frente, produto').not('os', 'is', null)
         ]);
 
         if (!resEstoque || !resEstoque.success) return;
@@ -3943,11 +4189,13 @@ InsumosApp.prototype.loadEstoqueAndRender = async function() {
         // Dados vêm como array de objetos do Supabase: [{frente, produto, quantidade, os_numero, data_cadastro}, ...]
         const estoqueList = Array.isArray(resEstoque.data) ? resEstoque.data : [];
         const osList = (resOS && resOS.success && Array.isArray(resOS.data)) ? resOS.data : [];
+        const importList = (resImport && Array.isArray(resImport.data)) ? resImport.data : [];
 
-        // Coletar frentes únicas de AMBOS (estoque e OS) para popular filtros
+        // Coletar frentes únicas de AMBOS (estoque, OS e importados) para popular filtros
         const frentesEstoque = estoqueList.map(e => e.frente).filter(Boolean);
         const frentesOS = osList.map(o => o.frente).filter(Boolean);
-        const todasFrentes = [...new Set([...frentesEstoque, ...frentesOS])].sort((a,b) => 
+        const frentesImport = importList.map(i => i.frente).filter(Boolean);
+        const todasFrentes = [...new Set([...frentesEstoque, ...frentesOS, ...frentesImport])].sort((a,b) => 
             a.localeCompare(b, undefined, {numeric: true, sensitivity: 'base'})
         );
 
@@ -3980,9 +4228,22 @@ InsumosApp.prototype.loadEstoqueAndRender = async function() {
         updateSelect('estoque-frente-filter', todasFrentes, true);
         updateSelect('estoque-frente', todasFrentes, false);
 
+        // Popular Dropdown de O.S. (Manual) - Incluindo OSs importadas
+        const osNumbersOS = osList.map(o => o.numero).filter(Boolean);
+        const osNumbersImport = importList.map(i => i.os).filter(Boolean);
+        const osNumbers = [...new Set([...osNumbersOS, ...osNumbersImport])].sort((a,b) => {
+             // Tenta ordenar numericamente se possível
+             const na = parseInt(a);
+             const nb = parseInt(b);
+             if (!isNaN(na) && !isNaN(nb)) return na - nb;
+             return String(a).localeCompare(String(b));
+        });
+        updateSelect('estoque-os-manual', osNumbers, false);
+
         // Popular Dropdown de PRODUTOS (novo)
-        // Coletar produtos únicos de AMBOS (estoque e OS)
+        // Coletar produtos únicos de AMBOS (estoque, OS e importados)
         const prodsEstoque = estoqueList.map(e => e.produto).filter(Boolean);
+        const prodsImport = importList.map(i => i.produto).filter(Boolean);
         const prodsOS = [];
         osList.forEach(os => {
             if (os.produtos && Array.isArray(os.produtos)) {
@@ -3992,7 +4253,7 @@ InsumosApp.prototype.loadEstoqueAndRender = async function() {
             }
         });
 
-        const todosProdutos = [...new Set([...prodsEstoque, ...prodsOS])].sort();
+        const todosProdutos = [...new Set([...prodsEstoque, ...prodsOS, ...prodsImport])].sort();
         
         // Atualizar dropdown de produtos manual
         updateSelect('estoque-produto', todosProdutos, false);

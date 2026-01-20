@@ -823,12 +823,26 @@ class ImportManager {
             const totalRegistros = Object.values(totals).reduce((sum, val) => sum + val, 0);
             this.showMessage(`✅ Importação concluída! ${totalRegistros} registros importados`, 'success');
 
-            setTimeout(() => {
+            setTimeout(async () => {
                 this.closeImportModal();
-                setTimeout(() => {
+                if (window.insumosApp) {
+                    try {
+                        console.log('🔄 Atualizando dados da aplicação...');
+                        // Atualizar estoque e listas
+                        await window.insumosApp.loadEstoqueAndRender();
+                        if (window.insumosApp.getCurrentTab) {
+                            const currentTab = window.insumosApp.getCurrentTab();
+                            await window.insumosApp.loadTabData(currentTab);
+                        }
+                        window.uiManager.showNotification('Dados atualizados com sucesso!', 'success');
+                    } catch(e) {
+                        console.error('Erro ao atualizar interface via app:', e);
+                        window.location.reload();
+                    }
+                } else {
                     window.location.reload();
-                }, 1000);
-            }, 2000);
+                }
+            }, 1500);
         } catch (error) {
             console.error('❌ Erro completo na importação:', error);
             this.showMessage(`❌ Falha na importação: ${error.message}`, 'error');

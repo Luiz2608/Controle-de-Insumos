@@ -188,13 +188,14 @@ body {
     padding: 15px 20px;
     text-align: left;
     border-bottom: 1px solid var(--border);
+    font-size: 1rem; /* Aumentado de 0.85em/default */
 }
 
 .data-table th {
     background: rgba(0,0,0,0.02);
     font-weight: 600;
     color: var(--text-light);
-    font-size: 0.85em;
+    font-size: 0.9rem; /* Slightly smaller than body but readable */
     text-transform: uppercase;
     letter-spacing: 0.8px;
 }
@@ -286,25 +287,47 @@ body {
 
 .chart-card {
     background: var(--surface);
-    padding: 20px;
+    padding: 25px; /* Increased padding */
     border-radius: var(--radius);
     box-shadow: var(--shadow);
-    min-height: 300px;
+    min-height: 320px; /* Increased min-height */
     display: flex;
     flex-direction: column;
 }
 
-.chart-card h3 {
-    margin: 0 0 15px 0;
-    font-size: 1.1em;
+.chart-card h3, .chart-card h4 {
+    margin: 0 0 20px 0; /* Increased margin */
+    font-size: 1.2em; /* Increased font size */
     color: var(--text-light);
 }
 
-.chart-card.wide {
-    grid-column: 1 / -1;
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* Increased min-width */
+    gap: 20px; /* Increased gap */
 }
 
-/* Loading/Empty */
+.form-group label {
+    display: block;
+    margin-bottom: 8px; /* Increased margin */
+    font-weight: 500;
+    color: var(--text-light);
+    font-size: 0.95em; /* Slightly larger label */
+}
+
+.form-group input,
+.form-group select {
+    width: 100%;
+    padding: 12px 15px; /* Increased padding */
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--background);
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s;
+    font-size: 1em; /* Larger font for inputs */
+}
+
 .loading, .empty {
     text-align: center;
     padding: 40px;
@@ -356,35 +379,6 @@ body {
 
 .modal-body {
     padding: 20px;
-}
-
-/* Forms */
-.form-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 15px;
-    margin-bottom: 20px;
-}
-
-.form-group {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-
-.form-group label {
-    font-size: 0.9em;
-    font-weight: 500;
-}
-
-.form-group input,
-.form-group select,
-.form-group textarea {
-    padding: 10px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--background);
-    color: var(--text);
 }
 
 /* Notification */
@@ -508,8 +502,8 @@ body {
  .user-badge { background: rgba(0,0,0,0.1); color: var(--text); padding: 6px 10px; border-radius: 999px; font-size: 12px; margin-left: 8px; }
 .boletim-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
 }
 
 #plantio-dia .form-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }

@@ -114,19 +114,56 @@
 
         <!-- Tab DASHBOARD -->
         <div class="tab-content active" id="graficos">
-            <div class="filters">
-                <div class="filter-group">
-                    <label for="charts-order-select">Ordenação dos gráficos:</label>
-                    <select id="charts-order-select">
-                        <option value="az">A–Z (produtos)</option>
-                        <option value="za">Z–A (produtos)</option>
-                        <option value="diff_asc">Diferença crescente</option>
-                        <option value="diff_desc">Diferença decrescente</option>
-                    </select>
+            <div class="dashboard-header">
+                <div class="filters">
+                    <div class="filter-group">
+                        <label for="dashboard-periodo">Período:</label>
+                        <select id="dashboard-periodo">
+                            <option value="30">Últimos 30 dias</option>
+                            <option value="90">Últimos 90 dias</option>
+                            <option value="365">Último Ano</option>
+                            <option value="all">Todo o Período</option>
+                        </select>
+                    </div>
+                    <button id="btn-refresh-dashboard" class="btn btn-primary">🔄 Atualizar Dados</button>
+                    <button id="btn-config-metas" class="btn btn-secondary">⚙️ Metas</button>
                 </div>
-                <button id="btn-config-metas" class="btn btn-secondary">⚙️ Configurar Metas</button>
             </div>
+
+            <!-- KPIs (Indicadores Chave) -->
+            <div class="kpi-grid">
+                <div class="kpi-card">
+                    <div class="kpi-icon">🚜</div>
+                    <div class="kpi-info">
+                        <span class="kpi-label">Área Plantada (Total)</span>
+                        <span class="kpi-value" id="kpi-area-plantada">0 ha</span>
+                    </div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon">📋</div>
+                    <div class="kpi-info">
+                        <span class="kpi-label">OS Ativas</span>
+                        <span class="kpi-value" id="kpi-os-ativas">0</span>
+                    </div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon">📉</div>
+                    <div class="kpi-info">
+                        <span class="kpi-label">Eficiência Média</span>
+                        <span class="kpi-value" id="kpi-eficiencia">0%</span>
+                    </div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon">📦</div>
+                    <div class="kpi-info">
+                        <span class="kpi-label">Produtos em Estoque</span>
+                        <span class="kpi-value" id="kpi-estoque-items">0</span>
+                    </div>
+                </div>
+            </div>
+
             <div class="charts">
+                <!-- Linha 1: Plantio e OS -->
                 <div class="chart-card wide">
                     <h4 style="margin: 0 0 10px 0;">Plantio Diário: Realizado vs Meta (ha)</h4>
                     <div class="filters" style="margin-bottom: 10px;">
@@ -137,16 +174,36 @@
                     </div>
                     <canvas id="chart-plantio-diario"></canvas>
                 </div>
+                
                 <div class="chart-card">
-                    <h4 style="margin: 0 0 10px 0;">Resumo Global: Recomendada x Aplicada</h4>
+                    <h4>Status das Ordens de Serviço</h4>
+                    <canvas id="chart-os-status"></canvas>
+                </div>
+
+                <!-- Linha 2: Insumos e Estoque -->
+                <div class="chart-card">
+                    <h4>Comparativo de Insumos (Geral)</h4>
                     <canvas id="chart-dose-global"></canvas>
                 </div>
+
+                <div class="chart-card wide">
+                    <h4>Níveis de Estoque por Frente</h4>
+                     <div class="filters" style="margin-bottom: 10px;">
+                         <label for="estoque-chart-frente">Frente:</label>
+                         <select id="estoque-chart-frente">
+                             <option value="all">Geral</option>
+                         </select>
+                     </div>
+                    <canvas id="chart-estoque-geral"></canvas>
+                </div>
+                
+                <!-- Linha 3: Detalhes Insumos -->
                 <div class="chart-card">
-                    <h4 style="margin: 0 0 10px 0;">Diferença por Produto (%)</h4>
-                    <canvas id="chart-diff-produtos"></canvas>
+                     <h4>Diferença por Produto (%)</h4>
+                     <canvas id="chart-diff-produtos"></canvas>
                 </div>
                 <div class="chart-card">
-                    <h4 style="margin: 0 0 10px 0;">Comparação por Produto: Dose Recomendada x Dose Aplicada</h4>
+                    <h4>Comparação por Produto</h4>
                     <canvas id="chart-dose-produtos"></canvas>
                 </div>
             </div>
@@ -352,6 +409,12 @@
                         <label for="estoque-frente">Frente</label>
                         <select id="estoque-frente">
                             <option value="">Selecione ou Digite</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="estoque-os-manual">Nº O.S.</label>
+                        <select id="estoque-os-manual">
+                            <option value="">Selecione a O.S.</option>
                         </select>
                     </div>
                     <div class="form-group">

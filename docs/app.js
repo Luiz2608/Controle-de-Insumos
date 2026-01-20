@@ -1115,12 +1115,15 @@ forceReloadAllData() {
                 const produto = document.getElementById('estoque-produto')?.value;
                 const quantidadeStr = document.getElementById('estoque-quantidade')?.value;
                 const quantidade = quantidadeStr ? parseFloat(quantidadeStr) : 0;
+                const osManual = document.getElementById('estoque-os-manual')?.value;
+
                 if (!frente || !produto || !quantidade || isNaN(quantidade)) {
                     this.ui.showNotification('Preencha frente, produto e quantidade', 'warning');
                     return;
                 }
                 try {
-                    const res = await this.api.setEstoque(frente, produto, quantidade);
+                    // Passando OS manual se selecionada
+                    const res = await this.api.setEstoque(frente, produto, quantidade, osManual);
                     if (res && res.success) {
                         this.ui.showNotification('Estoque salvo!', 'success', 2000);
                         await this.loadEstoqueAndRender();
@@ -1864,6 +1867,8 @@ forceReloadAllData() {
                 // Atualizar estoque
                 if (payload.frente) {
                     await this.updateEstoqueFromOS(payload.frente);
+                    // Forçar atualização visual do estoque se possível
+                    await this.loadEstoqueAndRender(); 
                 }
 
                 // Voltar para a lista e recarregar
@@ -3933,9 +3938,10 @@ InsumosApp.prototype.updateCharts = function(data) {
 
 InsumosApp.prototype.loadEstoqueAndRender = async function() {
     try {
-        const [resEstoque, resOS] = await Promise.all([
+        const [resEstoque, resOS, resImport] = await Promise.all([
             this.api.getEstoque(),
-            this.api.getOSList() // Busca OSs para saber todas as frentes possíveis
+            this.api.getOSList(), // Busca OSs para saber todas as frentes possíveis
+            this.api.supabase.from('insumos_fazendas').select('os, frente, produto').not('os', 'is', null)
         ]);
 
         if (!resEstoque || !resEstoque.success) return;
@@ -3943,11 +3949,13 @@ InsumosApp.prototype.loadEstoqueAndRender = async function() {
         // Dados vêm como array de objetos do Supabase: [{frente, produto, quantidade, os_numero, data_cadastro}, ...]
         const estoqueList = Array.isArray(resEstoque.data) ? resEstoque.data : [];
         const osList = (resOS && resOS.success && Array.isArray(resOS.data)) ? resOS.data : [];
+        const importList = (resImport && Array.isArray(resImport.data)) ? resImport.data : [];
 
-        // Coletar frentes únicas de AMBOS (estoque e OS) para popular filtros
+        // Coletar frentes únicas de AMBOS (estoque, OS e importados) para popular filtros
         const frentesEstoque = estoqueList.map(e => e.frente).filter(Boolean);
         const frentesOS = osList.map(o => o.frente).filter(Boolean);
-        const todasFrentes = [...new Set([...frentesEstoque, ...frentesOS])].sort((a,b) => 
+        const frentesImport = importList.map(i => i.frente).filter(Boolean);
+        const todasFrentes = [...new Set([...frentesEstoque, ...frentesOS, ...frentesImport])].sort((a,b) => 
             a.localeCompare(b, undefined, {numeric: true, sensitivity: 'base'})
         );
 
@@ -3980,9 +3988,22 @@ InsumosApp.prototype.loadEstoqueAndRender = async function() {
         updateSelect('estoque-frente-filter', todasFrentes, true);
         updateSelect('estoque-frente', todasFrentes, false);
 
+        // Popular Dropdown de O.S. (Manual) - Incluindo OSs importadas
+        const osNumbersOS = osList.map(o => o.numero).filter(Boolean);
+        const osNumbersImport = importList.map(i => i.os).filter(Boolean);
+        const osNumbers = [...new Set([...osNumbersOS, ...osNumbersImport])].sort((a,b) => {
+             // Tenta ordenar numericamente se possível
+             const na = parseInt(a);
+             const nb = parseInt(b);
+             if (!isNaN(na) && !isNaN(nb)) return na - nb;
+             return String(a).localeCompare(String(b));
+        });
+        updateSelect('estoque-os-manual', osNumbers, false);
+
         // Popular Dropdown de PRODUTOS (novo)
-        // Coletar produtos únicos de AMBOS (estoque e OS)
+        // Coletar produtos únicos de AMBOS (estoque, OS e importados)
         const prodsEstoque = estoqueList.map(e => e.produto).filter(Boolean);
+        const prodsImport = importList.map(i => i.produto).filter(Boolean);
         const prodsOS = [];
         osList.forEach(os => {
             if (os.produtos && Array.isArray(os.produtos)) {
@@ -3992,7 +4013,7 @@ InsumosApp.prototype.loadEstoqueAndRender = async function() {
             }
         });
 
-        const todosProdutos = [...new Set([...prodsEstoque, ...prodsOS])].sort();
+        const todosProdutos = [...new Set([...prodsEstoque, ...prodsOS, ...prodsImport])].sort();
         
         // Atualizar dropdown de produtos manual
         updateSelect('estoque-produto', todosProdutos, false);
