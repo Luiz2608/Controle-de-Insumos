@@ -940,7 +940,7 @@ forceReloadAllData() {
         const closeNovoLancamentoButtons = document.querySelectorAll('.close-novo-lancamento-modal');
 
         if (btnNovoLancamento && novoLancamentoModal) {
-            btnNovoLancamento.addEventListener('click', () => {
+            btnNovoLancamento.addEventListener('click', async () => {
                 this.resetPlantioForm();
                 novoLancamentoModal.style.display = 'flex';
                 // Garantir que a lista de OS e Frentes esteja carregada
