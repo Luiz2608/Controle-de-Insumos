@@ -184,7 +184,7 @@ body {
     background: var(--surface);
     border-radius: 16px;
     box-shadow: var(--shadow);
-    overflow: hidden;
+    overflow-x: auto;
     margin-bottom: 25px;
     border: 1px solid rgba(0,0,0,0.03);
 }
@@ -207,18 +207,32 @@ body {
     background: transparent; /* Override default */
     color: white; /* Override default */
     font-weight: 600;
-    padding: 16px;
-    font-size: 0.95rem;
+    padding: 10px 8px; /* Reduced padding */
+    font-size: 0.8rem; /* Reduced font size */
     text-transform: uppercase;
     letter-spacing: 0.5px;
     border-bottom: none;
+    text-align: center; /* Center headers */
+    vertical-align: middle;
 }
 
 .data-table td {
-    padding: 14px 16px;
+    padding: 8px 10px; /* Reduced padding */
     border-bottom: 1px solid var(--border);
     color: var(--text);
     vertical-align: middle;
+    font-size: 0.85rem; /* Reduced font size */
+    text-align: center; /* Center content */
+}
+
+/* Align text-heavy columns to left if needed, but generic centering is safer for organization request */
+
+/* Compact buttons in table */
+.data-table .btn {
+    padding: 4px 10px;
+    font-size: 0.75rem;
+    height: auto;
+    min-height: 24px;
 }
 
 .data-table tbody tr:nth-child(even) {
