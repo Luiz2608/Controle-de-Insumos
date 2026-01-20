@@ -753,3 +753,52 @@ body {
 .details-inner-table tr:last-child td {
     border-bottom: none;
 }
+
+/* Manual Entry Form - Optimized Layout */
+.manual-entry-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    align-items: flex-end;
+}
+
+.manual-entry-group {
+    flex: 1;
+    min-width: 180px;
+    max-width: 300px; /* Prevents "muito grande" inputs on wide screens */
+}
+
+.manual-entry-group.action-group {
+    flex: 0 0 auto; /* Button doesn't stretch like inputs */
+    min-width: auto;
+}
+
+.manual-entry-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: var(--text-light);
+    font-size: 0.95em;
+}
+
+.manual-entry-group input,
+.manual-entry-group select {
+    width: 100%;
+    padding: 12px 15px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--background);
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s;
+    font-size: 1em;
+    height: 45px; /* Fixed height for alignment */
+    box-sizing: border-box;
+}
+
+.manual-entry-group .btn {
+    height: 45px; /* Match input height */
+    white-space: nowrap;
+    justify-content: center;
+    padding: 0 30px;
+}

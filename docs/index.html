@@ -434,20 +434,20 @@
         <div class="content-section">
             <div class="chart-card full-width">
                 <h4 style="margin: 0 0 15px 0; border-bottom: 1px solid var(--border); padding-bottom: 10px;">📝 Lançamento Manual de Estoque</h4>
-                <div class="form-grid boletim-grid">
-                    <div class="form-group">
+                <div class="manual-entry-container">
+                    <div class="manual-entry-group">
                         <label for="estoque-frente">Frente</label>
                         <select id="estoque-frente">
                             <option value="">Selecione ou Digite</option>
                         </select>
                     </div>
-                    <div class="form-group">
+                    <div class="manual-entry-group">
                         <label for="estoque-os-manual">Nº O.S.</label>
                         <select id="estoque-os-manual">
                             <option value="">Selecione a O.S.</option>
                         </select>
                     </div>
-                    <div class="form-group">
+                    <div class="manual-entry-group">
                         <label for="estoque-produto">Produto</label>
                         <select id="estoque-produto">
                             <option value="">Selecione</option>
@@ -465,12 +465,12 @@
                             <option>NO-NEMA</option>
                         </select>
                     </div>
-                    <div class="form-group">
+                    <div class="manual-entry-group">
                         <label for="estoque-quantidade">Quantidade</label>
                         <input type="number" id="estoque-quantidade" step="0.000001" placeholder="0.00">
                     </div>
-                    <div class="form-group" style="display: flex; align-items: flex-end;">
-                        <button id="estoque-save-btn" class="btn btn-primary" style="width: 100%; justify-content: center;">💾 Salvar Lançamento</button>
+                    <div class="manual-entry-group action-group">
+                        <button id="estoque-save-btn" class="btn btn-primary">💾 Salvar Lançamento</button>
                     </div>
                 </div>
             </div>
