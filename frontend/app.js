@@ -2500,6 +2500,33 @@ forceReloadAllData() {
                 });
                 if (!created.success) throw new Error('Falha ao adicionar');
                 this.ui.showNotification('Insumo adicionado!', 'success', 2000);
+
+                // === SYNC ESTOQUE ===
+                // Atualiza o estoque automaticamente ao cadastrar nova O.S.
+                try {
+                    // Consideramos quantidadeAplicada como consumo/uso que deve ser registrado
+                    // Ou se for Entrada, deve ser positivo.
+                    // Assumindo que queremos REGISTRAR o item no estoque e ACUMULAR a quantidade (como se fosse entrada ou histórico).
+                    if (data.frente && data.produto && data.quantidadeAplicada) {
+                         const resEstoque = await this.api.getEstoque();
+                         const estoqueList = (resEstoque && resEstoque.success && Array.isArray(resEstoque.data)) ? resEstoque.data : [];
+                         
+                         const itemEstoque = estoqueList.find(e => e.frente === data.frente && e.produto === data.produto);
+                         const currentQty = itemEstoque ? (parseFloat(itemEstoque.quantidade) || 0) : 0;
+                         const newQty = currentQty + parseFloat(data.quantidadeAplicada);
+
+                         await this.api.setEstoque(
+                            data.frente, 
+                            data.produto, 
+                            newQty, 
+                            data.os ? String(data.os) : null, 
+                            data.dataInicio
+                         );
+                         console.log('Estoque sincronizado com O.S.');
+                    }
+                } catch (syncErr) {
+                    console.warn('Erro ao sincronizar estoque:', syncErr);
+                }
             }
             this.closeInsumoModal();
             await this.loadTabData(this.getCurrentTab());
@@ -2680,50 +2707,86 @@ InsumosApp.prototype.loadEstoqueAndRender = async function() {
     try {
         const res = await this.api.getEstoque();
         if (!res || !res.success) return;
-        const estoque = res.data || {};
+        
+        // Dados vêm como array de objetos do Supabase: [{frente, produto, quantidade, os_numero, data_cadastro}, ...]
+        const estoqueList = Array.isArray(res.data) ? res.data : [];
+        
+        // === CHART PREPARATION ===
+        // Precisamos agrupar por frente para o gráfico
+        // Estrutura para gráfico: { 'Frente 1': { 'Produto A': 10 }, ... }
+        const estoqueMap = {};
+        estoqueList.forEach(item => {
+            if (!estoqueMap[item.frente]) estoqueMap[item.frente] = {};
+            // Se houver múltiplos registros do mesmo produto na mesma frente (não deveria pelo upsert key), somamos
+            // Mas o upsert key é (frente, produto), então deve ser único.
+            estoqueMap[item.frente][item.produto] = (estoqueMap[item.frente][item.produto] || 0) + (parseFloat(item.quantidade) || 0);
+        });
+
         const ctx = document.getElementById('chart-estoque-frente');
         if (!ctx) return;
+        
         if (!this._charts) this._charts = {};
         let chartData;
         let chartOpts = { responsive: true, maintainAspectRatio: true, aspectRatio: 2, plugins: { legend: { display: true, position: 'top' } } };
+        
         if (this.estoqueFilters.frente === 'all') {
             chartData = { labels: [], datasets: [{ label: 'Selecione uma frente', data: [], backgroundColor: '#9C27B0' }] };
             chartOpts = { ...chartOpts };
         } else {
             const f = this.estoqueFilters.frente;
-            const byProd = estoque[f] || {};
+            const byProd = estoqueMap[f] || {};
             const rows = Object.entries(byProd);
             const filteredRows = this.estoqueFilters.produto ? rows.filter(([prod]) => prod.toLowerCase().includes(this.estoqueFilters.produto.toLowerCase())) : rows;
+            
             const labels = filteredRows.map(([prod]) => prod);
-            const values = filteredRows.map(([,v]) => (typeof v==='number'?v:parseFloat(v)||0));
+            const values = filteredRows.map(([,v]) => v);
+            
             chartData = { labels, datasets: [{ label: `Estoque - ${f}`, data: values, backgroundColor: '#9C27B0' }] };
             chartOpts = { ...chartOpts, indexAxis: 'y' };
         }
-        if (this._charts.estoqueFrente) { this._charts.estoqueFrente.data = chartData; this._charts.estoqueFrente.options = chartOpts; this._charts.estoqueFrente.update(); }
-        else this._charts.estoqueFrente = new Chart(ctx, { type: 'bar', data: chartData, options: chartOpts });
+        
+        if (this._charts.estoqueFrente) { 
+            this._charts.estoqueFrente.data = chartData; 
+            this._charts.estoqueFrente.options = chartOpts; 
+            this._charts.estoqueFrente.update(); 
+        } else {
+            this._charts.estoqueFrente = new Chart(ctx, { type: 'bar', data: chartData, options: chartOpts });
+        }
 
+        // === TABLE RENDER ===
         const tbody = document.getElementById('estoque-table-body');
         if (tbody) {
-            const rows = [];
-            (this.estoqueFilters.frente === 'all' ? ['Frente 1','Frente 2','Frente Abençoada'] : frentes).forEach(f => {
-                const byProd = estoque[f] || {};
-                Object.keys(byProd).forEach(prod => {
-                    if (!this.estoqueFilters.produto || prod.toLowerCase().includes(this.estoqueFilters.produto.toLowerCase())) {
-                        rows.push({ frente: f, produto: prod, quantidade: byProd[prod] });
-                    }
-                });
+            // Filtrar lista
+            let filteredList = estoqueList.filter(item => {
+                const matchFrente = this.estoqueFilters.frente === 'all' || item.frente === this.estoqueFilters.frente;
+                const matchProd = !this.estoqueFilters.produto || item.produto.toLowerCase().includes(this.estoqueFilters.produto.toLowerCase());
+                return matchFrente && matchProd;
             });
-            rows.sort((a,b)=> a.frente.localeCompare(b.frente) || a.produto.localeCompare(b.produto));
-            tbody.innerHTML = rows.map(r => `
+            
+            // Ordenar
+            filteredList.sort((a,b) => {
+                // Ordenar por data (mais recente primeiro), depois frente, depois produto
+                const dateA = a.data_cadastro ? new Date(a.data_cadastro) : new Date(0);
+                const dateB = b.data_cadastro ? new Date(b.data_cadastro) : new Date(0);
+                return (dateB - dateA) || a.frente.localeCompare(b.frente) || a.produto.localeCompare(b.produto);
+            });
+
+            tbody.innerHTML = filteredList.map(r => {
+                const qtd = parseFloat(r.quantidade) || 0;
+                return `
                 <tr>
+                    <td>${this.ui.formatDateBR(r.data_cadastro)}</td>
+                    <td>${r.os_numero || '-'}</td>
                     <td>${r.frente}</td>
                     <td>${r.produto}</td>
-                    <td>${this.ui.formatNumber(typeof r.quantidade==='number'?r.quantidade:parseFloat(r.quantidade)||0, 3)}</td>
+                    <td>${this.ui.formatNumber(qtd, 3)}</td>
                     <td><button class="btn btn-delete-estoque" data-frente="${r.frente}" data-produto="${r.produto}">🗑️ Excluir</button></td>
                 </tr>
-            `).join('');
+            `}).join('');
         }
-    } catch(e) {}
+    } catch(e) {
+        console.error('Error loading estoque:', e);
+    }
 };
 
 InsumosApp.prototype.getExportRows = function() {

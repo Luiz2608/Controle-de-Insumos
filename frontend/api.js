@@ -358,11 +358,15 @@ class ApiService {
         return { success: true, data };
     }
 
-    async setEstoque(frente, produto, quantidade) {
+    async setEstoque(frente, produto, quantidade, os_numero = null, data_cadastro = null) {
         this.checkConfig();
         // Upsert no Supabase
+        const payload = { frente, produto, quantidade };
+        if (os_numero) payload.os_numero = os_numero;
+        if (data_cadastro) payload.data_cadastro = data_cadastro;
+
         const { data, error } = await this.supabase.from('estoque')
-            .upsert({ frente, produto, quantidade }, { onConflict: 'frente, produto' })
+            .upsert(payload, { onConflict: 'frente, produto' })
             .select();
             
         if (error) throw error;
