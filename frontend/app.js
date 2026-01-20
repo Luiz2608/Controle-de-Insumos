@@ -1452,13 +1452,35 @@ forceReloadAllData() {
                 }
             };
 
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(requestBody)
-            });
+            let response;
+            const maxRetries = 3;
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(requestBody)
+                    });
 
-            if (response.ok) {
+                    if (response.ok) break; // Sucesso, sai do loop
+                    
+                    if (response.status === 503) {
+                        const waitTime = (i + 1) * 2000; // 2s, 4s, 6s
+                        console.warn(`Gemini 503 (Serviço Indisponível). Tentativa ${i+1}/${maxRetries}. Aguardando ${waitTime}ms...`);
+                        this.ui.showNotification(`Serviço de IA ocupado. Tentando novamente (${i+1}/${maxRetries})...`, 'info', waitTime);
+                        await new Promise(r => setTimeout(r, waitTime));
+                        continue;
+                    }
+                    
+                    break; // Outro erro HTTP (400, 401, 500, etc), não tenta novamente
+                } catch (fetchErr) {
+                    console.error(`Erro de rede na tentativa ${i+1}:`, fetchErr);
+                    if (i === maxRetries - 1) throw fetchErr; // Se for a última, lança o erro
+                    await new Promise(r => setTimeout(r, 2000));
+                }
+            }
+
+            if (response && response.ok) {
                 const data = await response.json();
                 console.log('Gemini Full Response:', data);
 
@@ -1495,8 +1517,16 @@ forceReloadAllData() {
                     this.ui.showNotification('IA não retornou dados válidos.', 'error');
                 }
             } else {
-                console.error('Erro HTTP Gemini:', response.status, response.statusText);
-                this.ui.showNotification('Erro na análise do documento.', 'error');
+                if (response) {
+                    console.error('Erro HTTP Gemini:', response.status, response.statusText);
+                    if (response.status === 503) {
+                        this.ui.showNotification('Serviço de IA indisponível (sobrecarga). Tente novamente em 1 minuto.', 'error', 6000);
+                    } else {
+                        this.ui.showNotification(`Erro na IA (${response.status}). Verifique sua chave ou tente novamente.`, 'error');
+                    }
+                } else {
+                    this.ui.showNotification('Falha de conexão com a IA.', 'error');
+                }
             }
 
         } catch (e) {

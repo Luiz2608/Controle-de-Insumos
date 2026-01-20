@@ -396,12 +396,16 @@ body {
     border-radius: var(--radius);
     background: var(--surface);
     box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-    display: flex;
+    display: none; /* Hidden by default */
     align-items: center;
     gap: 10px;
     z-index: 2000;
-    animation: slideIn 0.3s ease;
     border-left: 4px solid var(--primary);
+}
+
+.notification.show {
+    display: flex;
+    animation: slideIn 0.3s ease;
 }
 .notification.error { border-left-color: var(--error); }
 .notification.warning { border-left-color: var(--warning); }
