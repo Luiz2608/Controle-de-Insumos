@@ -467,8 +467,71 @@ class ApiService {
         };
 
         const { data, error } = await this.supabase
-            .from('metas_plantio')
+            .from('metas')
             .upsert(item, { onConflict: 'frente' })
+            .select();
+
+        if (error) throw error;
+        return { success: true, data: data[0] };
+    }
+
+    // === ORDEM DE SERVIÇO (OS) ===
+
+    async getOSList() {
+        this.checkConfig();
+        const { data, error } = await this.supabase
+            .from('os_agricola')
+            .select('*')
+            .order('created_at', { ascending: false });
+        
+        if (error) {
+            console.error('Erro ao buscar lista de OS:', error);
+            // Se a tabela não existir, retorna array vazio para não quebrar a UI
+            if (error.code === '42P01') return { success: true, data: [] }; 
+            throw error;
+        }
+
+        // Mapear snake_case para camelCase se necessário, ou usar direto
+        // O app usa mapeamento manual no fillOSForm, então vamos padronizar aqui se possível
+        // Mas por enquanto vou retornar raw e tratar no frontend ou mapear básico
+        const mapped = data.map(d => ({
+            ...d,
+            abertura: d.data_abertura,
+            inicioPrev: d.data_inicio_prev,
+            finalPrev: d.data_final_prev,
+            respAplicacao: d.responsavel_aplicacao,
+            areaTotal: d.area_total
+        }));
+
+        return { success: true, data: mapped };
+    }
+
+    async saveOS(payload) {
+        this.checkConfig();
+        
+        // Mapeamento para o banco (snake_case)
+        const item = {
+            numero: payload.numero,
+            status: payload.status,
+            data_abertura: payload.abertura || null,
+            data_inicio_prev: payload.inicioPrev || null,
+            data_final_prev: payload.finalPrev || null,
+            responsavel_aplicacao: payload.respAplicacao,
+            empresa: payload.empresa,
+            frente: payload.frente,
+            processo: payload.processo,
+            subprocesso: payload.subprocesso,
+            fazenda: payload.fazenda,
+            setor: payload.setor,
+            area_total: payload.areaTotal,
+            talhoes: payload.talhoes || [],
+            produtos: payload.produtos || []
+        };
+
+        // Upsert no Supabase (usando numero como chave única)
+        const { data, error } = await this.supabase
+            .from('os_agricola')
+            .upsert(item, { onConflict: 'numero' })
             .select();
 
         if (error) throw error;
