@@ -65,18 +65,23 @@ class InsumosApp {
         
         const plantioDiaInput = document.getElementById('single-plantio-dia');
         const mudaDiaInput = document.getElementById('muda-consumo-dia');
+        const cobricaoDiaInput = document.getElementById('cobricao-dia');
         
         const plantioDia = plantioDiaInput && plantioDiaInput.value ? parseFloat(plantioDiaInput.value) : 0;
         const mudaDia = mudaDiaInput && mudaDiaInput.value ? parseFloat(mudaDiaInput.value) : 0;
+        const cobricaoDia = cobricaoDiaInput && cobricaoDiaInput.value ? parseFloat(cobricaoDiaInput.value) : 0;
         
-        const newPlantioAcum = this.tempFazendaStats.plantioAcumulado + plantioDia;
-        const newMudaAcum = this.tempFazendaStats.mudaAcumulada + mudaDia;
+        const newPlantioAcum = (this.tempFazendaStats.plantioAcumulado || 0) + plantioDia;
+        const newMudaAcum = (this.tempFazendaStats.mudaAcumulada || 0) + mudaDia;
+        const newCobricaoAcum = (this.tempFazendaStats.cobricaoAcumulada || 0) + cobricaoDia;
         
         const plantioAcumEl = document.getElementById('single-area-acumulada');
         const mudaAcumEl = document.getElementById('muda-consumo-acumulado');
+        const cobricaoAcumEl = document.getElementById('cobricao-acumulada');
         
         if (plantioAcumEl) plantioAcumEl.value = newPlantioAcum.toFixed(2);
         if (mudaAcumEl) mudaAcumEl.value = newMudaAcum.toFixed(2);
+        if (cobricaoAcumEl) cobricaoAcumEl.value = newCobricaoAcum.toFixed(2);
     }
 
     
@@ -118,6 +123,7 @@ class InsumosApp {
                 <td>${f.area_total != null ? this.ui.formatNumber(f.area_total, 2) : ''}</td>
                 <td>${f.plantio_acumulado != null ? this.ui.formatNumber(f.plantio_acumulado, 2) : ''}</td>
                 <td>${f.muda_acumulada != null ? this.ui.formatNumber(f.muda_acumulada, 2) : ''}</td>
+                <td>${f.cobricao_acumulada != null ? this.ui.formatNumber(f.cobricao_acumulada, 2) : ''}</td>
                 <td>
                     <button class="btn btn-secondary btn-edit-fazenda" data-codigo="${f.codigo}">Editar</button>
                     <button class="btn btn-secondary btn-use-fazenda-plantio" data-codigo="${f.codigo}">Usar no Plantio</button>
@@ -209,6 +215,7 @@ class InsumosApp {
                         areaTotal: f.area_total,
                         plantioAcumulado: f.plantio_acumulado,
                         mudaAcumulada: f.muda_acumulada,
+                        cobricaoAcumulada: f.cobricao_acumulada,
                         regiao: f.regiao
                     }));
                     this.buildCadastroIndex(list);
@@ -654,7 +661,17 @@ class InsumosApp {
     }
 
     findFazendaByName(name) {
-        if (!name || !this.cadastroFazendas) return null;
+        if (!name) return null;
+        
+        // Se this.cadastroFazendas não estiver definido, tenta usar o índice
+        if (!this.cadastroFazendas) {
+            if (this.fazendaIndex && this.fazendaIndex.byName) {
+                const info = this.fazendaIndex.byName[name];
+                if (info) return { ...info, codigo: info.cod, nome: name };
+            }
+            return null;
+        }
+
         const normalizedName = name.trim().toLowerCase();
         
         // Estratégia 1: Match exato ou case insensitive
@@ -662,10 +679,16 @@ class InsumosApp {
         if (found) return found;
 
         // Estratégia 2: O nome procurado contém o código (ex: "123 - Fazenda") e no cadastro é só "Fazenda"
-        const matchCod = normalizedName.match(/^\d+\s*[-–]\s*(.+)$/);
+        const matchCod = normalizedName.match(/^(\d+)\s*[-–]\s*(.+)$/);
         if (matchCod) {
-            const nomeSemCod = matchCod[1].trim();
+            const nomeSemCod = matchCod[2].trim();
+            // Tenta achar pelo nome limpo
             found = this.cadastroFazendas.find(f => (f.nome || '').trim().toLowerCase() === nomeSemCod);
+            if (found) return found;
+
+            // Tenta achar pelo código
+            const codExt = parseInt(matchCod[1]);
+            found = this.cadastroFazendas.find(f => parseInt(f.codigo) === codExt);
             if (found) return found;
         }
 
@@ -675,6 +698,11 @@ class InsumosApp {
             const match = fNome.match(/^\d+\s*[-–]\s*(.+)$/);
             return match && match[1].trim() === normalizedName;
         });
+        
+        if (found) return found;
+
+        // Estratégia 4: Busca parcial (contém)
+        found = this.cadastroFazendas.find(f => (f.nome || '').trim().toLowerCase().includes(normalizedName) || normalizedName.includes((f.nome || '').trim().toLowerCase()));
 
         return found;
     }
@@ -683,7 +711,8 @@ class InsumosApp {
         if (!item) return;
         this.tempFazendaStats = {
             plantioAcumulado: item.plantio_acumulado || 0,
-            mudaAcumulada: item.muda_acumulada || 0
+            mudaAcumulada: item.muda_acumulada || 0,
+            cobricaoAcumulada: item.cobricao_acumulada || 0
         };
 
         const fazendaSingle = document.getElementById('single-fazenda');
@@ -691,6 +720,7 @@ class InsumosApp {
         const regiaoSingle = document.getElementById('single-regiao');
         const areaTotalSingle = document.getElementById('single-area-total');
         const plantioAcumSingle = document.getElementById('single-area-acumulada');
+        const cobricaoAcumSingle = document.getElementById('cobricao-acumulada');
         
         // Lógica de correção: Se o nome vier no formato "1387 - Nome", separar.
         let nomeFinal = item.nome || '';
@@ -709,6 +739,7 @@ class InsumosApp {
         if (regiaoSingle) regiaoSingle.value = item.regiao || '';
         if (areaTotalSingle) areaTotalSingle.value = item.area_total != null ? String(item.area_total) : '';
         if (plantioAcumSingle) plantioAcumSingle.value = item.plantio_acumulado != null ? String(item.plantio_acumulado) : '';
+        if (cobricaoAcumSingle) cobricaoAcumSingle.value = item.cobricao_acumulada != null ? String(item.cobricao_acumulada) : '';
 
         this.updateAccumulatedStats();
     }
@@ -843,6 +874,31 @@ forceReloadAllData() {
             window.addEventListener('click', (e) => {
                 if (e.target === fazendasModal) {
                     fazendasModal.style.display = 'none';
+                }
+            });
+        }
+
+        // Modal Novo Lançamento Plantio
+        const btnNovoLancamento = document.getElementById('btn-novo-lancamento');
+        const novoLancamentoModal = document.getElementById('novo-lancamento-modal');
+        const closeNovoLancamentoButtons = document.querySelectorAll('.close-novo-lancamento-modal');
+
+        if (btnNovoLancamento && novoLancamentoModal) {
+            btnNovoLancamento.addEventListener('click', () => {
+                novoLancamentoModal.style.display = 'flex';
+            });
+        }
+
+        closeNovoLancamentoButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (novoLancamentoModal) novoLancamentoModal.style.display = 'none';
+            });
+        });
+
+        if (novoLancamentoModal) {
+            window.addEventListener('click', (e) => {
+                if (e.target === novoLancamentoModal) {
+                    novoLancamentoModal.style.display = 'none';
                 }
             });
         }
@@ -1054,6 +1110,58 @@ forceReloadAllData() {
         const modal = document.getElementById('os-modal');
         const closeBtns = document.querySelectorAll('.close-os-modal');
         const fileInput = document.getElementById('os-file-input');
+
+        // Inputs de Fazenda na OS para lógica de split e verificação
+        const osCodFazendaInput = document.getElementById('os-cod-fazenda');
+        const osFazendaInput = document.getElementById('os-fazenda');
+
+        if (osCodFazendaInput && osFazendaInput) {
+            const bindSplit = () => {
+                const val = osFazendaInput.value;
+                const match = val.match(/^(\d+)[\W_]+(.+)$/);
+                if (match) {
+                    // Se encontrar padrão "1387 - Nome", separa
+                    osCodFazendaInput.value = match[1];
+                    osFazendaInput.value = match[2].trim();
+                    // Dispara verificação de existência
+                    checkFazendaExists();
+                }
+            };
+
+            const checkFazendaExists = () => {
+                const codigo = osCodFazendaInput.value ? parseInt(osCodFazendaInput.value) : null;
+                const nome = osFazendaInput.value.trim();
+                if (!codigo && !nome) return;
+
+                const normalize = (s) => (s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+                const nomeNorm = normalize(nome);
+
+                const exists = this.cadastroFazendas && this.cadastroFazendas.find(f => {
+                    const fNomeNorm = normalize(f.nome);
+                    const matchName = nome && fNomeNorm === nomeNorm;
+                    const matchCode = codigo && String(f.codigo) === String(codigo);
+                    return matchName || matchCode;
+                });
+
+                if (exists) {
+                    this.ui.showNotification(`Fazenda já cadastrada: ${exists.nome} (Cód: ${exists.codigo})`, 'success');
+                    if (!osCodFazendaInput.value && exists.codigo) {
+                        osCodFazendaInput.value = exists.codigo;
+                    }
+                    // Se o nome estiver diferente (ex: "Fazenda X" vs "X"), atualiza para o oficial
+                    if (exists.nome && exists.nome !== osFazendaInput.value) {
+                         // Opcional: Atualizar para o nome oficial? Pode ser intrusivo.
+                         // osFazendaInput.value = exists.nome;
+                    }
+                } else {
+                    this.ui.showNotification('Fazenda não cadastrada. Será necessário cadastrar ao salvar.', 'warning');
+                }
+            };
+
+            osFazendaInput.addEventListener('input', bindSplit);
+            osFazendaInput.addEventListener('blur', checkFazendaExists);
+            osCodFazendaInput.addEventListener('blur', checkFazendaExists);
+        }
 
         // Navegação
         const btnNovaOS = document.getElementById('btn-nova-os');
@@ -1347,6 +1455,13 @@ forceReloadAllData() {
         set('os-processo', data.processo);
         set('os-subprocesso', data.subprocesso);
         set('os-fazenda', data.fazenda);
+        
+        // Disparar evento input para ativar a lógica de split e verificação de fazenda
+        const fazendaEl = document.getElementById('os-fazenda');
+        if (fazendaEl && data.fazenda) {
+            fazendaEl.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+
         set('os-setor', data.setor);
         set('os-area-total', data.areaTotal);
 
@@ -1421,61 +1536,58 @@ forceReloadAllData() {
                 return;
             }
 
-            const res = await this.api.saveOS(payload);
-            
-            // Se a fazenda não existe no cadastro, criar automaticamente
-            if (res && res.success && payload.fazenda) {
-                const fazendaNome = payload.fazenda.trim();
-                const exists = this.cadastroFazendas && this.cadastroFazendas.some(f => 
-                    (f.nome || '').trim().toLowerCase() === fazendaNome.toLowerCase()
-                );
+            // Validação de Fazenda ANTES de salvar
+            const fazendaNome = payload.fazenda.trim();
+            const fazendaCodInput = document.getElementById('os-cod-fazenda');
+            const fazendaCod = fazendaCodInput ? parseInt(fazendaCodInput.value) : null;
+
+            if (fazendaNome) {
+                const normalize = (s) => (s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+                const nomeNorm = normalize(fazendaNome);
+
+                const exists = this.cadastroFazendas && this.cadastroFazendas.find(f => {
+                    const fNomeNorm = normalize(f.nome);
+                    const matchName = nomeNorm && fNomeNorm === nomeNorm;
+                    const matchCode = fazendaCod && String(f.codigo) === String(fazendaCod);
+                    return matchName || matchCode;
+                });
 
                 if (!exists) {
-                    try {
-                        this.ui.showNotification(`Fazenda não possui cadastro. Cadastrando ${fazendaNome} automaticamente...`, 'warning');
-                        
-                        let novoCodigo = Math.floor(Math.random() * 90000) + 10000;
-                        let novoNome = fazendaNome;
+                    const confirmCadastro = window.confirm(`A fazenda "${fazendaNome}" não possui cadastro. Deseja cadastrar agora?`);
+                    if (confirmCadastro) {
+                        this.ui.hideLoading();
+                        // Abrir modal de cadastro de fazenda
+                        const fazendasModal = document.getElementById('fazendas-modal');
+                        if (fazendasModal) {
+                            fazendasModal.style.display = 'flex';
+                            
+                            // Preencher dados
+                            const cNome = document.getElementById('cadastro-fazenda-nome');
+                            const cCod = document.getElementById('cadastro-fazenda-codigo');
+                            const cRegiao = document.getElementById('cadastro-fazenda-regiao');
+                            const cArea = document.getElementById('cadastro-fazenda-area-total');
 
-                        // Tentar extrair código do nome (ex: "1387 - Fazenda")
-                        const matchCod = fazendaNome.match(/^(\d+)\s*[-–]\s*(.+)$/);
-                        if (matchCod) {
-                            novoCodigo = parseInt(matchCod[1]);
-                            // Mantemos o nome original para garantir match com o dropdown que usa o nome da OS,
-                            // mas agora o código será o correto no banco.
+                            if (cNome) cNome.value = fazendaNome;
+                            if (cCod && fazendaCod) cCod.value = fazendaCod;
+                            if (cRegiao) cRegiao.value = payload.setor || '';
+                            if (cArea) cArea.value = payload.areaTotal || '';
+                            
+                            this.ui.showNotification('Preencha os dados da fazenda e salve.', 'info', 4000);
                         }
-
-                        const novaFazenda = {
-                            nome: novoNome,
-                            regiao: payload.setor || '',
-                            area_total: payload.areaTotal || 0,
-                            codigo: novoCodigo
-                        };
-                        
-                        const resFazenda = await this.api.createFazenda(novaFazenda);
-                        if (resFazenda && resFazenda.success) {
-                            this.ui.showNotification(`Fazenda ${fazendaNome} cadastrada com sucesso!`, 'success');
-                            // Recarregar fazendas
-                            const cadResp = await this.api.getFazendas();
-                            if (cadResp && cadResp.success) {
-                                this.renderCadastroFazendas(cadResp.data);
-                                // Atualizar selects
-                                const nomes = cadResp.data.map(f => f.nome).filter(Boolean);
-                                const dropdowns = ['single-fazenda', 'fazenda-insumos-filter', 'viagens-fazenda-filter', 'viagem-fazenda'];
-                                dropdowns.forEach(id => {
-                                    const el = document.getElementById(id);
-                                    if (el) this.ui.populateSelect(el, nomes, el.options[0].text);
-                                });
-                            }
-                        }
-                    } catch (errFazenda) {
-                        console.error('Erro ao cadastrar fazenda automática:', errFazenda);
+                        return; // Interrompe o salvamento da OS
                     }
+                    // Se usuário cancelar, assume que quer salvar a OS sem cadastrar a fazenda
                 } else {
-                     this.ui.showNotification(`A fazenda ${fazendaNome} já possui cadastro no sistema.`, 'info');
+                    // Se existe, garantir que o código está correto no payload se não estiver
+                    if (exists.codigo && !fazendaCod) {
+                        // Opcional: atualizar payload se tiver campo de código no backend da OS
+                        // payload.codFazenda = exists.codigo;
+                    }
                 }
             }
 
+            const res = await this.api.saveOS(payload);
+            
             if (res && res.success) {
                 this.ui.showNotification('OS salva com sucesso!', 'success');
                 // Voltar para a lista e recarregar
@@ -2049,8 +2161,10 @@ forceReloadAllData() {
 
         const singlePlantioDia = document.getElementById('single-plantio-dia');
         const mudaConsumoDia = document.getElementById('muda-consumo-dia');
+        const cobricaoDia = document.getElementById('cobricao-dia');
         if (singlePlantioDia) singlePlantioDia.addEventListener('input', () => this.updateAccumulatedStats());
         if (mudaConsumoDia) mudaConsumoDia.addEventListener('input', () => this.updateAccumulatedStats());
+        if (cobricaoDia) cobricaoDia.addEventListener('input', () => this.updateAccumulatedStats());
 
         const toletesTotal = document.getElementById('qual-toletes-total');
         const toletesBons = document.getElementById('qual-toletes-bons');
@@ -2083,12 +2197,32 @@ forceReloadAllData() {
         if (mudasAmostra) mudasAmostra.addEventListener('input', bindMudas);
 
         const singleFrente = document.getElementById('single-frente');
+        const singleOs = document.getElementById('single-os');
+
         if (singleFrente) {
             singleFrente.addEventListener('change', () => {
                 const val = singleFrente.value;
+                if (singleOs) {
+                    singleOs.innerHTML = '<option value="">Selecione a OS</option>';
+                    if (val && this.osListCache) {
+                        const osList = this.osListCache.filter(o => o.frente === val);
+                        osList.forEach(os => {
+                            const opt = document.createElement('option');
+                            opt.value = os.numero;
+                            opt.textContent = `${os.numero} - ${os.fazenda || 'Sem Fazenda'}`;
+                            singleOs.appendChild(opt);
+                        });
+                    }
+                }
+            });
+        }
+
+        if (singleOs) {
+            singleOs.addEventListener('change', () => {
+                const val = singleOs.value;
                 if (!val || !this.osListCache) return;
                 
-                const os = this.osListCache.find(o => o.frente === val);
+                const os = this.osListCache.find(o => String(o.numero) === String(val));
                 if (os) {
                     // Preencher Responsável
                     const respEl = document.getElementById('plantio-responsavel');
@@ -2098,52 +2232,75 @@ forceReloadAllData() {
                     const areaEl = document.getElementById('single-area');
                     if (areaEl && os.areaTotal) areaEl.value = os.areaTotal;
 
-                    // Preencher Fazenda e disparar atualização de código/região
+                    // Referências aos campos
                     const fazendaEl = document.getElementById('single-fazenda');
-                    if (fazendaEl && os.fazenda) {
-                        const targetFazenda = os.fazenda.trim();
-                        // Tentar encontrar no cadastro para ter o objeto completo
-                        const fazendaObj = this.findFazendaByName(targetFazenda);
-
-                        // Setar o valor no select
-                        let foundInSelect = false;
-                        
-                        for (let i = 0; i < fazendaEl.options.length; i++) {
-                            const optText = fazendaEl.options[i].text.trim();
-                            const optVal = fazendaEl.options[i].value.trim();
-                            // Verificar se bate com o objeto achado ou com o nome original
-                            if ((fazendaObj && optText.toLowerCase() === fazendaObj.nome.toLowerCase()) || 
-                                optText.toLowerCase() === targetFazenda.toLowerCase() || 
-                                optVal.toLowerCase() === targetFazenda.toLowerCase()) {
-                                fazendaEl.selectedIndex = i;
-                                foundInSelect = true;
-                                break;
-                            }
-                        }
-
-                        // Se encontrou o objeto completo, aplica diretamente
-                        if (fazendaObj) {
-                            this.applyCadastroFazendaToPlantio(fazendaObj);
-                        } else {
-                            // Fallback: Tenta extrair código do nome da OS
-                            const matchCod = targetFazenda.match(/^(\d+)\s*[-–]\s*(.+)$/);
-                            if (matchCod) {
-                                const codExtraido = matchCod[1];
-                                const codInput = document.getElementById('single-cod');
-                                if (codInput) codInput.value = codExtraido;
-                            } else if (foundInSelect) {
-                                fazendaEl.dispatchEvent(new Event('change'));
-                            }
-                        }
-                    }
-
-                    // Preencher Região com Setor da OS (sobreescreve fazenda se houver)
+                    const codInput = document.getElementById('single-cod');
                     const regiaoEl = document.getElementById('single-regiao');
+
+                    // 1. Tentar preencher Região (Setor da OS) - Prioridade inicial
                     if (regiaoEl && os.setor) {
                         regiaoEl.value = os.setor;
                     }
+
+                    // 2. Tentar preencher Fazenda e Código
+                    if (os.fazenda) {
+                        const targetFazenda = os.fazenda.trim();
+                        // Tentar encontrar no cadastro para ter o objeto completo e acumulados
+                        const fazendaObj = this.findFazendaByName(targetFazenda);
+
+                        if (fazendaObj) {
+                            // Se achou no cadastro, aplica os dados (incluindo acumulados)
+                            this.applyCadastroFazendaToPlantio(fazendaObj);
+                            
+                            // IMPORTANTE: Restaurar a Região/Setor da OS se ela existir, 
+                            // pois a OS pode ser específica de um setor e o cadastro ser genérico
+                            if (regiaoEl && os.setor) {
+                                regiaoEl.value = os.setor;
+                            }
+                        } else {
+                            // Fallback: Cadastro não encontrado, preencher manualmente o possível
+                            
+                            // Tentar extrair código do nome da fazenda na OS (ex: "123 - Fazenda X")
+                            const matchCod = targetFazenda.match(/^(\d+)\s*[-–]\s*(.+)$/);
+                            if (matchCod && codInput) {
+                                codInput.value = matchCod[1];
+                            }
+
+                            // Tentar selecionar no dropdown de fazendas
+                            if (fazendaEl) {
+                                let foundInSelect = false;
+                                const targetLower = targetFazenda.toLowerCase();
+                                
+                                for (let i = 0; i < fazendaEl.options.length; i++) {
+                                    const optText = fazendaEl.options[i].text.trim().toLowerCase();
+                                    const optVal = fazendaEl.options[i].value.trim().toLowerCase();
+                                    
+                                    // Match exato
+                                    if (optText === targetLower || optVal === targetLower) {
+                                        fazendaEl.selectedIndex = i;
+                                        foundInSelect = true;
+                                        break;
+                                    }
+                                    
+                                    // Match parcial se tiver código na OS e não no select
+                                    if (matchCod) {
+                                        const nomeSemCod = matchCod[2].trim().toLowerCase();
+                                        if (optText === nomeSemCod || optVal === nomeSemCod) {
+                                            fazendaEl.selectedIndex = i;
+                                            foundInSelect = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                                
+                                // Se não achou no select e o select for editável ou apenas visual, 
+                                // não podemos forçar valor que não existe no select padrão HTML.
+                                // Mas podemos tentar setar value se for um input texto disfarçado (não é, é select).
+                            }
+                        }
+                    }
                     
-                    this.ui.showNotification('Dados da OS preenchidos automaticamente.', 'info', 1500);
+                    this.ui.showNotification('Dados da OS preenchidos.', 'info', 1500);
                 }
             });
         }
@@ -3744,7 +3901,8 @@ InsumosApp.prototype.savePlantioDia = async function() {
                 try {
                     await this.api.updateFazenda(frente.cod, {
                         plantioAcumulado: frente.areaAcumulada,
-                        mudaAcumulada: qualidade.mudaConsumoAcumulado
+                        mudaAcumulada: qualidade.mudaConsumoAcumulado,
+                        cobricaoAcumulada: qualidade.cobricaoAcumulada
                     });
                     const cadResp = await this.api.getFazendas();
                     if (cadResp && cadResp.success && Array.isArray(cadResp.data)) {
@@ -3754,6 +3912,7 @@ InsumosApp.prototype.savePlantioDia = async function() {
                             areaTotal: f.area_total,
                             plantioAcumulado: f.plantio_acumulado,
                             mudaAcumulada: f.muda_acumulada,
+                            cobricaoAcumulada: f.cobricao_acumulada,
                             regiao: f.regiao
                         }));
                         this.buildCadastroIndex(list);
@@ -3763,7 +3922,7 @@ InsumosApp.prototype.savePlantioDia = async function() {
             }
             this.plantioInsumosDraft = [];
             this.renderInsumosDraft();
-            ['single-fazenda','single-cod','single-regiao','single-area','single-plantada','single-area-total','single-area-acumulada','single-plantio-dia'].forEach(id=>{ const el=document.getElementById(id); if (el) el.value=''; });
+            ['single-fazenda','single-cod','single-regiao','single-area','single-plantada','single-area-total','single-area-acumulada','single-plantio-dia','cobricao-dia','cobricao-acumulada'].forEach(id=>{ const el=document.getElementById(id); if (el) el.value=''; });
             await this.loadPlantioDia();
         } else {
             this.ui.showNotification('Erro ao registrar', 'error');
@@ -3909,7 +4068,8 @@ InsumosApp.prototype.autofillCadastroFields = function(code) {
 
     this.tempFazendaStats = {
         plantioAcumulado: info.plantioAcumulado || 0,
-        mudaAcumulada: info.mudaAcumulada || 0
+        mudaAcumulada: info.mudaAcumulada || 0,
+        cobricaoAcumulada: info.cobricaoAcumulada || 0
     };
 
     const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
@@ -3917,6 +4077,7 @@ InsumosApp.prototype.autofillCadastroFields = function(code) {
     setVal('single-regiao', info.regiao || '');
     setVal('single-area-total', String(info.areaTotal || 0));
     setVal('single-area-acumulada', String(info.plantioAcumulado || 0));
+    setVal('cobricao-acumulada', String(info.cobricaoAcumulada || 0));
     
     const mudaAccumEl = document.getElementById('muda-consumo-acumulado');
     if (mudaAccumEl) mudaAccumEl.value = String(info.mudaAcumulada || 0);
