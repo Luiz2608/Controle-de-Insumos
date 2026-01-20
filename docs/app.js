@@ -2964,7 +2964,7 @@ forceReloadAllData() {
         <tr class="plantio-details-row"><td colspan="4">
             <div class="plantio-details-container">
                 <!-- Seção 1: Frentes -->
-                <div class="details-card" style="grid-column: 1 / -1;">
+                <div class="details-card full-width">
                     <h5>🚜 Frentes e Áreas</h5>
                     <div style="overflow-x: auto;">
                         <table class="details-inner-table">
@@ -2986,7 +2986,7 @@ forceReloadAllData() {
                 </div>
 
                 <!-- Seção 2: Insumos -->
-                <div class="details-card">
+                <div class="details-card flex-1">
                     <h5>🧪 Insumos Aplicados</h5>
                     <div style="overflow-x: auto;">
                         <table class="details-inner-table">
@@ -2997,7 +2997,7 @@ forceReloadAllData() {
                 </div>
 
                 <!-- Seção 3: Qualidade e Condições -->
-                <div class="details-card" style="flex: 2;">
+                <div class="details-card flex-2">
                     <h5>📊 Qualidade e Condições</h5>
                     <div class="quality-grid">
                         ${qualItem('Gemas Totais', this.ui.formatNumber(q.gemasTotal||0))}
