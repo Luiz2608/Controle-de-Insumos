@@ -332,15 +332,13 @@
                 <label for="estoque-frente-filter">Frente:</label>
                 <select id="estoque-frente-filter">
                     <option value="all">Todas as Frentes</option>
-                    <option value="Frente 1">Frente 1</option>
-                    <option value="Frente 2">Frente 2</option>
-                    <option value="Frente Abençoada">Frente Abençoada</option>
                 </select>
             </div>
             <div class="filter-group">
                 <label for="estoque-produto-filter">Produto:</label>
                 <input type="text" id="estoque-produto-filter" placeholder="Filtrar produto...">
             </div>
+            <button id="btn-sync-estoque" class="btn btn-secondary" style="margin-left: auto;">🔄 Sincronizar com OSs</button>
         </div>
         <div class="charts">
             <div class="chart-card wide">
@@ -348,14 +346,12 @@
                 <canvas id="chart-estoque-frente"></canvas>
             </div>
             <div class="chart-card">
-                <h4 style="margin: 0 0 10px 0;">Lançar Estoque</h4>
+                <h4 style="margin: 0 0 10px 0;">Lançar Estoque Manual</h4>
                 <div class="form-grid boletim-grid">
                     <div class="form-group">
                         <label for="estoque-frente">Frente</label>
                         <select id="estoque-frente">
-                            <option value="Frente 1">Frente 1</option>
-                            <option value="Frente 2">Frente 2</option>
-                            <option value="Frente Abençoada">Frente Abençoada</option>
+                            <option value="">Selecione ou Digite</option>
                         </select>
                     </div>
                     <div class="form-group">
