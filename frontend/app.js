@@ -4405,7 +4405,7 @@ InsumosApp.prototype.loadEstoqueAndRender = async function() {
             
             let html = '';
             if (includeAllOption) html += '<option value="all">Todas as Frentes</option>';
-            else html += '<option value="">Selecione ou Digite</option>'; 
+            else html += '<option value="">Selecione</option>'; 
 
             options.forEach(opt => {
                 html += `<option value="${opt}">${opt}</option>`;
