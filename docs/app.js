@@ -996,13 +996,6 @@ forceReloadAllData() {
         }
 
         // Botões gerais
-        const refreshBtn = document.getElementById('refresh-btn');
-        if (refreshBtn) {
-            refreshBtn.addEventListener('click', () => {
-                this.refreshData();
-            });
-        }
-
         const addBtn = document.getElementById('add-btn');
         if (addBtn) {
             addBtn.addEventListener('click', () => {
