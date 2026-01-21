@@ -1094,7 +1094,7 @@ forceReloadAllData() {
                 const data = dataInput ? dataInput.value : '';
                 const frente = frenteInput ? frenteInput.value : '';
                 const fazendaCod = fazendaInput ? fazendaInput.value : '';
-                const status = statusInput ? statusInput.value : 'pendente';
+                const status = statusInput ? statusInput.value : 'Aberto';
                 const obs = obsInput ? obsInput.value : '';
 
                 // Get Fazenda Nome for consistency if needed, but saving Cod is better. 
