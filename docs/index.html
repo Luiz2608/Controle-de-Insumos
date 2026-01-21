@@ -3,1097 +3,682 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestão de Insumos</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="config.js"></script>
-    <link rel="stylesheet" href="main.css?v=20260119-2">
+    <title>Controle de Insumos - Plantio</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="main.css">
 </head>
 <body>
     <div class="app-container">
-        <!-- Header -->
-        <header class="header">
-            <h1>🧪 Gestão de Insumos Agrícolas</h1>
-            <div class="header-actions">
-                <div class="actions-dropdown">
-                    <button id="more-actions-btn" class="btn btn-secondary">⋯ Mais Ações</button>
-                    <div id="more-actions-menu" class="dropdown-menu">
-                        <button id="export-csv-btn" class="btn btn-secondary">⬇️ Exportar CSV</button>
-                        <button id="export-excel-btn" class="btn btn-secondary">⬇️ Exportar Excel</button>
-                        <button id="export-pdf-btn" class="btn btn-secondary">⬇️ Exportar PDF</button>
-                        <button id="clear-import-btn" class="btn btn-secondary">🗑️ Limpar Histórico</button>
-                        <button id="logout-btn" class="btn btn-secondary">Sair</button>
-                    </div>
-                </div>
-                <button id="theme-toggle" class="btn btn-secondary">🌓 Tema</button>
-                <span id="current-user" class="user-badge" title="Usuário autenticado" style="display:none;"></span>
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>Insumos</h2>
+                <p>Gestão de Plantio</p>
             </div>
-        </header>
-
-        <!-- Tela de Login -->
-        <div id="login-screen" class="login-screen" style="display:none;">
-            <div class="login-box">
-                <h2>Controle de Insumos</h2>
-                <p style="opacity:0.8;margin-bottom:12px;">Acesse para liberar o software</p>
-                <div class="form-grid boletim-grid">
-                    <div class="form-group">
-                        <label for="login-user">Usuário</label>
-                        <input type="text" id="login-user" placeholder="admin">
-                    </div>
-                    <div class="form-group">
-                        <label for="login-pass">Senha</label>
-                        <input type="password" id="login-pass" placeholder="123456">
-                    </div>
-                </div>
-                <div style="margin-top:10px;display:flex;gap:10px;justify-content:space-between;align-items:center;">
-                    <button id="login-register-toggle" class="btn btn-secondary">Cadastrar</button>
-                    <div style="display:flex;gap:10px;">
-                        <button id="login-btn" class="btn btn-primary">Entrar</button>
-                    </div>
-                </div>
-                <div id="register-area" style="display:none;margin-top:12px;">
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label for="register-user">Novo usuário (Email)</label>
-                            <input type="text" id="register-user" placeholder="ex.: joao">
-                        </div>
-                        <div class="form-group">
-                            <label for="register-pass">Senha</label>
-                            <input type="password" id="register-pass" placeholder="min. 6 caracteres">
-                        </div>
-                        <div class="form-group">
-                            <label for="register-name">Nome Completo</label>
-                            <input type="text" id="register-name" placeholder="Nome Completo">
-                        </div>
-                        <div class="form-group">
-                            <label for="register-matricula">Matrícula</label>
-                            <input type="text" id="register-matricula" placeholder="12345">
-                        </div>
-                    </div>
-                    <div style="margin-top:10px;display:flex;gap:10px;justify-content:flex-end;">
-                        <button id="register-btn" class="btn btn-success">Criar Conta</button>
-                    </div>
-                </div>
+            <nav class="sidebar-nav">
+                <button class="nav-item active" data-tab="plantio">
+                    <span>🌱</span> Plantio Diário
+                </button>
+                <button class="nav-item" data-tab="insumos">
+                    <span>📦</span> Estoque Insumos
+                </button>
+                <button class="nav-item" data-tab="viagens">
+                    <span>🚛</span> Viagens Adubo
+                </button>
+                <button class="nav-item" data-tab="fazendas">
+                    <span>🚜</span> Cadastro Fazendas
+                </button>
+                <button class="nav-item" data-tab="graficos">
+                    <span>📊</span> Dashboard
+                </button>
+                <button class="nav-item" data-tab="os">
+                    <span>📋</span> OS Agrícola
+                </button>
+                <button class="nav-item" data-tab="liberacao">
+                    <span>✅</span> Liberação Colheita
+                </button>
+            </nav>
+            <div class="sidebar-footer">
+                <div id="current-user" style="display:none; font-size: 0.85em; margin-bottom: 10px; color: #aaa;"></div>
+                <button id="btn-logout" class="btn-logout">Sair</button>
             </div>
-        </div>
+        </aside>
 
-        <!-- Tela de Atualização Cadastral -->
-        <div id="update-profile-screen" class="login-screen" style="display:none; z-index: 9999;">
-            <div class="login-box">
-                <h2>Atualização Cadastral</h2>
-                <p style="opacity:0.8;margin-bottom:12px;">Por favor, complete seu cadastro para continuar.</p>
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label for="update-name">Nome Completo</label>
-                        <input type="text" id="update-name" placeholder="Nome Completo">
-                    </div>
-                    <div class="form-group">
-                        <label for="update-matricula">Matrícula</label>
-                        <input type="text" id="update-matricula" placeholder="12345">
-                    </div>
-                </div>
-                <div style="margin-top:10px;display:flex;gap:10px;justify-content:flex-end;">
-                    <button id="update-profile-btn" class="btn btn-primary">Salvar e Continuar</button>
-                </div>
-            </div>
-        </div>
-
-        
-        <div class="tabs">
-            <button class="tab active" data-tab="graficos">📈 Dashboard</button>
-            <button class="tab" data-tab="plantio-dia">📅 Plantio</button>
-            <button class="tab" data-tab="viagens-adubo">🚚 Viagens Adubo</button>
-            <button class="tab" data-tab="insumos-fazendas">🌱 Insumos</button>
-            <button class="tab" data-tab="estoque">📦 Estoque</button>
-        </div>
-
-        <!-- Conteúdo das Tabs -->
-        <div class="content-area">
-
-        <!-- Tab DASHBOARD -->
-        <div class="tab-content active" id="graficos">
-            <div class="dashboard-header">
-                <div class="filters">
-                    <div class="filter-group">
-                        <label for="dashboard-periodo">Período:</label>
-                        <select id="dashboard-periodo">
-                            <option value="30">Últimos 30 dias</option>
-                            <option value="90">Últimos 90 dias</option>
-                            <option value="365">Último Ano</option>
-                            <option value="all">Todo o Período</option>
-                        </select>
-                    </div>
-                    <button id="btn-refresh-dashboard" class="btn btn-primary">🔄 Atualizar Dados</button>
-                    <button id="btn-config-metas" class="btn btn-secondary">⚙️ Metas</button>
-                </div>
-            </div>
-
-            <!-- KPIs (Indicadores Chave) -->
-            <div class="kpi-grid">
-                <div class="kpi-card">
-                    <div class="kpi-icon">🚜</div>
-                    <div class="kpi-info">
-                        <span class="kpi-label">Área Plantada (Total)</span>
-                        <span class="kpi-value" id="kpi-area-plantada">0 ha</span>
-                    </div>
-                </div>
-                <div class="kpi-card">
-                    <div class="kpi-icon">📋</div>
-                    <div class="kpi-info">
-                        <span class="kpi-label">OS Ativas</span>
-                        <span class="kpi-value" id="kpi-os-ativas">0</span>
-                    </div>
-                </div>
-                <div class="kpi-card">
-                    <div class="kpi-icon">📉</div>
-                    <div class="kpi-info">
-                        <span class="kpi-label">Eficiência Média</span>
-                        <span class="kpi-value" id="kpi-eficiencia">0%</span>
-                    </div>
-                </div>
-                <div class="kpi-card">
-                    <div class="kpi-icon">🚚</div>
-                    <div class="kpi-info">
-                        <span class="kpi-label">Viagens Adubo</span>
-                        <span class="kpi-value" id="kpi-viagens-total">0</span>
-                    </div>
-                </div>
-                <div class="kpi-card">
-                    <div class="kpi-icon">📦</div>
-                    <div class="kpi-info">
-                        <span class="kpi-label">Produtos em Estoque</span>
-                        <span class="kpi-value" id="kpi-estoque-items">0</span>
-                    </div>
-                </div>
-                <div class="kpi-card">
-                    <div class="kpi-icon">🏗️</div>
-                    <div class="kpi-info">
-                        <span class="kpi-label">Vol. Transportado</span>
-                        <span class="kpi-value" id="kpi-volume-total">0 t</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="charts">
-                <!-- Linha 1: Plantio e Progresso Geral -->
-                <div class="chart-card wide">
-                    <h4 style="margin: 0 0 10px 0;">Plantio Diário: Realizado vs Meta (ha)</h4>
-                    <div class="filters" style="margin-bottom: 10px;">
-                        <label for="plantio-chart-frente">Filtrar Frente:</label>
-                        <select id="plantio-chart-frente">
-                            <option value="all">Todas as Frentes</option>
-                        </select>
-                    </div>
-                    <canvas id="chart-plantio-diario"></canvas>
-                </div>
-                
-                <div class="chart-card">
-                    <h4>Progresso por Fazenda (%)</h4>
-                    <canvas id="chart-fazenda-progresso"></canvas>
-                </div>
-
-                <!-- Linha 2: OS e Logística -->
-                <div class="chart-card">
-                    <h4>Status das Ordens de Serviço</h4>
-                    <canvas id="chart-os-status"></canvas>
-                </div>
-
-                <div class="chart-card">
-                    <h4>Logística: Viagens Diárias</h4>
-                    <canvas id="chart-viagens-diarias"></canvas>
-                </div>
-
-                <!-- Linha 3: Insumos e Estoque -->
-                <div class="chart-card">
-                    <h4>Comparativo de Insumos (Geral)</h4>
-                    <canvas id="chart-dose-global"></canvas>
-                </div>
-
-                <div class="chart-card wide">
-                    <h4>Níveis de Estoque por Frente</h4>
-                     <div class="filters" style="margin-bottom: 10px;">
-                         <label for="estoque-chart-frente">Frente:</label>
-                         <select id="estoque-chart-frente">
-                             <option value="all">Geral</option>
-                         </select>
-                     </div>
-                    <canvas id="chart-estoque-geral"></canvas>
-                </div>
-                
-                <!-- Linha 4: Detalhes Insumos -->
-                <div class="chart-card">
-                     <h4>Diferença por Produto (%)</h4>
-                     <canvas id="chart-diff-produtos"></canvas>
-                </div>
-                <div class="chart-card">
-                    <h4>Comparação por Produto</h4>
-                    <canvas id="chart-dose-produtos"></canvas>
-                </div>
-            </div>
-        </div>
-
-        <!-- Tab INSUMOS AGRÍCOLAS -->
-        <div class="tab-content" id="insumos-fazendas">
-            <!-- Filtros INSUMOS FAZENDAS -->
-            <div class="filters">
-                <div class="filter-group">
-                    <label for="produto-filter">Produto:</label>
-                    <select id="produto-filter">
-                        <option value="all">Todos os Produtos</option>
-                    </select>
-                </div>
-                <div class="filter-group">
-                    <label for="fazenda-insumos-filter">Fazenda:</label>
-                    <select id="fazenda-insumos-filter">
-                        <option value="all">Todas as Fazendas</option>
-                    </select>
-                </div>
-                <button id="apply-insumos-filters" class="btn btn-primary">🔍 Aplicar Filtros</button>
-                <button id="reset-insumos-filters" class="btn btn-secondary">🔄 Limpar</button>
-            </div>
-
+        <!-- Main Content -->
+        <main class="main-content">
             
-
-            <!-- Charts movidos para aba separada -->
-
-            <!-- Tabela INSUMOS FAZENDAS -->
-            <div class="table-container">
-                <table id="insumos-table" class="data-table">
-                    <thead>
-                        <tr>
-                            <th>OS</th>
-                            <th>Código</th>
-                            <th>Fazenda</th>
-                            <th>Área Talhão (ha)</th>
-                            <th>Área Aplicada (ha)</th>
-                            <th>Produto</th>
-                            <th>Dose Recom.</th>
-                            <th>Dose Aplicada</th>
-                            <th>Quantidade</th>
-                            <th>Diferença</th>
-                            <th>Frente</th>
-                            <th>Início</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td colspan="13" class="loading">📡 Carregando dados...</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-    <!-- Loading -->
-    <div id="loading" class="loading-overlay">
-        <div class="loading-spinner">⏳</div>
-        <p>Carregando...</p>
-    </div>
-
-    <!-- Notificação -->
-    <div id="notification" class="notification"></div>
-
-    <!-- Modal para Adicionar/Editar Insumo -->
-    <div id="insumo-modal" class="modal" style="display: none;">
-        <div class="modal-content" style="max-width: 600px;">
-            <div class="modal-header">
-                <h3 id="insumo-modal-title">➕ Adicionar Insumo</h3>
-                <button class="close-modal close-insumo-modal">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="insumo-form">
-                    <div class="form-grid">
+            <!-- Login Screen -->
+            <div id="login-screen" class="modal" style="display: flex;">
+                <div class="modal-content" style="max-width: 400px; text-align: center;">
+                    <h3>Acesso ao Sistema</h3>
+                    
+                    <!-- Login Form -->
+                    <div class="form-grid boletim-grid" style="grid-template-columns: 1fr;">
                         <div class="form-group">
-                            <label for="fornecedor">Fornecedor *</label>
-                            <select id="fornecedor" name="fornecedor" required>
-                                <option value="insumosFazendas" selected>INSUMOS FAZENDAS</option>
+                            <label>Usuário/Email</label>
+                            <input type="text" id="login-user" placeholder="Digite seu usuário">
+                        </div>
+                        <div class="form-group">
+                            <label>Senha</label>
+                            <input type="password" id="login-pass" placeholder="Digite sua senha">
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" id="login-btn" style="width: 100%; margin-top: 15px;">Entrar</button>
+
+                    <!-- Register Area -->
+                    <div id="register-area" style="display: none; margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px;">
+                        <h4>Criar Nova Conta</h4>
+                        <div class="form-grid boletim-grid" style="grid-template-columns: 1fr;">
+                            <div class="form-group">
+                                <label>Nome Completo</label>
+                                <input type="text" id="register-name" placeholder="Seu nome">
+                            </div>
+                            <div class="form-group">
+                                <label>Matrícula</label>
+                                <input type="text" id="register-matricula" placeholder="Sua matrícula">
+                            </div>
+                            <div class="form-group">
+                                <label>Email (Usuário)</label>
+                                <input type="text" id="register-user" placeholder="Seu email">
+                            </div>
+                            <div class="form-group">
+                                <label>Senha</label>
+                                <input type="password" id="register-pass" placeholder="Sua senha">
+                            </div>
+                        </div>
+                        <button class="btn btn-success" id="register-btn" style="width: 100%; margin-top: 15px;">Cadastrar</button>
+                    </div>
+
+                    <p style="margin-top: 15px; font-size: 0.9em; cursor: pointer; color: #4CAF50;" id="login-register-toggle">Criar conta</p>
+                </div>
+            </div>
+
+            <!-- Update Profile Screen (First Access) -->
+            <div id="update-profile-screen" class="modal" style="display: none; z-index: 2000;">
+                <div class="modal-content" style="max-width: 400px;">
+                    <h3>Atualização Cadastral</h3>
+                    <p>Por favor, complete seu cadastro para continuar.</p>
+                    <div class="form-grid boletim-grid" style="grid-template-columns: 1fr;">
+                        <div class="form-group">
+                            <label>Nome Completo</label>
+                            <input type="text" id="update-name" placeholder="Seu nome">
+                        </div>
+                        <div class="form-group">
+                            <label>Matrícula</label>
+                            <input type="text" id="update-matricula" placeholder="Sua matrícula">
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" id="update-profile-btn" style="width: 100%; margin-top: 15px;">Salvar</button>
+                </div>
+            </div>
+
+            <!-- Header -->
+            <header class="top-bar">
+                <div class="search-bar">
+                    <input type="text" placeholder="Buscar registros...">
+                </div>
+                <div class="user-info">
+                    <span id="connection-status" style="margin-right: 15px; font-size: 0.8em;">🟢 Online</span>
+                    <button class="btn-icon" id="theme-toggle">🌓</button>
+                </div>
+            </header>
+
+            <!-- Tab: Plantio Diário -->
+            <section id="tab-plantio" class="tab-content active">
+                <div class="section-header">
+                    <h3>Boletim Diário de Plantio</h3>
+                    <div class="actions">
+                        <button class="btn btn-secondary" id="btn-export-plantio">Exportar Excel</button>
+                        <button class="btn btn-primary" id="btn-save-plantio">Salvar Boletim</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="form-grid boletim-grid">
+                        <div class="form-group">
+                            <label>Data</label>
+                            <input type="date" id="plantio-data">
+                        </div>
+                        
+                        <!-- Operação Toggle -->
+                        <div class="form-group" style="grid-column: span 2;">
+                            <label>Operação</label>
+                            <select id="tipo-operacao" style="font-weight: bold; color: #2c3e50;">
+                                <option value="plantio">Plantio de Cana</option>
+                                <option value="colheita_muda">Colheita de Muda</option>
                             </select>
                         </div>
-                        
-                        <div class="form-group">
-                            <label for="os">Número da OS</label>
-                            <input type="number" id="os" name="os" step="1">
+
+                        <!-- Seção Plantio -->
+                        <div class="form-group" id="sec-gemas">
+                            <label>Gemas/m</label>
+                            <input type="number" id="plantio-gemas" step="0.1" placeholder="0.0">
+                        </div>
+                        <div class="form-group" id="sec-toletes">
+                            <label>Toletes/m</label>
+                            <input type="number" id="plantio-toletes" step="0.1" placeholder="0.0">
                         </div>
 
-                        <div class="form-group">
-                            <label for="cod">Código da Fazenda</label>
-                            <input type="number" id="cod" name="cod" step="1">
+                        <!-- Seção Colheita Muda -->
+                        <div class="form-group" id="sec-mudas" style="display:none;">
+                            <label>Mudas (ton)</label>
+                            <input type="number" id="colheita-mudas-ton" step="0.1" placeholder="0.0">
                         </div>
+                    </div>
 
+                    <!-- Frentes Dinâmicas -->
+                    <div id="frentes-container">
+                        <!-- Linhas de frente geradas via JS -->
+                    </div>
+                </div>
+
+                <!-- Insumos Utilizados -->
+                <div class="card" style="margin-top: 20px;" id="sec-outros">
+                    <h4>Insumos Utilizados</h4>
+                    <div class="form-grid" style="grid-template-columns: 2fr 1fr 1fr auto; align-items: end;">
                         <div class="form-group">
-                            <label for="produto">Produto *</label>
-                            <select id="produto" name="produto" required>
-                                <option value="">Selecione</option>
-                                <option>BIOZYME</option>
-                                <option>04-30-10</option>
-                                <option>QUALITY</option>
-                                <option>AZOKOP</option>
-                                <option>SURVEY (FIPRONIL)</option>
-                                <option>OXIFERTIL</option>
-                                <option>LANEX 800 WG (REGENTE)</option>
-                                <option>COMET</option>
-                                <option>COMPOSTO</option>
-                                <option>10-49-00</option>
-                                <option>PEREGRINO</option>
-                                <option>NO-NEMA</option>
+                            <label>Produto</label>
+                            <!-- Datalist para autocomplete de produtos do estoque -->
+                            <input type="text" id="insumo-produto-input" list="insumos-list" placeholder="Busque o produto...">
+                            <datalist id="insumos-list">
+                                <!-- Preenchido via JS -->
+                            </datalist>
+                            <!-- Fallback select se preferir -->
+                            <select id="insumo-produto" style="display:none;">
+                                <option value="">Selecione...</option>
                             </select>
                         </div>
-                        
                         <div class="form-group">
-                            <label for="fazenda">Fazenda *</label>
-                            <input type="text" id="fazenda" name="fazenda" required>
+                            <label>Dose/ha (Prev)</label>
+                            <input type="number" id="insumo-dose-prev" step="0.001">
                         </div>
-                        
                         <div class="form-group">
-                            <label for="frente">Frente</label>
-                            <input type="number" id="frente" name="frente" step="1">
+                            <label>Dose/ha (Real)</label>
+                            <input type="number" id="insumo-dose-real" step="0.001">
                         </div>
-                        
-                        <div class="form-group">
-                            <label for="processo">Processo</label>
-                            <input type="text" id="processo" name="processo" value="CANA DE ACUCAR">
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="subprocesso">Subprocesso</label>
-                            <input type="text" id="subprocesso" name="subprocesso" value="PLANTIO">
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="areaTalhao">Área Talhão (ha)</label>
-                            <input type="number" id="areaTalhao" name="areaTalhao" step="0.01">
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="areaTotalAplicada">Área Total Aplicada (ha)</label>
-                            <input type="number" id="areaTotalAplicada" name="areaTotalAplicada" step="0.01">
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="doseRecomendada">Dose Recomendada</label>
-                            <input type="number" id="doseRecomendada" name="doseRecomendada" step="0.001">
-                        </div>
-
-                        <div class="form-group">
-                            <label for="doseAplicada">Dose Aplicada</label>
-                            <input type="number" id="doseAplicada" name="doseAplicada" step="0.001">
-                        </div>
-
-                        <div class="form-group">
-                            <label for="quantidadeAplicada">Quantidade Aplicada</label>
-                            <input type="number" id="quantidadeAplicada" name="quantidadeAplicada" step="0.000001">
-                        </div>
-
-                        <div class="form-group">
-                            <label for="dataInicio">Data Início da Aplicação</label>
-                            <input type="datetime-local" id="dataInicio" name="dataInicio">
-                        </div>
-
-                        
+                        <button class="btn btn-secondary" id="btn-add-insumo-row">Adicionar</button>
                     </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" id="cancel-insumo">Cancelar</button>
-                <button type="button" class="btn btn-primary" id="save-insumo">💾 Salvar Insumo</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Tab de Estoque -->
-    <div class="tab-content" id="estoque">
-        <div class="filters">
-            <div class="filter-group">
-                <label for="estoque-frente-filter">Frente:</label>
-                <select id="estoque-frente-filter">
-                    <option value="all">Todas as Frentes</option>
-                </select>
-            </div>
-            <div class="filter-group">
-                <label for="estoque-produto-filter">Produto:</label>
-                <input type="text" id="estoque-produto-filter" placeholder="Filtrar produto...">
-            </div>
-            <button id="btn-sync-estoque" class="btn btn-secondary" style="margin-left: auto;">🔄 Sincronizar com OSs</button>
-        </div>
-        <div class="dashboard-wrapper">
-            <div class="chart-card full-width">
-                <h4 style="margin: 0 0 15px 0; border-bottom: 1px solid var(--border); padding-bottom: 10px;">📊 Análise de Estoque</h4>
-                <canvas id="chart-estoque-frente"></canvas>
-            </div>
-
-            <div class="chart-card full-width">
-                <h4 style="margin: 0 0 15px 0; border-bottom: 1px solid var(--border); padding-bottom: 10px;">📝 Lançamento Manual de Estoque</h4>
-                <div class="manual-entry-container">
-                    <div class="manual-entry-group">
-                        <label for="estoque-frente">Frente</label>
-                        <select id="estoque-frente">
-                            <option value="">Selecione</option>
-                        </select>
-                    </div>
-                    <div class="manual-entry-group">
-                        <label for="estoque-os-manual">Nº O.S.</label>
-                        <select id="estoque-os-manual">
-                            <option value="">Selecione a O.S.</option>
-                        </select>
-                    </div>
-                    <div class="manual-entry-group">
-                        <label for="estoque-produto">Produto</label>
-                        <select id="estoque-produto">
-                            <option value="">Selecione</option>
-                            <option>BIOZYME</option>
-                            <option>04-30-10</option>
-                            <option>QUALITY</option>
-                            <option>AZOKOP</option>
-                            <option>SURVEY (FIPRONIL)</option>
-                            <option>OXIFERTIL</option>
-                            <option>LANEX 800 WG (REGENTE)</option>
-                            <option>COMET</option>
-                            <option>COMPOSTO</option>
-                            <option>10-49-00</option>
-                            <option>PEREGRINO</option>
-                            <option>NO-NEMA</option>
-                        </select>
-                    </div>
-                    <div class="manual-entry-group">
-                        <label for="estoque-quantidade">Quantidade</label>
-                        <input type="number" id="estoque-quantidade" step="0.000001" placeholder="0.00">
-                    </div>
-                    <div class="manual-entry-group action-group">
-                        <button id="estoque-save-btn" class="btn btn-primary">💾 Salvar Lançamento</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="table-container">
-            <table id="estoque-table" class="data-table">
-                <thead>
-                    <tr>
-                        <th>Data</th>
-                        <th>Nº O.S.</th>
-                        <th>Frente</th>
-                        <th>Produto</th>
-                        <th>Quantidade</th>
-                        <th>Ações</th>
-                    </tr>
-                </thead>
-                <tbody id="estoque-table-body"></tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- Tab Viagens de Adubo -->
-    <div class="tab-content" id="viagens-adubo">
-        <div class="filters">
-            <div class="filter-group">
-                <label for="viagens-data-filter">Data</label>
-                <input type="date" id="viagens-data-filter">
-            </div>
-            <div class="filter-group">
-                <label for="viagens-fazenda-filter">Fazenda</label>
-                <select id="viagens-fazenda-filter">
-                    <option value="">Todas as Fazendas</option>
-                </select>
-            </div>
-            <div class="filter-group">
-                <label for="viagens-frente-filter">Frente</label>
-                <input type="text" id="viagens-frente-filter" placeholder="Ex.: 4001">
-            </div>
-            <div class="filter-group">
-                <label for="viagens-motorista-filter">Motorista</label>
-                <input type="text" id="viagens-motorista-filter" placeholder="Nome do motorista">
-            </div>
-            <div class="filter-group">
-                <label for="viagens-caminhao-filter">Caminhão</label>
-                <input type="text" id="viagens-caminhao-filter" placeholder="Placa ou identificação">
-            </div>
-            <div class="filter-group">
-                <label for="viagens-lacre-filter">Lacre</label>
-                <input type="text" id="viagens-lacre-filter" placeholder="Lacre do bag">
-            </div>
-            <button id="apply-viagens-filters" class="btn btn-primary">🔍 Aplicar Filtros</button>
-            <button id="reset-viagens-filters" class="btn btn-secondary">🔄 Limpar</button>
-        </div>
-
-        <div class="dashboard-wrapper">
-            <div class="chart-card">
-                <h4 style="margin: 0 0 10px 0;">Cadastro de Viagem</h4>
-                <div class="form-grid boletim-grid">
-                    <div class="form-group">
-                        <label for="viagem-data">Data</label>
-                        <input type="date" id="viagem-data">
-                    </div>
-                    <div class="form-group">
-                        <label for="viagem-frente">Frente</label>
-                        <select id="viagem-frente">
-                            <option value="">Selecione</option>
-                            <option value="4001">4001</option>
-                            <option value="4002">4002</option>
-                            <option value="4009 Abençoada">4009 Abençoada</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="viagem-codigo-fazenda">Código</label>
-                        <input type="number" id="viagem-codigo-fazenda" placeholder="Cód">
-                    </div>
-                    <div class="form-group">
-                        <label for="viagem-fazenda">Fazenda</label>
-                        <select id="viagem-fazenda">
-                            <option value="">Selecione a Fazenda</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="viagem-origem">Origem</label>
-                        <input type="text" id="viagem-origem" placeholder="Ex.: Armazém A">
-                    </div>
-                    <div class="form-group">
-                        <label for="viagem-destino">Destino</label>
-                        <input type="text" id="viagem-destino" placeholder="Ex.: Talhão 1">
-                    </div>
-                    <div class="form-group">
-                        <label for="viagem-produto">Produto</label>
-                        <select id="viagem-produto">
-                            <option value="">Selecione</option>
-                            <option>BIOZYME</option>
-                            <option>04-30-10</option>
-                            <option>QUALITY</option>
-                            <option>AZOKOP</option>
-                            <option>SURVEY (FIPRONIL)</option>
-                            <option>OXIFERTIL</option>
-                            <option>LANEX 800 WG (REGENTE)</option>
-                            <option>COMET</option>
-                            <option>COMPOSTO</option>
-                            <option>10-49-00</option>
-                            <option>PEREGRINO</option>
-                            <option>NO-NEMA</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="viagem-quantidade-total">Quantidade Total</label>
-                        <input type="number" id="viagem-quantidade-total" step="0.001">
-                    </div>
-                    <div class="form-group">
-                        <label for="viagem-unidade">Unidade</label>
-                        <select id="viagem-unidade">
-                            <option value="">Selecione</option>
-                            <option value="t">t</option>
-                            <option value="kg">kg</option>
-                            <option value="L">L</option>
-                            <option value="sc">sc</option>
-                            <option value="bag">bag</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="viagem-caminhao">Caminhão</label>
-                        <input type="text" id="viagem-caminhao" placeholder="Placa / identificação">
-                    </div>
-                    <div class="form-group">
-                        <label for="viagem-carreta1">Carreta 1</label>
-                        <input type="text" id="viagem-carreta1" placeholder="Opcional">
-                    </div>
-                    <div class="form-group">
-                        <label for="viagem-carreta2">Carreta 2</label>
-                        <input type="text" id="viagem-carreta2" placeholder="Opcional">
-                    </div>
-                    <div class="form-group">
-                        <label for="viagem-motorista">Motorista</label>
-                        <input type="text" id="viagem-motorista">
-                    </div>
-                    <div class="form-group">
-                        <label for="viagem-documento-motorista">Doc. Motorista</label>
-                        <input type="text" id="viagem-documento-motorista" placeholder="CPF / CNH">
-                    </div>
-                    <div class="form-group">
-                        <label for="viagem-transportadora">Transportadora</label>
-                        <input type="text" id="viagem-transportadora">
-                    </div>
-                    <div class="form-group">
-                        <label for="viagem-observacoes">Observações</label>
-                        <input type="text" id="viagem-observacoes" placeholder="Opcional">
-                    </div>
-                </div>
-                <div style="margin-top:10px; display:flex; gap:10px;">
-                    <button id="viagem-save-btn" class="btn btn-primary">💾 Registrar Viagem</button>
-                </div>
-            </div>
-
-            <div class="chart-card">
-                <h4 style="margin: 0 0 10px 0;">Bags da Viagem</h4>
-                <div class="form-grid boletim-grid">
-                    <div class="form-group">
-                        <label for="bag-identificacao">Identificação</label>
-                        <input type="text" id="bag-identificacao" placeholder="Ex.: BAG 001">
-                    </div>
-                    <div class="form-group">
-                        <label for="bag-peso">Peso</label>
-                        <input type="number" id="bag-peso" step="0.001">
-                    </div>
-                    <div class="form-group">
-                        <label for="bag-lacre">Lacre</label>
-                        <input type="text" id="bag-lacre" placeholder="Lacre / selo">
-                    </div>
-                    <div class="form-group">
-                        <label for="bag-observacoes">Observações</label>
-                        <input type="text" id="bag-observacoes" placeholder="Opcional">
-                    </div>
-                </div>
-                <div style="margin-top:10px; display:flex; gap:10px;">
-                    <button id="bag-add-btn" class="btn btn-secondary">➕ Adicionar Bag</button>
-                </div>
-                <div class="table-container" style="margin-top:10px;">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Identificação</th>
-                                <th>Peso</th>
-                                <th>Lacre</th>
-                                <th>Observações</th>
-                                <th>Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody id="bags-table-body"></tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <div class="table-container">
-            <table class="data-table" id="viagens-adubo-table">
-                <thead>
-                    <tr>
-                        <th>Data</th>
-                        <th>Frente</th>
-                        <th>Fazenda</th>
-                        <th>Produto</th>
-                        <th>Quantidade</th>
-                        <th>Unidade</th>
-                        <th>Motorista</th>
-                        <th>Caminhão</th>
-                        <th>Ações</th>
-                    </tr>
-                </thead>
-                <tbody id="viagens-adubo-table-body">
-                    <tr>
-                        <td colspan="9" class="loading">📡 Carregando dados...</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <div id="viagem-detail-modal" class="modal" style="display:none;">
-        <div class="modal-content" style="max-width: 700px;">
-            <div class="modal-header">
-                <h3 id="viagem-detail-title">Detalhes da Viagem</h3>
-                <button class="close-modal" id="viagem-detail-close">&times;</button>
-            </div>
-            <div class="modal-body" id="viagem-detail-body"></div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" id="viagem-detail-cancel">Fechar</button>
-                <button type="button" class="btn btn-primary" id="viagem-detail-print">🖨️ Imprimir</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Tab Plantio Diário -->
-    <div class="tab-content" id="plantio-dia">
-        <div class="action-bar">
-            <button id="btn-novo-lancamento" class="btn btn-primary">➕ NOVO Lançamento</button>
-            <div class="action-group">
-                <button id="btn-open-fazendas-modal" class="btn btn-secondary">🏡 Fazendas</button>
-                <button id="btn-liberacao-colheita" class="btn btn-secondary">🌾 Liberação</button>
-                <button id="btn-os" class="btn btn-secondary">📋 OS</button>
-            </div>
-        </div>
-
-        <div class="dashboard-wrapper">
-            <div class="table-container">
-                <table class="data-table" id="plantio-table">
-                    <thead>
-                        <tr>
-                            <th>Data</th>
-                            <th>Frentes do dia</th>
-                            <th>Σ Área (ha)</th>
-                            <th>Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody id="plantio-table-body"></tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
-        
-    </div>
-
-    <div id="os-modal" class="modal" style="display: none;">
-        <div class="modal-content" style="max-width: 95%;">
-            <div class="modal-header">
-                <h3>📋 Cadastro de Ordem de Serviço (OS)</h3>
-                <button class="close-modal close-os-modal">&times;</button>
-            </div>
-            <div class="modal-body" style="overflow-y: auto; max-height: 80vh;">
-                
-                <!-- LISTA DE OS (Visão Principal) -->
-                <div id="os-view-list" class="chart-card">
-                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <h4 style="margin: 0;">Todas as OS Cadastradas</h4>
-                        <button class="btn btn-primary" id="btn-nova-os">➕ Nova OS</button>
-                     </div>
-                     <div class="table-container">
+                    <div class="table-container">
                         <table class="data-table">
                             <thead>
                                 <tr>
-                                    <th>Número</th>
-                                    <th>Status</th>
+                                    <th>Produto</th>
+                                    <th>Dose Prevista</th>
+                                    <th>Dose Realizada</th>
+                                    <th>Ação</th>
+                                </tr>
+                            </thead>
+                            <tbody id="insumos-plantio-tbody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <!-- Histórico Recente -->
+                <div class="card" style="margin-top: 20px;">
+                    <h4>Histórico Recente (Últimos 7 dias)</h4>
+                    <div class="table-container">
+                        <table class="data-table" id="plantio-history-table">
+                            <thead>
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Operação</th>
                                     <th>Fazenda</th>
-                                    <th>Data Abertura</th>
-                                    <th>Responsável</th>
+                                    <th>Área (ha)</th>
                                     <th>Ações</th>
                                 </tr>
                             </thead>
-                            <tbody id="os-list-body">
-                                <tr>
-                                    <td colspan="6" class="loading">Carregando...</td>
-                                </tr>
+                            <tbody>
+                                <!-- JS -->
                             </tbody>
                         </table>
-                     </div>
+                    </div>
                 </div>
 
-                <!-- FORMULÁRIO DE OS (Oculto por padrão) -->
-                <div id="os-view-form" style="display: none;">
-                    <button class="btn btn-secondary" id="btn-voltar-os-list" style="margin-bottom: 10px;">⬅ Voltar para Lista</button>
+            </section>
 
-                    <div class="charts">
-                        <div class="chart-card">
-                            <h4 style="margin: 0 0 10px 0;">Dados da OS</h4>
-                        <div style="margin-bottom: 15px; padding: 10px; background-color: #f5f5f5; border-radius: 4px; display: flex; align-items: center; justify-content: space-between;">
-                            <span>Importar dados de arquivo (PDF/Imagem):</span>
-                            <div>
-                                <input type="file" id="os-file-input" accept="application/pdf,image/*" style="display: none;">
-                                <button class="btn btn-secondary" onclick="document.getElementById('os-file-input').click()">📂 Selecionar Arquivo</button>
-                            </div>
+            <!-- Tab: Estoque -->
+            <section id="tab-insumos" class="tab-content">
+                <div class="section-header">
+                    <h3>Controle de Estoque</h3>
+                    <div class="actions">
+                        <button class="btn btn-secondary" id="btn-refresh-estoque">Atualizar</button>
+                        <button class="btn btn-primary" id="btn-import-estoque">Importar Excel</button>
+                        <input type="file" id="file-estoque" accept=".xlsx, .xls" style="display: none;">
+                    </div>
+                </div>
+
+                <div class="filters-bar">
+                    <select id="filter-estoque-frente">
+                        <option value="all">Todas as Frentes</option>
+                        <option value="4001">Frente 4001</option>
+                        <option value="4002">Frente 4002</option>
+                        <option value="4009">Frente 4009</option>
+                    </select>
+                    <input type="text" id="filter-estoque-produto" placeholder="Filtrar por produto...">
+                </div>
+
+                <div class="card">
+                    <div class="table-container">
+                        <table class="data-table" id="estoque-table">
+                            <thead>
+                                <tr>
+                                    <th>Produto</th>
+                                    <th>Frente</th>
+                                    <th>Entrada</th>
+                                    <th>Saída</th>
+                                    <th>Saldo Atual</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Preenchido via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Tab: Viagens Adubo -->
+            <section id="tab-viagens" class="tab-content">
+                <div class="section-header">
+                    <h3>Controle de Viagens de Adubo</h3>
+                    <div class="actions">
+                        <button class="btn btn-primary" id="btn-new-viagem">Nova Viagem</button>
+                    </div>
+                </div>
+                
+                <div class="filters-bar">
+                    <input type="date" id="filter-viagem-data">
+                    <input type="text" id="filter-viagem-fazenda" placeholder="Fazenda...">
+                </div>
+
+                <div class="card">
+                    <div class="table-container">
+                        <table class="data-table" id="viagens-table">
+                            <thead>
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Fazenda</th>
+                                    <th>Frente</th>
+                                    <th>Motorista</th>
+                                    <th>Caminhão</th>
+                                    <th>Lacre</th>
+                                    <th>Bags</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Tab: Cadastro Fazendas -->
+            <section id="tab-fazendas" class="tab-content">
+                <div class="section-header">
+                    <h3>Cadastro de Fazendas</h3>
+                    <div class="actions">
+                        <button class="btn btn-secondary" id="cadastro-fazenda-novo">Novo</button>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="form-grid" style="grid-template-columns: 1fr 2fr 1fr 1fr 1fr auto;">
+                        <div class="form-group">
+                            <label>Código</label>
+                            <input type="number" id="cadastro-fazenda-codigo">
                         </div>
-
-                        <div class="form-grid boletim-grid">
-                            <!-- Cabeçalho -->
-                            <div class="form-group">
-                                <label for="os-numero">Número da OS</label>
-                                <input type="text" id="os-numero">
-                            </div>
-                            <div class="form-group">
-                                <label for="os-status">Status</label>
-                                <input type="text" id="os-status">
-                            </div>
-                            <div class="form-group">
-                                <label for="os-data-abertura">Abertura</label>
-                                <input type="date" id="os-data-abertura">
-                            </div>
-                            <div class="form-group">
-                                <label for="os-data-inicio">Início Prev.</label>
-                                <input type="date" id="os-data-inicio">
-                            </div>
-                            <div class="form-group">
-                                <label for="os-data-final">Final Prev.</label>
-                                <input type="date" id="os-data-final">
-                            </div>
-                            
-                            <!-- Info Principal -->
-                            <div class="form-group">
-                                <label for="os-resp">Resp. Aplicação</label>
-                                <input type="text" id="os-resp">
-                            </div>
-                            <div class="form-group">
-                                <label for="os-empresa">Empresa</label>
-                                <input type="text" id="os-empresa">
-                            </div>
-                            <div class="form-group">
-                                <label for="os-frente">Frente</label>
-                                <input type="text" id="os-frente">
-                            </div>
-                             <div class="form-group">
-                                <label for="os-processo">Processo</label>
-                                <input type="text" id="os-processo">
-                            </div>
-                             <div class="form-group">
-                                <label for="os-subprocesso">SubProcesso</label>
-                                <input type="text" id="os-subprocesso">
-                            </div>
-                            
-                            <!-- Localização -->
-                             <div class="form-group">
-                                <label for="os-cod-fazenda">Cód. Fazenda</label>
-                                <input type="number" id="os-cod-fazenda" step="1" placeholder="Cód.">
-                            </div>
-                             <div class="form-group">
-                                <label for="os-fazenda">Fazenda</label>
-                                <input type="text" id="os-fazenda">
-                            </div>
-                             <div class="form-group">
-                                <label for="os-setor">Setor</label>
-                                <input type="text" id="os-setor">
-                            </div>
-                            <div class="form-group">
-                                <label for="os-area-total">Área Total (ha)</label>
-                                <input type="number" id="os-area-total" step="0.01">
-                            </div>
+                        <div class="form-group">
+                            <label>Nome da Fazenda</label>
+                            <input type="text" id="cadastro-fazenda-nome">
                         </div>
-
-                        <!-- Talhões -->
-                        <h5 style="margin: 15px 0 5px 0;">Talhões</h5>
-                        <div class="table-container">
-                            <table class="data-table">
-                                <thead>
-                                    <tr>
-                                        <th>Talhão</th>
-                                        <th>Área (ha)</th>
-                                        <th>Proprietário</th>
-                                        <th>Fundo Agrícola</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="os-talhoes-body">
-                                    <!-- Preenchido via JS -->
-                                </tbody>
-                            </table>
+                        <div class="form-group">
+                            <label>Região</label>
+                            <input type="text" id="cadastro-fazenda-regiao">
                         </div>
-
-                        <!-- Produtos -->
-                        <h5 style="margin: 15px 0 5px 0;">Produtos Planejados</h5>
-                        <div class="table-container">
-                            <table class="data-table">
-                                <thead>
-                                    <tr>
-                                        <th>Produto</th>
-                                        <th>Dose Rec.</th>
-                                        <th>Unid.</th>
-                                        <th>Qtd. Total</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="os-produtos-body">
-                                    <!-- Preenchido via JS -->
-                                </tbody>
-                            </table>
+                        <div class="form-group">
+                            <label>Área Total</label>
+                            <input type="number" id="cadastro-fazenda-area" step="0.01">
                         </div>
+                        <div class="form-group">
+                            <label>Distância (km)</label>
+                            <input type="number" id="cadastro-fazenda-distancia" step="0.1">
+                        </div>
+                        <button class="btn btn-primary" id="cadastro-fazenda-save" style="margin-top: 22px;">Salvar</button>
+                    </div>
+                    <div class="table-container" style="margin-top: 20px;">
+                        <table class="data-table" id="cadastro-fazendas-table">
+                            <thead>
+                                <tr>
+                                    <th>Cód</th>
+                                    <th>Fazenda</th>
+                                    <th>Região</th>
+                                    <th>Área Total</th>
+                                    <th>Distância</th>
+                                    <th>Plantio Acum.</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
 
-                        <div style="margin-top:20px;display:flex;gap:10px;justify-content:flex-end;">
-                            <button type="button" class="btn btn-secondary" id="os-novo">Limpar</button>
-                            <button type="button" class="btn btn-primary" id="os-save">💾 Salvar OS</button>
+            <!-- Tab: Dashboard -->
+            <section id="tab-graficos" class="tab-content">
+                <div class="section-header">
+                    <h3>Dashboard Gerencial</h3>
+                    <div class="actions">
+                        <select id="dashboard-periodo" style="padding: 8px; border-radius: 4px; border: 1px solid #ddd;">
+                            <option value="safra">Safra Atual</option>
+                            <option value="mes">Mês Atual</option>
+                            <option value="semana">Últimos 7 dias</option>
+                        </select>
+                        <button class="btn btn-secondary" id="btn-refresh-dashboard">Atualizar</button>
+                        <button class="btn btn-secondary" id="btn-config-metas">⚙️ Metas</button>
+                    </div>
+                </div>
+                
+                <!-- KPIs -->
+                <div class="kpi-grid">
+                    <div class="kpi-card">
+                        <div class="value" id="kpi-area-total">0 ha</div>
+                        <div class="label">Área Plantada Total</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="value" id="kpi-rendimento">0 %</div>
+                        <div class="label">Rendimento Médio</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="value" id="kpi-insumos">0</div>
+                        <div class="label">Total Insumos (kg)</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="value" id="kpi-frentes">0</div>
+                        <div class="label">Frentes Ativas</div>
+                    </div>
+                </div>
+
+                <!-- Gráficos -->
+                <div class="charts-grid">
+                    <div class="chart-card">
+                        <h4>Evolução Diária de Plantio</h4>
+                        <div class="chart-container">
+                            <canvas id="chart-evolucao"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <h4>Comparativo por Frente</h4>
+                        <div class="chart-container">
+                            <canvas id="chart-frentes"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <h4>Consumo de Insumos</h4>
+                        <div class="chart-container">
+                            <canvas id="chart-insumos"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <h4>Realizado vs Meta</h4>
+                        <div class="chart-container">
+                            <canvas id="chart-metas"></canvas>
                         </div>
                     </div>
                 </div>
-            </div> <!-- Fim de os-view-form -->
-            </div> <!-- Fim de modal-body -->
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary close-os-modal">Fechar</button>
+            </section>
+
+             <!-- Tab: OS Agrícola -->
+             <section id="tab-os" class="tab-content">
+                <div class="section-header">
+                    <h3>Ordem de Serviço Agrícola</h3>
+                    <div class="actions">
+                        <button class="btn btn-primary" id="btn-new-os">Nova OS</button>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="table-container">
+                        <table class="data-table" id="os-table">
+                            <thead>
+                                <tr>
+                                    <th>Nº OS</th>
+                                    <th>Data</th>
+                                    <th>Fazenda</th>
+                                    <th>Frente</th>
+                                    <th>Operação</th>
+                                    <th>Área Total</th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Tab: Liberação Colheita -->
+            <section id="tab-liberacao" class="tab-content">
+                <div class="section-header">
+                    <h3>Liberação de Colheita de Muda</h3>
+                    <div class="actions">
+                        <button class="btn btn-primary" id="btn-new-liberacao">Nova Liberação</button>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="table-container">
+                        <table class="data-table" id="liberacao-table">
+                            <thead>
+                                <tr>
+                                    <th>Nº Liberação</th>
+                                    <th>Data</th>
+                                    <th>Fazenda</th>
+                                    <th>Talhões</th>
+                                    <th>Área Total</th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- Modal Viagem -->
+    <div id="modal-viagem" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h3>Registro de Viagem de Adubo</h3>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Data</label>
+                    <input type="date" id="viagem-data">
+                </div>
+                <div class="form-group">
+                    <label>Fazenda</label>
+                    <input type="text" id="viagem-fazenda">
+                </div>
+                <div class="form-group">
+                    <label>Frente</label>
+                    <select id="viagem-frente">
+                        <option value="4001">4001</option>
+                        <option value="4002">4002</option>
+                        <option value="4009">4009</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Motorista</label>
+                    <input type="text" id="viagem-motorista">
+                </div>
+                <div class="form-group">
+                    <label>Caminhão</label>
+                    <input type="text" id="viagem-caminhao">
+                </div>
+                <div class="form-group">
+                    <label>Lacre</label>
+                    <input type="text" id="viagem-lacre">
+                </div>
             </div>
+            
+            <h4 style="margin-top: 15px;">Bags Utilizados</h4>
+            <div class="form-grid" style="grid-template-columns: 2fr 1fr auto;">
+                <div class="form-group">
+                    <label>Produto</label>
+                    <select id="viagem-bag-produto">
+                        <option value="">Selecione...</option>
+                        <!-- JS -->
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Quantidade (kg)</label>
+                    <input type="number" id="viagem-bag-qtd">
+                </div>
+                <button class="btn btn-secondary" id="btn-add-bag" style="margin-top: 22px;">+</button>
+            </div>
+            <div class="table-container" style="max-height: 150px; overflow-y: auto;">
+                <table class="data-table">
+                    <thead><tr><th>Produto</th><th>Qtd</th><th>Ação</th></tr></thead>
+                    <tbody id="viagem-bags-tbody"></tbody>
+                </table>
+            </div>
+
+            <button class="btn btn-primary" id="btn-save-viagem" style="width: 100%; margin-top: 15px;">Salvar Viagem</button>
         </div>
     </div>
 
-    <!-- Modal Cadastro Fazendas -->
-    <div id="fazendas-modal" class="modal" style="display: none;">
-        <div class="modal-content" style="max-width: 95%;">
-            <div class="modal-header">
-                <h3>🏡 Gerenciar Fazendas</h3>
-                <button class="close-modal close-fazendas-modal">&times;</button>
-            </div>
-            <div class="modal-body" style="overflow-y: auto; max-height: 80vh;">
-                <div class="charts">
-                    <div class="chart-card">
-                        <h4 style="margin: 0 0 10px 0;">Cadastro de Fazendas</h4>
-                        <div class="form-grid">
-                            <div class="form-group">
-                                <label for="cadastro-fazenda-codigo">Código da Fazenda</label>
-                                <input type="number" id="cadastro-fazenda-codigo" step="1">
-                            </div>
-                            <div class="form-group">
-                                <label for="cadastro-fazenda-nome">Nome</label>
-                                <input type="text" id="cadastro-fazenda-nome">
-                            </div>
-                            <div class="form-group">
-                                <label for="cadastro-fazenda-regiao">Código da Região</label>
-                                <input type="text" id="cadastro-fazenda-regiao">
-                            </div>
-                            <div class="form-group">
-                                <label for="cadastro-fazenda-area-total">Área total (ha)</label>
-                                <input type="number" id="cadastro-fazenda-area-total" step="0.01">
-                            </div>
-                            <div class="form-group">
-                                <label for="cadastro-fazenda-plantio-acumulado">Plantio acumulado (ha)</label>
-                                <input type="number" id="cadastro-fazenda-plantio-acumulado" step="0.01" readonly>
-                            </div>
-                            <div class="form-group">
-                                <label for="cadastro-fazenda-muda-acumulada">Muda acumulada</label>
-                                <input type="number" id="cadastro-fazenda-muda-acumulada" step="0.01" readonly>
-                            </div>
-                            <div class="form-group" style="grid-column: span 3;">
-                                <label for="cadastro-fazenda-observacoes">Observações</label>
-                                <input type="text" id="cadastro-fazenda-observacoes">
-                            </div>
-                        </div>
-                        <div style="margin-top:10px;display:flex;gap:10px;justify-content:flex-end;">
-                            <button type="button" class="btn btn-secondary" id="cadastro-fazenda-novo">Novo</button>
-                            <button type="button" class="btn btn-primary" id="cadastro-fazenda-save">💾 Salvar Fazenda</button>
-                            <button type="button" class="btn btn-secondary" id="cadastro-fazenda-import-pdf">📥 Importar PDF Fazendas</button>
-                            <input type="file" id="cadastro-fazenda-pdf-input" accept="application/pdf" style="display:none">
-                        </div>
-                    </div>
-                    <div class="chart-card">
-                        <h4 style="margin: 0 0 10px 0;">Fazendas Cadastradas</h4>
-                        <div class="table-container">
-                            <table id="cadastro-fazendas-table" class="data-table">
-                                <thead>
-                                    <tr>
-                                        <th>Código da Fazenda</th>
-                                        <th>Nome</th>
-                                        <th>Código da Região</th>
-                                        <th>Área total (ha)</th>
-                                        <th>Plantio acumulado (ha)</th>
-                                        <th>Muda acumulada</th>
-                                        <th>Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="cadastro-fazendas-body">
-                                    <tr>
-                                        <td colspan="7" class="loading">📡 Carregando cadastro de fazendas...</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+    <!-- Modal OS -->
+    <div id="modal-os" class="modal">
+        <div class="modal-content" style="max-width: 800px;">
+            <span class="close-modal">&times;</span>
+            <h3>Ordem de Serviço Agrícola</h3>
+            
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Nº OS</label>
+                    <input type="text" id="os-numero" placeholder="Automático">
+                </div>
+                <div class="form-group">
+                    <label>Data Início</label>
+                    <input type="date" id="os-data-inicio">
+                </div>
+                <div class="form-group">
+                    <label>Frente</label>
+                    <select id="os-frente">
+                        <option value="4001">4001</option>
+                        <option value="4002">4002</option>
+                        <option value="4009">4009</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Fazenda</label>
+                    <input type="text" id="os-fazenda">
+                </div>
+                <div class="form-group">
+                    <label>Operação</label>
+                    <select id="os-operacao">
+                        <option value="Plantio Manual">Plantio Manual</option>
+                        <option value="Plantio Mecanizado">Plantio Mecanizado</option>
+                        <option value="Colheita de Muda">Colheita de Muda</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Área Total (ha)</label>
+                    <input type="number" id="os-area-total" step="0.01">
                 </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary close-fazendas-modal">Fechar</button>
+
+            <h4 style="margin-top: 15px;">Talhões</h4>
+            <div class="form-grid" style="grid-template-columns: 1fr 1fr auto;">
+                <div class="form-group">
+                    <label>Talhão</label>
+                    <input type="text" id="os-talhao-add">
+                </div>
+                <div class="form-group">
+                    <label>Área (ha)</label>
+                    <input type="number" id="os-area-add" step="0.01">
+                </div>
+                <button class="btn btn-secondary" id="btn-add-os-talhao" style="margin-top: 22px;">+</button>
             </div>
+            <div class="table-container" style="max-height: 150px; overflow-y: auto;">
+                <table class="data-table">
+                    <thead><tr><th>Talhão</th><th>Área</th><th>Ação</th></tr></thead>
+                    <tbody id="os-talhoes-body"></tbody>
+                </table>
+            </div>
+
+            <button class="btn btn-primary" id="btn-save-os" style="width: 100%; margin-top: 15px;">Salvar OS</button>
         </div>
     </div>
 
-    <div id="fazenda-import-modal" class="modal" style="display:none;">
+    <!-- Modal Liberação Colheita -->
+    <div id="modal-liberacao" class="modal">
         <div class="modal-content" style="max-width: 700px;">
-            <div class="modal-header">
-                <h3>📥 Importar Fazendas via PDF</h3>
-                <button class="close-modal" id="fazenda-import-close">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div id="fazenda-import-preview"></div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" id="fazenda-import-cancel">Cancelar</button>
-                <button type="button" class="btn btn-primary" id="fazenda-import-confirm">🚀 Importar</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal de Configuração de Metas -->
-    <div id="metas-modal" class="modal" style="display: none;">
-        <div class="modal-content" style="max-width: 600px;">
-            <div class="modal-header">
-                <h3>⚙️ Configurar Metas de Plantio</h3>
-                <button class="close-modal close-metas-modal">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div class="form-grid" style="grid-template-columns: 1fr 1fr auto; align-items: end;">
+            <span class="close-modal">&times;</span>
+            <h3>Liberação de Colheita de Muda</h3>
+            <form id="liberacao-form">
+                <div class="form-grid">
                     <div class="form-group">
-                        <label for="meta-frente">Frente</label>
-                        <input type="text" id="meta-frente" placeholder="Ex: 4001, Frente 1..." list="frentes-list">
-                        <datalist id="frentes-list">
-                            <!-- Preenchido via JS -->
-                        </datalist>
+                        <label for="liberacao-numero">Número Liberação</label>
+                        <input type="text" id="liberacao-numero" required>
                     </div>
                     <div class="form-group">
-                        <label for="meta-valor">Meta Diária (ha)</label>
-                        <input type="number" id="meta-valor" step="0.01" placeholder="0.00">
+                        <label for="liberacao-data">Data</label>
+                        <input type="date" id="liberacao-data" required>
                     </div>
                     <div class="form-group">
-                        <button id="btn-save-meta" class="btn btn-primary">💾 Salvar</button>
+                        <label for="liberacao-frente">Frente (OS)</label>
+                        <select id="liberacao-frente">
+                            <option value="4001">4001</option>
+                            <option value="4002">4002</option>
+                            <option value="4009">4009</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="liberacao-fazenda">Fazenda</label>
+                        <select id="liberacao-fazenda" required>
+                            <option value="">Selecione...</option>
+                            <!-- Populated via JS -->
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="liberacao-cod-fazenda">Cód. Fazenda</label>
+                        <input type="text" id="liberacao-cod-fazenda" readonly style="background: #f0f0f0;">
+                    </div>
+                    <div class="form-group">
+                        <label for="liberacao-status">Status</label>
+                        <select id="liberacao-status">
+                            <option value="Aberto">Aberto</option>
+                            <option value="Fechado">Fechado</option>
+                        </select>
                     </div>
                 </div>
 
-                <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
-
-                <h4>Metas Definidas</h4>
-                <div class="table-container">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Frente</th>
-                                <th>Meta Diária (ha)</th>
-                            </tr>
-                        </thead>
-                        <tbody id="metas-table-body">
-                            <!-- Preenchido via JS -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary close-metas-modal">Fechar</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="progress-modal" class="modal" style="display:none; z-index: 2000;">
-        <div class="modal-content" style="max-width: 400px; text-align: center;">
-            <h3 id="progress-title" style="margin-top:0;">Processando...</h3>
-            <div style="width: 100%; background-color: #e0e0e0; border-radius: 8px; margin: 20px 0; overflow: hidden;">
-                <div id="progress-bar" style="width: 0%; height: 24px; background-color: #4CAF50; transition: width 0.3s ease;"></div>
-            </div>
-            <p id="progress-text" style="font-weight: bold; color: #555;">0%</p>
-        </div>
-    </div>
-
-    <!-- Modal Liberação de Colheita -->
-    <div id="liberacao-modal" class="modal" style="display: none;">
-        <div class="modal-content" style="max-width: 600px;">
-            <div class="modal-header">
-                <h3>🌾 Liberação de Colheita de Muda</h3>
-                <button class="close-modal close-liberacao-modal">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="liberacao-form">
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label for="liberacao-numero">Número Liberação</label>
-                            <input type="text" id="liberacao-numero" placeholder="Nº Liberação" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="liberacao-data">Data</label>
-                            <input type="date" id="liberacao-data" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="liberacao-frente">Frente (OS)</label>
-                            <select id="liberacao-frente" required>
-                                <option value="">Selecione...</option>
-                                <!-- Populated via JS -->
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="liberacao-fazenda">Fazenda</label>
-                            <select id="liberacao-fazenda" required>
-                                <option value="">Selecione a Fazenda...</option>
-                                <!-- Populated via JS -->
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="liberacao-cod-fazenda">Cód. Fazenda</label>
-                            <input type="text" id="liberacao-cod-fazenda" readonly style="background: #f0f0f0;">
-                        </div>
-                        <div class="form-group">
-                            <label for="liberacao-status">Status</label>
-                            <select id="liberacao-status">
-                                <option value="Aberto">Aberto</option>
-                                <option value="Fechado">Fechado</option>
-                            </select>
-                        </div>
-                    </div>
-
+                <div class="form-section" style="margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px;">
                     <h5 style="margin: 15px 0 5px 0;">Talhões</h5>
-                    <div class="form-grid" style="grid-template-columns: 1fr 1fr auto; align-items: end; margin-bottom: 10px;">
+                    <div class="form-grid" style="grid-template-columns: 1fr 1fr 1fr auto; align-items: end; margin-bottom: 10px;">
                         <div class="form-group">
                             <label for="liberacao-talhao-add">Talhão</label>
                             <select id="liberacao-talhao-add">
                                 <option value="">Selecione...</option>
                             </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="liberacao-variedade-add">Variedade</label>
+                            <input type="text" id="liberacao-variedade-add" placeholder="Variedade">
                         </div>
                         <div class="form-group">
                             <label for="liberacao-area-add">Área (ha)</label>
@@ -1107,6 +692,7 @@
                             <thead>
                                 <tr>
                                     <th>Talhão</th>
+                                    <th>Variedade</th>
                                     <th>Área (ha)</th>
                                     <th>Ação</th>
                                 </tr>
@@ -1116,382 +702,67 @@
                             </tbody>
                             <tfoot>
                                 <tr>
-                                    <td style="text-align: right; font-weight: bold;">Total:</td>
+                                    <td colspan="2" style="text-align: right; font-weight: bold;">Total:</td>
                                     <td colspan="2" id="liberacao-total-ha" style="font-weight: bold;">0.00 ha</td>
                                 </tr>
                             </tfoot>
                         </table>
                     </div>
+                </div>
 
-                    <div class="form-group full-width" style="margin-top: 15px;">
-                        <label for="liberacao-obs">Observações</label>
-                        <textarea id="liberacao-obs" rows="3" style="width: 100%; border: 1px solid var(--border); border-radius: 8px; padding: 8px; font-family: inherit;"></textarea>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary close-liberacao-modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" id="btn-save-liberacao">💾 Salvar Liberação</button>
-            </div>
+                <div class="form-group" style="margin-top: 15px;">
+                    <label for="liberacao-obs">Observações</label>
+                    <textarea id="liberacao-obs" rows="2" style="width: 100%;"></textarea>
+                </div>
+
+                <div class="form-actions" style="margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px;">
+                    <button type="button" class="btn btn-secondary close-modal-btn">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="btn-save-liberacao">Salvar Liberação</button>
+                </div>
+            </form>
         </div>
     </div>
 
-    <!-- Scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.28/dist/jspdf.plugin.autotable.min.js"></script>
-    <script src="api.js?v=20260119-5"></script>
-    <script src="ui.js?v=20260119-5"></script>
-    <script src="import.js?v=20260119-5"></script>
-    <script src="app.js?v=20260119-5"></script>
-    <!-- Modal Novo Lançamento Plantio -->
-    <div id="novo-lancamento-modal" class="modal" style="display: none;">
-        <div class="modal-content" style="max-width: 95%;">
-            <div class="modal-header">
-                <h3>Novo Lançamento de Plantio</h3>
-                <button class="close-modal close-novo-lancamento-modal">&times;</button>
-            </div>
-            <div class="modal-body" style="overflow-y: auto; max-height: 80vh;">
-                <style>
-                    .modal-form-grid {
-                        display: grid;
-                        grid-template-columns: repeat(2, 1fr);
-                        gap: 15px;
-                    }
-                    @media (max-width: 600px) {
-                        .modal-form-grid {
-                            grid-template-columns: 1fr;
-                        }
-                        .modal-form-grid .form-group[style*="span 2"] {
-                            grid-column: span 1 !important;
-                        }
-                    }
-                    .modal-subsection {
-                        border: 1px solid var(--border);
-                        border-radius: var(--radius);
-                        padding: 15px;
-                        margin-bottom: 15px;
-                        background: rgba(0,0,0,0.02);
-                    }
-                    .form-group label {
-                        white-space: normal;
-                        line-height: 1.2;
-                        margin-bottom: 5px;
-                        display: block;
-                    }
-                    .form-group input, .form-group select {
-                        width: 100%;
-                        box-sizing: border-box;
-                    }
-                    .readonly-field {
-                        background-color: #e9ecef;
-                        cursor: not-allowed;
-                        font-weight: 600;
-                        color: var(--text);
-                    }
-                    .theme-dark .readonly-field {
-                        background-color: #2c2c2c;
-                        color: #ccc;
-                    }
-                    .section-title {
-                        margin: 0 0 10px 0;
-                        padding-bottom: 5px;
-                        border-bottom: 2px solid var(--primary-light);
-                        color: var(--primary-dark);
-                        font-size: 1.1em;
-                    }
-                    .theme-dark .section-title {
-                        color: var(--primary-light);
-                    }
-                </style>
-
-                <div class="charts">
-                    <!-- 1. Informações Gerais -->
-                    <div class="chart-card">
-                        <h4 class="section-title">1. Informações Gerais</h4>
-                        <div class="modal-form-grid">
-                            <div class="form-group" style="grid-column: span 2;">
-                                <label for="tipo-operacao">Tipo de Operação *</label>
-                                <select id="tipo-operacao" style="font-weight:bold; border-color: var(--primary);">
-                                    <option value="plantio">Plantio de Cana</option>
-                                    <option value="colheita_muda">Colheita de Muda</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label for="single-frente">Frente *</label>
-                                <select id="single-frente" style="font-weight:bold;">
-                                    <option value="">Selecione</option>
-                                </select>
-                            </div>
-                            <div class="form-group" style="grid-column: span 2;">
-                                <label for="single-os">OS do Plantio (Auto-preenchimento)</label>
-                                <select id="single-os" style="border-color: var(--secondary);">
-                                    <option value="">Selecione a Frente primeiro</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label for="plantio-data">Data *</label>
-                                <input type="date" id="plantio-data">
-                            </div>
-                            <div class="form-group">
-                                <label for="chuva-mm">Chuva (mm)</label>
-                                <input type="number" id="chuva-mm" step="0.1" placeholder="0.0">
-                            </div>
-                            <div class="form-group" style="grid-column: span 2;">
-                                <label for="plantio-responsavel">Responsável</label>
-                                <input type="text" id="plantio-responsavel" placeholder="Nome do responsável">
-                            </div>
-                            <div class="form-group" style="grid-column: span 2;">
-                                <label for="plantio-obs">Observações</label>
-                                <input type="text" id="plantio-obs" placeholder="Opcional">
-                            </div>
-                        </div>
-                        
-                        <!-- Insumos Section -->
-                        <div class="modal-subsection" style="margin-top: 15px; border-top: 1px solid var(--border); padding-top: 10px;">
-                            <h4 style="margin-bottom: 10px;">Insumos Utilizados</h4>
-                            <div class="modal-form-grid">
-                                <div class="form-group" style="grid-column: span 2;">
-                                    <label for="insumo-produto">Produto</label>
-                                    <select id="insumo-produto" style="width: 100%;">
-                                        <option value="">Selecione o produto...</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label for="insumo-dose-prevista">Dose Prev. (L/kg ha)</label>
-                                    <input type="number" id="insumo-dose-prevista" step="0.001" placeholder="0.000">
-                                </div>
-                                <div class="form-group">
-                                    <label for="insumo-dose-realizada">Dose Real. (L/kg ha)</label>
-                                    <input type="number" id="insumo-dose-realizada" step="0.001" placeholder="0.000">
-                                </div>
-                                <div class="form-group" style="grid-column: span 2;">
-                                    <button id="btn-add-insumo-row" class="btn btn-secondary" style="width: 100%;">➕ Adicionar Insumo</button>
-                                </div>
-                            </div>
-                            <div class="table-container" style="max-height: 150px; overflow-y: auto; margin-top: 10px;">
-                                <table class="data-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Produto</th>
-                                            <th>Previsto</th>
-                                            <th>Realizado</th>
-                                            <th style="width: 50px;">Ação</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="insumos-plantio-tbody">
-                                        <!-- Insumos adicionados aparecem aqui -->
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 2. Relatório Diário - Frente -->
-                    <div class="chart-card">
-                        <h4 class="section-title">2. Relatório Diário - Frente</h4>
-                        <div class="modal-form-grid">
-                            <div class="form-group">
-                                <label for="single-cod">Código</label>
-                                <input type="text" id="single-cod" class="readonly-field" readonly title="Preenchido automaticamente pela OS">
-                            </div>
-                            <div class="form-group">
-                                <label for="single-fazenda">Fazenda</label>
-                                <select id="single-fazenda" class="readonly-field" disabled title="Preenchido automaticamente pela OS">
-                                    <option value="">Selecione a Fazenda</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label for="single-regiao">Região</label>
-                                <input type="text" id="single-regiao" class="readonly-field" readonly title="Preenchido automaticamente pela OS">
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="single-area-total">Área Total Fazenda (ha)</label>
-                                <input type="number" id="single-area-total" class="readonly-field" readonly>
-                            </div>
-                            <div class="form-group">
-                                <label for="single-area">Área Planejada OS (ha)</label>
-                                <input type="number" id="single-area" class="readonly-field" readonly>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="single-plantio-dia">Plantio dia (ha) *</label>
-                                <input type="number" id="single-plantio-dia" step="0.01" placeholder="0.00" style="border-color: var(--primary);">
-                            </div>
-                            <div class="form-group">
-                                <label for="single-area-acumulada">Acumulado plantio (ha)</label>
-                                <input type="number" id="single-area-acumulada" step="0.01" class="readonly-field" readonly>
-                            </div>
-                            <div class="form-group">
-                                <label for="cobricao-dia">Cobrição Dia (ha)</label>
-                                <input type="number" id="cobricao-dia" step="0.01" placeholder="0.00">
-                            </div>
-                            <div class="form-group">
-                                <label for="cobricao-acumulada">Cobrição Acumulado (ha)</label>
-                                <input type="number" id="cobricao-acumulada" step="0.01" class="readonly-field" readonly>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 3. Qualidade Muda/Plantio -->
-                    <div class="chart-card">
-                        <h4 class="section-title">3. Qualidade Muda/Plantio</h4>
-                        
-                        <div class="modal-subsection" id="sec-gemas">
-                            <h5 style="margin: 0 0 8px 0; color: #666; font-weight: 600;">🧬 Gemas</h5>
-                            <div class="modal-form-grid" style="grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));">
-                                <div class="form-group">
-                                    <label for="qual-gemas-amostra">Amostra (m)</label>
-                                    <input type="number" id="qual-gemas-amostra" step="0.1">
-                                </div>
-                                <div class="form-group">
-                                    <label for="qual-gemas-total">Total</label>
-                                    <input type="number" id="qual-gemas-total" step="1">
-                                </div>
-                                <div class="form-group">
-                                    <label for="qual-gemas-media">Média/m</label>
-                                    <input type="number" id="qual-gemas-media" step="0.01" class="readonly-field" readonly>
-                                </div>
-                                <div class="form-group">
-                                    <label for="qual-gemas-boas">Viáveis</label>
-                                    <input type="number" id="qual-gemas-boas" step="1">
-                                </div>
-                                <div class="form-group">
-                                    <label for="qual-gemas-ruins">Inviáveis</label>
-                                    <input type="number" id="qual-gemas-ruins" step="1">
-                                </div>
-                                <div class="form-group">
-                                    <label for="qual-gemas-boas-pct">% Viáveis</label>
-                                    <input type="number" id="qual-gemas-boas-pct" step="0.01" class="readonly-field" readonly>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="modal-subsection" id="sec-toletes">
-                            <h5 style="margin: 0 0 8px 0; color: #666; font-weight: 600;">🪵 Toletes</h5>
-                            <div class="modal-form-grid" style="grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));">
-                                <div class="form-group">
-                                    <label for="qual-toletes-amostra">Amostra (m)</label>
-                                    <input type="number" id="qual-toletes-amostra" step="0.1">
-                                </div>
-                                <div class="form-group">
-                                    <label for="qual-toletes-total">Total</label>
-                                    <input type="number" id="qual-toletes-total" step="1">
-                                </div>
-                                <div class="form-group">
-                                    <label for="qual-toletes-media">Média/m</label>
-                                    <input type="number" id="qual-toletes-media" step="0.01" class="readonly-field" readonly>
-                                </div>
-                                <div class="form-group">
-                                    <label for="qual-toletes-bons">Bons</label>
-                                    <input type="number" id="qual-toletes-bons" step="1">
-                                </div>
-                                <div class="form-group">
-                                    <label for="qual-toletes-ruins">Ruins</label>
-                                    <input type="number" id="qual-toletes-ruins" step="1">
-                                </div>
-                                <div class="form-group">
-                                    <label for="qual-toletes-bons-pct">% Bons</label>
-                                    <input type="number" id="qual-toletes-bons-pct" step="0.01" class="readonly-field" readonly>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="modal-subsection" id="sec-mudas">
-                            <h5 style="margin: 0 0 8px 0; color: #666; font-weight: 600;">🌱 Mudas (Qualidade)</h5>
-                            <div class="modal-form-grid" style="grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));">
-                                <div class="form-group">
-                                    <label for="qual-mudas-amostra">Amostra (m)</label>
-                                    <input type="number" id="qual-mudas-amostra" step="0.1">
-                                </div>
-                                <div class="form-group">
-                                    <label for="qual-mudas-total">Total</label>
-                                    <input type="number" id="qual-mudas-total" step="1">
-                                </div>
-                                <div class="form-group">
-                                    <label for="qual-mudas-media">Média/m</label>
-                                    <input type="number" id="qual-mudas-media" step="0.01" class="readonly-field" readonly>
-                                </div>
-                                <div class="form-group">
-                                    <label for="qual-mudas-boas">Boas</label>
-                                    <input type="number" id="qual-mudas-boas" step="1">
-                                </div>
-                                <div class="form-group">
-                                    <label for="qual-mudas-ruins">Ruins</label>
-                                    <input type="number" id="qual-mudas-ruins" step="1">
-                                </div>
-                                <div class="form-group">
-                                    <label for="qual-mudas-boas-pct">% Boas</label>
-                                    <input type="number" id="qual-mudas-boas-pct" step="0.01" class="readonly-field" readonly>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div id="sec-outros">
-                            <h5 style="margin: 10px 0 5px 0; color: #666;">Outros Indicadores</h5>
-                            <div class="modal-form-grid">
-                                <div class="form-group">
-                                    <label for="qual-muda">Muda (ton/ha)</label>
-                                    <input type="number" id="qual-muda" step="0.01">
-                                </div>
-                                <div class="form-group">
-                                    <label for="qual-profundidade">Profundidade (cm)</label>
-                                    <input type="number" id="qual-profundidade" step="0.1">
-                                </div>
-                                <div class="form-group">
-                                    <label for="qual-cobertura">Cobertura</label>
-                                    <input type="text" id="qual-cobertura">
-                                </div>
-                                <div class="form-group">
-                                    <label for="qual-alinhamento">Espaçamento</label>
-                                    <input type="text" id="qual-alinhamento">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 4. Muda -->
-                    <div class="chart-card">
-                        <h4 class="section-title">4. Muda (Consumo)</h4>
-                        <div class="modal-form-grid">
-                            <div class="form-group">
-                                <label for="muda-consumo-total">Consumo total de muda (ton)</label>
-                                <input type="number" id="muda-consumo-total" step="0.01">
-                            </div>
-                            <div class="form-group">
-                                <label for="muda-consumo-acumulado">Consumo acumulado (ton)</label>
-                                <input type="number" id="muda-consumo-acumulado" step="0.01" class="readonly-field" readonly>
-                            </div>
-                            <div class="form-group">
-                                <label for="muda-consumo-dia">Consumo total do dia (ton)</label>
-                                <input type="number" id="muda-consumo-dia" step="0.01">
-                            </div>
-                            <div class="form-group">
-                                <label for="muda-previsto">Previsto das mudas (ton)</label>
-                                <input type="number" id="muda-previsto" step="0.01">
-                            </div>
-                            <div class="form-group">
-                                <label for="muda-liberacao-fazenda">Liberação fazenda</label>
-                                <input type="text" id="muda-liberacao-fazenda">
-                            </div>
-                            <div class="form-group">
-                                <label for="muda-variedade">Variedade</label>
-                                <input type="text" id="muda-variedade">
-                            </div>
-                        </div>
-                        
-                        <div style="margin-top:20px; display:flex; gap:10px; justify-content: flex-end; padding-top: 15px; border-top: 1px solid var(--border);">
-                            <button class="btn btn-secondary close-novo-lancamento-modal">Cancelar</button>
-                            <button id="plantio-save-btn" class="btn btn-primary" style="padding: 10px 25px; font-size: 1.1em;">💾 Registrar Dia</button>
-                        </div>
-                    </div>
+    <!-- Modal Metas -->
+    <div id="modal-metas" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <span class="close-modal">&times;</span>
+            <h3>Configuração de Metas Diárias</h3>
+            <p>Defina a meta de plantio (ha) para cada frente.</p>
+            
+            <div class="form-grid" style="grid-template-columns: 1fr 1fr;">
+                <div class="form-group">
+                    <label>Frente 4001</label>
+                    <input type="number" id="meta-4001" step="0.1">
+                </div>
+                <div class="form-group">
+                    <label>Frente 4002</label>
+                    <input type="number" id="meta-4002" step="0.1">
+                </div>
+                <div class="form-group">
+                    <label>Frente 4009</label>
+                    <input type="number" id="meta-4009" step="0.1">
                 </div>
             </div>
+            
+            <button class="btn btn-primary" id="btn-save-metas" style="width: 100%; margin-top: 15px;">Salvar Metas</button>
         </div>
-        </div> <!-- End of .content-area -->
     </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    
+    <script src="config.js"></script>
+    <script src="insumo-data.js"></script>
+    <script src="api.js"></script>
+    <script src="ui.js"></script>
+    <script src="app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            window.app = new InsumosApp();
+            window.app.init();
+        });
+    </script>
 </body>
 </html>

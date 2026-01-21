@@ -1109,8 +1109,10 @@ forceReloadAllData() {
         if (libAddTalhaoBtn) {
             libAddTalhaoBtn.addEventListener('click', () => {
                 const tInput = document.getElementById('liberacao-talhao-add');
+                const vInput = document.getElementById('liberacao-variedade-add');
                 const aInput = document.getElementById('liberacao-area-add');
                 const tVal = tInput ? tInput.value.trim() : '';
+                const vVal = vInput ? vInput.value.trim() : '';
                 const aVal = aInput ? parseFloat(aInput.value) : 0;
 
                 if (!tVal || !aVal || aVal <= 0) {
@@ -1118,10 +1120,11 @@ forceReloadAllData() {
                     return;
                 }
 
-                this.liberacaoTalhoesDraft.push({ talhao: tVal, area: aVal });
+                this.liberacaoTalhoesDraft.push({ talhao: tVal, variedade: vVal, area: aVal });
                 this.renderLiberacaoTalhoes();
                 
                 if (tInput) tInput.value = '';
+                if (vInput) vInput.value = '';
                 if (aInput) aInput.value = '';
                 tInput.focus();
             });
@@ -1514,6 +1517,7 @@ forceReloadAllData() {
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>${item.talhao}</td>
+                <td>${item.variedade || '-'}</td>
                 <td>${this.ui.formatNumber(item.area, 2)}</td>
                 <td><button type="button" class="btn btn-delete btn-delete-lib-talhao" data-idx="${idx}" style="padding: 2px 6px;">🗑️</button></td>
             `;

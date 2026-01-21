@@ -1088,12 +1088,16 @@
                     </div>
 
                     <h5 style="margin: 15px 0 5px 0;">Talhões</h5>
-                    <div class="form-grid" style="grid-template-columns: 1fr 1fr auto; align-items: end; margin-bottom: 10px;">
+                    <div class="form-grid" style="grid-template-columns: 1fr 1fr 1fr auto; align-items: end; margin-bottom: 10px;">
                         <div class="form-group">
                             <label for="liberacao-talhao-add">Talhão</label>
                             <select id="liberacao-talhao-add">
                                 <option value="">Selecione...</option>
                             </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="liberacao-variedade-add">Variedade</label>
+                            <input type="text" id="liberacao-variedade-add" placeholder="Variedade">
                         </div>
                         <div class="form-group">
                             <label for="liberacao-area-add">Área (ha)</label>
@@ -1107,6 +1111,7 @@
                             <thead>
                                 <tr>
                                     <th>Talhão</th>
+                                    <th>Variedade</th>
                                     <th>Área (ha)</th>
                                     <th>Ação</th>
                                 </tr>
@@ -1116,7 +1121,7 @@
                             </tbody>
                             <tfoot>
                                 <tr>
-                                    <td style="text-align: right; font-weight: bold;">Total:</td>
+                                    <td colspan="2" style="text-align: right; font-weight: bold;">Total:</td>
                                     <td colspan="2" id="liberacao-total-ha" style="font-weight: bold;">0.00 ha</td>
                                 </tr>
                             </tfoot>
