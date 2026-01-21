@@ -4845,11 +4845,15 @@ InsumosApp.prototype.renderInsumosDraft = function() {
 
 InsumosApp.prototype.loadProdutosDatalist = async function() {
     try {
-        const res = await this.api.getProdutos(); // Assumindo que api.js tem getProdutos, ou usarei fetch direto se não tiver
+        // Carregar do estoque para mostrar apenas produtos com registro em estoque
+        const res = await this.api.getEstoque(); 
         if (res && res.success && Array.isArray(res.data)) {
+            // Filtrar produtos únicos
+            const uniqueProdutos = [...new Set(res.data.map(item => item.produto).filter(p => p))].sort();
+            
             const datalist = document.getElementById('produtos-list');
             if (datalist) {
-                datalist.innerHTML = res.data.map(p => `<option value="${p}">`).join('');
+                datalist.innerHTML = uniqueProdutos.map(p => `<option value="${p}">`).join('');
             }
         }
     } catch (e) {
