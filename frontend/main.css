@@ -800,8 +800,8 @@ body {
 
 .manual-entry-group {
     flex: 1;
-    min-width: 180px;
-    max-width: 300px; /* Prevents "muito grande" inputs on wide screens */
+    min-width: 150px;
+    max-width: 220px; /* Reduced width as per user request */
 }
 
 .manual-entry-group.action-group {
