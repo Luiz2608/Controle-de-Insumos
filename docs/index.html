@@ -1073,15 +1073,21 @@
                 <style>
                     .modal-form-grid {
                         display: grid;
-                        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-                        gap: 12px;
+                        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+                        gap: 15px;
                     }
                     .modal-subsection {
                         border: 1px solid var(--border);
                         border-radius: var(--radius);
-                        padding: 12px;
-                        margin-bottom: 12px;
+                        padding: 15px;
+                        margin-bottom: 15px;
                         background: rgba(0,0,0,0.02);
+                    }
+                    .form-group label {
+                        white-space: normal;
+                        line-height: 1.2;
+                        margin-bottom: 5px;
+                        display: block;
                     }
                     .readonly-field {
                         background-color: #e9ecef;
@@ -1110,6 +1116,13 @@
                     <div class="chart-card">
                         <h4 class="section-title">1. Informações Gerais</h4>
                         <div class="modal-form-grid">
+                            <div class="form-group">
+                                <label for="tipo-operacao">Tipo de Operação *</label>
+                                <select id="tipo-operacao" style="font-weight:bold; border-color: var(--primary);">
+                                    <option value="plantio">Plantio de Cana</option>
+                                    <option value="colheita_muda">Colheita de Muda</option>
+                                </select>
+                            </div>
                             <div class="form-group">
                                 <label for="single-frente">Frente *</label>
                                 <select id="single-frente" style="font-weight:bold;">
@@ -1232,7 +1245,7 @@
                     <div class="chart-card">
                         <h4 class="section-title">3. Qualidade Muda/Plantio</h4>
                         
-                        <div class="modal-subsection">
+                        <div class="modal-subsection" id="sec-gemas">
                             <h5 style="margin: 0 0 8px 0; color: #666; font-weight: 600;">🧬 Gemas</h5>
                             <div class="modal-form-grid" style="grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));">
                                 <div class="form-group">
@@ -1262,7 +1275,7 @@
                             </div>
                         </div>
 
-                        <div class="modal-subsection">
+                        <div class="modal-subsection" id="sec-toletes">
                             <h5 style="margin: 0 0 8px 0; color: #666; font-weight: 600;">🪵 Toletes</h5>
                             <div class="modal-form-grid" style="grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));">
                                 <div class="form-group">
@@ -1292,7 +1305,7 @@
                             </div>
                         </div>
 
-                        <div class="modal-subsection">
+                        <div class="modal-subsection" id="sec-mudas">
                             <h5 style="margin: 0 0 8px 0; color: #666; font-weight: 600;">🌱 Mudas (Qualidade)</h5>
                             <div class="modal-form-grid" style="grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));">
                                 <div class="form-group">
@@ -1322,23 +1335,25 @@
                             </div>
                         </div>
 
-                        <h5 style="margin: 10px 0 5px 0; color: #666;">Outros Indicadores</h5>
-                        <div class="modal-form-grid">
-                            <div class="form-group">
-                                <label for="qual-muda">Muda (ton/ha)</label>
-                                <input type="number" id="qual-muda" step="0.01">
-                            </div>
-                            <div class="form-group">
-                                <label for="qual-profundidade">Profundidade (cm)</label>
-                                <input type="number" id="qual-profundidade" step="0.1">
-                            </div>
-                            <div class="form-group">
-                                <label for="qual-cobertura">Cobertura</label>
-                                <input type="text" id="qual-cobertura">
-                            </div>
-                            <div class="form-group">
-                                <label for="qual-alinhamento">Alinhamento</label>
-                                <input type="text" id="qual-alinhamento">
+                        <div id="sec-outros">
+                            <h5 style="margin: 10px 0 5px 0; color: #666;">Outros Indicadores</h5>
+                            <div class="modal-form-grid">
+                                <div class="form-group">
+                                    <label for="qual-muda">Muda (ton/ha)</label>
+                                    <input type="number" id="qual-muda" step="0.01">
+                                </div>
+                                <div class="form-group">
+                                    <label for="qual-profundidade">Profundidade (cm)</label>
+                                    <input type="number" id="qual-profundidade" step="0.1">
+                                </div>
+                                <div class="form-group">
+                                    <label for="qual-cobertura">Cobertura</label>
+                                    <input type="text" id="qual-cobertura">
+                                </div>
+                                <div class="form-group">
+                                    <label for="qual-alinhamento">Alinhamento</label>
+                                    <input type="text" id="qual-alinhamento">
+                                </div>
                             </div>
                         </div>
                     </div>

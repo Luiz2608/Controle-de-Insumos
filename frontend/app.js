@@ -968,6 +968,13 @@ forceReloadAllData() {
                 // Carregar lista de produtos para o datalist
                 this.loadProdutosDatalist();
             });
+
+            const tipoOperacaoSelect = document.getElementById('tipo-operacao');
+            if (tipoOperacaoSelect) {
+                tipoOperacaoSelect.addEventListener('change', () => {
+                    this.toggleOperacaoSections();
+                });
+            }
         }
 
         closeNovoLancamentoButtons.forEach(btn => {
@@ -4850,10 +4857,37 @@ InsumosApp.prototype.loadProdutosDatalist = async function() {
     }
 };
 
+InsumosApp.prototype.toggleOperacaoSections = function() {
+    const tipo = document.getElementById('tipo-operacao')?.value || 'plantio';
+    
+    const secGemas = document.getElementById('sec-gemas');
+    const secToletes = document.getElementById('sec-toletes');
+    const secMudas = document.getElementById('sec-mudas');
+    const secOutros = document.getElementById('sec-outros');
+    
+    if (tipo === 'plantio') {
+        if (secGemas) secGemas.style.display = 'block';
+        if (secToletes) secToletes.style.display = 'block';
+        if (secOutros) secOutros.style.display = 'block';
+        if (secMudas) secMudas.style.display = 'none';
+    } else { // colheita_muda
+        if (secGemas) secGemas.style.display = 'none';
+        if (secToletes) secToletes.style.display = 'none';
+        if (secOutros) secOutros.style.display = 'none';
+        if (secMudas) secMudas.style.display = 'block';
+    }
+};
+
 InsumosApp.prototype.resetPlantioForm = function() {
     this.currentPlantioId = null;
     this.plantioInsumosDraft = [];
     this.renderInsumosDraft();
+
+    const tipoOp = document.getElementById('tipo-operacao');
+    if (tipoOp) {
+        tipoOp.value = 'plantio';
+        this.toggleOperacaoSections();
+    }
 
     const ids = [
         'plantio-data', 'plantio-responsavel', 'plantio-obs',
