@@ -1226,13 +1226,21 @@ forceReloadAllData() {
     }
 
     async loadDashboard() {
+        // Prevent rapid-fire reloads (Throttle: 1s)
+        const now = Date.now();
+        if (this._lastDashboardLoad && (now - this._lastDashboardLoad < 1000)) {
+            console.warn('⚠️ Dashboard reload throttled to prevent loops.');
+            return;
+        }
+        this._lastDashboardLoad = now;
+
         this.ui.showLoading();
         try {
-            console.log('🔄 Loading Dashboard...');
+            // console.log('🔄 Loading Dashboard...');
             
             // Carregar dados em paralelo
             const [plantioRes, osRes, insumosRes, estoqueRes, viagensRes, fazendasRes] = await Promise.all([
-                this.api.getPlantioDiaList(),
+                this.api.getPlantioDia(),
                 this.api.getOSList(),
                 this.api.getInsumosFazendas(),
                 this.api.getEstoque(),
@@ -1349,18 +1357,50 @@ forceReloadAllData() {
     }
 
     renderDashboardCharts() {
-        this.renderPlantioChart();
-        this.renderOSStatusChart();
-        this.renderInsumosGlobalChart();
-        this.renderEstoqueGeralChart();
-        this.renderProductDetailsCharts();
-        this.renderLogisticsCharts();
-        this.renderFarmProgressChart();
+        // console.log('📊 Renderizando gráficos do dashboard...');
+        if (typeof Chart === 'undefined') {
+            // console.error('❌ Chart.js não está carregado!');
+            return;
+        }
+        
+        try {
+            this.renderPlantioChart();
+        } catch(e) { } // console.error('Erro renderPlantioChart:', e);
+
+        try {
+            this.renderOSStatusChart();
+        } catch(e) { } // console.error('Erro renderOSStatusChart:', e);
+
+        // Chart Global removido daqui pois já é renderizado em renderProductDetailsCharts -> updateCharts
+        // try {
+        //    this.renderInsumosGlobalChart();
+        // } catch(e) { }
+
+        try {
+            this.renderEstoqueGeralChart();
+        } catch(e) { } // console.error('Erro renderEstoqueGeralChart:', e);
+
+        try {
+            this.renderProductDetailsCharts();
+        } catch(e) { } // console.error('Erro renderProductDetailsCharts:', e);
+
+        try {
+            this.renderLogisticsCharts();
+        } catch(e) { } // console.error('Erro renderLogisticsCharts:', e);
+
+        try {
+            this.renderFarmProgressChart();
+        } catch(e) { } // console.error('Erro renderFarmProgressChart:', e);
     }
 
     renderOSStatusChart() {
         const ctx = document.getElementById('chart-os-status');
         if (!ctx) return;
+
+        const existingChart = Chart.getChart(ctx);
+        if (existingChart) {
+            existingChart.destroy();
+        }
 
         const data = this.osListCache || [];
         const statusCounts = {};
@@ -1403,8 +1443,17 @@ forceReloadAllData() {
     }
 
     renderInsumosGlobalChart() {
+        // console.log('💊 renderInsumosGlobalChart iniciado');
         const ctx = document.getElementById('chart-dose-global');
-        if (!ctx) return;
+        if (!ctx) {
+            // console.error('❌ Canvas chart-dose-global não encontrado');
+            return;
+        }
+
+        const existingChart = Chart.getChart(ctx);
+        if (existingChart) {
+            existingChart.destroy();
+        }
         
         // Agrupar insumos por produto e comparar Planejado vs Realizado
         // Usando dados de InsumosFazendas (Realizado) vs OS (Planejado) seria ideal
@@ -1415,6 +1464,7 @@ forceReloadAllData() {
         // (Isso requer normalização de unidades, assumindo Kg/L)
         
         const data = this.insumosFazendasData || [];
+        // console.log(`📊 Dados para insumos global: ${data.length} registros`);
         let totalPlan = 0;
         let totalReal = 0;
         
@@ -1448,6 +1498,11 @@ forceReloadAllData() {
     renderEstoqueGeralChart() {
          const ctx = document.getElementById('chart-estoque-geral');
          if (!ctx) return;
+
+         const existingChart = Chart.getChart(ctx);
+         if (existingChart) {
+             existingChart.destroy();
+         }
          
          const data = this.estoqueList || [];
          // Agrupar por Frente
@@ -1492,6 +1547,11 @@ forceReloadAllData() {
         const ctx = document.getElementById('chart-viagens-diarias');
         if (!ctx) return;
 
+        const existingChart = Chart.getChart(ctx);
+        if (existingChart) {
+            existingChart.destroy();
+        }
+
         const periodo = document.getElementById('dashboard-periodo')?.value || '30';
         const now = new Date();
         const filterDate = (dateStr) => {
@@ -1526,6 +1586,10 @@ forceReloadAllData() {
             this._charts.logistics.destroy();
         }
 
+        const gradientLogistics = ctx.getContext('2d').createLinearGradient(0, 0, 0, 300);
+        gradientLogistics.addColorStop(0, 'rgba(255, 193, 7, 0.4)');
+        gradientLogistics.addColorStop(1, 'rgba(255, 193, 7, 0.0)');
+
         this._charts.logistics = new Chart(ctx, {
             type: 'line',
             data: {
@@ -1534,15 +1598,45 @@ forceReloadAllData() {
                     label: 'Viagens por Dia',
                     data: values,
                     borderColor: '#FFC107',
-                    backgroundColor: 'rgba(255, 193, 7, 0.2)',
-                    tension: 0.3,
-                    fill: true
+                    backgroundColor: gradientLogistics,
+                    tension: 0.4,
+                    fill: true,
+                    pointBackgroundColor: '#FFF',
+                    pointBorderColor: '#FFB300',
+                    pointRadius: 4,
+                    pointHoverRadius: 6
                 }]
             },
             options: {
                 responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                        titleColor: '#333',
+                        bodyColor: '#333',
+                        borderColor: '#e0e0e0',
+                        borderWidth: 1,
+                        intersect: false,
+                        mode: 'index'
+                    }
+                },
                 scales: {
-                    y: { beginAtZero: true, ticks: { stepSize: 1 } }
+                    y: { 
+                        beginAtZero: true, 
+                        ticks: { stepSize: 1, color: '#666' },
+                        grid: { color: '#f0f0f0' }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: '#666' }
+                    }
+                },
+                interaction: {
+                    mode: 'nearest',
+                    axis: 'x',
+                    intersect: false
                 }
             }
         });
@@ -1552,15 +1646,58 @@ forceReloadAllData() {
         const ctx = document.getElementById('chart-fazenda-progresso');
         if (!ctx) return;
 
+        const existingChart = Chart.getChart(ctx);
+        if (existingChart) {
+            existingChart.destroy();
+        }
+
+        const normalize = (s) => (s || '').trim().toLowerCase();
+
+        // 1. Identify farms present in OS List (registered OS)
+        const osFarms = new Set();
+        if (this.osListCache && Array.isArray(this.osListCache)) {
+            this.osListCache.forEach(os => {
+                if (os.fazenda) {
+                    const fName = normalize(os.fazenda);
+                    osFarms.add(fName);
+                    // Extract code if present (e.g. "96 - Fazenda")
+                    const match = fName.match(/^(\d+)/);
+                    if (match) {
+                        osFarms.add(match[1]);
+                    }
+                }
+            });
+        } else {
+             // console.warn('⚠️ OS List Cache is empty or invalid during Farm Progress Chart render.');
+        }
+
         // Use cadastroFazendas for total area and current progress
-        // Filter out farms with 0 area
-        let farms = (this.cadastroFazendas || []).filter(f => parseFloat(f.area_total) > 0);
+        // Filter out farms with 0 area AND only show farms that have registered OS
+        let farms = (this.cadastroFazendas || []).filter(f => {
+            const area = parseFloat(f.area_total);
+            if (area <= 0) return false;
+
+            // Check if linked to any OS
+            const nome = normalize(f.nome);
+            const cod = String(f.codigo || '').trim();
+            
+            let hasOS = osFarms.has(cod) || osFarms.has(nome);
+            
+            if (!hasOS) {
+                // Check if any OS farm string contains this farm name or starts with code
+                for (const osFarm of osFarms) {
+                    if (osFarm.includes(nome) || (cod && osFarm.startsWith(cod + ' '))) {
+                        hasOS = true;
+                        break;
+                    }
+                }
+            }
+            return hasOS;
+        });
         
         // Sort by area total descending and take top 15 to avoid clutter
         farms.sort((a, b) => parseFloat(b.area_total) - parseFloat(a.area_total));
         farms = farms.slice(0, 15);
-
-        const normalize = (s) => (s || '').trim().toLowerCase();
 
         const labels = farms.map(f => f.nome || f.codigo || 'N/A');
         const progressData = farms.map(f => {
@@ -1568,7 +1705,6 @@ forceReloadAllData() {
             let done = 0;
 
             // Calcular realizado varrendo plantioDiarioData para garantir dados atualizados
-            // Isso substitui o uso de f.plantio_acumulado que pode estar desatualizado
             (this.plantioDiarioData || []).forEach(p => {
                 const processItem = (fazendaStr, area) => {
                     if (!fazendaStr || !area) return;
@@ -1576,16 +1712,9 @@ forceReloadAllData() {
                     const myNome = normalize(f.nome);
                     const myCod = normalize(f.codigo);
                     
-                    // Lógica de match flexível:
-                    // 1. Match exato de nome
-                    // 2. Match exato de código
-                    // 3. String do plantio começa com código (ex: "123 - Nome")
-                    // 4. String do plantio contém o nome da fazenda (cuidado com falsos positivos, mas aceitável aqui)
-                    
                     if (fStr === myNome || fStr === myCod || (myCod && fStr.startsWith(myCod + ' '))) {
                         done += area;
                     } else if (myNome && fStr.includes(myNome)) {
-                        // Fallback: se o nome da fazenda está contido na string do plantio
                         done += area;
                     }
                 };
@@ -1604,6 +1733,15 @@ forceReloadAllData() {
             this._charts.farmProgress.destroy();
         }
 
+        // Gradient for progress bars
+        const gradientComplete = ctx.getContext('2d').createLinearGradient(0, 0, 200, 0);
+        gradientComplete.addColorStop(0, '#43a047');
+        gradientComplete.addColorStop(1, '#66bb6a');
+
+        const gradientProgress = ctx.getContext('2d').createLinearGradient(0, 0, 200, 0);
+        gradientProgress.addColorStop(0, '#1976d2');
+        gradientProgress.addColorStop(1, '#42a5f5');
+
         this._charts.farmProgress = new Chart(ctx, {
             type: 'bar',
             data: {
@@ -1611,14 +1749,41 @@ forceReloadAllData() {
                 datasets: [{
                     label: 'Progresso (%)',
                     data: progressData,
-                    backgroundColor: progressData.map(v => v >= 100 ? '#4CAF50' : '#2196F3')
+                    backgroundColor: progressData.map(v => v >= 100 ? gradientComplete : gradientProgress),
+                    borderRadius: 4,
+                    barPercentage: 0.7
                 }]
             },
             options: {
                 indexAxis: 'y', // Horizontal bar
                 responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                        titleColor: '#333',
+                        bodyColor: '#333',
+                        borderColor: '#e0e0e0',
+                        borderWidth: 1,
+                        callbacks: {
+                            label: function(context) {
+                                return `Progresso: ${context.parsed.x.toFixed(1)}%`;
+                            }
+                        }
+                    }
+                },
                 scales: {
-                    x: { max: 100, beginAtZero: true }
+                    x: { 
+                        max: 100, 
+                        beginAtZero: true,
+                        grid: { color: '#f0f0f0' },
+                        ticks: { color: '#666' }
+                    },
+                    y: {
+                        grid: { display: false },
+                        ticks: { color: '#333', font: { weight: '500' } }
+                    }
                 }
             }
         });
@@ -2592,11 +2757,21 @@ forceReloadAllData() {
     }
 
     renderPlantioChart() {
+        // console.log('📈 renderPlantioChart iniciado');
         const canvas = document.getElementById('chart-plantio-diario');
-        if (!canvas) return;
+        if (!canvas) {
+             // console.error('❌ Canvas chart-plantio-diario não encontrado');
+             return;
+        }
+
+        const existingChart = Chart.getChart(canvas);
+        if (existingChart) {
+            existingChart.destroy();
+        }
 
         // Dados base - CORREÇÃO: Usar plantioDiarioData em vez de insumosFazendasData
         const data = this.plantioDiarioData || [];
+        // console.log(`📊 Dados para plantio: ${data.length} registros`);
         const metas = this.metasData || [];
 
         // Filtro de frente
@@ -2606,14 +2781,16 @@ forceReloadAllData() {
         const diario = {}; 
         const frentesSet = new Set();
         const datesSet = new Set();
+        
+        const normalize = (s) => (s || '').trim();
 
         data.forEach(item => {
             const dataKey = item.data ? item.data.split('T')[0] : null;
             if (!dataKey) return;
 
             // Função helper para processar entrada de frente/área
-            const addEntry = (frente, area) => {
-                const f = frente || 'Geral';
+            const addEntry = (frenteRaw, area) => {
+                const f = normalize(frenteRaw) || 'Geral';
                 if (filterFrente !== 'all' && f !== filterFrente) return;
                 
                 if (!diario[dataKey]) diario[dataKey] = {};
@@ -2637,6 +2814,16 @@ forceReloadAllData() {
 
         // Ordenar datas
         const dates = Array.from(datesSet).sort();
+        
+        if (dates.length === 0) {
+            console.warn('⚠️ Sem dados de datas para renderizar gráfico de plantio.');
+            if (this.plantioChartInstance) {
+                this.plantioChartInstance.destroy();
+                this.plantioChartInstance = null;
+            }
+            return;
+        }
+
         // Se quiser limitar aos últimos 30 dias:
         // const dates = Array.from(datesSet).sort().slice(-30);
 
@@ -2644,10 +2831,25 @@ forceReloadAllData() {
 
         // Datasets
         const datasets = [];
-        const colors = ['#3498db', '#e74c3c', '#2ecc71', '#f1c40f', '#9b59b6', '#34495e', '#1abc9c', '#e67e22'];
+        
+        // Paleta de gradients
+        const palettes = [
+            ['#42a5f5', '#1976d2'], // Blue
+            ['#66bb6a', '#43a047'], // Green
+            ['#ffa726', '#f57c00'], // Orange
+            ['#ab47bc', '#7b1fa2'], // Purple
+            ['#ef5350', '#c62828'], // Red
+            ['#26c6da', '#00acc1'], // Cyan
+            ['#8d6e63', '#5d4037'], // Brown
+            ['#78909c', '#455a64']  // Grey
+        ];
 
         frentes.forEach((frente, index) => {
-            const color = colors[index % colors.length];
+            const palette = palettes[index % palettes.length];
+            const ctx = canvas.getContext('2d');
+            const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+            gradient.addColorStop(0, palette[0]);
+            gradient.addColorStop(1, palette[1]);
             
             // Dados de Realizado (Barras)
             const dataPoints = dates.map(d => diario[d] && diario[d][frente] ? diario[d][frente] : 0);
@@ -2655,9 +2857,10 @@ forceReloadAllData() {
             datasets.push({
                 label: `Realizado - ${frente}`,
                 data: dataPoints,
-                backgroundColor: color,
-                borderColor: color,
+                backgroundColor: gradient,
+                borderColor: palette[1],
                 borderWidth: 1,
+                borderRadius: 4,
                 type: 'bar',
                 order: 2
             });
@@ -2669,7 +2872,7 @@ forceReloadAllData() {
                 datasets.push({
                     label: `Meta - ${frente}`,
                     data: dates.map(() => metaVal),
-                    borderColor: color, // Mesma cor da barra
+                    borderColor: palette[1], // Mesma cor base da barra
                     borderWidth: 2,
                     borderDash: [5, 5],
                     type: 'line',
@@ -4375,14 +4578,32 @@ InsumosApp.prototype.updateCharts = function(data) {
             datasets: [ { label: 'Diferença (%)', data: diffPct, backgroundColor: '#2196F3' } ]
         };
         if (doseProdCtx) {
+            const existing = Chart.getChart(doseProdCtx);
+            if (existing && (!this._charts.doseProd || existing !== this._charts.doseProd)) {
+                existing.destroy();
+                this._charts.doseProd = null;
+            }
+
             if (this._charts.doseProd) { this._charts.doseProd.data = doseProdData; this._charts.doseProd.update(); }
             else this._charts.doseProd = new Chart(doseProdCtx, { type: 'bar', data: doseProdData, options: baseOpts });
         }
         if (doseGlobalCtx) {
+            const existing = Chart.getChart(doseGlobalCtx);
+            if (existing && (!this._charts.doseGlobal || existing !== this._charts.doseGlobal)) {
+                existing.destroy();
+                this._charts.doseGlobal = null;
+            }
+
             if (this._charts.doseGlobal) { this._charts.doseGlobal.data = doseGlobalData; this._charts.doseGlobal.update(); }
             else this._charts.doseGlobal = new Chart(doseGlobalCtx, { type: 'bar', data: doseGlobalData, options: baseOpts });
         }
         if (diffProdCtx) {
+            const existing = Chart.getChart(diffProdCtx);
+            if (existing && (!this._charts.diffProd || existing !== this._charts.diffProd)) {
+                existing.destroy();
+                this._charts.diffProd = null;
+            }
+
             if (this._charts.diffProd) { this._charts.diffProd.data = diffProdData; this._charts.diffProd.options = { ...baseOpts, indexAxis: 'y' }; this._charts.diffProd.update(); }
             else this._charts.diffProd = new Chart(diffProdCtx, { type: 'bar', data: diffProdData, options: { ...baseOpts, indexAxis: 'y' } });
         }
@@ -4536,10 +4757,18 @@ InsumosApp.prototype.loadEstoqueAndRender = async function() {
             }
             
             if (this._charts.estoqueFrente) { 
-                this._charts.estoqueFrente.data = chartData; 
-                this._charts.estoqueFrente.options = chartOpts; 
-                this._charts.estoqueFrente.update(); 
+                const existing = Chart.getChart(ctx);
+                if (existing && existing !== this._charts.estoqueFrente) {
+                     existing.destroy();
+                     this._charts.estoqueFrente = new Chart(ctx, { type: 'bar', data: chartData, options: chartOpts });
+                } else {
+                     this._charts.estoqueFrente.data = chartData; 
+                     this._charts.estoqueFrente.options = chartOpts; 
+                     this._charts.estoqueFrente.update(); 
+                }
             } else {
+                const existing = Chart.getChart(ctx);
+                if (existing) existing.destroy();
                 this._charts.estoqueFrente = new Chart(ctx, { type: 'bar', data: chartData, options: chartOpts });
             }
         }
