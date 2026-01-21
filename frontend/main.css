@@ -799,9 +799,13 @@ body {
 }
 
 .manual-entry-group {
-    flex: 1;
-    min-width: 150px;
-    max-width: 220px; /* Reduced width as per user request */
+    flex: 0 0 auto; /* Don't stretch */
+    width: 140px; /* Fixed small width */
+}
+
+/* Make product dropdown slightly wider to fit text */
+.manual-entry-group:nth-child(3) {
+    width: 200px;
 }
 
 .manual-entry-group.action-group {
