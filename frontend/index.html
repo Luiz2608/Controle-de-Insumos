@@ -1073,7 +1073,7 @@
                 <style>
                     .modal-form-grid {
                         display: grid;
-                        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+                        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
                         gap: 15px;
                     }
                     .modal-subsection {
@@ -1088,6 +1088,10 @@
                         line-height: 1.2;
                         margin-bottom: 5px;
                         display: block;
+                    }
+                    .form-group input, .form-group select {
+                        width: 100%;
+                        box-sizing: border-box;
                     }
                     .readonly-field {
                         background-color: #e9ecef;
@@ -1116,7 +1120,7 @@
                     <div class="chart-card">
                         <h4 class="section-title">1. Informações Gerais</h4>
                         <div class="modal-form-grid">
-                            <div class="form-group">
+                            <div class="form-group" style="grid-column: span 2;">
                                 <label for="tipo-operacao">Tipo de Operação *</label>
                                 <select id="tipo-operacao" style="font-weight:bold; border-color: var(--primary);">
                                     <option value="plantio">Plantio de Cana</option>
@@ -1129,7 +1133,7 @@
                                     <option value="">Selecione</option>
                                 </select>
                             </div>
-                            <div class="form-group">
+                            <div class="form-group" style="grid-column: span 2;">
                                 <label for="single-os">OS do Plantio (Auto-preenchimento)</label>
                                 <select id="single-os" style="border-color: var(--secondary);">
                                     <option value="">Selecione a Frente primeiro</option>
