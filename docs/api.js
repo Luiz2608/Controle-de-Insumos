@@ -574,16 +574,20 @@ class ApiService {
     async saveLiberacao(payload) {
         this.checkConfig();
         const item = {
+            numero_liberacao: payload.numero_liberacao,
             data: payload.data,
+            frente: payload.frente,
             fazenda: payload.fazenda,
-            talhao: payload.talhao,
+            fazenda_codigo: payload.fazenda_codigo,
+            talhoes: payload.talhoes || [], // JSONB
+            area_total: payload.area_total,
             status: payload.status,
             observacoes: payload.observacoes
         };
 
         const { data, error } = await this.supabase
             .from('liberacao_colheita')
-            .insert(item)
+            .upsert(item, { onConflict: 'numero_liberacao' }) // Assumindo que número é único
             .select();
 
         if (error) throw error;

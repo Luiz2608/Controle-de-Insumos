@@ -27,6 +27,7 @@ class InsumosApp {
             caminhao: '',
             lacre: ''
         };
+        this.liberacaoTalhoesDraft = [];
 
         // Controle de Load do Dashboard (Circuit Breaker)
         this.dashboardLoadCount = 0;
@@ -1007,13 +1008,20 @@ forceReloadAllData() {
         const btnSaveLiberacao = document.getElementById('btn-save-liberacao');
 
         if (btnLiberacao && liberacaoModal) {
-            btnLiberacao.addEventListener('click', () => {
+            btnLiberacao.addEventListener('click', async () => {
                 liberacaoModal.style.display = 'flex';
+                // Reset form and draft
+                this.liberacaoTalhoesDraft = [];
+                this.renderLiberacaoTalhoes();
+                document.getElementById('liberacao-form').reset();
+                
                 // Pre-fill date with today
                 const dateInput = document.getElementById('liberacao-data');
                 if (dateInput && !dateInput.value) {
                     dateInput.valueAsDate = new Date();
                 }
+
+                await this.populateLiberacaoOptions();
             });
         }
 
@@ -1025,38 +1033,111 @@ forceReloadAllData() {
             });
         }
 
+        // Liberacao - Listeners for new fields
+        const libFazendaSelect = document.getElementById('liberacao-fazenda');
+        const libAddTalhaoBtn = document.getElementById('btn-add-liberacao-talhao');
+        const libTalhoesBody = document.getElementById('liberacao-talhoes-body');
+
+        if (libFazendaSelect) {
+            libFazendaSelect.addEventListener('change', () => {
+                const codInput = document.getElementById('liberacao-cod-fazenda');
+                const selectedCod = libFazendaSelect.value;
+                if (codInput) codInput.value = selectedCod || '';
+                
+                // Optional: If we had talhoes for fazenda, we could auto-suggest here
+            });
+        }
+
+        if (libAddTalhaoBtn) {
+            libAddTalhaoBtn.addEventListener('click', () => {
+                const tInput = document.getElementById('liberacao-talhao-add');
+                const aInput = document.getElementById('liberacao-area-add');
+                const tVal = tInput ? tInput.value.trim() : '';
+                const aVal = aInput ? parseFloat(aInput.value) : 0;
+
+                if (!tVal || !aVal || aVal <= 0) {
+                    this.ui.showNotification('Informe talhão e área válida', 'warning');
+                    return;
+                }
+
+                this.liberacaoTalhoesDraft.push({ talhao: tVal, area: aVal });
+                this.renderLiberacaoTalhoes();
+                
+                if (tInput) tInput.value = '';
+                if (aInput) aInput.value = '';
+                tInput.focus();
+            });
+        }
+
+        if (libTalhoesBody) {
+            libTalhoesBody.addEventListener('click', (e) => {
+                if (e.target.closest('.btn-delete-lib-talhao')) {
+                    const idx = parseInt(e.target.closest('.btn-delete-lib-talhao').dataset.idx);
+                    if (!isNaN(idx)) {
+                        this.liberacaoTalhoesDraft.splice(idx, 1);
+                        this.renderLiberacaoTalhoes();
+                    }
+                }
+            });
+        }
+
         if (btnSaveLiberacao) {
             btnSaveLiberacao.addEventListener('click', async () => {
+                const numeroInput = document.getElementById('liberacao-numero');
                 const dataInput = document.getElementById('liberacao-data');
-                const fazendaInput = document.getElementById('liberacao-fazenda');
-                const talhaoInput = document.getElementById('liberacao-talhao');
+                const frenteInput = document.getElementById('liberacao-frente');
+                const fazendaInput = document.getElementById('liberacao-fazenda'); // Value is codigo
                 const statusInput = document.getElementById('liberacao-status');
                 const obsInput = document.getElementById('liberacao-obs');
 
+                const numero = numeroInput ? numeroInput.value.trim() : '';
                 const data = dataInput ? dataInput.value : '';
-                const fazenda = fazendaInput ? fazendaInput.value : '';
-                const talhao = talhaoInput ? talhaoInput.value : '';
+                const frente = frenteInput ? frenteInput.value : '';
+                const fazendaCod = fazendaInput ? fazendaInput.value : '';
                 const status = statusInput ? statusInput.value : 'pendente';
                 const obs = obsInput ? obsInput.value : '';
 
-                if (!data || !fazenda || !talhao) {
-                    this.ui.showNotification('Preencha os campos obrigatórios (Data, Fazenda, Talhão)', 'error');
+                // Get Fazenda Nome for consistency if needed, but saving Cod is better. 
+                // Legacy api might expect Name. Let's find name.
+                let fazendaNome = '';
+                if (fazendaCod) {
+                    const f = this.cadastroFazendas.find(x => String(x.codigo) === String(fazendaCod));
+                    if (f) fazendaNome = f.nome;
+                }
+
+                if (!numero || !data || !fazendaCod) {
+                    this.ui.showNotification('Preencha os campos obrigatórios (Número, Data, Fazenda)', 'error');
                     return;
                 }
+
+                if (this.liberacaoTalhoesDraft.length === 0) {
+                    this.ui.showNotification('Adicione pelo menos um talhão', 'warning');
+                    return;
+                }
+
+                const totalHa = this.liberacaoTalhoesDraft.reduce((acc, cur) => acc + cur.area, 0);
 
                 try {
                     this.ui.showLoading();
                     await this.api.saveLiberacao({
-                        data, fazenda, talhao, status, observacoes: obs
+                        numero_liberacao: numero,
+                        data, 
+                        frente, 
+                        fazenda_codigo: fazendaCod,
+                        fazenda: fazendaNome || fazendaCod, // Send name if API expects name, or both
+                        talhoes: this.liberacaoTalhoesDraft, // Array of objects
+                        area_total: totalHa,
+                        status, 
+                        observacoes: obs
                     });
                     this.ui.showNotification('Registro de liberação salvo com sucesso!', 'success');
                     if (liberacaoModal) liberacaoModal.style.display = 'none';
                     
                     // Clear form
-                    if (dataInput) dataInput.value = '';
-                    if (fazendaInput) fazendaInput.value = '';
-                    if (talhaoInput) talhaoInput.value = '';
-                    if (obsInput) obsInput.value = '';
+                    document.getElementById('liberacao-form').reset();
+                    this.liberacaoTalhoesDraft = [];
+                    this.renderLiberacaoTalhoes();
+
                 } catch (error) {
                     console.error(error);
                     this.ui.showNotification('Erro ao salvar liberação', 'error');
@@ -1323,6 +1404,65 @@ forceReloadAllData() {
         this.setupDashboardListeners();
         this.setupOSListeners();
         console.log('setupEventListeners completed');
+    }
+
+    async populateLiberacaoOptions() {
+        // Populate Frentes from OS
+        const frenteSelect = document.getElementById('liberacao-frente');
+        if (frenteSelect) {
+            frenteSelect.innerHTML = '<option value="">Selecione...</option>';
+            try {
+                // Ensure OS list is loaded or fetch it
+                const res = await this.api.getOSList();
+                if (res && res.success && res.data) {
+                    const frentes = [...new Set(res.data.map(os => os.frente).filter(f => f))].sort();
+                    frentes.forEach(f => {
+                        const opt = document.createElement('option');
+                        opt.value = f;
+                        opt.textContent = f;
+                        frenteSelect.appendChild(opt);
+                    });
+                }
+            } catch (e) { console.error('Error fetching OS for frentes', e); }
+        }
+
+        // Populate Fazendas
+        const fazendaSelect = document.getElementById('liberacao-fazenda');
+        if (fazendaSelect) {
+            fazendaSelect.innerHTML = '<option value="">Selecione a Fazenda...</option>';
+            if (this.cadastroFazendas && this.cadastroFazendas.length) {
+                // Sort by name
+                const sorted = [...this.cadastroFazendas].sort((a,b) => (a.nome||'').localeCompare(b.nome||''));
+                sorted.forEach(f => {
+                    const opt = document.createElement('option');
+                    opt.value = f.codigo; // Use Code as value
+                    opt.textContent = `${f.nome} (Cód: ${f.codigo})`;
+                    fazendaSelect.appendChild(opt);
+                });
+            }
+        }
+    }
+
+    renderLiberacaoTalhoes() {
+        const tbody = document.getElementById('liberacao-talhoes-body');
+        const totalEl = document.getElementById('liberacao-total-ha');
+        if (!tbody) return;
+
+        tbody.innerHTML = '';
+        let total = 0;
+
+        this.liberacaoTalhoesDraft.forEach((item, idx) => {
+            total += item.area;
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${item.talhao}</td>
+                <td>${this.ui.formatNumber(item.area, 2)}</td>
+                <td><button type="button" class="btn btn-delete btn-delete-lib-talhao" data-idx="${idx}" style="padding: 2px 6px;">🗑️</button></td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        if (totalEl) totalEl.textContent = `${this.ui.formatNumber(total, 2)} ha`;
     }
 
     setupDashboardListeners() {
