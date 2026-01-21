@@ -1037,14 +1037,72 @@ forceReloadAllData() {
         const libFazendaSelect = document.getElementById('liberacao-fazenda');
         const libAddTalhaoBtn = document.getElementById('btn-add-liberacao-talhao');
         const libTalhoesBody = document.getElementById('liberacao-talhoes-body');
+        const libTalhaoSelect = document.getElementById('liberacao-talhao-add');
 
         if (libFazendaSelect) {
-            libFazendaSelect.addEventListener('change', () => {
+            libFazendaSelect.addEventListener('change', async () => {
                 const codInput = document.getElementById('liberacao-cod-fazenda');
                 const selectedCod = libFazendaSelect.value;
                 if (codInput) codInput.value = selectedCod || '';
                 
-                // Optional: If we had talhoes for fazenda, we could auto-suggest here
+                // Populate Talhoes based on selected Fazenda
+                if (libTalhaoSelect) {
+                    libTalhaoSelect.innerHTML = '<option value="">Carregando...</option>';
+                    document.getElementById('liberacao-area-add').value = '';
+                    
+                    if (selectedCod) {
+                        try {
+                            // Find fazenda name
+                            const f = this.cadastroFazendas.find(x => String(x.codigo) === String(selectedCod));
+                            if (f) {
+                                // Fetch insumos_fazendas to get talhoes
+                                const res = await this.api.getInsumosFazendas({ fazenda: f.nome });
+                                if (res && res.success && res.data) {
+                                    // Extract unique talhoes (cod) and their areas
+                                    const talhoesMap = new Map();
+                                    res.data.forEach(item => {
+                                        if (item.cod && item.areaTalhao) {
+                                            talhoesMap.set(String(item.cod), item.areaTalhao);
+                                        }
+                                    });
+                                    
+                                    libTalhaoSelect.innerHTML = '<option value="">Selecione...</option>';
+                                    if (talhoesMap.size > 0) {
+                                        const sortedTalhoes = Array.from(talhoesMap.keys()).sort((a, b) => a - b);
+                                        sortedTalhoes.forEach(t => {
+                                            const opt = document.createElement('option');
+                                            opt.value = t;
+                                            opt.dataset.area = talhoesMap.get(t);
+                                            opt.textContent = t;
+                                            libTalhaoSelect.appendChild(opt);
+                                        });
+                                    } else {
+                                        libTalhaoSelect.innerHTML = '<option value="">Nenhum talhão encontrado</option>';
+                                    }
+                                } else {
+                                    libTalhaoSelect.innerHTML = '<option value="">Erro ao carregar</option>';
+                                }
+                            }
+                        } catch (e) {
+                            console.error('Error fetching talhoes', e);
+                            libTalhaoSelect.innerHTML = '<option value="">Erro</option>';
+                        }
+                    } else {
+                        libTalhaoSelect.innerHTML = '<option value="">Selecione...</option>';
+                    }
+                }
+            });
+        }
+
+        if (libTalhaoSelect) {
+            libTalhaoSelect.addEventListener('change', () => {
+                const areaInput = document.getElementById('liberacao-area-add');
+                const selectedOpt = libTalhaoSelect.selectedOptions[0];
+                if (selectedOpt && selectedOpt.dataset.area && areaInput) {
+                    areaInput.value = selectedOpt.dataset.area;
+                } else if (areaInput) {
+                    areaInput.value = '';
+                }
             });
         }
 
