@@ -4851,13 +4851,14 @@ InsumosApp.prototype.loadProdutosDatalist = async function() {
             // Filtrar produtos únicos
             const uniqueProdutos = [...new Set(res.data.map(item => item.produto).filter(p => p))].sort();
             
-            const datalist = document.getElementById('produtos-list');
-            if (datalist) {
-                datalist.innerHTML = uniqueProdutos.map(p => `<option value="${p}">`).join('');
+            const select = document.getElementById('insumo-produto');
+            if (select) {
+                select.innerHTML = '<option value="">Selecione o produto...</option>' + 
+                                   uniqueProdutos.map(p => `<option value="${p}">${p}</option>`).join('');
             }
         }
     } catch (e) {
-        console.error('Erro ao carregar produtos para datalist:', e);
+        console.error('Erro ao carregar produtos para select:', e);
     }
 };
 
