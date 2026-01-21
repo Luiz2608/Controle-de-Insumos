@@ -38,7 +38,26 @@ class InsumosApp {
         const el = document.getElementById(codInputId);
         const codigo = el && el.value ? el.value.trim() : '';
         if (!codigo) return;
-        try {
+        // Insumos no Plantio - Adicionar Linha
+    const btnAddInsumo = document.getElementById('btn-add-insumo-row');
+    if (btnAddInsumo) {
+        btnAddInsumo.addEventListener('click', () => {
+            this.addInsumoRow();
+        });
+    }
+
+    // Insumos no Plantio - Remover Linha (Delegado)
+    const tbodyInsumos = document.getElementById('insumos-plantio-tbody');
+    if (tbodyInsumos) {
+        tbodyInsumos.addEventListener('click', (e) => {
+            if (e.target.classList.contains('btn-delete-insumo-row')) {
+                const idx = parseInt(e.target.dataset.idx);
+                this.removeInsumoRow(idx);
+            }
+        });
+    }
+
+    try {
             const res = await this.api.getFazendaByCodigo(codigo);
             if (res && res.success && res.data) {
                 const f = res.data;
@@ -945,6 +964,9 @@ forceReloadAllData() {
                 novoLancamentoModal.style.display = 'flex';
                 // Garantir que a lista de OS e Frentes esteja carregada
                 await this.loadOSList();
+                
+                // Carregar lista de produtos para o datalist
+                this.loadProdutosDatalist();
             });
         }
 
@@ -3952,10 +3974,6 @@ forceReloadAllData() {
             <td class="${difClass}">${this.ui.formatPercentage(difPercent)}</td>
             <td>${item.frente ?? 0}</td>
             <td>${inicio}</td>
-            <td>
-                <button class="btn btn-edit" data-id="${item.id}">✏️ Editar</button>
-                <button class="btn btn-delete" data-id="${item.id}">🗑️ Excluir</button>
-            </td>
         `;
     }
 
@@ -4778,25 +4796,58 @@ InsumosApp.prototype.updateFixedFrentesTotals = function() {
 
 InsumosApp.prototype.addInsumoRow = function() {
     const produto = document.getElementById('insumo-produto')?.value || '';
-    const dose = parseFloat(document.getElementById('insumo-dose')?.value || '0');
-    const unid = document.getElementById('insumo-unid')?.value || '';
+    const dosePrev = parseFloat(document.getElementById('insumo-dose-prevista')?.value || '0');
+    const doseReal = parseFloat(document.getElementById('insumo-dose-realizada')?.value || '0');
+    
     if (!produto) { this.ui.showNotification('Selecione o produto', 'warning'); return; }
-    this.plantioInsumosDraft.push({ produto, dose, unid });
+    
+    this.plantioInsumosDraft.push({ 
+        produto, 
+        dosePrevista: dosePrev, 
+        doseRealizada: doseReal 
+    });
     this.renderInsumosDraft();
-    ['insumo-dose'].forEach(id=>{ const el=document.getElementById(id); if (el) el.value=''; });
+    
+    // Limpar campos
+    ['insumo-produto', 'insumo-dose-prevista', 'insumo-dose-realizada'].forEach(id => { 
+        const el = document.getElementById(id); 
+        if (el) el.value = ''; 
+    });
+    document.getElementById('insumo-produto')?.focus();
+};
+
+InsumosApp.prototype.removeInsumoRow = function(idx) {
+    if (idx >= 0 && idx < this.plantioInsumosDraft.length) {
+        this.plantioInsumosDraft.splice(idx, 1);
+        this.renderInsumosDraft();
+    }
 };
 
 InsumosApp.prototype.renderInsumosDraft = function() {
-    const tbody = document.getElementById('insumos-table-body');
+    const tbody = document.getElementById('insumos-plantio-tbody');
     if (!tbody) return;
     tbody.innerHTML = this.plantioInsumosDraft.map((r,idx)=>`
         <tr>
             <td>${r.produto}</td>
-            <td>${this.ui.formatNumber(r.dose||0, 6)}</td>
-            <td>${r.unid||''}</td>
-            <td><button class="btn btn-delete-insumo-row" data-idx="${idx}">🗑️</button></td>
+            <td>${this.ui.formatNumber(r.dosePrevista||0, 3)}</td>
+            <td>${this.ui.formatNumber(r.doseRealizada||0, 3)}</td>
+            <td><button class="btn btn-sm btn-delete-insumo-row" data-idx="${idx}" style="color:red;">🗑️</button></td>
         </tr>
     `).join('');
+};
+
+InsumosApp.prototype.loadProdutosDatalist = async function() {
+    try {
+        const res = await this.api.getProdutos(); // Assumindo que api.js tem getProdutos, ou usarei fetch direto se não tiver
+        if (res && res.success && Array.isArray(res.data)) {
+            const datalist = document.getElementById('produtos-list');
+            if (datalist) {
+                datalist.innerHTML = res.data.map(p => `<option value="${p}">`).join('');
+            }
+        }
+    } catch (e) {
+        console.error('Erro ao carregar produtos para datalist:', e);
+    }
 };
 
 InsumosApp.prototype.resetPlantioForm = function() {
@@ -4820,9 +4871,6 @@ InsumosApp.prototype.resetPlantioForm = function() {
         const el = document.getElementById(id);
         if (el) el.value = '';
     });
-
-    const gps = document.getElementById('plantio-gps');
-    if (gps) gps.checked = false;
 
     const saveBtn = document.getElementById('plantio-save-btn');
     if (saveBtn) saveBtn.textContent = '💾 Registrar Dia';
@@ -4876,7 +4924,6 @@ InsumosApp.prototype.handleEditPlantio = function(id) {
     set('qual-cobertura', q.cobertura);
     set('qual-alinhamento', q.alinhamento);
     set('chuva-mm', q.chuvaMm);
-    setCheck('plantio-gps', q.gps);
     
     set('oxifertil-dose', q.oxifertilDose);
     set('cobricao-dia', q.cobricaoDia);
