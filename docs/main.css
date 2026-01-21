@@ -66,6 +66,8 @@ body {
     justify-content: space-between;
     align-items: center;
     flex-shrink: 0;
+    position: relative;
+    z-index: 100;
 }
 
 .header h1 {
@@ -92,10 +94,13 @@ body {
     overflow-x: auto;
     flex-shrink: 0;
     align-items: center;
+    position: relative;
+    z-index: 90;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); /* Increased shadow for better separation */
 }
 
 .tab {
-    padding: 10px 20px;
+    padding: 8px 20px; /* Slightly reduced padding */
     cursor: pointer;
     color: var(--text-light);
     border: none;
@@ -103,8 +108,8 @@ body {
     font-weight: 600;
     transition: all 0.3s ease;
     white-space: nowrap;
-    border-radius: 50px; /* Pill shape */
-    font-size: 0.95em;
+    border-radius: 50px;
+    font-size: 0.9em; /* Slightly smaller font */
 }
 
 .tab:hover {
@@ -127,26 +132,56 @@ body {
     overflow: hidden;
     position: relative;
     background: var(--background);
+    display: flex;
+    flex-direction: column;
+    z-index: 1;
 }
 
 .tab-content {
     display: none;
     flex: 1;
-    overflow-y: scroll; /* Force scrollbar to prevent layout thrashing/resize loops */
-    padding: 25px;
-    min-height: 0; /* Important for nested flex scroll */
+    overflow-y: auto;
+    padding: 0 10px 10px 10px; /* Removed top padding, kept others */
+    min-height: 0;
+    height: 100%;
 }
 
-.tab-content.active { display: block; }
+.tab-content > *:first-child {
+    margin-top: 0 !important; /* Force zero margin for the first element */
+}
+
+.tab-content.active {
+    display: block;
+}
+
+.action-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px; /* Reduced from 10px to 5px */
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 10px 15px; /* Added padding to match filters */
+    margin-top: 0 !important;
+    background: var(--surface); /* Changed from transparent to surface */
+    border-radius: 12px; /* Added border-radius */
+    box-shadow: var(--shadow); /* Added shadow */
+    border: 1px solid rgba(0,0,0,0.03); /* Added border */
+}
+
+.action-group {
+    display: flex;
+    gap: 10px;
+}
 
 /* Filtros */
 .filters {
     background: var(--surface);
-    padding: 20px;
-    border-radius: 16px;
-    margin-bottom: 25px;
+    padding: 10px 15px; /* Reduced padding from 15px */
+    border-radius: 12px; /* Slightly smaller radius */
+    margin-bottom: 5px; /* Reduced from 10px to 5px */
     display: flex;
-    gap: 15px;
+    gap: 10px; /* Reduced gap */
     align-items: center;
     box-shadow: var(--shadow);
     flex-wrap: wrap;
@@ -167,13 +202,13 @@ body {
 
 .filter-group select,
 .filter-group input {
-    padding: 10px 15px;
+    padding: 8px 12px; /* Reduced padding from 10px 15px */
     border: 1px solid var(--border);
     border-radius: 12px;
     background: var(--background);
     color: var(--text);
     outline: none;
-    min-width: 160px;
+    min-width: 140px; /* Reduced min-width */
     transition: border-color 0.2s, box-shadow 0.2s;
 }
 
@@ -185,8 +220,16 @@ body {
 
 /* Sections for vertical layout */
 .content-section {
-    margin-bottom: 25px;
+    margin-bottom: 10px; /* Reduced from 15px to 10px */
     width: 100%;
+}
+
+.dashboard-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 5px; /* Reduced gap from 10px */
+    width: 100%;
+    margin-top: 0 !important;
 }
 
 .full-width {
@@ -200,8 +243,10 @@ body {
     border-radius: 16px;
     box-shadow: var(--shadow);
     overflow-x: auto;
-    margin-bottom: 25px;
+    margin-bottom: 10px; /* Reduced from 25px */
     border: 1px solid rgba(0,0,0,0.03);
+    max-height: 75vh; /* Increased slightly */
+    overflow-y: auto;
 }
 
 /* Enhanced Table Styling */
@@ -219,20 +264,23 @@ body {
 }
 
 .data-table th {
-    background: transparent; /* Override default */
-    color: white; /* Override default */
+    background: var(--surface); /* Solid background for sticky */
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    color: var(--text-light); /* Ensure visibility on white background */
     font-weight: 600;
     padding: 10px 8px; /* Reduced padding */
     font-size: 0.8rem; /* Reduced font size */
     text-transform: uppercase;
-    letter-spacing: 0.5px;
-    border-bottom: none;
+    letter-spacing: 0.8px;
+    box-shadow: 0 1px 0 var(--border); /* Visual separator instead of border-bottom which moves */
     text-align: center; /* Center headers */
     vertical-align: middle;
 }
 
 .data-table td {
-    padding: 8px 10px; /* Reduced padding */
+    padding: 6px 10px; /* Reduced padding from 8px */
     border-bottom: 1px solid var(--border);
     color: var(--text);
     vertical-align: middle;
@@ -462,7 +510,7 @@ body {
 
 .chart-card {
     background: var(--surface);
-    padding: 24px;
+    padding: 15px; /* Reduced padding from 24px */
     border-radius: var(--radius);
     box-shadow: var(--shadow);
     min-height: 380px;
@@ -470,6 +518,14 @@ body {
     flex-direction: column;
     transition: all 0.3s ease;
     border: 1px solid rgba(0,0,0,0.05);
+    /* Prevent infinite growth of flex items */
+    overflow: hidden; 
+}
+
+/* Limit canvas height to prevent layout explosion */
+.chart-card canvas {
+    max-height: 400px !important;
+    width: 100% !important;
 }
 
 .chart-card:hover {
@@ -477,7 +533,7 @@ body {
 }
 
 .chart-card h3, .chart-card h4 {
-    margin: 0 0 24px 0;
+    margin: 0 0 15px 0; /* Reduced margin */
     font-size: 1.1rem;
     color: var(--text);
     font-weight: 700;
@@ -489,12 +545,12 @@ body {
 .form-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* Increased min-width */
-    gap: 20px; /* Increased gap */
+    gap: 15px; /* Reduced gap */
 }
 
 .form-group label {
     display: block;
-    margin-bottom: 8px; /* Increased margin */
+    margin-bottom: 6px; /* Reduced margin */
     font-weight: 500;
     color: var(--text-light);
     font-size: 0.95em; /* Slightly larger label */
@@ -503,7 +559,7 @@ body {
 .form-group input,
 .form-group select {
     width: 100%;
-    padding: 12px 15px; /* Increased padding */
+    padding: 10px 12px; /* Reduced padding */
     border: 1px solid var(--border);
     border-radius: 8px;
     background: var(--background);
@@ -705,14 +761,14 @@ body {
 .plantio-details-container {
     background-color: var(--surface);
     border-left: 5px solid var(--primary);
-    margin: 15px 25px 25px 25px;
-    padding: 25px;
-    border-radius: 20px; /* Mais arredondado */
-    box-shadow: 0 10px 30px rgba(0,0,0,0.08); /* Sombra mais suave e moderna */
+    margin: 10px 0; /* Reduced from 15px 25px 25px 25px */
+    padding: 15px; /* Reduced padding */
+    border-radius: 12px; /* Slightly smaller radius */
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
     display: flex;
     flex-wrap: wrap;
-    gap: 25px;
-    border: 1px solid rgba(0,0,0,0.05); /* Borda sutil */
+    gap: 15px; /* Reduced gap */
+    border: 1px solid rgba(0,0,0,0.05);
 }
 
 .details-card {
@@ -789,104 +845,4 @@ body {
     font-size: 0.85em;
     color: var(--text-light);
     margin-bottom: 5px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    opacity: 0.8;
-}
-
-.quality-item .value {
-    font-weight: 700;
-    font-size: 1.15em;
-    color: var(--text);
-}
-.quality-item .sub-value {
-    font-size: 0.75em;
-    color: var(--text-light);
-    margin-left: 5px;
-    font-weight: 400;
-}
-
-/* Compact inner tables */
-.details-inner-table {
-    width: 100%;
-    border-collapse: separate;
-    border-spacing: 0;
-    font-size: 0.95em;
-    background: var(--surface);
-    border-radius: 12px;
-    overflow: hidden;
-    border: 1px solid rgba(0,0,0,0.06);
-}
-.details-inner-table th {
-    text-align: left;
-    color: var(--text);
-    font-weight: 600;
-    padding: 12px 15px;
-    background: rgba(0,0,0,0.04);
-    border-bottom: 1px solid rgba(0,0,0,0.06);
-}
-.details-inner-table td {
-    padding: 10px 15px;
-    border-bottom: 1px solid rgba(0,0,0,0.04);
-    color: var(--text);
-}
-.details-inner-table tr:last-child td {
-    border-bottom: none;
-}
-
-/* Manual Entry Form - Optimized Layout */
-.manual-entry-container {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 20px;
-    align-items: flex-end;
-}
-
-.manual-entry-group {
-    flex: 0 0 auto; /* Don't stretch */
-    width: 140px; /* Fixed small width */
-}
-
-/* Make product dropdown slightly wider to fit text */
-.manual-entry-group:nth-child(3) {
-    width: 200px;
-}
-
-.manual-entry-group.action-group {
-    flex: 0 0 auto; /* Button doesn't stretch like inputs */
-    min-width: auto;
-}
-
-.manual-entry-group label {
-    display: block;
-    margin-bottom: 8px;
-    font-weight: 500;
-    color: var(--text-light);
-    font-size: 0.95em;
-}
-
-.manual-entry-group input,
-.manual-entry-group select {
-    width: 100%;
-    padding: 12px 15px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--background);
-    color: var(--text);
-    outline: none;
-    transition: border-color 0.2s;
-    font-size: 1em;
-    height: 45px; /* Fixed height for alignment */
-    box-sizing: border-box;
-}
-
-.manual-entry-group .btn {
-    height: 45px; /* Match input height */
-    white-space: nowrap;
-    justify-content: center;
-    padding: 0 30px;
 }

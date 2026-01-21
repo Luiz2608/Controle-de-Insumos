@@ -1,4 +1,5 @@
 class ApiService {
+
     constructor() {
         if (!window.SUPABASE_CONFIG || !window.SUPABASE_CONFIG.url || window.SUPABASE_CONFIG.url.includes('SUA_URL')) {
             console.warn('⚠️ Supabase não configurado. Verifique o arquivo config.js');
@@ -568,6 +569,25 @@ class ApiService {
         
         if (error) throw error;
         return { success: true };
+    }
+
+    async saveLiberacao(payload) {
+        this.checkConfig();
+        const item = {
+            data: payload.data,
+            fazenda: payload.fazenda,
+            talhao: payload.talhao,
+            status: payload.status,
+            observacoes: payload.observacoes
+        };
+
+        const { data, error } = await this.supabase
+            .from('liberacao_colheita')
+            .insert(item)
+            .select();
+
+        if (error) throw error;
+        return { success: true, data: data[0] };
     }
 }
 

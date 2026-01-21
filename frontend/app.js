@@ -28,6 +28,13 @@ class InsumosApp {
             lacre: ''
         };
 
+        // Controle de Load do Dashboard (Circuit Breaker)
+        this.dashboardLoadCount = 0;
+        this.dashboardLoadResetTime = Date.now();
+        this.dashboardDisabled = false;
+        this.isDashboardLoading = false;
+        this._lastDashboardLoad = 0;
+
         // Inicializar PDF.js worker
         if (window.pdfjsLib) {
             window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -993,6 +1000,122 @@ forceReloadAllData() {
             });
         }
 
+        // Modal Liberação de Colheita
+        const btnLiberacao = document.getElementById('btn-liberacao-colheita');
+        const liberacaoModal = document.getElementById('liberacao-modal');
+        const closeLiberacaoButtons = document.querySelectorAll('.close-liberacao-modal');
+        const btnSaveLiberacao = document.getElementById('btn-save-liberacao');
+
+        if (btnLiberacao && liberacaoModal) {
+            btnLiberacao.addEventListener('click', () => {
+                liberacaoModal.style.display = 'flex';
+                // Pre-fill date with today
+                const dateInput = document.getElementById('liberacao-data');
+                if (dateInput && !dateInput.value) {
+                    dateInput.valueAsDate = new Date();
+                }
+            });
+        }
+
+        if (closeLiberacaoButtons) {
+            closeLiberacaoButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    if (liberacaoModal) liberacaoModal.style.display = 'none';
+                });
+            });
+        }
+
+        if (btnSaveLiberacao) {
+            btnSaveLiberacao.addEventListener('click', async () => {
+                const dataInput = document.getElementById('liberacao-data');
+                const fazendaInput = document.getElementById('liberacao-fazenda');
+                const talhaoInput = document.getElementById('liberacao-talhao');
+                const statusInput = document.getElementById('liberacao-status');
+                const obsInput = document.getElementById('liberacao-obs');
+
+                const data = dataInput ? dataInput.value : '';
+                const fazenda = fazendaInput ? fazendaInput.value : '';
+                const talhao = talhaoInput ? talhaoInput.value : '';
+                const status = statusInput ? statusInput.value : 'pendente';
+                const obs = obsInput ? obsInput.value : '';
+
+                if (!data || !fazenda || !talhao) {
+                    this.ui.showNotification('Preencha os campos obrigatórios (Data, Fazenda, Talhão)', 'error');
+                    return;
+                }
+
+                try {
+                    this.ui.showLoading();
+                    await this.api.saveLiberacao({
+                        data, fazenda, talhao, status, observacoes: obs
+                    });
+                    this.ui.showNotification('Registro de liberação salvo com sucesso!', 'success');
+                    if (liberacaoModal) liberacaoModal.style.display = 'none';
+                    
+                    // Clear form
+                    if (dataInput) dataInput.value = '';
+                    if (fazendaInput) fazendaInput.value = '';
+                    if (talhaoInput) talhaoInput.value = '';
+                    if (obsInput) obsInput.value = '';
+                } catch (error) {
+                    console.error(error);
+                    this.ui.showNotification('Erro ao salvar liberação', 'error');
+                } finally {
+                    this.ui.hideLoading();
+                }
+            });
+        }
+
+        // Modal de OS
+        const btnOS = document.getElementById('btn-os');
+        const osModal = document.getElementById('os-modal');
+        const closeOSButtons = document.querySelectorAll('.close-os-modal');
+        const btnNovaOS = document.getElementById('btn-nova-os');
+        const btnVoltarOSList = document.getElementById('btn-voltar-os-list');
+
+        if (btnOS && osModal) {
+            btnOS.addEventListener('click', () => {
+                osModal.style.display = 'flex';
+                this.loadOSList();
+                this.showOSList();
+            });
+        }
+
+        if (closeOSButtons) {
+            closeOSButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    if (osModal) osModal.style.display = 'none';
+                });
+            });
+        }
+
+        if (btnNovaOS) {
+            btnNovaOS.addEventListener('click', () => {
+                this.resetOSForm();
+                this.showOSForm();
+            });
+        }
+
+        if (btnVoltarOSList) {
+            btnVoltarOSList.addEventListener('click', () => {
+                this.showOSList();
+            });
+        }
+
+        const osListBody = document.getElementById('os-list-body');
+        if (osListBody) {
+            osListBody.addEventListener('click', (e) => {
+                if (e.target.classList.contains('btn-edit-os')) {
+                    const numero = e.target.getAttribute('data-numero');
+                    this.handleEditOS(numero);
+                }
+                if (e.target.classList.contains('btn-delete-os')) {
+                    const numero = e.target.getAttribute('data-numero');
+                    this.handleDeleteOS(numero);
+                }
+            });
+        }
+
         // Navegação por tabs
         document.querySelectorAll('.tab').forEach(tab => {
             tab.addEventListener('click', (e) => {
@@ -1000,11 +1123,8 @@ forceReloadAllData() {
                 this.ui.switchTab(tabName);
                 this.loadTabData(tabName);
                 
-                // Força atualização ao entrar no dashboard para refletir novos dados
-                if (tabName === 'dashboard') {
-                    // Pequeno delay para garantir que a UI trocou
-                    setTimeout(() => this.loadDashboard(), 50);
-                }
+                // Removido trigger automático duplicado para evitar loops
+                // O carregamento agora é feito dentro de loadTabData
             });
         });
 
@@ -1226,14 +1346,41 @@ forceReloadAllData() {
     }
 
     async loadDashboard() {
-        // Prevent rapid-fire reloads (Throttle: 1s)
+        if (this.dashboardDisabled) {
+            console.error('⛔ Dashboard desativado devido a excesso de recargas.');
+            this.ui.showNotification('Dashboard desativado por segurança. Recarregue a página.', 'error');
+            return;
+        }
+
+        console.time('loadDashboard'); // Início do timer de performance
+
         const now = Date.now();
-        if (this._lastDashboardLoad && (now - this._lastDashboardLoad < 1000)) {
-            console.warn('⚠️ Dashboard reload throttled to prevent loops.');
+        
+        // Circuit Breaker: Resetar contagem a cada 10 segundos
+        if (now - this.dashboardLoadResetTime > 10000) {
+            this.dashboardLoadCount = 0;
+            this.dashboardLoadResetTime = now;
+        }
+
+        this.dashboardLoadCount++;
+        
+        // Se houver mais de 5 tentativas em 10 segundos, travar
+        if (this.dashboardLoadCount > 5) {
+            this.dashboardDisabled = true;
+            this.ui.showNotification('Erro: Dashboard tentando recarregar em loop. Parando.', 'error');
+            console.error('⛔ Loop detectado no Dashboard! Desativando recargas automáticas.');
+            return;
+        }
+
+        // Prevent rapid-fire reloads (Throttle: 1.5s) and concurrent loads
+        if ((this._lastDashboardLoad && (now - this._lastDashboardLoad < 1500)) || this.isDashboardLoading) {
+            console.warn('⚠️ Dashboard reload throttled or already in progress.');
             return;
         }
         this._lastDashboardLoad = now;
+        this.isDashboardLoading = true;
 
+        console.log('🔄 Iniciando loadDashboard...', new Date().toISOString());
         this.ui.showLoading();
         try {
             // console.log('🔄 Loading Dashboard...');
@@ -1256,7 +1403,12 @@ forceReloadAllData() {
             if (fazendasRes && fazendasRes.success) this.cadastroFazendas = fazendasRes.data;
 
             this.calculateKPIs();
+            
+            // Renderização protegida para evitar travamento da UI
+            console.time('renderDashboardCharts');
+            // await new Promise(resolve => setTimeout(resolve, 50)); // (Opcional)
             this.renderDashboardCharts();
+            console.timeEnd('renderDashboardCharts');
             
             this.ui.showNotification('Dashboard atualizado!', 'success');
         } catch (e) {
@@ -1264,6 +1416,8 @@ forceReloadAllData() {
             this.ui.showNotification('Erro ao carregar dashboard', 'error');
         } finally {
             this.ui.hideLoading();
+            this.isDashboardLoading = false;
+            console.timeEnd('loadDashboard');
         }
     }
 
@@ -1357,6 +1511,35 @@ forceReloadAllData() {
     }
 
     renderDashboardCharts() {
+        // Wrapper para processar gráficos sequencialmente para não travar a thread principal
+        if (typeof requestAnimationFrame !== 'undefined') {
+            requestAnimationFrame(() => this._renderDashboardChartsInternal());
+        } else {
+            setTimeout(() => this._renderDashboardChartsInternal(), 0);
+        }
+    }
+
+    _renderDashboardChartsInternal() {
+        if (typeof Chart === 'undefined') {
+            console.error('❌ Chart.js não está carregado!');
+            return;
+        }
+        
+        console.log('📊 Renderizando gráficos...');
+
+        // Sequência de renderização
+        try { this.renderPlantioChart(); } catch(e) { console.error('Erro Chart Plantio:', e); }
+        try { this.renderOSStatusChart(); } catch(e) { console.error('Erro Chart OS:', e); }
+        // renderEstoqueGeralChart, etc.
+        try { this.renderEstoqueGeralChart(); } catch(e) { console.error('Erro Chart Estoque:', e); }
+        try { this.renderProductDetailsCharts(); } catch(e) { console.error('Erro Chart Produtos:', e); }
+        try { this.renderLogisticsCharts(); } catch(e) { console.error('Erro Chart Logistica:', e); }
+        try { this.renderFarmProgressChart(); } catch(e) { console.error('Erro Chart Fazendas:', e); }
+    }
+
+    // Função original renomeada/substituída
+    /*
+    renderDashboardCharts() {
         // console.log('📊 Renderizando gráficos do dashboard...');
         if (typeof Chart === 'undefined') {
             // console.error('❌ Chart.js não está carregado!');
@@ -1392,6 +1575,7 @@ forceReloadAllData() {
             this.renderFarmProgressChart();
         } catch(e) { } // console.error('Erro renderFarmProgressChart:', e);
     }
+    */
 
     renderOSStatusChart() {
         const ctx = document.getElementById('chart-os-status');
@@ -1435,6 +1619,7 @@ forceReloadAllData() {
             },
             options: {
                 responsive: true,
+                maintainAspectRatio: false,
                 plugins: {
                     legend: { position: 'bottom' }
                 }
@@ -1490,6 +1675,7 @@ forceReloadAllData() {
             },
             options: {
                 responsive: true,
+                maintainAspectRatio: false,
                 plugins: { legend: { display: false } }
             }
         });
@@ -1531,7 +1717,8 @@ forceReloadAllData() {
                  }]
              },
              options: {
-                 responsive: true
+                 responsive: true,
+                 maintainAspectRatio: false
              }
          });
     }
@@ -1714,8 +1901,13 @@ forceReloadAllData() {
                     
                     if (fStr === myNome || fStr === myCod || (myCod && fStr.startsWith(myCod + ' '))) {
                         done += area;
-                    } else if (myNome && fStr.includes(myNome)) {
-                        done += area;
+                    } else {
+                        // Tentar extrair código do início da string da fazenda no registro de plantio
+                        // Ex: "96 - Fazenda X" -> "96"
+                        const matchCode = fStr.match(/^(\d+)/);
+                        if (matchCode && myCod && matchCode[1] === myCod) {
+                             done += area;
+                        }
                     }
                 };
 
@@ -2221,6 +2413,16 @@ forceReloadAllData() {
         } else {
             console.error('Tabela de produtos não encontrada (os-produtos-body)');
         }
+    }
+
+    resetOSForm() {
+        this.fillOSForm({
+            numero: '', status: 'Pendente', abertura: '', inicioPrev: '', finalPrev: '',
+            respAplicacao: '', empresa: '', frente: '', processo: '', subprocesso: '',
+            fazenda: '', setor: '', areaTotal: '',
+            talhoes: [], produtos: []
+        });
+        this.currentOSData = null; // Clear cache
     }
 
     async updateEstoqueFromOS(frente) {
@@ -2902,6 +3104,7 @@ forceReloadAllData() {
             },
             options: {
                 responsive: true,
+                maintainAspectRatio: false,
                 interaction: {
                     mode: 'index',
                     intersect: false,
@@ -3558,11 +3761,10 @@ forceReloadAllData() {
         if (tabName === 'insumos-fazendas') {
             await this.loadInsumosData();
         } else if (tabName === 'graficos') {
-            if (this.insumosFazendasData && this.insumosFazendasData.length) {
-                this.updateCharts(this.insumosFazendasData);
-            } else {
-                await this.loadInsumosData();
-            }
+            // Removido carregamento automático para evitar loop infinito
+            // O usuário deve clicar em "Atualizar Dados"
+            // await this.loadDashboard();
+            console.log('Tab gráficos aberta. Aguardando ação do usuário ou timer.');
         } else if (tabName === 'estoque') {
             await this.loadEstoqueAndRender();
         } else if (tabName === 'plantio-dia') {
@@ -4556,7 +4758,7 @@ InsumosApp.prototype.updateCharts = function(data) {
         const doseGlobalCtx = document.getElementById('chart-dose-global');
         const diffProdCtx = document.getElementById('chart-diff-produtos');
         if (!this._charts) this._charts = {};
-        const baseOpts = { responsive: true, maintainAspectRatio: true, aspectRatio: 2, plugins: { legend: { display: true, position: 'top' } }, scales: { x: { grid: { display: false } }, y: { grid: { display: false } } } };
+        const baseOpts = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'top' } }, scales: { x: { grid: { display: false } }, y: { grid: { display: false } } } };
         const doseProdData = {
             labels: produtos,
             datasets: [
@@ -4715,7 +4917,7 @@ InsumosApp.prototype.loadEstoqueAndRender = async function() {
         if (ctx) {
             if (!this._charts) this._charts = {};
             let chartData;
-            let chartOpts = { responsive: true, maintainAspectRatio: true, aspectRatio: 2, plugins: { legend: { display: true, position: 'top' } } };
+            let chartOpts = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'top' } } };
             
             // Se o filtro atual não estiver na lista (ex: usuário digitou algo manual no filtro?), fallback para 'all'
             // Mas o filtro é um select agora.

@@ -107,7 +107,7 @@
         </div>
 
         <!-- Conteúdo das Tabs -->
-        
+        <div class="content-area">
 
         <!-- Tab DASHBOARD -->
         <div class="tab-content active" id="graficos">
@@ -283,9 +283,6 @@
             </div>
         </div>
 
-
-    </div>
-
     <!-- Loading -->
     <div id="loading" class="loading-overlay">
         <div class="loading-spinner">⏳</div>
@@ -417,16 +414,12 @@
             </div>
             <button id="btn-sync-estoque" class="btn btn-secondary" style="margin-left: auto;">🔄 Sincronizar com OSs</button>
         </div>
-        <div class="content-section">
+        <div class="dashboard-wrapper">
             <div class="chart-card full-width">
                 <h4 style="margin: 0 0 15px 0; border-bottom: 1px solid var(--border); padding-bottom: 10px;">📊 Análise de Estoque</h4>
-                <div style="height: 400px; position: relative;">
-                    <canvas id="chart-estoque-frente"></canvas>
-                </div>
+                <canvas id="chart-estoque-frente"></canvas>
             </div>
-        </div>
 
-        <div class="content-section">
             <div class="chart-card full-width">
                 <h4 style="margin: 0 0 15px 0; border-bottom: 1px solid var(--border); padding-bottom: 10px;">📝 Lançamento Manual de Estoque</h4>
                 <div class="manual-entry-container">
@@ -490,41 +483,38 @@
 
     <!-- Tab Viagens de Adubo -->
     <div class="tab-content" id="viagens-adubo">
-        <div class="charts">
-            <div class="chart-card">
-                <h4 style="margin: 0 0 10px 0;">Filtros de Viagens</h4>
-                <div class="filters">
-                    <div class="filter-group">
-                        <label for="viagens-data-filter">Data</label>
-                        <input type="date" id="viagens-data-filter">
-                    </div>
-                    <div class="filter-group">
-                        <label for="viagens-fazenda-filter">Fazenda</label>
-                        <select id="viagens-fazenda-filter">
-                            <option value="">Todas as Fazendas</option>
-                        </select>
-                    </div>
-                    <div class="filter-group">
-                        <label for="viagens-frente-filter">Frente</label>
-                        <input type="text" id="viagens-frente-filter" placeholder="Ex.: 4001">
-                    </div>
-                    <div class="filter-group">
-                        <label for="viagens-motorista-filter">Motorista</label>
-                        <input type="text" id="viagens-motorista-filter" placeholder="Nome do motorista">
-                    </div>
-                    <div class="filter-group">
-                        <label for="viagens-caminhao-filter">Caminhão</label>
-                        <input type="text" id="viagens-caminhao-filter" placeholder="Placa ou identificação">
-                    </div>
-                    <div class="filter-group">
-                        <label for="viagens-lacre-filter">Lacre</label>
-                        <input type="text" id="viagens-lacre-filter" placeholder="Lacre do bag">
-                    </div>
-                    <button id="apply-viagens-filters" class="btn btn-primary">🔍 Aplicar Filtros</button>
-                    <button id="reset-viagens-filters" class="btn btn-secondary">🔄 Limpar</button>
-                </div>
+        <div class="filters">
+            <div class="filter-group">
+                <label for="viagens-data-filter">Data</label>
+                <input type="date" id="viagens-data-filter">
             </div>
+            <div class="filter-group">
+                <label for="viagens-fazenda-filter">Fazenda</label>
+                <select id="viagens-fazenda-filter">
+                    <option value="">Todas as Fazendas</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="viagens-frente-filter">Frente</label>
+                <input type="text" id="viagens-frente-filter" placeholder="Ex.: 4001">
+            </div>
+            <div class="filter-group">
+                <label for="viagens-motorista-filter">Motorista</label>
+                <input type="text" id="viagens-motorista-filter" placeholder="Nome do motorista">
+            </div>
+            <div class="filter-group">
+                <label for="viagens-caminhao-filter">Caminhão</label>
+                <input type="text" id="viagens-caminhao-filter" placeholder="Placa ou identificação">
+            </div>
+            <div class="filter-group">
+                <label for="viagens-lacre-filter">Lacre</label>
+                <input type="text" id="viagens-lacre-filter" placeholder="Lacre do bag">
+            </div>
+            <button id="apply-viagens-filters" class="btn btn-primary">🔍 Aplicar Filtros</button>
+            <button id="reset-viagens-filters" class="btn btn-secondary">🔄 Limpar</button>
+        </div>
 
+        <div class="dashboard-wrapper">
             <div class="chart-card">
                 <h4 style="margin: 0 0 10px 0;">Cadastro de Viagem</h4>
                 <div class="form-grid boletim-grid">
@@ -664,29 +654,29 @@
                     </table>
                 </div>
             </div>
+        </div>
 
-            <div class="table-container">
-                <table class="data-table" id="viagens-adubo-table">
-                    <thead>
-                        <tr>
-                            <th>Data</th>
-                            <th>Frente</th>
-                            <th>Fazenda</th>
-                            <th>Produto</th>
-                            <th>Quantidade</th>
-                            <th>Unidade</th>
-                            <th>Motorista</th>
-                            <th>Caminhão</th>
-                            <th>Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody id="viagens-adubo-table-body">
-                        <tr>
-                            <td colspan="9" class="loading">📡 Carregando dados...</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+        <div class="table-container">
+            <table class="data-table" id="viagens-adubo-table">
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Frente</th>
+                        <th>Fazenda</th>
+                        <th>Produto</th>
+                        <th>Quantidade</th>
+                        <th>Unidade</th>
+                        <th>Motorista</th>
+                        <th>Caminhão</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="viagens-adubo-table-body">
+                    <tr>
+                        <td colspan="9" class="loading">📡 Carregando dados...</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     </div>
 
@@ -715,7 +705,7 @@
             </div>
         </div>
 
-        <div style="padding: 20px;">
+        <div class="dashboard-wrapper">
             <div class="table-container">
                 <table class="data-table" id="plantio-table">
                     <thead>
@@ -1049,6 +1039,50 @@
                 <div id="progress-bar" style="width: 0%; height: 24px; background-color: #4CAF50; transition: width 0.3s ease;"></div>
             </div>
             <p id="progress-text" style="font-weight: bold; color: #555;">0%</p>
+        </div>
+    </div>
+
+    <!-- Modal Liberação de Colheita -->
+    <div id="liberacao-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3>🌾 Liberação de Colheita</h3>
+                <button class="close-modal close-liberacao-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="liberacao-form">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="liberacao-data">Data</label>
+                            <input type="date" id="liberacao-data" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="liberacao-fazenda">Fazenda</label>
+                            <input type="text" id="liberacao-fazenda" placeholder="Nome da Fazenda" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="liberacao-talhao">Talhão/Frente</label>
+                            <input type="text" id="liberacao-talhao" placeholder="Ex: 10" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="liberacao-status">Status</label>
+                            <select id="liberacao-status">
+                                <option value="liberado">Liberado</option>
+                                <option value="pendente">Pendente</option>
+                                <option value="bloqueado">Bloqueado</option>
+                            </select>
+                        </div>
+                        <div class="form-group full-width" style="grid-column: 1 / -1;">
+                            <label for="liberacao-obs">Observações</label>
+                            <textarea id="liberacao-obs" rows="3" style="width: 100%; border: 1px solid var(--border); border-radius: 8px; padding: 8px; font-family: inherit;"></textarea>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary close-liberacao-modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btn-save-liberacao">💾 Salvar</button>
+            </div>
         </div>
     </div>
 
@@ -1407,6 +1441,7 @@
                 </div>
             </div>
         </div>
+        </div> <!-- End of .content-area -->
     </div>
 </body>
 </html>
