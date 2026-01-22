@@ -998,3 +998,17 @@ body.theme-dark {
 #report-print-container {
     display: none;
 }
+
+
+/* Classes para coloração condicional nas tabelas */
+.row-danger td {
+    color: #d32f2f !important; /* Vermelho mais forte */
+    font-weight: 700;
+    background-color: rgba(211, 47, 47, 0.05);
+}
+
+.row-warning td {
+    color: #e65100 !important; /* Laranja escuro/Ambar forte para leitura */
+    font-weight: 700;
+    background-color: rgba(255, 111, 0, 0.05);
+}
