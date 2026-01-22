@@ -5847,10 +5847,26 @@ InsumosApp.prototype.updateFixedFrentesTotals = function() {
 
 InsumosApp.prototype.addInsumoRow = async function() {
     const produto = document.getElementById('insumo-produto')?.value || '';
-    let dosePrev = parseFloat(document.getElementById('insumo-dose-prevista')?.value || '0');
-    const doseReal = parseFloat(document.getElementById('insumo-dose-realizada')?.value || '0');
+    
+    // Helper para parsear floats aceitando virgula e ponto
+    const parseInput = (id) => {
+        const val = document.getElementById(id)?.value || '0';
+        return parseFloat(String(val).replace(',', '.'));
+    };
+
+    let dosePrev = parseInput('insumo-dose-prevista');
+    const qtdTotal = parseInput('insumo-qtd-total');
+    const areaDia = parseInput('single-plantio-dia');
     
     if (!produto) { this.ui.showNotification('Selecione o produto', 'warning'); return; }
+    
+    let doseReal = 0;
+    if (areaDia > 0) {
+        doseReal = qtdTotal / areaDia;
+    } else {
+        // Se não tiver área, permite adicionar mas avisa ou calcula como 0
+        // Não vamos bloquear, pois o usuário pode preencher a área depois
+    }
 
     // Tentar buscar dose prevista da OS se não foi informada
     if (dosePrev === 0) {
@@ -5886,12 +5902,13 @@ InsumosApp.prototype.addInsumoRow = async function() {
     this.plantioInsumosDraft.push({ 
         produto, 
         dosePrevista: dosePrev, 
-        doseRealizada: doseReal 
+        doseRealizada: doseReal,
+        qtdTotal: qtdTotal
     });
     this.renderInsumosDraft();
     
     // Limpar campos
-    ['insumo-produto', 'insumo-dose-prevista', 'insumo-dose-realizada'].forEach(id => { 
+    ['insumo-produto', 'insumo-dose-prevista', 'insumo-qtd-total'].forEach(id => { 
         const el = document.getElementById(id); 
         if (el) el.value = ''; 
     });
@@ -5909,17 +5926,51 @@ InsumosApp.prototype.renderInsumosDraft = function() {
     const tbody = document.getElementById('insumos-plantio-tbody');
     const areaDia = parseFloat(document.getElementById('single-plantio-dia')?.value || '0');
     let totalGasto = 0;
+    let totalPrevistoDia = 0;
 
     if (!tbody) return;
     tbody.innerHTML = this.plantioInsumosDraft.map((r,idx)=>{
-        const gasto = r.doseRealizada * areaDia;
+        let gasto = 0;
+        let doseReal = r.doseRealizada;
+        
+        // Se tiver qtdTotal armazenado, recalcula doseReal com base na área atual
+        if (r.qtdTotal !== undefined) {
+             gasto = r.qtdTotal;
+             if (areaDia > 0) {
+                 doseReal = r.qtdTotal / areaDia;
+             } else {
+                 doseReal = 0;
+             }
+             // Atualiza o objeto draft para manter consistência se salvar depois
+             r.doseRealizada = doseReal; 
+        } else {
+             // Compatibilidade com registros antigos
+             gasto = r.doseRealizada * areaDia;
+        }
+
         const previsto = r.dosePrevista * areaDia;
         totalGasto += gasto;
+        totalPrevistoDia += previsto;
+
+        let rowClass = '';
+        // Tolerância de 0.0001 para comparações de float
+        const diff = doseReal - r.dosePrevista;
+        
+        if (r.dosePrevista > 0) { 
+            if (diff < -0.0001) {
+                // Menor que previsto -> Vermelho (economia ou sub-dosagem)
+                rowClass = 'row-danger';
+            } else if (diff > 0.0001) {
+                // Maior que previsto -> Amarelo/Laranja (alerta de excesso)
+                rowClass = 'row-warning'; 
+            }
+        }
+
         return `
-        <tr>
+        <tr class="${rowClass}">
             <td>${r.produto}</td>
             <td>${this.ui.formatNumber(r.dosePrevista||0, 3)}</td>
-            <td>${this.ui.formatNumber(r.doseRealizada||0, 3)}</td>
+            <td>${this.ui.formatNumber(doseReal||0, 3)}</td>
             <td>${this.ui.formatNumber(previsto||0, 3)}</td>
             <td>${this.ui.formatNumber(gasto||0, 3)}</td>
             <td><button class="btn btn-sm btn-delete-insumo-row" data-idx="${idx}" style="color:red;">🗑️</button></td>
@@ -5928,7 +5979,10 @@ InsumosApp.prototype.renderInsumosDraft = function() {
 
     const totalEl = document.getElementById('insumos-total-gasto');
     if (totalEl) {
-        totalEl.textContent = `Total Gasto no Dia: ${this.ui.formatNumber(totalGasto||0, 3)}`;
+        totalEl.innerHTML = `
+            <div>Total Gasto no Dia: ${this.ui.formatNumber(totalGasto||0, 3)}</div>
+            <div style="color: #666; font-size: 0.9em; margin-top: 5px;">Total Previsto Dia: ${this.ui.formatNumber(totalPrevistoDia||0, 3)}</div>
+        `;
     }
 };
 
