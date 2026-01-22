@@ -3708,24 +3708,7 @@ forceReloadAllData() {
         const viagemSaveBtn = document.getElementById('viagem-save-btn');
         const bagAddBtn = document.getElementById('bag-add-btn');
 
-        const btnTypeAdubo = document.getElementById('btn-type-adubo');
-        const btnTypeComposto = document.getElementById('btn-type-composto');
-        if (btnTypeAdubo) {
-            btnTypeAdubo.addEventListener('click', () => {
-                this.viagemAduboTransportType = 'adubo';
-                btnTypeAdubo.classList.add('active');
-                if (btnTypeComposto) btnTypeComposto.classList.remove('active');
-                this.renderViagensAdubo();
-            });
-        }
-        if (btnTypeComposto) {
-            btnTypeComposto.addEventListener('click', () => {
-                this.viagemAduboTransportType = 'composto';
-                btnTypeComposto.classList.add('active');
-                if (btnTypeAdubo) btnTypeAdubo.classList.remove('active');
-                this.renderViagensAdubo();
-            });
-        }
+
 
         if (viagensApplyBtn) viagensApplyBtn.addEventListener('click', () => this.applyViagensFilters());
         if (viagensResetBtn) viagensResetBtn.addEventListener('click', () => this.resetViagensFilters());
@@ -3759,6 +3742,37 @@ forceReloadAllData() {
             const viewViagemBtn = e.target.closest('.btn-view-viagem-adubo');
             const delViagemBtn = e.target.closest('.btn-delete-viagem-adubo');
             
+            const btnTypeAdubo = e.target.closest('#btn-type-adubo');
+            const btnTypeComposto = e.target.closest('#btn-type-composto');
+
+            if (btnTypeAdubo) {
+                console.log('Delegated Click: Adubo');
+                this.viagemAduboTransportType = 'adubo';
+                btnTypeAdubo.classList.add('active', 'btn-primary');
+                btnTypeAdubo.classList.remove('btn-secondary');
+                const other = document.getElementById('btn-type-composto');
+                if (other) {
+                    other.classList.remove('active', 'btn-primary');
+                    other.classList.add('btn-secondary');
+                }
+                this.renderViagensAdubo();
+                return;
+            }
+
+            if (btnTypeComposto) {
+                console.log('Delegated Click: Composto');
+                this.viagemAduboTransportType = 'composto';
+                btnTypeComposto.classList.add('active', 'btn-primary');
+                btnTypeComposto.classList.remove('btn-secondary');
+                const other = document.getElementById('btn-type-adubo');
+                if (other) {
+                    other.classList.remove('active', 'btn-primary');
+                    other.classList.add('btn-secondary');
+                }
+                this.renderViagensAdubo();
+                return;
+            }
+
             const editOSBtn = e.target.closest('.btn-edit-os');
             const deleteOSBtn = e.target.closest('.btn-delete-os');
 
