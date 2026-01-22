@@ -74,7 +74,8 @@
                     </div>
                 </div>
             </div>
-        </div>
+
+            </div>
 
         <!-- Tela de Atualização Cadastral -->
         <div id="update-profile-screen" class="login-screen" style="display:none; z-index: 9999;">
@@ -96,6 +97,9 @@
                 </div>
             </div>
         </div>
+
+        <!-- Container para Relatório Avançado de Impressão -->
+        <div id="report-print-container" class="print-only"></div>
 
         
         <div class="tabs">
@@ -124,9 +128,13 @@
                     </div>
                     <button id="btn-refresh-dashboard" class="btn btn-primary">🔄 Atualizar Dados</button>
                     <button id="btn-config-metas" class="btn btn-secondary">⚙️ Metas</button>
+                    <button id="btn-print-report" class="btn btn-secondary" style="background-color: #607D8B; color: white;">🖨️ Imprimir Relatório</button>
                 </div>
             </div>
 
+            <!-- Área de Relatório (Visível apenas na impressão) -->
+            <!-- Substituído por container avançado -->
+            
             <!-- KPIs (Indicadores Chave) -->
             <div class="kpi-grid">
                 <div class="kpi-card">
@@ -169,6 +177,21 @@
                     <div class="kpi-info">
                         <span class="kpi-label">Vol. Transportado</span>
                         <span class="kpi-value" id="kpi-volume-total">0 t</span>
+                    </div>
+                </div>
+                <!-- Novos KPIs -->
+                <div class="kpi-card">
+                    <div class="kpi-icon">💧</div>
+                    <div class="kpi-info">
+                        <span class="kpi-label">Insumos Aplicados</span>
+                        <span class="kpi-value" id="kpi-insumos-total">0 L/kg</span>
+                    </div>
+                </div>
+                 <div class="kpi-card">
+                    <div class="kpi-icon">✅</div>
+                    <div class="kpi-info">
+                        <span class="kpi-label">OS Concluídas</span>
+                        <span class="kpi-value" id="kpi-os-concluidas">0</span>
                     </div>
                 </div>
             </div>
@@ -219,6 +242,11 @@
                     <canvas id="chart-estoque-geral"></canvas>
                 </div>
                 
+                <div class="chart-card wide">
+                    <h4>Evolução Diária de Aplicação de Insumos</h4>
+                    <canvas id="chart-insumos-evolucao"></canvas>
+                </div>
+
                 <!-- Linha 4: Detalhes Insumos -->
                 <div class="chart-card">
                      <h4>Diferença por Produto (%)</h4>
@@ -490,7 +518,7 @@
             </div>
             <div class="filter-group">
                 <label for="viagens-fazenda-filter">Fazenda</label>
-                <select id="viagens-fazenda-filter">
+                <select id="viagens-fazenda-filter">3
                     <option value="">Todas as Fazendas</option>
                 </select>
             </div>

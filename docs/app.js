@@ -46,24 +46,6 @@ class InsumosApp {
         const el = document.getElementById(codInputId);
         const codigo = el && el.value ? el.value.trim() : '';
         if (!codigo) return;
-        // Insumos no Plantio - Adicionar Linha
-    const btnAddInsumo = document.getElementById('btn-add-insumo-row');
-    if (btnAddInsumo) {
-        btnAddInsumo.addEventListener('click', () => {
-            this.addInsumoRow();
-        });
-    }
-
-    // Insumos no Plantio - Remover Linha (Delegado)
-    const tbodyInsumos = document.getElementById('insumos-plantio-tbody');
-    if (tbodyInsumos) {
-        tbodyInsumos.addEventListener('click', (e) => {
-            if (e.target.classList.contains('btn-delete-insumo-row')) {
-                const idx = parseInt(e.target.dataset.idx);
-                this.removeInsumoRow(idx);
-            }
-        });
-    }
 
     try {
             const res = await this.api.getFazendaByCodigo(codigo);
@@ -1286,6 +1268,14 @@ forceReloadAllData() {
             });
         }
 
+        // Botão Imprimir Relatório
+        const btnPrintReport = document.getElementById('btn-print-report');
+        if (btnPrintReport) {
+            btnPrintReport.addEventListener('click', () => {
+                this.handlePrintReport();
+            });
+        }
+
         // Botões gerais
         const addBtn = document.getElementById('add-btn');
         if (addBtn) {
@@ -1547,6 +1537,205 @@ forceReloadAllData() {
         }
     }
 
+    handlePrintReport() {
+        this.ui.showLoading();
+        try {
+            const container = document.getElementById('report-print-container');
+            if (!container) return;
+
+            // Coletar dados atuais dos KPIs
+            const kpiArea = document.getElementById('kpi-area-plantada')?.textContent || '-';
+            const kpiOs = document.getElementById('kpi-os-ativas')?.textContent || '-';
+            const kpiEficiencia = document.getElementById('kpi-eficiencia')?.textContent || '-';
+            const kpiViagens = document.getElementById('kpi-viagens-total')?.textContent || '-';
+            const kpiEstoque = document.getElementById('kpi-estoque-items')?.textContent || '-';
+            const kpiVolume = document.getElementById('kpi-volume-total')?.textContent || '-';
+            const kpiInsumos = document.getElementById('kpi-insumos-total')?.textContent || '-';
+            const kpiOsConcluidas = document.getElementById('kpi-os-concluidas')?.textContent || '-';
+
+            // Coletar imagens dos gráficos (se existirem)
+            const getChartImg = (key) => {
+                try {
+                    if (this._charts && this._charts[key]) {
+                        return this._charts[key].toBase64Image();
+                    }
+                } catch(e) { console.warn('Erro ao exportar gráfico ' + key, e); }
+                return null;
+            };
+
+            const imgPlantio = getChartImg('plantio');
+            const imgOsStatus = getChartImg('osStatus');
+            const imgEstoque = getChartImg('estoqueGeral');
+            const imgInsumosGlobal = getChartImg('insumosGlobal');
+            const imgInsumosTimeline = getChartImg('insumosTimeline');
+
+            const now = new Date();
+            const dateStr = now.toLocaleString('pt-BR');
+
+            // Construir HTML do Relatório
+            let html = `
+                <div class="report-header">
+                    <h1>🧪 Relatório Gerencial de Operações Agrícolas</h1>
+                    <p>Emitido em: ${dateStr} | Usuário: Sistema</p>
+                </div>
+
+                <div class="report-section">
+                    <h2>1. Resumo Executivo (KPIs)</h2>
+                    <div class="report-kpi-grid">
+                        <div class="report-kpi-card">
+                            <span class="report-kpi-value">${kpiArea}</span>
+                            <span class="report-kpi-label">Área Plantada</span>
+                        </div>
+                        <div class="report-kpi-card">
+                            <span class="report-kpi-value">${kpiEficiencia}</span>
+                            <span class="report-kpi-label">Eficiência</span>
+                        </div>
+                        <div class="report-kpi-card">
+                            <span class="report-kpi-value">${kpiInsumos}</span>
+                            <span class="report-kpi-label">Insumos Aplicados</span>
+                        </div>
+                        <div class="report-kpi-card">
+                            <span class="report-kpi-value">${kpiVolume}</span>
+                            <span class="report-kpi-label">Volume Transportado</span>
+                        </div>
+                        <div class="report-kpi-card">
+                            <span class="report-kpi-value">${kpiOs}</span>
+                            <span class="report-kpi-label">OS Ativas</span>
+                        </div>
+                        <div class="report-kpi-card">
+                            <span class="report-kpi-value">${kpiOsConcluidas}</span>
+                            <span class="report-kpi-label">OS Concluídas</span>
+                        </div>
+                        <div class="report-kpi-card">
+                            <span class="report-kpi-value">${kpiViagens}</span>
+                            <span class="report-kpi-label">Viagens Adubo</span>
+                        </div>
+                        <div class="report-kpi-card">
+                            <span class="report-kpi-value">${kpiEstoque}</span>
+                            <span class="report-kpi-label">Itens em Estoque</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="report-section">
+                    <h2>2. Gráficos de Desempenho</h2>
+                    <div class="report-charts-grid">
+                        ${imgPlantio ? `<div><h3>Plantio Diário</h3><img src="${imgPlantio}" class="report-chart-img"></div>` : ''}
+                        ${imgInsumosTimeline ? `<div><h3>Evolução de Insumos</h3><img src="${imgInsumosTimeline}" class="report-chart-img"></div>` : ''}
+                        ${imgOsStatus ? `<div><h3>Status OS</h3><img src="${imgOsStatus}" class="report-chart-img"></div>` : ''}
+                        ${imgInsumosGlobal ? `<div><h3>Comparativo Insumos</h3><img src="${imgInsumosGlobal}" class="report-chart-img"></div>` : ''}
+                    </div>
+                </div>
+                
+                <div class="page-break"></div>
+
+                <div class="report-section">
+                    <h2>3. Detalhamento de Insumos por Produto</h2>
+                    <table class="report-table">
+                        <thead>
+                            <tr>
+                                <th>Produto</th>
+                                <th>Planejado (Total)</th>
+                                <th>Realizado (Total)</th>
+                                <th>Diferença</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            // Tabela Insumos
+            if (this.insumosFazendasData) {
+                const products = {};
+                this.insumosFazendasData.forEach(item => {
+                    const p = item.produto || 'Outros';
+                    if (!products[p]) products[p] = { planned: 0, real: 0 };
+                    products[p].planned += parseFloat(item.doseRecomendada || 0) * parseFloat(item.areaTalhao || 0);
+                    products[p].real += parseFloat(item.quantidadeAplicada || 0);
+                });
+
+                const sortedProducts = Object.entries(products).sort((a, b) => b[1].real - a[1].real);
+                
+                sortedProducts.forEach(([name, data]) => {
+                    const diff = data.real - data.planned;
+                    const diffPerc = data.planned > 0 ? (diff / data.planned) * 100 : 0;
+                    const statusColor = diff > 0 ? '#d32f2f' : '#388e3c'; // Vermelho se gastou mais
+                    
+                    html += `
+                        <tr>
+                            <td>${name}</td>
+                            <td>${data.planned.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                            <td>${data.real.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                            <td style="color:${statusColor}; font-weight:bold;">${diff.toLocaleString('pt-BR', {minimumFractionDigits: 2})} (${diffPerc.toFixed(1)}%)</td>
+                            <td>${diff > 0 ? 'Excedente' : 'Dentro da Meta'}</td>
+                        </tr>
+                    `;
+                });
+            }
+
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="report-section">
+                    <h2>4. Ordens de Serviço (Recentes)</h2>
+                    <table class="report-table">
+                        <thead>
+                            <tr>
+                                <th>Número</th>
+                                <th>Data</th>
+                                <th>Tipo/Descrição</th>
+                                <th>Status</th>
+                                <th>Responsável</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            // Tabela OS
+            if (this.osListCache) {
+                // Pegar as últimas 20 OS
+                const recentOS = [...this.osListCache].sort((a, b) => new Date(b.data_abertura) - new Date(a.data_abertura)).slice(0, 20);
+                
+                recentOS.forEach(os => {
+                    html += `
+                        <tr>
+                            <td>${os.numero_os}</td>
+                            <td>${new Date(os.data_abertura).toLocaleDateString('pt-BR')}</td>
+                            <td>${os.descricao_servico || '-'}</td>
+                            <td>${os.status}</td>
+                            <td>${os.responsavel || '-'}</td>
+                        </tr>
+                    `;
+                });
+            }
+
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="report-footer">
+                    <p>Relatório gerado automaticamente pelo Sistema de Gestão de Insumos e Plantio.</p>
+                </div>
+            `;
+
+            container.innerHTML = html;
+
+            // Aguardar renderização das imagens antes de imprimir
+            setTimeout(() => {
+                this.ui.hideLoading();
+                window.print();
+            }, 800);
+
+        } catch (e) {
+            console.error('Erro ao gerar relatório avançado:', e);
+            this.ui.hideLoading();
+            this.ui.showNotification('Erro ao gerar relatório.', 'error');
+        }
+    }
+
     async loadDashboard() {
         if (this.dashboardDisabled) {
             console.error('⛔ Dashboard desativado devido a excesso de recargas.');
@@ -1597,7 +1786,15 @@ forceReloadAllData() {
                 this.api.getFazendas()
             ]);
 
-            if (plantioRes.success) this.plantioDiarioData = plantioRes.data;
+            if (plantioRes.success) {
+                // Normalizar dados (parsear JSON se necessário)
+                this.plantioDiarioData = plantioRes.data.map(p => {
+                    if (typeof p.frentes === 'string') {
+                        try { p.frentes = JSON.parse(p.frentes); } catch(e) { console.error('Erro ao parsear frentes:', e); }
+                    }
+                    return p;
+                });
+            }
             if (osRes.success) this.osListCache = osRes.data;
             if (insumosRes.success) this.insumosFazendasData = insumosRes.data;
             if (estoqueRes.success) this.estoqueList = estoqueRes.data;
@@ -1624,92 +1821,127 @@ forceReloadAllData() {
     }
 
     calculateKPIs() {
-        const periodo = document.getElementById('dashboard-periodo')?.value || '30';
-        const now = new Date();
-        
-        const filterDate = (dateStr) => {
-            if (periodo === 'all') return true;
-            if (!dateStr) return false;
-            const d = new Date(dateStr);
-            const diffTime = Math.abs(now - d);
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            return diffDays <= parseInt(periodo);
-        };
-
-        // 1. Área Plantada Total (Plantio Diário)
-        const plantioFiltered = (this.plantioDiarioData || []).filter(p => filterDate(p.data));
-        
-        // Correção: Somar área das frentes se existir array de frentes, ou usar area_plantada direta
-        const totalArea = plantioFiltered.reduce((acc, curr) => {
-            let areaDia = 0;
-            if (curr.frentes && Array.isArray(curr.frentes)) {
-                areaDia = curr.frentes.reduce((sum, f) => sum + (parseFloat(f.plantada) || 0), 0);
-            } else {
-                areaDia = parseFloat(curr.area_plantada) || 0;
+        try {
+            const periodo = document.getElementById('dashboard-periodo')?.value || '30';
+            const now = new Date();
+            
+            // Defesa: se plantioDiarioData não for array, inicializar
+            if (!Array.isArray(this.plantioDiarioData)) {
+                console.warn('plantioDiarioData não é array, inicializando vazio.');
+                this.plantioDiarioData = [];
             }
-            return acc + areaDia;
-        }, 0);
-        
-        // 2. OS Ativas
-        const osActive = (this.osListCache || []).filter(os => {
-            const status = (os.status || '').toLowerCase();
-            return status !== 'concluido' && status !== 'cancelada';
-        }).length;
 
-        // 3. Eficiência (Área Plantada / Área Total das Fazendas envolvidas)
-        let efficiency = 0;
-        
-        // Identificar fazendas com plantio no período
-        const fazendasIds = new Set();
-        plantioFiltered.forEach(p => {
-            if (p.frentes && Array.isArray(p.frentes)) {
-                p.frentes.forEach(f => {
-                    if (f.fazenda) fazendasIds.add(String(f.fazenda).trim().toLowerCase());
-                    // Tentar extrair código se estiver no formato "123 - Nome"
-                    const match = f.fazenda && f.fazenda.match(/^(\d+)/);
-                    if (match) fazendasIds.add(match[1]);
-                });
-            } else if (p.fazenda) {
-                fazendasIds.add(String(p.fazenda).trim().toLowerCase());
-            }
-        });
-        
-        // Calcular totais baseados no cadastro de fazendas
-        if (this.cadastroFazendas && this.cadastroFazendas.length > 0 && fazendasIds.size > 0) {
-            const fazendasEnvolvidas = this.cadastroFazendas.filter(f => {
-                const nomeNorm = (f.nome || '').trim().toLowerCase();
-                const codString = String(f.codigo);
-                return fazendasIds.has(nomeNorm) || fazendasIds.has(codString);
+            const filterDate = (dateStr) => {
+                if (periodo === 'all') return true;
+                if (!dateStr) return false;
+                // Assegurar compatibilidade de datas (UTC vs Local)
+                // Usando split para garantir ano/mes/dia corretos
+                const parts = dateStr.split('T')[0].split('-');
+                if (parts.length < 3) return false;
+                const d = new Date(parts[0], parts[1]-1, parts[2]); // Data local meia-noite
+                
+                // Normalizar "now" para meia-noite local para comparação justa de dias
+                const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                
+                const diffTime = Math.abs(today - d);
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                return diffDays <= parseInt(periodo);
+            };
+
+            // 1. Área Plantada Total (Plantio Diário)
+            const plantioFiltered = this.plantioDiarioData.filter(p => filterDate(p.data));
+            
+            // Correção: Somar área das frentes se existir array de frentes, ou usar area_plantada direta
+            const totalArea = plantioFiltered.reduce((acc, curr) => {
+                let areaDia = 0;
+                
+                // Normalização defensiva: tentar parsear frentes se for string (caso escape da normalização anterior)
+                let frentes = curr.frentes;
+                if (typeof frentes === 'string') {
+                    try { frentes = JSON.parse(frentes); } catch(e) {}
+                }
+
+                if (frentes && Array.isArray(frentes)) {
+                    areaDia = frentes.reduce((sum, f) => {
+                         // Tenta pegar plantioDiario, fallback para plantada
+                         let val = f.plantioDiario;
+                         if (val === undefined || val === null || val === '') val = f.plantada;
+                         
+                         // Se ainda undefined, talvez nomes diferentes de campos?
+                         // Mas o form salva nesses nomes.
+                         return sum + (parseFloat(val) || 0);
+                     }, 0);
+                } else {
+                    areaDia = parseFloat(curr.area_plantada) || 0;
+                }
+                return acc + areaDia;
+            }, 0);
+            
+            // 2. OS Ativas
+            const osActive = (this.osListCache || []).filter(os => {
+                const status = (os.status || '').toLowerCase();
+                return status !== 'concluido' && status !== 'cancelada';
+            }).length;
+
+            // 3. Eficiência
+            let efficiency = 0;
+            const fazendasIds = new Set();
+            plantioFiltered.forEach(p => {
+                let frentes = p.frentes;
+                if (typeof frentes === 'string') { try { frentes = JSON.parse(frentes); } catch(e){} }
+
+                if (frentes && Array.isArray(frentes)) {
+                    frentes.forEach(f => {
+                        if (f.fazenda) fazendasIds.add(String(f.fazenda).trim().toLowerCase());
+                        const match = f.fazenda && f.fazenda.match(/^(\d+)/);
+                        if (match) fazendasIds.add(match[1]);
+                    });
+                } else if (p.fazenda) {
+                    fazendasIds.add(String(p.fazenda).trim().toLowerCase());
+                }
             });
             
-            const totalAreaFazendas = fazendasEnvolvidas.reduce((acc, f) => acc + (parseFloat(f.area_total) || 0), 0);
-            
-            // O plantio acumulado deve ser a soma do realizado (totalArea calculada acima) 
-            // Porém, totalArea acima é filtrada por data. Para eficiência global, talvez devêssemos usar todo o histórico?
-            // O usuário pediu "eficiência" que geralmente é progresso. Vamos usar o total plantado no período sobre a área das fazendas trabalhadas.
-            
-            if (totalAreaFazendas > 0) {
-                efficiency = (totalArea / totalAreaFazendas) * 100;
+            if (this.cadastroFazendas && this.cadastroFazendas.length > 0 && fazendasIds.size > 0) {
+                const fazendasEnvolvidas = this.cadastroFazendas.filter(f => {
+                    const nomeNorm = (f.nome || '').trim().toLowerCase();
+                    const codString = String(f.codigo);
+                    return fazendasIds.has(nomeNorm) || fazendasIds.has(codString);
+                });
+                
+                const totalAreaFazendas = fazendasEnvolvidas.reduce((acc, f) => acc + (parseFloat(f.area_total) || 0), 0);
+                if (totalAreaFazendas > 0) {
+                    efficiency = (totalArea / totalAreaFazendas) * 100;
+                }
             }
+
+            // 4. Produtos em Estoque
+            const produtosComSaldo = (this.estoqueList || []).filter(e => parseFloat(e.quantidade) > 0).length;
+
+            // 5. Viagens
+            const viagensFiltered = (this.viagensAdubo || []).filter(v => filterDate(v.data));
+            const totalViagens = viagensFiltered.length;
+            const totalVolume = viagensFiltered.reduce((acc, curr) => acc + (parseFloat(curr.quantidadeTotal) || 0), 0);
+
+            // 6. Insumos e OS Concluídas
+            const insumosFiltered = (this.insumosFazendasData || []).filter(i => filterDate(i.inicio));
+            const totalInsumos = insumosFiltered.reduce((acc, curr) => acc + (parseFloat(curr.quantidadeAplicada) || 0), 0);
+            const osConcluidas = (this.osListCache || []).filter(os => (os.status || '').toLowerCase() === 'concluido').length;
+
+            // Update DOM
+            const setTxt = (id, txt) => { const el = document.getElementById(id); if(el) el.textContent = txt; };
+            
+            setTxt('kpi-area-plantada', `${totalArea.toLocaleString('pt-BR', {maximumFractionDigits: 1})} ha`);
+            setTxt('kpi-os-ativas', osActive);
+            setTxt('kpi-eficiencia', `${efficiency > 0 ? efficiency.toFixed(1) : 0}%`);
+            setTxt('kpi-estoque-items', produtosComSaldo);
+            setTxt('kpi-viagens-total', totalViagens);
+            setTxt('kpi-volume-total', `${totalVolume.toLocaleString('pt-BR', {maximumFractionDigits: 1})} t`);
+            setTxt('kpi-insumos-total', `${totalInsumos.toLocaleString('pt-BR', {maximumFractionDigits: 1})} L/kg`);
+            setTxt('kpi-os-concluidas', osConcluidas);
+
+        } catch(e) {
+            console.error('Erro crítico em calculateKPIs:', e);
         }
-
-        // 4. Produtos em Estoque
-        const produtosComSaldo = (this.estoqueList || []).filter(e => parseFloat(e.quantidade) > 0).length;
-
-        // 5. Viagens de Adubo
-        const viagensFiltered = (this.viagensAdubo || []).filter(v => filterDate(v.data));
-        const totalViagens = viagensFiltered.length;
-        const totalVolume = viagensFiltered.reduce((acc, curr) => acc + (parseFloat(curr.quantidadeTotal) || 0), 0);
-
-        // Update DOM
-        const setTxt = (id, txt) => { const el = document.getElementById(id); if(el) el.textContent = txt; };
-        
-        setTxt('kpi-area-plantada', `${totalArea.toLocaleString('pt-BR', {maximumFractionDigits: 1})} ha`);
-        setTxt('kpi-os-ativas', osActive);
-        setTxt('kpi-eficiencia', `${efficiency > 0 ? efficiency.toFixed(1) : 0}%`);
-        setTxt('kpi-estoque-items', produtosComSaldo);
-        setTxt('kpi-viagens-total', totalViagens);
-        setTxt('kpi-volume-total', `${totalVolume.toLocaleString('pt-BR', {maximumFractionDigits: 1})} t`);
     }
 
     renderDashboardCharts() {
@@ -1737,6 +1969,8 @@ forceReloadAllData() {
         try { this.renderProductDetailsCharts(); } catch(e) { console.error('Erro Chart Produtos:', e); }
         try { this.renderLogisticsCharts(); } catch(e) { console.error('Erro Chart Logistica:', e); }
         try { this.renderFarmProgressChart(); } catch(e) { console.error('Erro Chart Fazendas:', e); }
+        try { this.renderInsumosGlobalChart(); } catch(e) { console.error('Erro Chart Insumos Global:', e); }
+        try { this.renderInsumosTimelineChart(); } catch(e) { console.error('Erro Chart Insumos Timeline:', e); }
     }
 
     // Função original renomeada/substituída
@@ -1830,55 +2064,104 @@ forceReloadAllData() {
     }
 
     renderInsumosGlobalChart() {
-        // console.log('💊 renderInsumosGlobalChart iniciado');
         const ctx = document.getElementById('chart-dose-global');
-        if (!ctx) {
-            // console.error('❌ Canvas chart-dose-global não encontrado');
-            return;
-        }
+        if (!ctx) return;
 
         const existingChart = Chart.getChart(ctx);
-        if (existingChart) {
-            existingChart.destroy();
-        }
-        
-        // Agrupar insumos por produto e comparar Planejado vs Realizado
-        // Usando dados de InsumosFazendas (Realizado) vs OS (Planejado) seria ideal
-        // Por enquanto vamos usar o dado já processado em updateCharts que compara dose
-        
-        // Reutilizar lógica existente ou simplificar
-        // Vamos focar no GLOBAL: Total Kg Planejado vs Total Kg Aplicado
-        // (Isso requer normalização de unidades, assumindo Kg/L)
+        if (existingChart) existingChart.destroy();
         
         const data = this.insumosFazendasData || [];
-        // console.log(`📊 Dados para insumos global: ${data.length} registros`);
-        let totalPlan = 0;
-        let totalReal = 0;
-        
+        const products = {};
+
         data.forEach(item => {
-             totalPlan += parseFloat(item.doseRecomendada || 0) * parseFloat(item.areaTalhao || 0);
-             // Correção: Usar quantidadeAplicada que é o campo correto
-             totalReal += parseFloat(item.quantidadeAplicada || 0);
+            const p = item.produto || 'Outros';
+            if (!products[p]) products[p] = { planned: 0, real: 0 };
+            
+            // Planejado: Area * Dose
+            products[p].planned += parseFloat(item.doseRecomendada || 0) * parseFloat(item.areaTalhao || 0);
+            // Realizado
+            products[p].real += parseFloat(item.quantidadeAplicada || 0);
         });
 
-        if (this._charts.insumosGlobal) {
-            this._charts.insumosGlobal.destroy();
-        }
+        const labels = Object.keys(products).slice(0, 5); // Top 5
+        const plannedData = labels.map(l => products[l].planned);
+        const realData = labels.map(l => products[l].real);
+
+        if (this._charts.insumosGlobal) this._charts.insumosGlobal.destroy();
 
         this._charts.insumosGlobal = new Chart(ctx, {
             type: 'bar',
             data: {
-                labels: ['Planejado', 'Realizado'],
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Planejado (L/kg)',
+                        data: plannedData,
+                        backgroundColor: '#90CAF9'
+                    },
+                    {
+                        label: 'Realizado (L/kg)',
+                        data: realData,
+                        backgroundColor: '#1E88E5'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom' } }
+            }
+        });
+    }
+
+    renderInsumosTimelineChart() {
+        const ctx = document.getElementById('chart-insumos-evolucao');
+        if (!ctx) return;
+
+        const existingChart = Chart.getChart(ctx);
+        if (existingChart) existingChart.destroy();
+
+        const data = this.insumosFazendasData || [];
+        const daily = {};
+
+        data.forEach(item => {
+            const date = item.inicio ? item.inicio.split('T')[0] : null;
+            if (!date) return;
+            if (!daily[date]) daily[date] = 0;
+            daily[date] += parseFloat(item.quantidadeAplicada || 0);
+        });
+
+        const sortedDates = Object.keys(daily).sort();
+        const values = sortedDates.map(d => daily[d]);
+        const labels = sortedDates.map(d => {
+             const parts = d.split('-');
+             return parts.length === 3 ? `${parts[2]}/${parts[1]}` : d;
+        });
+
+        if (this._charts.insumosTimeline) this._charts.insumosTimeline.destroy();
+
+        const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 300);
+        gradient.addColorStop(0, 'rgba(0, 150, 136, 0.4)');
+        gradient.addColorStop(1, 'rgba(0, 150, 136, 0.0)');
+
+        this._charts.insumosTimeline = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
                 datasets: [{
-                    label: 'Volume Total (Estimado)',
-                    data: [totalPlan, totalReal],
-                    backgroundColor: ['#2196F3', '#4CAF50']
+                    label: 'Aplicação Diária (L/kg)',
+                    data: values,
+                    borderColor: '#009688',
+                    backgroundColor: gradient,
+                    fill: true,
+                    tension: 0.3
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { display: false } }
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true } }
             }
         });
     }
@@ -2114,7 +2397,11 @@ forceReloadAllData() {
                 };
 
                 if (p.frentes && Array.isArray(p.frentes)) {
-                    p.frentes.forEach(fr => processItem(fr.fazenda, parseFloat(fr.plantada)||0));
+                    p.frentes.forEach(fr => {
+                         let val = fr.plantioDiario;
+                         if (val === undefined || val === null) val = fr.plantada;
+                         processItem(fr.fazenda, parseFloat(val)||0);
+                    });
                 } else {
                     processItem(p.fazenda, parseFloat(p.area_plantada)||0);
                 }
@@ -3208,7 +3495,10 @@ forceReloadAllData() {
             // Verifica se tem array de frentes (estrutura nova)
             if (item.frentes && Array.isArray(item.frentes)) {
                 item.frentes.forEach(f => {
-                    addEntry(f.frente, f.plantada);
+                    // Correção: Usar plantioDiario com fallback seguro
+                    let val = f.plantioDiario;
+                    if (val === undefined || val === null) val = f.plantada;
+                    addEntry(f.frente, val);
                 });
             } else {
                 // Estrutura antiga ou simplificada
@@ -3532,8 +3822,24 @@ forceReloadAllData() {
             });
         }
 
-        const insumoAddBtn = document.getElementById('insumo-add-btn');
-        if (insumoAddBtn) insumoAddBtn.addEventListener('click', () => this.addInsumoRow());
+        const insumoAddBtn = document.getElementById('btn-add-insumo-row');
+        if (insumoAddBtn) insumoAddBtn.addEventListener('click', (e) => { 
+            e.preventDefault();
+            this.addInsumoRow(); 
+        });
+
+        // Listener delegado para botão de excluir insumo
+        const tbodyInsumos = document.getElementById('insumos-plantio-tbody');
+        if (tbodyInsumos) {
+            tbodyInsumos.addEventListener('click', (e) => {
+                if (e.target.classList.contains('btn-delete-insumo-row')) {
+                    e.preventDefault();
+                    const idx = parseInt(e.target.dataset.idx);
+                    this.removeInsumoRow(idx);
+                }
+            });
+        }
+
         const insumoProdutoSel = document.getElementById('insumo-produto');
         if (insumoProdutoSel) insumoProdutoSel.addEventListener('change', () => {
             const prod = insumoProdutoSel.value;
@@ -3963,10 +4269,8 @@ forceReloadAllData() {
         if (tabName === 'insumos-fazendas') {
             await this.loadInsumosData();
         } else if (tabName === 'graficos') {
-            // Removido carregamento automático para evitar loop infinito
-            // O usuário deve clicar em "Atualizar Dados"
-            // await this.loadDashboard();
-            console.log('Tab gráficos aberta. Aguardando ação do usuário ou timer.');
+            // Carregamento automático com circuit breaker (implementado em loadDashboard)
+            await this.loadDashboard();
         } else if (tabName === 'estoque') {
             await this.loadEstoqueAndRender();
         } else if (tabName === 'plantio-dia') {
@@ -3981,9 +4285,20 @@ forceReloadAllData() {
             const res = await this.api.getPlantioDia();
             if (res && res.success) {
                 this.plantioDia = res.data || [];
+                
+                // Sincronizar dados para o dashboard e KPIs imediatamente
+                this.plantioDiarioData = this.plantioDia.map(p => {
+                    if (typeof p.frentes === 'string') {
+                        try { p.frentes = JSON.parse(p.frentes); } catch(e) { console.error('Erro ao parsear frentes:', e); }
+                    }
+                    return p;
+                });
+                
                 this.renderPlantioDia();
+                // Forçar recálculo dos KPIs para atualização imediata dos cards
+                this.calculateKPIs();
             }
-        } catch(e) {}
+        } catch(e) { console.error('Erro ao carregar plantio:', e); }
     }
 
     renderPlantioDia() {
@@ -5774,6 +6089,11 @@ InsumosApp.prototype.savePlantioDia = async function() {
             this.resetPlantioForm();
             await this.loadPlantioDia();
             
+            // Force reset throttle to ensure dashboard updates
+            this._lastDashboardLoad = 0;
+            // Atualizar dashboard para refletir novos dados
+            this.loadDashboard();
+            
             const modal = document.getElementById('novo-lancamento-modal');
             if (modal) modal.style.display = 'none';
         } else {
@@ -6096,3 +6416,104 @@ InsumosApp.prototype.showLoginScreen = function() {
     if (regToggle) regToggle.textContent = 'Cadastrar';
 };
 InsumosApp.prototype.hideLoginScreen = function() { const el = document.getElementById('login-screen'); if (el) el.style.display = 'none'; };
+
+InsumosApp.prototype.handlePrintReport = async function() {
+    this.ui.showNotification('Preparando relatório para impressão...', 'info');
+
+    const container = document.getElementById('report-print-container');
+    if (!container) return;
+
+    // Aguardar renderização dos gráficos
+    await new Promise(r => setTimeout(r, 500));
+
+    // Capturar KPIs
+    const kpiAreaPlantada = document.getElementById('kpi-area-plantada')?.innerText || '0 ha';
+    const kpiOsAtivas = document.getElementById('kpi-os-ativas')?.innerText || '0';
+    const kpiEficiencia = document.getElementById('kpi-eficiencia')?.innerText || '0%';
+    const kpiViagens = document.getElementById('kpi-viagens-total')?.innerText || '0';
+    const kpiVolume = document.getElementById('kpi-volume-total')?.innerText || '0 t';
+    const kpiInsumos = document.getElementById('kpi-insumos-total')?.innerText || '0 L/kg';
+
+    // Capturar Gráficos como Imagem
+    const getChartImg = (id) => {
+        const canvas = document.getElementById(id);
+        return canvas ? canvas.toDataURL('image/png') : null;
+    };
+
+    const chartPlantio = getChartImg('chart-plantio-diario');
+    const chartFazenda = getChartImg('chart-fazenda-progresso');
+    const chartOs = getChartImg('chart-os-status');
+    const chartViagens = getChartImg('chart-viagens-diarias');
+    const chartDoseGlobal = getChartImg('chart-dose-global');
+    const chartInsumosEvolucao = getChartImg('chart-insumos-evolucao');
+
+    const now = new Date();
+    const dataHora = now.toLocaleDateString('pt-BR') + ' ' + now.toLocaleTimeString('pt-BR');
+
+    // Construir HTML do Relatório
+    let html = `
+        <div class="report-header">
+            <h1>Relatório Geral de Gestão Agrícola</h1>
+            <p>Gerado em: ${dataHora} | Usuário: ${this.api.user?.email || 'Sistema'}</p>
+        </div>
+
+        <div class="report-section">
+            <h3>Indicadores Chave (KPIs)</h3>
+            <div class="report-kpis" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px;">
+                <div class="kpi-box" style="border: 1px solid #ddd; padding: 10px; border-radius: 5px;">
+                    <strong>Área Plantada:</strong> <span style="font-size: 1.2em; color: #2E7D32;">${kpiAreaPlantada}</span>
+                </div>
+                <div class="kpi-box" style="border: 1px solid #ddd; padding: 10px; border-radius: 5px;">
+                    <strong>OS Ativas:</strong> <span style="font-size: 1.2em; color: #1976D2;">${kpiOsAtivas}</span>
+                </div>
+                <div class="kpi-box" style="border: 1px solid #ddd; padding: 10px; border-radius: 5px;">
+                    <strong>Eficiência Média:</strong> <span style="font-size: 1.2em; color: #F57C00;">${kpiEficiencia}</span>
+                </div>
+                <div class="kpi-box" style="border: 1px solid #ddd; padding: 10px; border-radius: 5px;">
+                    <strong>Viagens Adubo:</strong> <span style="font-size: 1.2em;">${kpiViagens}</span>
+                </div>
+                <div class="kpi-box" style="border: 1px solid #ddd; padding: 10px; border-radius: 5px;">
+                    <strong>Vol. Transportado:</strong> <span style="font-size: 1.2em;">${kpiVolume}</span>
+                </div>
+                <div class="kpi-box" style="border: 1px solid #ddd; padding: 10px; border-radius: 5px;">
+                    <strong>Insumos Totais:</strong> <span style="font-size: 1.2em;">${kpiInsumos}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="report-section page-break">
+            <h3>Plantio e Progresso</h3>
+            <div style="display: flex; gap: 20px; margin-bottom: 20px;">
+                ${chartPlantio ? `<div style="flex: 1;"><img src="${chartPlantio}" style="width: 100%; border: 1px solid #eee;"></div>` : ''}
+                ${chartFazenda ? `<div style="flex: 1;"><img src="${chartFazenda}" style="width: 100%; border: 1px solid #eee;"></div>` : ''}
+            </div>
+        </div>
+
+        <div class="report-section">
+            <h3>Operacional e Logística</h3>
+            <div style="display: flex; gap: 20px; margin-bottom: 20px;">
+                ${chartOs ? `<div style="flex: 1;"><img src="${chartOs}" style="width: 100%; border: 1px solid #eee;"></div>` : ''}
+                ${chartViagens ? `<div style="flex: 1;"><img src="${chartViagens}" style="width: 100%; border: 1px solid #eee;"></div>` : ''}
+            </div>
+        </div>
+
+        <div class="report-section page-break">
+            <h3>Insumos Agrícolas</h3>
+            <div style="display: flex; flex-direction: column; gap: 20px;">
+                ${chartDoseGlobal ? `<div><img src="${chartDoseGlobal}" style="width: 100%; max-height: 300px; object-fit: contain; border: 1px solid #eee;"></div>` : ''}
+                ${chartInsumosEvolucao ? `<div><img src="${chartInsumosEvolucao}" style="width: 100%; max-height: 300px; object-fit: contain; border: 1px solid #eee;"></div>` : ''}
+            </div>
+        </div>
+        
+        <div class="report-footer" style="margin-top: 50px; border-top: 1px solid #ccc; padding-top: 10px; font-size: 0.8em; text-align: center; color: #777;">
+            <p>Sistema de Gestão Agrícola - Relatório Impresso</p>
+        </div>
+    `;
+
+    container.innerHTML = html;
+
+    // Pequeno delay para renderização do DOM antes de imprimir
+    setTimeout(() => {
+        window.print();
+    }, 500);
+};
