@@ -136,56 +136,217 @@ class ApiService {
 
     async getOxifertil(filters = {}) {
         this.checkConfig();
-        let query = this.supabase.from('insumos_oxifertil').select('*');
         
-        // Aplicar filtros
-        if (filters.fazenda && filters.fazenda !== 'all') {
-            query = query.eq('fazenda', filters.fazenda);
+        // 1. Buscar dados da tabela plantio_diario
+        const { data: plantioData, error: plantioError } = await this.supabase
+            .from('plantio_diario')
+            .select('*');
+            
+        if (plantioError) throw plantioError;
+
+        let oxifertilList = [];
+        const processedKeys = new Set();
+
+        plantioData.forEach(record => {
+            const frentes = record.frentes || [];
+            const frenteInfo = frentes[0] || {};
+            const fazendaNome = frenteInfo.fazenda || 'Desconhecida';
+            const areaDia = parseFloat(frenteInfo.plantioDiario || frenteInfo.plantada || 0);
+            const talhao = frenteInfo.frente || '';
+            const dataPlantio = record.data;
+
+            // Verificar se tem Oxifertil na qualidade
+            const qualidade = record.qualidade || {};
+            const doseOx = parseFloat(qualidade.oxifertilDose || 0);
+
+            if (doseOx > 0) {
+                // Filtros em memória
+                if (filters.fazenda && filters.fazenda !== 'all' && fazendaNome !== filters.fazenda) return;
+                // Filtro de produto para Oxifertil é meio redundante pois só tem um, mas...
+                if (filters.produto && filters.produto !== 'all' && filters.produto !== 'CALCARIO OXIFERTIL') return;
+
+                const qtd = doseOx * areaDia;
+
+                const key = `${fazendaNome}|CALCARIO OXIFERTIL|${dataPlantio}|${talhao}`.toUpperCase();
+                processedKeys.add(key);
+
+                oxifertilList.push({
+                    id: `pd_ox_${record.id}`,
+                    fazenda: fazendaNome,
+                    produto: 'CALCARIO OXIFERTIL',
+                    inicio: dataPlantio, // Data do plantio
+                    quantidadeAplicada: qtd,
+                    doseAplicada: doseOx,
+                    areaTalhao: areaDia,
+                    areaTotalAplicada: areaDia,
+                    talhao: talhao,
+                    
+                    // Campos de compatibilidade
+                    area_talhao: areaDia,
+                    area_total_aplicada: areaDia,
+                    doseRecomendada: 0.15, // Valor padrão ou null se não tivermos a info
+                    dose_recomendada: 0.15,
+                    dose_aplicada: doseOx,
+                    insumDoseAplicada: doseOx,
+                    insum_dose_aplicada: doseOx,
+                    quantidade_aplicada: qtd,
+                    
+                    origem: 'plantio_diario',
+                    plantioId: record.id
+                });
+            }
+        });
+
+        // 2. Buscar dados legados de insumos_fazendas
+        const { data: legacyData, error: legacyError } = await this.supabase
+            .from('insumos_fazendas')
+            .select('*')
+            .eq('produto', 'CALCARIO OXIFERTIL');
+
+        if (!legacyError && legacyData) {
+            legacyData.forEach(d => {
+                if (filters.fazenda && filters.fazenda !== 'all' && d.fazenda !== filters.fazenda) return;
+                
+                const key = `${d.fazenda}|${d.produto}|${d.inicio}|${d.talhao}`.toUpperCase();
+                if (processedKeys.has(key)) return;
+
+                oxifertilList.push({
+                    ...d,
+                    id: d.id,
+                    areaTalhao: d.area_talhao || d.area_total_aplicada,
+                    areaTotalAplicada: d.area_total_aplicada,
+                    doseRecomendada: d.dose_recomendada,
+                    quantidadeAplicada: d.quantidade_aplicada,
+                    doseAplicada: d.dose_aplicada,
+                    insumDoseAplicada: d.insum_dose_aplicada || d.dose_aplicada,
+                    origem: 'insumos_fazendas'
+                });
+            });
         }
-        if (filters.produto && filters.produto !== 'all') {
-            query = query.eq('produto', filters.produto);
-        }
 
-        const { data, error } = await query;
-        if (error) throw error;
-
-        // Mapeamento snake_case -> camelCase
-        const mappedData = data.map(d => ({
-            ...d,
-            areaTalhao: d.area_talhao,
-            areaTotalAplicada: d.area_total_aplicada,
-            doseRecomendada: d.dose_recomendada,
-            insumDoseAplicada: d.insum_dose_aplicada,
-            quantidadeAplicada: d.quantidade_aplicada
-        }));
-
-        return { success: true, data: mappedData };
+        return { success: true, data: oxifertilList };
     }
 
     async getInsumosFazendas(filters = {}) {
         this.checkConfig();
-        let query = this.supabase.from('insumos_fazendas').select('*');
+        
+        // 1. Buscar dados da tabela plantio_diario (Nova fonte de verdade)
+        const { data: plantioData, error: plantioError } = await this.supabase
+            .from('plantio_diario')
+            .select('*');
+            
+        if (plantioError) throw plantioError;
 
-        if (filters.fazenda && filters.fazenda !== 'all') {
-            query = query.eq('fazenda', filters.fazenda);
+        let insumosList = [];
+        // Set para controle de duplicatas (chave: fazenda|produto|data|talhao)
+        const processedKeys = new Set();
+
+        // Processar dados do plantio_diario
+        plantioData.forEach(record => {
+            const frentes = record.frentes || [];
+            // Assumindo que há apenas uma frente por registro de plantio diário, conforme lógica atual
+            const frenteInfo = frentes[0] || {};
+            const fazendaNome = frenteInfo.fazenda || 'Desconhecida';
+            // A área aplicada no dia é o plantioDiario ou plantada
+            const areaDia = parseFloat(frenteInfo.plantioDiario || frenteInfo.plantada || 0);
+            const talhao = frenteInfo.frente || ''; 
+            const dataPlantio = record.data;
+
+            const insumos = Array.isArray(record.insumos) ? record.insumos : [];
+            
+            insumos.forEach((ins, idx) => {
+                // Filtros em memória
+                if (filters.fazenda && filters.fazenda !== 'all' && fazendaNome !== filters.fazenda) return;
+                if (filters.produto && filters.produto !== 'all' && ins.produto !== filters.produto) return;
+
+                const dose = parseFloat(ins.doseRealizada || 0);
+                const qtd = dose * areaDia;
+
+                // Gerar chave única para deduplicação
+                const key = `${fazendaNome}|${ins.produto}|${dataPlantio}|${talhao}`.toUpperCase();
+                processedKeys.add(key);
+
+                insumosList.push({
+                    id: `pd_${record.id}_${idx}`, // ID único gerado
+                    fazenda: fazendaNome,
+                    produto: ins.produto,
+                    inicio: dataPlantio,
+                    quantidadeAplicada: qtd,
+                    doseAplicada: dose,
+                    areaTotalAplicada: areaDia,
+                    talhao: talhao,
+                    
+                    // Campos de compatibilidade para interface
+                    areaTalhao: areaDia, 
+                    area_total_aplicada: areaDia,
+                    doseRecomendada: parseFloat(ins.dosePrevista || 0),
+                    dose_recomendada: parseFloat(ins.dosePrevista || 0),
+                    quantidade_aplicada: qtd,
+                    dose_aplicada: dose,
+                    insumDoseAplicada: dose,
+                    insum_dose_aplicada: dose,
+                    
+                    // Metadados extras
+                    origem: 'plantio_diario',
+                    plantioId: record.id
+                });
+            });
+        });
+
+        // 2. Buscar dados legados/importados da tabela insumos_fazendas
+        // Mantém compatibilidade com dados antigos que não estão no plantio_diario
+        const { data: legacyData, error: legacyError } = await this.supabase.from('insumos_fazendas').select('*');
+        if (!legacyError && legacyData) {
+             legacyData.forEach(d => {
+                // Verificar filtros
+                if (filters.fazenda && filters.fazenda !== 'all' && d.fazenda !== filters.fazenda) return;
+                if (filters.produto && filters.produto !== 'all' && d.produto !== filters.produto) return;
+
+                // Verificar duplicidade
+                const key = `${d.fazenda}|${d.produto}|${d.inicio}|${d.talhao}`.toUpperCase();
+                if (processedKeys.has(key)) {
+                    return; // Já processado via plantio_diario
+                }
+
+                insumosList.push({
+                    ...d,
+                    id: d.id, // ID original
+                    areaTalhao: d.area_talhao || d.area_total_aplicada,
+                    areaTotalAplicada: d.area_total_aplicada,
+                    doseRecomendada: d.dose_recomendada,
+                    quantidadeAplicada: d.quantidade_aplicada,
+                    doseAplicada: d.dose_aplicada,
+                    insumDoseAplicada: d.insum_dose_aplicada || d.dose_aplicada,
+                    origem: 'insumos_fazendas'
+                });
+            });
         }
-        if (filters.produto && filters.produto !== 'all') {
-            query = query.eq('produto', filters.produto);
-        }
 
-        const { data, error } = await query;
-        if (error) throw error;
+        return { success: true, data: insumosList };
+    }
 
-        const mappedData = data.map(d => ({
-            ...d,
-            areaTalhao: d.area_talhao,
-            areaTotalAplicada: d.area_total_aplicada,
-            doseRecomendada: d.dose_recomendada,
-            quantidadeAplicada: d.quantidade_aplicada,
-            insumDoseAplicada: d.insum_dose_aplicada
-        }));
+    async getSantaIrene() {
+        this.checkConfig();
+        // Reutiliza getInsumosFazendas para buscar do plantio_diario
+        const result = await this.getInsumosFazendas();
+        if (!result.success) throw new Error('Erro ao buscar insumos');
+        
+        // Filtra por Santa Irene (case insensitive)
+        const filteredData = result.data.filter(d => d.fazenda && d.fazenda.toUpperCase().includes('SANTA IRENE'));
+        
+        return { success: true, data: filteredData };
+    }
 
-        return { success: true, data: mappedData };
+    async getDaniela() {
+        this.checkConfig();
+        // Reutiliza getInsumosFazendas para buscar do plantio_diario
+        const result = await this.getInsumosFazendas();
+        if (!result.success) throw new Error('Erro ao buscar insumos');
+        
+        // Filtra por Daniela (case insensitive)
+        const filteredData = result.data.filter(d => d.fazenda && d.fazenda.toUpperCase().includes('DANIELA'));
+        
+        return { success: true, data: filteredData };
     }
 
     async deleteInsumoFazenda(id) {
@@ -193,6 +354,25 @@ class ApiService {
         const { error } = await this.supabase.from('insumos_fazendas').delete().eq('id', id);
         if (error) throw error;
         return { success: true };
+    }
+
+    async addInsumoFazenda(payload) {
+        this.checkConfig();
+        const item = {
+            fazenda: payload.fazenda,
+            produto: payload.produto,
+            inicio: payload.inicio, // Data do plantio
+            quantidade_aplicada: payload.quantidadeAplicada, // Total aplicado (dose * area)
+            dose_aplicada: payload.doseAplicada, // Dose realizada
+            area_total_aplicada: payload.areaTotalAplicada, // Área do dia
+            talhao: payload.talhao,
+            // Outros campos se necessários
+            created_at: new Date()
+        };
+
+        const { data, error } = await this.supabase.from('insumos_fazendas').insert([item]).select();
+        if (error) throw error;
+        return { success: true, data: data[0] };
     }
 
     async getFazendas() {
@@ -526,6 +706,48 @@ class ApiService {
         }));
 
         return { success: true, data: mapped };
+    }
+
+    async getOSByFrente(frente) {
+        this.checkConfig();
+        if (!frente) return { success: false, message: 'Frente não informada' };
+
+        // Normalizar frente para string e remover espaços extras se houver
+        const frenteStr = String(frente).trim();
+
+        // Buscar OS ativa para a frente
+        // Ordenar por data de abertura decrescente para pegar a mais recente
+        const { data, error } = await this.supabase
+            .from('os_agricola')
+            .select('*')
+            .eq('frente', frenteStr)
+            //.eq('status', 'Aberta') // Removido filtro de status para garantir retorno
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+        if (error) {
+            console.error('Erro ao buscar OS por frente:', error);
+            return { success: false, error };
+        }
+
+        if (!data || data.length === 0) {
+            return { success: false, message: 'Nenhuma OS encontrada para esta frente' };
+        }
+
+        const os = data[0];
+        
+        // Mapeamento básico e produtos
+        const mappedOS = {
+            ...os,
+            abertura: os.data_abertura,
+            inicioPrev: os.data_inicio_prev,
+            finalPrev: os.data_final_prev,
+            respAplicacao: os.responsavel_aplicacao,
+            areaTotal: os.area_total,
+            produtos: os.produtos || [] // Array de produtos { produto, doseRecomendada, unidade }
+        };
+
+        return { success: true, data: mappedOS };
     }
 
     async saveOS(payload) {

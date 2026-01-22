@@ -91,6 +91,9 @@ class InsumosApp {
         if (plantioAcumEl) plantioAcumEl.value = newPlantioAcum.toFixed(2);
         if (mudaAcumEl) mudaAcumEl.value = newMudaAcum.toFixed(2);
         if (cobricaoAcumEl) cobricaoAcumEl.value = newCobricaoAcum.toFixed(2);
+
+        // Atualizar totais do rascunho de insumos (pois depende da área do dia)
+        this.renderInsumosDraft();
     }
 
     
@@ -3841,11 +3844,54 @@ forceReloadAllData() {
         }
 
         const insumoProdutoSel = document.getElementById('insumo-produto');
-        if (insumoProdutoSel) insumoProdutoSel.addEventListener('change', () => {
+        if (insumoProdutoSel) insumoProdutoSel.addEventListener('change', async () => {
             const prod = insumoProdutoSel.value;
             const unidInput = document.getElementById('insumo-unid');
             const map = this.getInsumoUnits();
             if (unidInput) unidInput.value = map[prod] || '';
+
+            // Auto-fill dose prevista from OS
+            if (prod) {
+                const frenteKey = document.getElementById('single-frente')?.value || '';
+                const osKey = document.getElementById('single-os')?.value || '';
+                const dosePrevInput = document.getElementById('insumo-dose-prevista');
+                
+                if (dosePrevInput) {
+                    try {
+                        dosePrevInput.value = '';
+                        let osData = null;
+
+                        // 1. Tentar pegar da OS selecionada
+                        if (osKey && this.osListCache) {
+                             const os = this.osListCache.find(o => String(o.numero).trim() === String(osKey).trim());
+                             if (os) osData = os;
+                        }
+
+                        // 2. Se não achou, buscar via API pela Frente
+                        if (!osData && frenteKey) {
+                            const osRes = await this.api.getOSByFrente(frenteKey);
+                            if (osRes && osRes.success && osRes.data) {
+                                osData = osRes.data;
+                            }
+                        }
+
+                        if (osData && Array.isArray(osData.produtos)) {
+                            console.log('Buscando dose para:', prod, 'na OS:', osData.numero, 'Produtos:', osData.produtos);
+                            // Normalizar produto da OS e do Select para garantir match
+                            const osProduto = osData.produtos.find(p => p.produto.trim().toUpperCase() === prod.trim().toUpperCase());
+                            if (osProduto) {
+                                console.log('Produto encontrado:', osProduto);
+                                // Tenta doseRecomendada, doseRec, dose, ou quantidade (para compatibilidade)
+                                dosePrevInput.value = osProduto.doseRecomendada || osProduto.doseRec || osProduto.dose || osProduto.quantidade || '';
+                            } else {
+                                console.warn('Produto não encontrado na OS:', prod);
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Erro ao buscar dados da OS para auto-preenchimento:', e);
+                    }
+                }
+            }
         });
         const plantioSaveBtn = document.getElementById('plantio-save-btn');
         if (plantioSaveBtn) plantioSaveBtn.addEventListener('click', async () => { await this.savePlantioDia(); });
@@ -3853,7 +3899,10 @@ forceReloadAllData() {
         const singlePlantioDia = document.getElementById('single-plantio-dia');
         const mudaConsumoDia = document.getElementById('muda-consumo-dia');
         const cobricaoDia = document.getElementById('cobricao-dia');
-        if (singlePlantioDia) singlePlantioDia.addEventListener('input', () => this.updateAccumulatedStats());
+        if (singlePlantioDia) singlePlantioDia.addEventListener('input', () => {
+            this.updateAccumulatedStats();
+            this.renderInsumosDraft();
+        });
         if (mudaConsumoDia) mudaConsumoDia.addEventListener('input', () => this.updateAccumulatedStats());
         if (cobricaoDia) cobricaoDia.addEventListener('input', () => this.updateAccumulatedStats());
 
@@ -3891,8 +3940,12 @@ forceReloadAllData() {
         const singleOs = document.getElementById('single-os');
 
         if (singleFrente) {
-            singleFrente.addEventListener('change', () => {
+            singleFrente.addEventListener('change', async () => {
                 const val = singleFrente.value;
+                
+                // Carregar produtos da OS para o select de insumos
+                await this.loadProdutosDatalist();
+
                 if (singleOs) {
                     singleOs.innerHTML = '<option value="">Selecione a OS</option>';
                     if (val && this.osListCache) {
@@ -3919,7 +3972,10 @@ forceReloadAllData() {
         }
 
         if (singleOs) {
-            singleOs.addEventListener('change', () => {
+            singleOs.addEventListener('change', async () => {
+                // Atualizar lista de produtos com base na OS selecionada
+                await this.loadProdutosDatalist();
+
                 const val = singleOs.value;
                 if (!val || !this.osListCache) return;
                 
@@ -4476,6 +4532,13 @@ forceReloadAllData() {
     }
 
     getOxifertilRowHTML(item) {
+        let doseAplicada = 0;
+        if (item.doseAplicada != null && item.doseAplicada > 0) {
+            doseAplicada = item.doseAplicada;
+        } else if (item.insumDoseAplicada != null && item.insumDoseAplicada > 0) {
+            doseAplicada = item.insumDoseAplicada;
+        }
+
         const difPercent = (item.dif * 100) || 0;
         const difClass = this.ui.getDifferenceClass(difPercent);
         
@@ -4487,7 +4550,7 @@ forceReloadAllData() {
             <td>${this.ui.formatNumber(item.areaTalhao || 0)}</td>
             <td>${this.ui.formatNumber(item.areaTotalAplicada || 0)}</td>
             <td>${this.ui.formatNumber(item.doseRecomendada || 0, 3)}</td>
-            <td>${this.ui.formatNumber(item.insumDoseAplicada || 0, 7)}</td>
+            <td>${this.ui.formatNumber(doseAplicada || 0, 7)}</td>
             <td>${this.ui.formatNumber(item.quantidadeAplicada || 0, 6)}</td>
             <td class="${difClass}">${this.ui.formatPercentage(difPercent)}</td>
             <td>${item.frente ?? 0}</td>
@@ -4883,8 +4946,15 @@ forceReloadAllData() {
     }
 
     getInsumosRowHTML(item) {
-        const doseAplicada = (item.doseAplicada != null && item.doseAplicada > 0) ? item.doseAplicada :
-            ((item.areaTotalAplicada > 0 && item.quantidadeAplicada != null) ? (item.quantidadeAplicada / item.areaTotalAplicada) : 0);
+        let doseAplicada = 0;
+        if (item.doseAplicada != null && item.doseAplicada > 0) {
+            doseAplicada = item.doseAplicada;
+        } else if (item.insumDoseAplicada != null && item.insumDoseAplicada > 0) {
+            doseAplicada = item.insumDoseAplicada;
+        } else if (item.areaTotalAplicada > 0 && item.quantidadeAplicada != null) {
+            doseAplicada = item.quantidadeAplicada / item.areaTotalAplicada;
+        }
+
         const difPercent = (item.doseRecomendada > 0 && doseAplicada > 0) ? 
             ((doseAplicada / item.doseRecomendada - 1) * 100) : 0;
         const difClass = this.ui.getDifferenceClass(difPercent);
@@ -4951,8 +5021,15 @@ forceReloadAllData() {
     }
 
     getSantaIreneRowHTML(item) {
-        const doseAplicada = (item.doseAplicada != null && item.doseAplicada > 0) ? item.doseAplicada :
-            ((item.areaTotalAplicada > 0 && item.quantidadeAplicada != null) ? (item.quantidadeAplicada / item.areaTotalAplicada) : 0);
+        let doseAplicada = 0;
+        if (item.doseAplicada != null && item.doseAplicada > 0) {
+            doseAplicada = item.doseAplicada;
+        } else if (item.insumDoseAplicada != null && item.insumDoseAplicada > 0) {
+            doseAplicada = item.insumDoseAplicada;
+        } else if (item.areaTotalAplicada > 0 && item.quantidadeAplicada != null) {
+            doseAplicada = item.quantidadeAplicada / item.areaTotalAplicada;
+        }
+
         const difPercent = (item.doseRecomendada > 0 && doseAplicada > 0) ? 
             ((doseAplicada / item.doseRecomendada - 1) * 100) : 0;
         const difClass = this.ui.getDifferenceClass(difPercent);
@@ -5001,16 +5078,26 @@ forceReloadAllData() {
     }
 
     getDanielaRowHTML(item) {
-        const doseAplicada = (item.doseAplicada != null && item.doseAplicada > 0) ? item.doseAplicada :
-            ((item.areaTotalAplicada > 0 && item.quantidadeAplicada != null) ? (item.quantidadeAplicada / item.areaTotalAplicada) : 0);
+        let doseAplicada = 0;
+        if (item.doseAplicada != null && item.doseAplicada > 0) {
+            doseAplicada = item.doseAplicada;
+        } else if (item.insumDoseAplicada != null && item.insumDoseAplicada > 0) {
+            doseAplicada = item.insumDoseAplicada;
+        } else if (item.areaTotalAplicada > 0 && item.quantidadeAplicada != null) {
+            doseAplicada = item.quantidadeAplicada / item.areaTotalAplicada;
+        }
+
         const difPercent = (item.doseRecomendada > 0 && doseAplicada > 0) ? 
             ((doseAplicada / item.doseRecomendada - 1) * 100) : 0;
         const difClass = this.ui.getDifferenceClass(difPercent);
         
+        // Mapear areaTalhao para areaTotal se necessário
+        const areaTotal = item.areaTotal || item.areaTalhao || 0;
+        
         return `
             <td>${item.cod ?? 0}</td>
             <td>${item.fazenda || '—'}</td>
-            <td>${this.ui.formatNumber(item.areaTotal || 0)}</td>
+            <td>${this.ui.formatNumber(areaTotal)}</td>
             <td>${this.ui.formatNumber(item.areaTotalAplicada || 0)}</td>
             <td>${item.produto || '—'}</td>
             <td>${this.ui.formatNumber(item.doseRecomendada || 0, 3)}</td>
@@ -5246,7 +5333,16 @@ InsumosApp.prototype.updateCharts = function(data) {
         data.forEach(i => {
             const prod = i.produto || '—';
             const doseRec = num(i.doseRecomendada);
-            const doseApl = (i.doseAplicada != null && i.doseAplicada > 0) ? num(i.doseAplicada) : ((num(i.areaTotalAplicada)>0 && i.quantidadeAplicada!=null) ? (num(i.quantidadeAplicada)/num(i.areaTotalAplicada)) : 0);
+            // Prioridade: doseAplicada > insumDoseAplicada > Calculada
+            let doseApl = 0;
+            if (i.doseAplicada != null && i.doseAplicada > 0) {
+                doseApl = num(i.doseAplicada);
+            } else if (i.insumDoseAplicada != null && i.insumDoseAplicada > 0) {
+                doseApl = num(i.insumDoseAplicada);
+            } else if (num(i.areaTotalAplicada) > 0 && i.quantidadeAplicada != null) {
+                doseApl = num(i.quantidadeAplicada) / num(i.areaTotalAplicada);
+            }
+
             if (!byProdutoDose[prod]) byProdutoDose[prod] = { recSum: 0, recCount: 0, aplSum: 0, aplCount: 0 };
             if (doseRec > 0) { byProdutoDose[prod].recSum += doseRec; byProdutoDose[prod].recCount += 1; }
             if (doseApl > 0) { byProdutoDose[prod].aplSum += doseApl; byProdutoDose[prod].aplCount += 1; }
@@ -5749,12 +5845,43 @@ InsumosApp.prototype.updateFixedFrentesTotals = function() {
     setText('total-muda-ton', sumMuda);
 };
 
-InsumosApp.prototype.addInsumoRow = function() {
+InsumosApp.prototype.addInsumoRow = async function() {
     const produto = document.getElementById('insumo-produto')?.value || '';
-    const dosePrev = parseFloat(document.getElementById('insumo-dose-prevista')?.value || '0');
+    let dosePrev = parseFloat(document.getElementById('insumo-dose-prevista')?.value || '0');
     const doseReal = parseFloat(document.getElementById('insumo-dose-realizada')?.value || '0');
     
     if (!produto) { this.ui.showNotification('Selecione o produto', 'warning'); return; }
+
+    // Tentar buscar dose prevista da OS se não foi informada
+    if (dosePrev === 0) {
+        const frenteKey = document.getElementById('single-frente')?.value || '';
+        const osKey = document.getElementById('single-os')?.value || '';
+        
+        // Tenta buscar no cache primeiro se tiver OS selecionada
+        if (osKey && this.osListCache) {
+             const os = this.osListCache.find(o => String(o.numero).trim() === String(osKey).trim());
+             if (os && os.produtos) {
+                 const osProduto = os.produtos.find(p => p.produto.trim().toUpperCase() === produto.trim().toUpperCase());
+                 if (osProduto) {
+                     dosePrev = parseFloat(osProduto.doseRecomendada || osProduto.doseRec || osProduto.dose || osProduto.quantidade || 0);
+                 }
+             }
+        }
+
+        if (dosePrev === 0 && frenteKey) {
+            try {
+                const osRes = await this.api.getOSByFrente(frenteKey);
+                if (osRes && osRes.success && osRes.data) {
+                    const osProduto = osRes.data.produtos.find(p => p.produto.trim().toUpperCase() === produto.trim().toUpperCase());
+                    if (osProduto) {
+                        dosePrev = parseFloat(osProduto.doseRecomendada || osProduto.doseRec || osProduto.dose || osProduto.quantidade || 0);
+                    }
+                }
+            } catch (e) {
+                console.error('Erro ao buscar dados da OS:', e);
+            }
+        }
+    }
     
     this.plantioInsumosDraft.push({ 
         produto, 
@@ -5780,30 +5907,64 @@ InsumosApp.prototype.removeInsumoRow = function(idx) {
 
 InsumosApp.prototype.renderInsumosDraft = function() {
     const tbody = document.getElementById('insumos-plantio-tbody');
+    const areaDia = parseFloat(document.getElementById('single-plantio-dia')?.value || '0');
+    let totalGasto = 0;
+
     if (!tbody) return;
-    tbody.innerHTML = this.plantioInsumosDraft.map((r,idx)=>`
+    tbody.innerHTML = this.plantioInsumosDraft.map((r,idx)=>{
+        const gasto = r.doseRealizada * areaDia;
+        const previsto = r.dosePrevista * areaDia;
+        totalGasto += gasto;
+        return `
         <tr>
             <td>${r.produto}</td>
             <td>${this.ui.formatNumber(r.dosePrevista||0, 3)}</td>
             <td>${this.ui.formatNumber(r.doseRealizada||0, 3)}</td>
+            <td>${this.ui.formatNumber(previsto||0, 3)}</td>
+            <td>${this.ui.formatNumber(gasto||0, 3)}</td>
             <td><button class="btn btn-sm btn-delete-insumo-row" data-idx="${idx}" style="color:red;">🗑️</button></td>
         </tr>
-    `).join('');
+    `}).join('');
+
+    const totalEl = document.getElementById('insumos-total-gasto');
+    if (totalEl) {
+        totalEl.textContent = `Total Gasto no Dia: ${this.ui.formatNumber(totalGasto||0, 3)}`;
+    }
 };
 
 InsumosApp.prototype.loadProdutosDatalist = async function() {
     try {
-        // Carregar do estoque para mostrar apenas produtos com registro em estoque
-        const res = await this.api.getEstoque(); 
-        if (res && res.success && Array.isArray(res.data)) {
-            // Filtrar produtos únicos
-            const uniqueProdutos = [...new Set(res.data.map(item => item.produto).filter(p => p))].sort();
-            
-            const select = document.getElementById('insumo-produto');
-            if (select) {
-                select.innerHTML = '<option value="">Selecione o produto...</option>' + 
-                                   uniqueProdutos.map(p => `<option value="${p}">${p}</option>`).join('');
+        const frenteKey = document.getElementById('single-frente')?.value || '';
+        const osKey = document.getElementById('single-os')?.value || '';
+        let osProdutos = [];
+        
+        console.log(`[loadProdutosDatalist] Frente: ${frenteKey}, OS: ${osKey}`);
+
+        // 1. Tentar pegar da OS selecionada (via Cache)
+        if (osKey && this.osListCache) {
+             const os = this.osListCache.find(o => String(o.numero).trim() === String(osKey).trim());
+             if (os && Array.isArray(os.produtos)) {
+                 console.log('[loadProdutosDatalist] Usando produtos da OS selecionada:', os.produtos);
+                 osProdutos = os.produtos.map(p => p.produto).filter(p => p);
+             }
+        }
+        
+        // 2. Se não achou produtos (ou OS não selecionada), busca a mais recente via API
+        if (osProdutos.length === 0 && frenteKey) {
+            console.log('[loadProdutosDatalist] Buscando OS mais recente por frente...');
+            const osRes = await this.api.getOSByFrente(frenteKey);
+            if (osRes && osRes.success && osRes.data && Array.isArray(osRes.data.produtos)) {
+                console.log('[loadProdutosDatalist] Produtos encontrados via API:', osRes.data.produtos);
+                osProdutos = osRes.data.produtos.map(p => p.produto).filter(p => p);
+            } else {
+                console.warn('[loadProdutosDatalist] Nenhum produto encontrado na API para a frente:', frenteKey);
             }
+        }
+        
+        const select = document.getElementById('insumo-produto');
+        if (select) {
+            select.innerHTML = '<option value="">Selecione o produto...</option>' + 
+                               osProdutos.map(p => `<option value="${p}">${p}</option>`).join('');
         }
     } catch (e) {
         console.error('Erro ao carregar produtos para select:', e);
@@ -6086,6 +6247,29 @@ InsumosApp.prototype.savePlantioDia = async function() {
                 } catch(e) { console.error('Erro ao atualizar fazenda:', e); }
             }
             
+            // Salvar insumos na tabela insumos_fazendas para o dashboard
+            // [ATUALIZAÇÃO] Desabilitado para evitar duplicidade, já que o dashboard deve ler de plantio_diario
+            /*
+            if (this.plantioInsumosDraft && this.plantioInsumosDraft.length > 0) {
+                console.log('Salvando insumos para dashboard...');
+                const areaDia = frente.plantioDiario || frente.plantada || 0;
+                const promises = this.plantioInsumosDraft.map(insumo => {
+                    const dose = parseFloat(insumo.doseRealizada || 0);
+                    const qtd = dose * areaDia;
+                    return this.api.addInsumoFazenda({
+                        fazenda: frente.fazenda,
+                        produto: insumo.produto,
+                        inicio: data,
+                        quantidadeAplicada: qtd,
+                        doseAplicada: dose,
+                        areaTotalAplicada: areaDia,
+                        talhao: frente.frente // ou frente.cod
+                    }).catch(err => console.error('Erro ao salvar insumo individual:', err));
+                });
+                await Promise.all(promises);
+            }
+            */
+
             this.resetPlantioForm();
             await this.loadPlantioDia();
             

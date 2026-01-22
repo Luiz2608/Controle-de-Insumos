@@ -1294,7 +1294,7 @@
                                 </div>
                                 <div class="form-group">
                                     <label for="insumo-dose-prevista">Dose Prev. (L/kg ha)</label>
-                                    <input type="number" id="insumo-dose-prevista" step="0.001" placeholder="0.000">
+                                    <input type="number" id="insumo-dose-prevista" step="0.001" placeholder="0.000" readonly style="background-color: #e9ecef; cursor: not-allowed;" title="Preenchido automaticamente pela OS">
                                 </div>
                                 <div class="form-group">
                                     <label for="insumo-dose-realizada">Dose Real. (L/kg ha)</label>
@@ -1309,8 +1309,10 @@
                                     <thead>
                                         <tr>
                                             <th>Produto</th>
-                                            <th>Previsto</th>
-                                            <th>Realizado</th>
+                                            <th>Dose Prev.</th>
+                                            <th>Dose Real.</th>
+                                            <th>Total Prev.</th>
+                                            <th>Total Real.</th>
                                             <th style="width: 50px;">Ação</th>
                                         </tr>
                                     </thead>
@@ -1318,6 +1320,9 @@
                                         <!-- Insumos adicionados aparecem aqui -->
                                     </tbody>
                                 </table>
+                            </div>
+                            <div id="insumos-total-gasto" style="text-align: right; font-weight: bold; margin-top: 10px; font-size: 1.1em; color: var(--primary-dark);">
+                                Total Gasto no Dia: 0.000
                             </div>
                         </div>
                     </div>
