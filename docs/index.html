@@ -496,6 +496,7 @@
             <table id="estoque-table" class="data-table">
                 <thead>
                     <tr>
+                        <th>Tipo</th>
                         <th>Data</th>
                         <th>Nº O.S.</th>
                         <th>Frente</th>
@@ -512,6 +513,14 @@
     <!-- Tab Viagens de Adubo -->
     <div class="tab-content" id="viagens-adubo">
         <div class="filters">
+            <div class="filter-group">
+                <label for="viagens-tipo-filter">Tipo</label>
+                <select id="viagens-tipo-filter">
+                    <option value="">Todos</option>
+                    <option value="adubo">Adubo</option>
+                    <option value="composto">Composto</option>
+                </select>
+            </div>
             <div class="filter-group">
                 <label for="viagens-data-filter">Data</label>
                 <input type="date" id="viagens-data-filter">
@@ -544,6 +553,10 @@
 
         <div class="dashboard-wrapper">
             <div class="chart-card">
+                <div class="viagem-type-selector" style="display: flex; gap: 10px; margin-bottom: 15px; justify-content: center;">
+                    <button id="btn-type-adubo" class="btn btn-primary type-toggle active" data-type="adubo" style="flex: 1;">Transporte de Adubo</button>
+                    <button id="btn-type-composto" class="btn btn-secondary type-toggle" data-type="composto" style="flex: 1;">Transporte de Composto</button>
+                </div>
                 <h4 style="margin: 0 0 10px 0;">Cadastro de Viagem</h4>
                 <div class="form-grid boletim-grid">
                     <div class="form-group">
@@ -701,7 +714,7 @@
                 </thead>
                 <tbody id="viagens-adubo-table-body">
                     <tr>
-                        <td colspan="9" class="loading">📡 Carregando dados...</td>
+                        <td colspan="10" class="loading">📡 Carregando dados...</td>
                     </tr>
                 </tbody>
             </table>

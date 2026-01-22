@@ -444,6 +444,7 @@ class ApiService {
 
         const mappedData = data.map(d => ({
             ...d,
+            transportType: d.transport_type || 'adubo',
             quantidadeTotal: d.quantidade_total,
             documentoMotorista: d.documento_motorista,
             bags: d.bags || []
@@ -457,6 +458,7 @@ class ApiService {
         const id = Date.now();
         const item = {
             id,
+            transport_type: payload.transportType || 'adubo',
             data: payload.data,
             frente: payload.frente,
             fazenda: payload.fazenda,
@@ -481,6 +483,7 @@ class ApiService {
         const saved = data[0];
         const mapped = {
             ...saved,
+            transportType: saved.transport_type || 'adubo',
             quantidadeTotal: saved.quantidade_total,
             documentoMotorista: saved.documento_motorista,
             bags: saved.bags
@@ -491,6 +494,7 @@ class ApiService {
     async updateViagemAdubo(id, payload) {
         this.checkConfig();
         const updates = {
+            transport_type: payload.transportType,
             data: payload.data,
             frente: payload.frente,
             fazenda: payload.fazenda,
@@ -518,6 +522,7 @@ class ApiService {
         const saved = data[0];
         const mapped = {
             ...saved,
+            transportType: saved.transport_type || 'adubo',
             quantidadeTotal: saved.quantidade_total,
             documentoMotorista: saved.documento_motorista,
             bags: saved.bags

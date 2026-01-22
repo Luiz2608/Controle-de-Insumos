@@ -19,6 +19,7 @@ class InsumosApp {
         this.plantioExpanded = new Set();
         this.viagensAdubo = [];
         this.viagensAduboBagsDraft = [];
+        this.viagemAduboTransportType = 'adubo';
         this.viagensAduboFilters = {
             data: '',
             fazenda: '',
@@ -3706,6 +3707,24 @@ forceReloadAllData() {
         const viagensResetBtn = document.getElementById('reset-viagens-filters');
         const viagemSaveBtn = document.getElementById('viagem-save-btn');
         const bagAddBtn = document.getElementById('bag-add-btn');
+
+        const btnTypeAdubo = document.getElementById('btn-type-adubo');
+        const btnTypeComposto = document.getElementById('btn-type-composto');
+        if (btnTypeAdubo) {
+            btnTypeAdubo.addEventListener('click', () => {
+                this.viagemAduboTransportType = 'adubo';
+                btnTypeAdubo.classList.add('active');
+                if (btnTypeComposto) btnTypeComposto.classList.remove('active');
+            });
+        }
+        if (btnTypeComposto) {
+            btnTypeComposto.addEventListener('click', () => {
+                this.viagemAduboTransportType = 'composto';
+                btnTypeComposto.classList.add('active');
+                if (btnTypeAdubo) btnTypeAdubo.classList.remove('active');
+            });
+        }
+
         if (viagensApplyBtn) viagensApplyBtn.addEventListener('click', () => this.applyViagensFilters());
         if (viagensResetBtn) viagensResetBtn.addEventListener('click', () => this.resetViagensFilters());
         if (viagemSaveBtn) viagemSaveBtn.addEventListener('click', async () => { await this.saveViagemAdubo(); });
@@ -4645,6 +4664,9 @@ forceReloadAllData() {
         const filters = this.viagensAduboFilters || {};
         let data = Array.isArray(this.viagensAdubo) ? [...this.viagensAdubo] : [];
         const norm = (v) => (v == null ? '' : String(v)).toLowerCase();
+        if (filters.tipo) {
+            data = data.filter(v => (v.transportType || 'adubo') === filters.tipo);
+        }
         if (filters.data) {
             data = data.filter(v => (v.data || '').includes(filters.data));
         }
@@ -4801,6 +4823,7 @@ forceReloadAllData() {
         const bags = Array.isArray(viagem.bags) ? viagem.bags : [];
         if (title) title.textContent = 'Viagem de ' + (viagem.produto || '');
         const infoRows = [
+            ['Tipo', (viagem.transportType === 'composto' ? 'Transporte de Composto' : 'Transporte de Adubo')],
             ['Data', viagem.data || ''],
             ['Frente', viagem.frente || ''],
             ['Fazenda', viagem.fazenda || ''],
@@ -6313,6 +6336,7 @@ InsumosApp.prototype.saveViagemAdubo = async function() {
     const quantidadeVal = quantidadeRaw ? parseFloat(quantidadeRaw) : 0;
     const quantidadeTotal = isNaN(quantidadeVal) ? 0 : quantidadeVal;
     const payload = {
+        transportType: this.viagemAduboTransportType || 'adubo',
         data,
         frente,
         fazenda,
