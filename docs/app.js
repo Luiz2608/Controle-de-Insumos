@@ -3715,6 +3715,7 @@ forceReloadAllData() {
                 this.viagemAduboTransportType = 'adubo';
                 btnTypeAdubo.classList.add('active');
                 if (btnTypeComposto) btnTypeComposto.classList.remove('active');
+                this.renderViagensAdubo();
             });
         }
         if (btnTypeComposto) {
@@ -3722,6 +3723,7 @@ forceReloadAllData() {
                 this.viagemAduboTransportType = 'composto';
                 btnTypeComposto.classList.add('active');
                 if (btnTypeAdubo) btnTypeAdubo.classList.remove('active');
+                this.renderViagensAdubo();
             });
         }
 
@@ -4664,9 +4666,17 @@ forceReloadAllData() {
         const filters = this.viagensAduboFilters || {};
         let data = Array.isArray(this.viagensAdubo) ? [...this.viagensAdubo] : [];
         const norm = (v) => (v == null ? '' : String(v)).toLowerCase();
-        if (filters.tipo) {
-            data = data.filter(v => (v.transportType || 'adubo') === filters.tipo);
+        
+        // Filter by transport type (state variable)
+        const currentType = this.viagemAduboTransportType || 'adubo';
+        data = data.filter(v => (v.transportType || 'adubo') === currentType);
+
+        if (filters.tipo && filters.tipo !== currentType) {
+             // If filter explicitly set and differs (shouldn't happen with new logic but safe to keep), respect filter? 
+             // Actually, let's enforce the tab selection.
+             // data = data.filter(v => (v.transportType || 'adubo') === filters.tipo);
         }
+        
         if (filters.data) {
             data = data.filter(v => (v.data || '').includes(filters.data));
         }
