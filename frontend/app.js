@@ -3712,17 +3712,35 @@ forceReloadAllData() {
         const btnTypeComposto = document.getElementById('btn-type-composto');
         if (btnTypeAdubo) {
             btnTypeAdubo.addEventListener('click', () => {
+                console.log('Selecionado: Adubo');
                 this.viagemAduboTransportType = 'adubo';
-                btnTypeAdubo.classList.add('active');
-                if (btnTypeComposto) btnTypeComposto.classList.remove('active');
+                
+                // Atualiza visual dos botões
+                btnTypeAdubo.classList.add('active', 'btn-primary');
+                btnTypeAdubo.classList.remove('btn-secondary');
+                
+                if (btnTypeComposto) {
+                    btnTypeComposto.classList.remove('active', 'btn-primary');
+                    btnTypeComposto.classList.add('btn-secondary');
+                }
+                
                 this.renderViagensAdubo();
             });
         }
         if (btnTypeComposto) {
             btnTypeComposto.addEventListener('click', () => {
+                console.log('Selecionado: Composto');
                 this.viagemAduboTransportType = 'composto';
-                btnTypeComposto.classList.add('active');
-                if (btnTypeAdubo) btnTypeAdubo.classList.remove('active');
+                
+                // Atualiza visual dos botões
+                btnTypeComposto.classList.add('active', 'btn-primary');
+                btnTypeComposto.classList.remove('btn-secondary');
+                
+                if (btnTypeAdubo) {
+                    btnTypeAdubo.classList.remove('active', 'btn-primary');
+                    btnTypeAdubo.classList.add('btn-secondary');
+                }
+                
                 this.renderViagensAdubo();
             });
         }
