@@ -30,6 +30,7 @@ app.use(express.static(frontendPath));
 
 // ⭐⭐ ROTA DE IMPORTAÇÃO (IMPORTANTE) ⭐⭐
 app.use('/api/importar', importRoutes);
+app.use('/api/transporte-composto', transporteCompostoRoutes);
 
 // Listas para filtros (Mantido estático por enquanto, poderia vir do DB)
 const filterData = {

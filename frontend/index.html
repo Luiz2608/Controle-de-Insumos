@@ -512,7 +512,14 @@
 
     <!-- Tab Viagens de Adubo -->
     <div class="tab-content" id="viagens-adubo">
-        <button id="btn-toggle-viagens-filters" class="btn btn-secondary" style="margin-bottom: 10px; width: auto; padding: 6px 16px; font-size: 14px;">🔍 Filtrar</button>
+        <div class="viagem-type-selector" style="display: flex; gap: 10px; margin-bottom: 15px; justify-content: center;">
+            <button type="button" id="btn-type-adubo" class="btn btn-primary type-toggle active" data-type="adubo" style="flex: 1;">Transporte de Adubo</button>
+            <button type="button" id="btn-type-composto" class="btn btn-secondary type-toggle" data-type="composto" style="flex: 1;">Transporte de Composto</button>
+        </div>
+
+        <!-- View ADUBO -->
+        <div id="view-adubo-mode">
+            <button id="btn-toggle-viagens-filters" class="btn btn-secondary" style="margin-bottom: 10px; width: auto; padding: 6px 16px; font-size: 14px;">🔍 Filtrar</button>
         <div id="viagens-filters-container" class="filters" style="display: none;">
             <div class="filter-group">
                 <label for="viagens-tipo-filter">Tipo</label>
@@ -554,10 +561,6 @@
 
         <div class="dashboard-wrapper">
             <div class="chart-card">
-                <div class="viagem-type-selector" style="display: flex; gap: 10px; margin-bottom: 15px; justify-content: center;">
-                    <button type="button" id="btn-type-adubo" class="btn btn-primary type-toggle active" data-type="adubo" style="flex: 1;">Transporte de Adubo</button>
-                    <button type="button" id="btn-type-composto" class="btn btn-secondary type-toggle" data-type="composto" style="flex: 1;">Transporte de Composto</button>
-                </div>
                 <h4 style="margin: 0 0 10px 0;">Cadastro de Viagem</h4>
                 <div class="form-grid boletim-grid">
                     <div class="form-group">
@@ -744,6 +747,46 @@
         </div>
     </div>
 
+    <!-- View COMPOSTO (New) -->
+    <div id="view-composto-mode" style="display:none;">
+        <div class="filters" style="margin-bottom: 15px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: space-between;">
+             <div style="display:flex; gap:10px;">
+                 <input type="text" id="composto-search-os" placeholder="Buscar Nº OS..." style="padding: 8px; border-radius: 4px; border: 1px solid #ddd;">
+                 <select id="composto-filter-status" style="padding: 8px; border-radius: 4px; border: 1px solid #ddd;">
+                    <option value="">Todos Status</option>
+                    <option value="ABERTO">Aberto</option>
+                    <option value="FECHADO">Fechado</option>
+                 </select>
+             </div>
+             <div style="display:flex; gap:10px;">
+                 <input type="file" id="file-import-pdf" accept=".pdf" style="display:none;">
+                 <button id="btn-composto-import" class="btn btn-secondary">📂 Importar PDF</button>
+                 <button id="btn-composto-new" class="btn btn-primary">➕ Novo Manual</button>
+             </div>
+        </div>
+
+        <div class="table-container">
+            <table class="data-table" id="transporte-composto-table">
+                <thead>
+                    <tr>
+                        <th>OS</th>
+                        <th>Data Abertura</th>
+                        <th>Fazenda/Frente</th>
+                        <th>Produto</th>
+                        <th>Qtde (t)</th>
+                        <th>Status</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="transporte-composto-body">
+                    <tr><td colspan="7" class="loading">Selecione "Transporte de Composto" para carregar.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    </div>
+
     <div id="viagem-detail-modal" class="modal" style="display:none;">
         <div class="modal-content" style="max-width: 700px;">
             <div class="modal-header">
@@ -754,6 +797,60 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" id="viagem-detail-cancel">Fechar</button>
                 <button type="button" class="btn btn-primary" id="viagem-detail-print">🖨️ Imprimir</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Transporte Composto -->
+    <div id="modal-transporte-composto" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h3>Transporte de Composto</h3>
+                <button class="close-modal" id="close-composto-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="tabs" style="margin-bottom: 20px;">
+                    <button class="btn btn-secondary tab-btn active" data-tab="tab-composto-manual">Cadastro Manual</button>
+                    <button class="btn btn-secondary tab-btn" data-tab="tab-composto-import">Importação PDF</button>
+                </div>
+                
+                <div id="tab-composto-manual" class="tab-pane active">
+                    <form id="form-transporte-composto">
+                        <div class="form-grid boletim-grid">
+                            <div class="form-group"><label>Nº OS</label><input type="text" name="numero_os" required></div>
+                            <div class="form-group"><label>Data Abertura</label><input type="date" name="data_abertura"></div>
+                            <div class="form-group"><label>Responsável</label><input type="text" name="responsavel_aplicacao"></div>
+                            <div class="form-group"><label>Empresa</label><input type="text" name="empresa"></div>
+                            <div class="form-group"><label>Frente</label><input type="text" name="frente"></div>
+                            <div class="form-group"><label>Produto</label><input type="text" name="produto"></div>
+                            <div class="form-group"><label>Quantidade</label><input type="number" step="0.001" name="quantidade"></div>
+                            <div class="form-group"><label>Unidade</label><input type="text" name="unidade" value="t"></div>
+                            <div class="form-group"><label>Atividade</label><input type="text" name="atividade_agricola"></div>
+                            <div class="form-group"><label>Status</label>
+                                <select name="status">
+                                    <option value="ABERTO">ABERTO</option>
+                                    <option value="FECHADO">FECHADO</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div style="margin-top:15px; text-align:right;">
+                            <button type="submit" class="btn btn-primary">Salvar</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div id="tab-composto-import" class="tab-pane" style="display:none;">
+                    <div style="text-align:center; padding: 40px; border: 2px dashed #ccc; border-radius: 8px;">
+                        <p>Arraste o PDF da Ordem de Serviço ou clique para selecionar</p>
+                        <button type="button" class="btn btn-primary" onclick="document.getElementById('file-import-pdf-modal').click()">Selecionar Arquivo</button>
+                        <input type="file" id="file-import-pdf-modal" accept=".pdf" style="display:none;">
+                    </div>
+                    <div id="import-preview" style="display:none; margin-top: 20px;">
+                        <h4>Dados Extraídos:</h4>
+                        <pre id="import-result-json" style="background:#f5f5f5; padding:10px; max-height:200px; overflow:auto; text-align: left;"></pre>
+                        <button type="button" id="btn-confirm-import" class="btn btn-success">Confirmar e Preencher Formulário</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

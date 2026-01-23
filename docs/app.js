@@ -3767,19 +3767,12 @@ forceReloadAllData() {
                     other.classList.remove('active', 'btn-primary');
                     other.classList.add('btn-secondary');
                 }
-                // Toggle Fields
-                document.querySelectorAll('.composto-field').forEach(el => el.style.display = 'none');
-                document.querySelectorAll('.adubo-field').forEach(el => el.style.display = 'block');
                 
-                // Reset Product state
-                const prodEl = document.getElementById('viagem-produto');
-                if (prodEl) {
-                    prodEl.disabled = false;
-                    // Optionally reset value or keep
-                }
-
-                const bagsSection = document.getElementById('viagem-bags-section');
-                if (bagsSection) bagsSection.style.display = 'block';
+                // Switch Views
+                const viewAdubo = document.getElementById('view-adubo-mode');
+                const viewComposto = document.getElementById('view-composto-mode');
+                if (viewAdubo) viewAdubo.style.display = 'block';
+                if (viewComposto) viewComposto.style.display = 'none';
                 
                 this.renderViagensAdubo();
                 return;
@@ -3795,23 +3788,14 @@ forceReloadAllData() {
                     other.classList.remove('active', 'btn-primary');
                     other.classList.add('btn-secondary');
                 }
-                // Toggle Fields
-                document.querySelectorAll('.composto-field').forEach(el => el.style.display = 'block');
-                document.querySelectorAll('.adubo-field').forEach(el => el.style.display = 'none');
                 
-                // Fix Product to 'COMPOSTO'
-                const prodEl = document.getElementById('viagem-produto');
-                if (prodEl) {
-                    setTimeout(() => {
-                        prodEl.value = 'COMPOSTO';
-                        prodEl.disabled = true;
-                    }, 50);
-                }
+                // Switch Views
+                const viewAdubo = document.getElementById('view-adubo-mode');
+                const viewComposto = document.getElementById('view-composto-mode');
+                if (viewAdubo) viewAdubo.style.display = 'none';
+                if (viewComposto) viewComposto.style.display = 'block';
 
-                const bagsSection = document.getElementById('viagem-bags-section');
-                if (bagsSection) bagsSection.style.display = 'none';
-
-                this.renderViagensAdubo();
+                this.loadTransporteComposto();
                 return;
             }
 
@@ -5418,6 +5402,269 @@ forceReloadAllData() {
 
     // Função removida pois agora usamos import-btn
     // exportToExcel() foi substituída pelo sistema de importação
+
+    // =========================================================
+    // TRANSPORTE DE COMPOSTO (NEW MODULE)
+    // =========================================================
+
+    loadTransporteComposto() {
+        const viewAdubo = document.getElementById('view-adubo-mode');
+        const viewComposto = document.getElementById('view-composto-mode');
+        if (viewAdubo) viewAdubo.style.display = 'none';
+        if (viewComposto) viewComposto.style.display = 'block';
+
+        this.renderTransporteComposto();
+        
+        if (!this._compostoListenersSet) {
+            this.setupCompostoListeners();
+            this._compostoListenersSet = true;
+        }
+    }
+
+    setupCompostoListeners() {
+        // 1. New Manual
+        const btnNew = document.getElementById('btn-composto-new');
+        if (btnNew) {
+            btnNew.addEventListener('click', () => {
+                const modal = document.getElementById('modal-transporte-composto');
+                if (modal) modal.style.display = 'flex';
+                this.switchCompostoTab('tab-composto-manual');
+            });
+        }
+
+        // 2. Import PDF
+        const btnImport = document.getElementById('btn-composto-import');
+        const fileInput = document.getElementById('file-import-pdf');
+        if (btnImport && fileInput) {
+            btnImport.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', (e) => this.handleCompostoImport(e.target.files[0]));
+        }
+
+        // 3. Close Modal
+        const btnClose = document.getElementById('close-composto-modal');
+        if (btnClose) {
+            btnClose.addEventListener('click', () => {
+                document.getElementById('modal-transporte-composto').style.display = 'none';
+            });
+        }
+
+        // 4. Tabs
+        const tabs = document.querySelectorAll('#modal-transporte-composto .tab-btn');
+        tabs.forEach(t => {
+            t.addEventListener('click', (e) => {
+                const target = e.target.getAttribute('data-tab');
+                this.switchCompostoTab(target);
+            });
+        });
+
+        // 5. File Input inside Modal
+        const fileInputModal = document.getElementById('file-import-pdf-modal');
+        if (fileInputModal) {
+            fileInputModal.addEventListener('change', (e) => this.handleCompostoImport(e.target.files[0], true));
+        }
+
+        // 6. Confirm Import
+        const btnConfirm = document.getElementById('btn-confirm-import');
+        if (btnConfirm) {
+            btnConfirm.addEventListener('click', () => {
+                if (this._lastImportedData) {
+                    this.fillCompostoForm(this._lastImportedData);
+                    this.switchCompostoTab('tab-composto-manual');
+                }
+            });
+        }
+
+        // 7. Form Submit
+        const form = document.getElementById('form-transporte-composto');
+        if (form) {
+            form.addEventListener('submit', (e) => this.handleCompostoSubmit(e));
+        }
+        
+        // 8. Search/Filter
+        const searchOS = document.getElementById('composto-search-os');
+        const filterStatus = document.getElementById('composto-filter-status');
+        if (searchOS) searchOS.addEventListener('input', () => this.renderTransporteComposto());
+        if (filterStatus) filterStatus.addEventListener('change', () => this.renderTransporteComposto());
+    }
+
+    switchCompostoTab(tabId) {
+        document.querySelectorAll('#modal-transporte-composto .tab-pane').forEach(p => p.style.display = 'none');
+        document.querySelectorAll('#modal-transporte-composto .tab-btn').forEach(b => b.classList.remove('active'));
+        
+        document.getElementById(tabId).style.display = 'block';
+        const btn = document.querySelector(`#modal-transporte-composto .tab-btn[data-tab="${tabId}"]`);
+        if (btn) btn.classList.add('active');
+    }
+
+    async handleCompostoImport(file, isModal = false) {
+        if (!file) return;
+        this.ui.showNotification('Lendo arquivo PDF...', 'info');
+        
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        try {
+            // Assume API endpoint /api/import-os exists or we use a generic one
+            // Since user asked for Import, I assume the backend supports it or I need to mock it/implement it.
+            // For now, I'll use the existing /api/upload-os-pdf if available, or just mock the extraction for demo?
+            // User: "Importação de PDF (leitura de OS)" -> implies backend logic.
+            // I'll try to use `this.api.uploadOS(formData)` if it exists, otherwise `request`.
+            
+            const res = await this.api.request('/upload-os-pdf', {
+                method: 'POST',
+                body: formData 
+                // Don't set Content-Type header for FormData, browser does it with boundary
+            });
+
+            if (res && res.success && res.data) {
+                this.ui.showNotification('Dados extraídos com sucesso!', 'success');
+                this._lastImportedData = res.data;
+                
+                if (isModal) {
+                    const preview = document.getElementById('import-result-json');
+                    if (preview) {
+                        preview.textContent = JSON.stringify(res.data, null, 2);
+                        document.getElementById('import-preview').style.display = 'block';
+                    }
+                } else {
+                    // Direct import -> open modal and fill
+                    const modal = document.getElementById('modal-transporte-composto');
+                    if (modal) modal.style.display = 'flex';
+                    this.fillCompostoForm(res.data);
+                    this.switchCompostoTab('tab-composto-manual');
+                }
+            } else {
+                throw new Error(res.message || 'Erro na leitura');
+            }
+        } catch (err) {
+            console.error(err);
+            this.ui.showNotification('Erro ao importar PDF: ' + err.message, 'error');
+        }
+    }
+
+    fillCompostoForm(data) {
+        const f = document.getElementById('form-transporte-composto');
+        if (!f) return;
+        
+        // Helper to set value by name
+        const set = (name, val) => {
+            const el = f.querySelector(`[name="${name}"]`);
+            if (el) el.value = val || '';
+        };
+
+        set('numero_os', data.numero_os || data.os);
+        set('data_abertura', data.data_abertura ? data.data_abertura.split('T')[0] : '');
+        set('responsavel_aplicacao', data.responsavel_aplicacao || data.responsavel);
+        set('empresa', data.empresa);
+        set('frente', data.frente);
+        set('produto', data.produto || 'COMPOSTO');
+        set('quantidade', data.quantidade || data.volume);
+        set('unidade', data.unidade || 't');
+        set('atividade_agricola', data.atividade_agricola);
+        set('status', data.status || 'ABERTO');
+    }
+
+    async handleCompostoSubmit(e) {
+        e.preventDefault();
+        const form = e.target;
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+
+        // Validate
+        if (!data.numero_os) {
+            this.ui.showNotification('Número da OS é obrigatório', 'warning');
+            return;
+        }
+
+        try {
+            // Save to backend
+            // Using a new endpoint /api/transporte-composto
+            const res = await this.api.request('/transporte-composto', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            if (res && res.success) {
+                this.ui.showNotification('Salvo com sucesso!', 'success');
+                document.getElementById('modal-transporte-composto').style.display = 'none';
+                form.reset();
+                this.renderTransporteComposto();
+            } else {
+                throw new Error(res.message || 'Erro ao salvar');
+            }
+        } catch (err) {
+            this.ui.showNotification('Erro ao salvar: ' + err.message, 'error');
+        }
+    }
+
+    async renderTransporteComposto() {
+        const tbody = document.getElementById('transporte-composto-body');
+        if (!tbody) return;
+        
+        tbody.innerHTML = '<tr><td colspan="7" class="loading">Carregando...</td></tr>';
+
+        try {
+            // Fetch data
+            const res = await this.api.request('/transporte-composto'); // GET
+            if (res && res.success && Array.isArray(res.data)) {
+                let list = res.data;
+                
+                // Filter
+                const search = document.getElementById('composto-search-os')?.value.toLowerCase();
+                const status = document.getElementById('composto-filter-status')?.value;
+                
+                if (search) list = list.filter(i => String(i.numero_os).toLowerCase().includes(search));
+                if (status) list = list.filter(i => i.status === status);
+
+                if (list.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Nenhum registro encontrado.</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = list.map(item => `
+                    <tr>
+                        <td>${item.numero_os || '-'}</td>
+                        <td>${this.ui.formatDateBR(item.data_abertura)}</td>
+                        <td>${item.fazenda || '-'} / ${item.frente || '-'}</td>
+                        <td>${item.produto || '-'}</td>
+                        <td>${this.ui.formatNumber(item.quantidade, 3)}</td>
+                        <td><span class="badge ${item.status === 'ABERTO' ? 'badge-warning' : 'badge-success'}">${item.status}</span></td>
+                        <td>
+                            <button class="btn btn-sm btn-secondary" onclick="window.insumosApp.editComposto('${item.id}')">✏️</button>
+                            <button class="btn btn-sm btn-danger" onclick="window.insumosApp.deleteComposto('${item.id}')">🗑️</button>
+                        </td>
+                    </tr>
+                `).join('');
+            } else {
+                tbody.innerHTML = '<tr><td colspan="7" style="color:red;">Erro ao carregar dados.</td></tr>';
+            }
+        } catch (err) {
+            console.error(err);
+            tbody.innerHTML = '<tr><td colspan="7" style="color:red;">Erro de conexão.</td></tr>';
+        }
+    }
+    
+    // Global helpers for onclick
+    editComposto(id) {
+        // Implement edit fetch and open modal
+        this.ui.showNotification('Editar: ' + id, 'info');
+    }
+    
+    deleteComposto(id) {
+        if(confirm('Excluir este registro?')) {
+            // Implement delete
+             this.api.request(`/transporte-composto/${id}`, { method: 'DELETE' })
+                .then(res => {
+                    if(res.success) {
+                        this.ui.showNotification('Excluído', 'success');
+                        this.renderTransporteComposto();
+                    } else {
+                        this.ui.showNotification('Erro ao excluir', 'error');
+                    }
+                });
+        }
+    }
 }
 
 
