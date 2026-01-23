@@ -474,7 +474,13 @@ class ApiService {
             documento_motorista: payload.documentoMotorista,
             transportadora: payload.transportadora,
             observacoes: payload.observacoes,
-            bags: payload.bags || []
+            bags: payload.bags || [],
+            // Novos campos para Transporte de Composto
+            numero_os: payload.numeroOS,
+            data_abertura_os: payload.dataAberturaOS,
+            data_fechamento_os: payload.dataFechamentoOS,
+            total_previsto: payload.totalPrevisto,
+            total_realizado: payload.totalRealizado
         };
 
         const { data, error } = await this.supabase.from('viagens_adubo').insert([item]).select();
@@ -486,7 +492,12 @@ class ApiService {
             transportType: saved.transport_type || 'adubo',
             quantidadeTotal: saved.quantidade_total,
             documentoMotorista: saved.documento_motorista,
-            bags: saved.bags
+            bags: saved.bags,
+            numeroOS: saved.numero_os,
+            dataAberturaOS: saved.data_abertura_os,
+            dataFechamentoOS: saved.data_fechamento_os,
+            totalPrevisto: saved.total_previsto,
+            totalRealizado: saved.total_realizado
         };
         return { success: true, data: mapped };
     }
@@ -510,7 +521,13 @@ class ApiService {
             documento_motorista: payload.documentoMotorista,
             transportadora: payload.transportadora,
             observacoes: payload.observacoes,
-            bags: payload.bags
+            bags: payload.bags,
+            // Novos campos
+            numero_os: payload.numeroOS,
+            data_abertura_os: payload.dataAberturaOS,
+            data_fechamento_os: payload.dataFechamentoOS,
+            total_previsto: payload.totalPrevisto,
+            total_realizado: payload.totalRealizado
         };
 
         // Remover undefined
@@ -525,7 +542,12 @@ class ApiService {
             transportType: saved.transport_type || 'adubo',
             quantidadeTotal: saved.quantidade_total,
             documentoMotorista: saved.documento_motorista,
-            bags: saved.bags
+            bags: saved.bags,
+            numeroOS: saved.numero_os,
+            dataAberturaOS: saved.data_abertura_os,
+            dataFechamentoOS: saved.data_fechamento_os,
+            totalPrevisto: saved.total_previsto,
+            totalRealizado: saved.total_realizado
         };
         return { success: true, data: mapped };
     }

@@ -3705,6 +3705,18 @@ forceReloadAllData() {
 
         const viagensApplyBtn = document.getElementById('apply-viagens-filters');
         const viagensResetBtn = document.getElementById('reset-viagens-filters');
+        
+        const toggleViagensFiltersBtn = document.getElementById('btn-toggle-viagens-filters');
+        if (toggleViagensFiltersBtn) {
+            toggleViagensFiltersBtn.addEventListener('click', () => {
+                const container = document.getElementById('viagens-filters-container');
+                if (container) {
+                    const isHidden = container.style.display === 'none';
+                    container.style.display = isHidden ? 'flex' : 'none';
+                }
+            });
+        }
+
         const viagemSaveBtn = document.getElementById('viagem-save-btn');
         const bagAddBtn = document.getElementById('bag-add-btn');
 
