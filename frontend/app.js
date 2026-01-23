@@ -5574,69 +5574,106 @@ forceReloadAllData() {
                 
                 const page = await pdf.getPage(pageNum);
                 const textContent = await page.getTextContent();
-                // Melhorando a junção para preservar espaços e quebras visuais
-                const pageText = textContent.items.map(item => item.str).join(' ');
-                fullText += pageText + '\n';
+                // Usando ' | ' como separador para depuração e regex mais seguro
+                const pageText = textContent.items.map(item => item.str).join(' | ');
+                fullText += pageText + '\n\n';
             }
             
             this.hideProgress();
 
+            // Show Debug Info
+            const debugArea = document.getElementById('import-debug-area');
+            const debugText = document.getElementById('import-raw-text');
+            const debugMsg = document.getElementById('import-status-msg');
+            
+            if (debugArea && debugText) {
+                debugArea.style.display = 'block';
+                debugText.value = fullText;
+                if (fullText.trim().length < 50) {
+                    debugMsg.textContent = "ALERTA: Pouco texto extraído. O PDF pode ser uma imagem (scanned) e não texto selecionável.";
+                    debugMsg.style.color = "red";
+                } else {
+                    debugMsg.textContent = "Texto extraído com sucesso. Verifique se os dados estão legíveis acima.";
+                    debugMsg.style.color = "green";
+                }
+            }
+
             console.log('PDF Content Raw:', fullText);
 
-            // === Lógica de Extração Melhorada ===
+            // === Lógica de Extração Melhorada (Versão 3 - Tolerante) ===
             
-            // Helper para limpar strings
-            const clean = (s) => s ? s.trim().replace(/\s+/g, ' ') : '';
+            // Helper para limpar strings (remove pipe e espaços extras)
+            const clean = (s) => s ? s.replace(/\|/g, ' ').trim().replace(/\s+/g, ' ') : '';
             const getNum = (s) => s ? parseFloat(s.replace(/\./g, '').replace(',', '.')) : 0;
 
             // 1. Número da OS
-            // Padrões: "Ordem de serviço - 123", "OS: 123", "Nº: 123"
-            let osMatch = fullText.match(/Ordem de servi[çc]o\s*[-:]?\s*(\d+)/i) ||
-                          fullText.match(/O\.?S\.?\s*[:\.]?\s*(\d+)/i) ||
-                          fullText.match(/N[ºo]\.?\s*(\d+)/i);
+            // Procura "Ordem de serviço" seguido de algo que pareça um número, ignorando pipes e espaços
+            let osMatch = fullText.match(/(?:Ordem\s*de\s*servi[çc]o|O\.?S\.?|N[ºo])(?:[^0-9]{0,30})(\d+)/i);
 
             // 2. Data de Abertura
-            // Procura primeira data válida no texto
+            // Procura data DD/MM/YYYY
             let dataMatch = fullText.match(/(\d{2}\/\d{2}\/\d{4})/);
 
             // 3. Responsável
-            // Tenta pegar linha com "Resp" ou "Aplicador"
-            let respMatch = fullText.match(/(?:Resp\.?|Respons[áa]vel|Aplicador)[^:]*:\s*([^\n\r]+?)(?=\s+Empresa|\s+Data|\s+Área|$)/i);
+            // Procura "Resp" ou "Aplicador", pula até 50 caracteres (ignorando pipes) até achar ":" e pega o texto
+            let respMatch = fullText.match(/(?:Resp|Aplicador)[^:]*:(?:[^a-zA-Z0-9]*)([A-Z\s]+?)(?=\s*(?:Empresa|Data|Área|\||$))/i);
 
             // 4. Empresa
-            let empresaMatch = fullText.match(/Empresa\s*:\s*([^\n\r]+?)(?=\s+Área|\s+Frente|$)/i);
+            let empresaMatch = fullText.match(/Empresa(?:[^:]*):(?:[^a-zA-Z0-9]*)([^\n\r\|]+)/i);
 
             // 5. Frente
-            let frenteMatch = fullText.match(/Frente\s*:\s*(\d+)/i);
+            let frenteMatch = fullText.match(/Frente(?:[^:]*):(?:[^0-9]*)([\d]+)/i);
 
             // 6. Produto e Atividade
-            // Tenta identificar códigos comuns ou palavras chave
-            let prodMatch = fullText.match(/Produto\s*:\s*([^\n\r]+)/i) ||
-                            fullText.match(/(\d+\s*-\s*COMPOSTO[^\n\r]*)/i); // Ex: 123 - COMPOSTO...
+            // Tenta pegar linha com código numérico seguido de texto uppercase
+            // Ex: 150944-COMPOSTO ORGANICO
+            let prodMatch = fullText.match(/(\d+\s*-\s*COMPOSTO[^\n\r\|]*)/i) ||
+                            fullText.match(/Produto(?:[^:]*):(?:[^a-zA-Z0-9]*)([^\n\r\|]+)/i);
             
-            let ativMatch = fullText.match(/Atividade\s*:\s*([^\n\r]+)/i) ||
-                            fullText.match(/(\d+\s*-\s*[A-Z\s]+COMPOSTAGEM[^\n\r]*)/i);
+            let ativMatch = fullText.match(/(\d+\s*-\s*[A-Z\s]*COMPOSTAGEM[^\n\r\|]*)/i) ||
+                            fullText.match(/Atividade(?:[^:]*):(?:[^a-zA-Z0-9]*)([^\n\r\|]+)/i);
 
             // 7. Quantidade e Unidade
-            // Estratégia: Procurar o maior número decimal que pareça uma quantidade (geralmente > 10)
-            // Ou procurar padrão específico da tabela: "13,0000 1-TN 572,000"
+            // Estratégia: Procurar números com 4 casas decimais (padrão 13,0000)
             let qtdVal = 0;
             let undVal = 't';
 
-            // Padrão de linha de tabela: VALOR UNIDADE VALOR_TOTAL
-            const tableRowMatch = fullText.match(/(\d+(?:[.,]\d+)?)\s+(\d+-[A-Z]+)\s+(\d+(?:[.,]\d+)?)/);
+            // Padrão específico "13,0000 1-TN" (com ou sem pipes no meio)
+            // Regex: Num(4casas) ... Unidade
+            const preciseQtdeMatch = fullText.match(/(\d+(?:[.,]\d{3,4}))\s*(?:\||\s)*\d+-[A-Z]+/);
             
-            if (tableRowMatch) {
-                // Prioridade para linha estruturada
-                undVal = tableRowMatch[2]; // Unidade (ex: 1-TN)
-                qtdVal = getNum(tableRowMatch[3]); // Valor Total
+            // Padrão "1-TN ... 572,000"
+            const totalQtdeMatch = fullText.match(/\d+-[A-Z]+\s*(?:\||\s)*(\d+(?:[.,]\d{3,4}))/);
+
+            if (totalQtdeMatch) {
+                qtdVal = getNum(totalQtdeMatch[1]);
+            } else if (preciseQtdeMatch) {
+                // Se achou a dose (ex: 13,0000), tenta achar o total na mesma linha/bloco
+                // Mas por segurança, se for um numero grande, assumimos ele
+                let val = getNum(preciseQtdeMatch[1]);
+                if (val > 50) qtdVal = val; // Assumindo que total > dose
+                else {
+                     // Tenta achar outro numero grande perto
+                     const nearbyNum = fullText.substr(preciseQtdeMatch.index, 100).match(/(\d{2,}(?:[.,]\d+)?)/g);
+                     if (nearbyNum && nearbyNum.length > 1) {
+                         // Pega o maior numero encontrado perto
+                         const nums = nearbyNum.map(n => getNum(n));
+                         qtdVal = Math.max(...nums);
+                     } else {
+                         qtdVal = val;
+                     }
+                }
             } else {
-                // Fallback: Procura labels de quantidade
-                const qtdLabelMatch = fullText.match(/(?:Qtde|Quantidade|Peso|Total)[:\s]*([\d,.]+)/i);
+                // Fallback genérico
+                const qtdLabelMatch = fullText.match(/(?:Qtde|Quantidade|Peso|Total)(?:[^:]*):(?:[^0-9]*)([\d,.]+)/i);
                 if (qtdLabelMatch) {
                     qtdVal = getNum(qtdLabelMatch[1]);
                 }
             }
+            
+            // Unidade default t, tenta achar TN ou TO
+            if (fullText.match(/1-TN|Ton|Tonelada/i)) undVal = 't';
+            if (fullText.match(/M3|Metro/i)) undVal = 'm³';
             
             // Montar objeto final
             const extractedData = {
