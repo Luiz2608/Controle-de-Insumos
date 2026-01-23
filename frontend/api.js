@@ -25,6 +25,32 @@ class ApiService {
         this.recoverSession();
     }
 
+    async request(endpoint, options = {}) {
+        const url = `${this.baseUrl}${endpoint}`;
+        const headers = {
+            'Content-Type': 'application/json',
+            ...(options.headers || {})
+        };
+        
+        if (options.body instanceof FormData) {
+            delete headers['Content-Type'];
+        }
+
+        const config = {
+            ...options,
+            headers
+        };
+
+        try {
+            const response = await fetch(url, config);
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            console.error('API Request Error:', error);
+            return { success: false, message: error.message };
+        }
+    }
+
     async recoverSession() {
         if (!this.supabase) return;
         const { data: { session } } = await this.supabase.auth.getSession();
