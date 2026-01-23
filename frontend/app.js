@@ -5657,8 +5657,12 @@ forceReloadAllData() {
 
             if (res && res.success) {
                 this.ui.showNotification('Salvo com sucesso!', 'success');
-                document.getElementById('modal-transporte-composto').style.display = 'none'; // Assuming modal ID, though form is fixed in layout now
+                // document.getElementById('modal-transporte-composto').style.display = 'none'; // Modal removed in new layout
                 form.reset();
+                // Clear hidden ID field to reset to create mode
+                const idField = document.getElementById('composto-id');
+                if (idField) idField.value = '';
+                
                 this.renderTransporteComposto();
             } else {
                 throw new Error(res.message || 'Erro ao salvar');
