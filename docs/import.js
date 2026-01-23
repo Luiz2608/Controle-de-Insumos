@@ -351,16 +351,7 @@ class ImportManager {
     }
 
     setupEventListeners() {
-        // Botão de importação no header
-        const importBtn = document.getElementById('import-btn');
-        if (importBtn) {
-            importBtn.addEventListener('click', () => {
-                console.log('🎯 Botão de importação clicado!');
-                this.openImportModal();
-            });
-        } else {
-            console.error('❌ Botão de importação não encontrado!');
-        }
+        // Botão de importação no header removido conforme solicitação
 
         // Eventos do modal
         this.setupModalEvents();

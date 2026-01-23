@@ -722,7 +722,7 @@ class ApiService {
         };
 
         const { data, error } = await this.supabase
-            .from('metas')
+            .from('metas_plantio')
             .upsert(item, { onConflict: 'frente' })
             .select();
 

@@ -8,6 +8,7 @@ const supabase = require('./config/supabase');
 // Importar rotas existentes (mantendo compatibilidade)
 // Note: importRoutes é usado para processamento de arquivo temporário
 const importRoutes = require('./routes/import-routes');
+const transporteCompostoRoutes = require('./routes/transporteCompostoRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
