@@ -5576,26 +5576,74 @@ forceReloadAllData() {
 
             console.log('PDF Content Extracted:', fullText);
 
-            // Tenta extrair dados com regex básicos (Best Effort)
-            const osMatch = fullText.match(/(?:OS|Ordem|N[ºo])[:\s]*(\d{3,})/i);
-            const dataMatch = fullText.match(/(\d{2}\/\d{2}\/\d{4})/);
-            const frenteMatch = fullText.match(/Frente[:\s]*(\d+)/i);
-            const produtoMatch = fullText.match(/(?:Produto|Material)[:\s]*([A-Za-z\s]+)/i);
-            const qtdMatch = fullText.match(/(?:Qtde|Quantidade|Peso|Volume|Total)[:\s]*([\d,.]+)/i);
+            // Tenta extrair dados com regex mais específicos baseados no layout real da O.S.
+            
+            // 1. Número da OS: "Ordem de serviço - 357"
+            const osMatch = fullText.match(/Ordem de serviço\s*-\s*(\d+)/i);
+            
+            // 2. Data de Abertura: "Abertura: 22/01/2026"
+            const dataMatch = fullText.match(/Abertura:\s*(\d{2}\/\d{2}\/\d{4})/i);
+            
+            // 3. Responsável: "Resp. Apl.: NOME DO RESPONSAVEL"
+            // Pega tudo até encontrar a palavra "Empresa" ou quebra de linha
+            const respMatch = fullText.match(/Resp\.?\s*Apl\.?:\s*([^\n\r]+?)(?=\s+Empresa|\s+Área|$)/i);
+            
+            // 4. Empresa: "Empresa: 4-4 CAMBUI"
+            const empresaMatch = fullText.match(/Empresa:\s*([^\n\r]+?)(?=\s+Área|$)/i);
+            
+            // 5. Frente: "Frente: 99 A DEFINIR" -> extrair apenas o número ou tudo
+            const frenteMatch = fullText.match(/Frente:\s*(\d+)/i);
+            
+            // 6. Atividade Agrícola: Código e nome na tabela inferior
+            // Ex: "2243-TRANSPORTE DE COMPOSTAGEM"
+            // Procura padrão de código-texto seguido de datas
+            const ativMatch = fullText.match(/(\d+-[A-Z\s]+COMPOSTAGEM[^\n\r]*)/i) || 
+                              fullText.match(/Atividade Agrícola\s*([\w\s-]+)/i);
+
+            // 7. Produto: "150944-COMPOSTO ORGANICO"
+            // Geralmente está abaixo da atividade ou próximo
+            const prodMatch = fullText.match(/(\d+-COMPOSTO[^\n\r]*)/i) ||
+                              fullText.match(/Produto\s*([^\n\r]+)/i);
+
+            // 8. Quantidade e Unidade: "13,0000 1-TN 572,000"
+            // A quantidade total geralmente é o maior número na linha do produto ou coluna específica
+            // Regex tenta capturar a linha do produto e seus valores
+            let qtdVal = 0;
+            let undVal = 't';
+            
+            // Tenta achar a linha de totais ou valores específicos do produto
+            // Padrão: Dose Rec. Unidade Quantidade
+            // Ex: 13,0000 1-TN 572,000
+            const valMatch = fullText.match(/(\d+(?:[.,]\d+)?)\s+(\d+-[A-Z]+)\s+(\d+(?:[.,]\d+)?)/);
+            
+            if (valMatch) {
+                // valMatch[1] = Dose (13,0000)
+                // valMatch[2] = Unidade (1-TN)
+                // valMatch[3] = Quantidade Total (572,000)
+                undVal = valMatch[2];
+                qtdVal = parseFloat(valMatch[3].replace('.','').replace(',','.'));
+            } else {
+                // Fallback simples
+                const qtdMatch = fullText.match(/(?:Qtde|Quantidade|Peso|Volume|Total)[:\s]*([\d,.]+)/i);
+                if (qtdMatch) qtdVal = parseFloat(qtdMatch[1].replace('.','').replace(',','.'));
+            }
 
             // Fallback para OS no nome do arquivo
             const osFile = file.name.match(/\d+/);
+            
+            // Limpeza de strings capturadas
+            const cleanStr = (s) => s ? s.trim() : '';
 
             const extractedData = {
                 numero_os: osMatch ? osMatch[1] : (osFile ? osFile[0] : ''),
                 data_abertura: dataMatch ? dataMatch[1].split('/').reverse().join('-') : new Date().toISOString().split('T')[0],
-                responsavel_aplicacao: 'Importado PDF',
-                empresa: 'Detectado via PDF',
+                responsavel_aplicacao: cleanStr(respMatch ? respMatch[1] : 'Importado PDF'),
+                empresa: cleanStr(empresaMatch ? empresaMatch[1] : 'Detectado via PDF'),
                 frente: frenteMatch ? frenteMatch[1] : '',
-                produto: produtoMatch ? produtoMatch[1].trim() : 'COMPOSTO',
-                quantidade: qtdMatch ? parseFloat(qtdMatch[1].replace('.','').replace(',','.')) : 0,
-                unidade: 't',
-                atividade_agricola: 'ADUBACAO',
+                produto: cleanStr(prodMatch ? prodMatch[1] : 'COMPOSTO'),
+                quantidade: qtdVal,
+                unidade: cleanStr(undVal),
+                atividade_agricola: cleanStr(ativMatch ? ativMatch[1].split('  ')[0] : 'ADUBACAO'), // Split para evitar pegar datas junto
                 status: 'ABERTO'
             };
 
