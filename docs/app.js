@@ -3755,6 +3755,20 @@ forceReloadAllData() {
                     other.classList.remove('active', 'btn-primary');
                     other.classList.add('btn-secondary');
                 }
+                // Toggle Fields
+                document.querySelectorAll('.composto-field').forEach(el => el.style.display = 'none');
+                document.querySelectorAll('.adubo-field').forEach(el => el.style.display = 'block');
+                
+                // Reset Product state
+                const prodEl = document.getElementById('viagem-produto');
+                if (prodEl) {
+                    prodEl.disabled = false;
+                    // Optionally reset value or keep
+                }
+
+                const bagsSection = document.getElementById('viagem-bags-section');
+                if (bagsSection) bagsSection.style.display = 'block';
+                
                 this.renderViagensAdubo();
                 return;
             }
@@ -3769,6 +3783,22 @@ forceReloadAllData() {
                     other.classList.remove('active', 'btn-primary');
                     other.classList.add('btn-secondary');
                 }
+                // Toggle Fields
+                document.querySelectorAll('.composto-field').forEach(el => el.style.display = 'block');
+                document.querySelectorAll('.adubo-field').forEach(el => el.style.display = 'none');
+                
+                // Fix Product to 'COMPOSTO'
+                const prodEl = document.getElementById('viagem-produto');
+                if (prodEl) {
+                    setTimeout(() => {
+                        prodEl.value = 'COMPOSTO';
+                        prodEl.disabled = true;
+                    }, 50);
+                }
+
+                const bagsSection = document.getElementById('viagem-bags-section');
+                if (bagsSection) bagsSection.style.display = 'none';
+
                 this.renderViagensAdubo();
                 return;
             }
@@ -4676,7 +4706,9 @@ forceReloadAllData() {
 
     renderViagensAdubo() {
         const tbody = document.getElementById('viagens-adubo-table-body');
+        const theadTr = document.querySelector('#viagens-adubo-table thead tr');
         if (!tbody) return;
+        
         const filters = this.viagensAduboFilters || {};
         let data = Array.isArray(this.viagensAdubo) ? [...this.viagensAdubo] : [];
         const norm = (v) => (v == null ? '' : String(v)).toLowerCase();
@@ -4684,6 +4716,34 @@ forceReloadAllData() {
         // Filter by transport type (state variable)
         const currentType = this.viagemAduboTransportType || 'adubo';
         data = data.filter(v => (v.transportType || 'adubo') === currentType);
+
+        // Update Headers
+        if (theadTr) {
+            if (currentType === 'composto') {
+                theadTr.innerHTML = `
+                    <th>Data</th>
+                    <th>Fazenda</th>
+                    <th>OS</th>
+                    <th>Previsto (t)</th>
+                    <th>Realizado (t)</th>
+                    <th>Diferença (t)</th>
+                    <th>Viagem (t)</th>
+                    <th>Ações</th>
+                `;
+            } else {
+                theadTr.innerHTML = `
+                    <th>Data</th>
+                    <th>Frente</th>
+                    <th>Fazenda</th>
+                    <th>Produto</th>
+                    <th>Quantidade</th>
+                    <th>Unidade</th>
+                    <th>Motorista</th>
+                    <th>Caminhão</th>
+                    <th>Ações</th>
+                `;
+            }
+        }
 
         if (filters.tipo && filters.tipo !== currentType) {
              // If filter explicitly set and differs (shouldn't happen with new logic but safe to keep), respect filter? 
@@ -4715,9 +4775,10 @@ forceReloadAllData() {
             data = data.filter(v => Array.isArray(v.bags) && v.bags.some(b => norm(b.lacre).includes(f)));
         }
         if (!data.length) {
+            const colspan = currentType === 'composto' ? 8 : 9;
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="9" class="loading">Nenhuma viagem encontrada</td>
+                    <td colspan="${colspan}" class="loading">Nenhuma viagem encontrada</td>
                 </tr>
             `;
             return;
@@ -4725,22 +4786,47 @@ forceReloadAllData() {
         tbody.innerHTML = data.map(v => {
             const q = v.quantidadeTotal != null ? v.quantidadeTotal : (v.quantidade_total != null ? v.quantidade_total : 0);
             const qtd = typeof q === 'number' ? q : parseFloat(q) || 0;
-            return `
-                <tr>
-                    <td>${v.data || ''}</td>
-                    <td>${v.frente || ''}</td>
-                    <td>${v.fazenda || ''}</td>
-                    <td>${v.produto || ''}</td>
-                    <td>${this.ui.formatNumber(qtd, 3)}</td>
-                    <td>${v.unidade || ''}</td>
-                    <td>${v.motorista || ''}</td>
-                    <td>${v.caminhao || ''}</td>
-                    <td>
-                        <button class="btn btn-secondary btn-view-viagem-adubo" data-viagem-id="${v.id}">👁️ Ver</button>
-                        <button class="btn btn-delete-viagem-adubo" data-viagem-id="${v.id}">🗑️ Excluir</button>
-                    </td>
-                </tr>
-            `;
+            
+            if (currentType === 'composto') {
+                 const previsto = parseFloat(v.totalPrevisto || v.total_previsto || 0);
+                 const realizado = parseFloat(v.totalRealizado || v.total_realizado || 0);
+                 const diff = realizado - previsto;
+                 const diffClass = diff > 0 ? 'text-success' : (diff < 0 ? 'text-danger' : '');
+                 const diffSign = diff > 0 ? '+' : '';
+
+                 return `
+                    <tr>
+                        <td>${v.data || ''}</td>
+                        <td>${v.fazenda || ''}</td>
+                        <td>${v.numeroOS || v.numero_os || ''}</td>
+                        <td>${this.ui.formatNumber(previsto, 3)}</td>
+                        <td>${this.ui.formatNumber(realizado, 3)}</td>
+                        <td style="color: ${diff > 0 ? 'green' : (diff < 0 ? 'red' : 'inherit')}">${diffSign}${this.ui.formatNumber(diff, 3)}</td>
+                        <td>${this.ui.formatNumber(qtd, 3)}</td>
+                        <td>
+                            <button class="btn btn-secondary btn-view-viagem-adubo" data-viagem-id="${v.id}">👁️</button>
+                            <button class="btn btn-delete-viagem-adubo" data-viagem-id="${v.id}">🗑️</button>
+                        </td>
+                    </tr>
+                 `;
+            } else {
+                return `
+                    <tr>
+                        <td>${v.data || ''}</td>
+                        <td>${v.frente || ''}</td>
+                        <td>${v.fazenda || ''}</td>
+                        <td>${v.produto || ''}</td>
+                        <td>${this.ui.formatNumber(qtd, 3)}</td>
+                        <td>${v.unidade || ''}</td>
+                        <td>${v.motorista || ''}</td>
+                        <td>${v.caminhao || ''}</td>
+                        <td>
+                            <button class="btn btn-secondary btn-view-viagem-adubo" data-viagem-id="${v.id}">👁️ Ver</button>
+                            <button class="btn btn-delete-viagem-adubo" data-viagem-id="${v.id}">🗑️ Excluir</button>
+                        </td>
+                    </tr>
+                `;
+            }
         }).join('');
     }
 
@@ -6392,14 +6478,24 @@ InsumosApp.prototype.savePlantioDia = async function() {
 };
 
 InsumosApp.prototype.saveViagemAdubo = async function() {
+    const transportType = this.viagemAduboTransportType || 'adubo';
+
     const data = document.getElementById('viagem-data')?.value || '';
     const frente = document.getElementById('viagem-frente')?.value || '';
     const fazenda = document.getElementById('viagem-fazenda')?.value || '';
     const origem = document.getElementById('viagem-origem')?.value || '';
     const destino = document.getElementById('viagem-destino')?.value || '';
-    const produto = document.getElementById('viagem-produto')?.value || '';
+    
+    // Conditional Fields
+    let produto = document.getElementById('viagem-produto')?.value || '';
+    let unidade = document.getElementById('viagem-unidade')?.value || '';
+    if (transportType === 'composto') {
+        produto = 'COMPOSTO';
+        unidade = 't';
+    }
+
     const quantidadeRaw = document.getElementById('viagem-quantidade-total')?.value || '';
-    const unidade = document.getElementById('viagem-unidade')?.value || '';
+    
     const caminhao = document.getElementById('viagem-caminhao')?.value || '';
     const carreta1 = document.getElementById('viagem-carreta1')?.value || '';
     const carreta2 = document.getElementById('viagem-carreta2')?.value || '';
@@ -6407,14 +6503,23 @@ InsumosApp.prototype.saveViagemAdubo = async function() {
     const documentoMotorista = document.getElementById('viagem-documento-motorista')?.value || '';
     const transportadora = document.getElementById('viagem-transportadora')?.value || '';
     const observacoes = document.getElementById('viagem-observacoes')?.value || '';
+    
+    // Novos campos Composto
+    const numeroOS = document.getElementById('viagem-os')?.value || '';
+    const dataAberturaOS = document.getElementById('viagem-abertura-os')?.value || '';
+    const dataFechamentoOS = document.getElementById('viagem-fechamento-os')?.value || '';
+    const totalPrevisto = document.getElementById('viagem-previsto')?.value || '';
+    const totalRealizado = document.getElementById('viagem-realizado')?.value || '';
+
     if (!data || !produto) {
         this.ui.showNotification('Informe data e produto da viagem', 'warning');
         return;
     }
     const quantidadeVal = quantidadeRaw ? parseFloat(quantidadeRaw) : 0;
     const quantidadeTotal = isNaN(quantidadeVal) ? 0 : quantidadeVal;
+    
     const payload = {
-        transportType: this.viagemAduboTransportType || 'adubo',
+        transportType,
         data,
         frente,
         fazenda,
@@ -6430,7 +6535,13 @@ InsumosApp.prototype.saveViagemAdubo = async function() {
         documentoMotorista,
         transportadora,
         observacoes,
-        bags: Array.isArray(this.viagensAduboBagsDraft) ? this.viagensAduboBagsDraft.slice() : []
+        bags: (transportType === 'adubo' && Array.isArray(this.viagensAduboBagsDraft)) ? this.viagensAduboBagsDraft.slice() : [],
+        // Novos campos
+        numeroOS,
+        dataAberturaOS,
+        dataFechamentoOS,
+        totalPrevisto: totalPrevisto ? parseFloat(totalPrevisto) : null,
+        totalRealizado: totalRealizado ? parseFloat(totalRealizado) : null
     };
     try {
         const res = await this.api.addViagemAdubo(payload);
@@ -6453,7 +6564,12 @@ InsumosApp.prototype.saveViagemAdubo = async function() {
                 'viagem-motorista',
                 'viagem-documento-motorista',
                 'viagem-transportadora',
-                'viagem-observacoes'
+                'viagem-observacoes',
+                'viagem-os',
+                'viagem-abertura-os',
+                'viagem-fechamento-os',
+                'viagem-previsto',
+                'viagem-realizado'
             ];
             ids.forEach(id => {
                 const el = document.getElementById(id);

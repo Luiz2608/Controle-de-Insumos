@@ -563,7 +563,7 @@
                         <label for="viagem-data">Data</label>
                         <input type="date" id="viagem-data">
                     </div>
-                    <div class="form-group">
+                    <div class="form-group adubo-field">
                         <label for="viagem-frente">Frente</label>
                         <select id="viagem-frente">
                             <option value="">Selecione</option>
@@ -582,11 +582,11 @@
                             <option value="">Selecione a Fazenda</option>
                         </select>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group adubo-field">
                         <label for="viagem-origem">Origem</label>
                         <input type="text" id="viagem-origem" placeholder="Ex.: Armazém A">
                     </div>
-                    <div class="form-group">
+                    <div class="form-group adubo-field">
                         <label for="viagem-destino">Destino</label>
                         <input type="text" id="viagem-destino" placeholder="Ex.: Talhão 1">
                     </div>
@@ -609,10 +609,10 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="viagem-quantidade-total">Quantidade Total</label>
+                        <label for="viagem-quantidade-total">Quantidade (t)</label>
                         <input type="number" id="viagem-quantidade-total" step="0.001">
                     </div>
-                    <div class="form-group">
+                    <div class="form-group adubo-field">
                         <label for="viagem-unidade">Unidade</label>
                         <select id="viagem-unidade">
                             <option value="">Selecione</option>
@@ -623,27 +623,27 @@
                             <option value="bag">bag</option>
                         </select>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group adubo-field">
                         <label for="viagem-caminhao">Caminhão</label>
                         <input type="text" id="viagem-caminhao" placeholder="Placa / identificação">
                     </div>
-                    <div class="form-group">
+                    <div class="form-group adubo-field">
                         <label for="viagem-carreta1">Carreta 1</label>
                         <input type="text" id="viagem-carreta1" placeholder="Opcional">
                     </div>
-                    <div class="form-group">
+                    <div class="form-group adubo-field">
                         <label for="viagem-carreta2">Carreta 2</label>
                         <input type="text" id="viagem-carreta2" placeholder="Opcional">
                     </div>
-                    <div class="form-group">
+                    <div class="form-group adubo-field">
                         <label for="viagem-motorista">Motorista</label>
                         <input type="text" id="viagem-motorista">
                     </div>
-                    <div class="form-group">
+                    <div class="form-group adubo-field">
                         <label for="viagem-documento-motorista">Doc. Motorista</label>
                         <input type="text" id="viagem-documento-motorista" placeholder="CPF / CNH">
                     </div>
-                    <div class="form-group">
+                    <div class="form-group adubo-field">
                         <label for="viagem-transportadora">Transportadora</label>
                         <input type="text" id="viagem-transportadora">
                     </div>
@@ -651,13 +651,35 @@
                         <label for="viagem-observacoes">Observações</label>
                         <input type="text" id="viagem-observacoes" placeholder="Opcional">
                     </div>
+                    
+                    <!-- Campos específicos de Transporte de Composto -->
+                    <div class="form-group composto-field" style="display:none;">
+                        <label for="viagem-os">Nº O.S.</label>
+                        <input type="number" id="viagem-os" placeholder="Número da OS">
+                    </div>
+                    <div class="form-group composto-field" style="display:none;">
+                        <label for="viagem-abertura-os">Abertura O.S.</label>
+                        <input type="date" id="viagem-abertura-os">
+                    </div>
+                    <div class="form-group composto-field" style="display:none;">
+                        <label for="viagem-fechamento-os">Fechamento O.S.</label>
+                        <input type="date" id="viagem-fechamento-os">
+                    </div>
+                    <div class="form-group composto-field" style="display:none;">
+                        <label for="viagem-previsto">Total Previsto (t)</label>
+                        <input type="number" id="viagem-previsto" step="0.001">
+                    </div>
+                    <div class="form-group composto-field" style="display:none;">
+                        <label for="viagem-realizado">Total Realizado (t)</label>
+                        <input type="number" id="viagem-realizado" step="0.001">
+                    </div>
                 </div>
                 <div style="margin-top:10px; display:flex; gap:10px;">
                     <button id="viagem-save-btn" class="btn btn-primary">💾 Registrar Viagem</button>
                 </div>
             </div>
 
-            <div class="chart-card">
+            <div class="chart-card" id="viagem-bags-section">
                 <h4 style="margin: 0 0 10px 0;">Bags da Viagem</h4>
                 <div class="form-grid boletim-grid">
                     <div class="form-group">
