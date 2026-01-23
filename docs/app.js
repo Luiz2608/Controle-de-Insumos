@@ -5506,7 +5506,12 @@ forceReloadAllData() {
         const fileInput = document.getElementById('file-import-pdf');
         if (btnImport && fileInput) {
             btnImport.addEventListener('click', () => fileInput.click());
-            fileInput.addEventListener('change', (e) => this.handleCompostoImport(e.target.files[0]));
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    this.handleCompostoImport(e.target.files[0]);
+                    e.target.value = ''; // Reset para permitir re-importar o mesmo arquivo
+                }
+            });
         }
 
         // 2. Clear Form
@@ -5562,90 +5567,92 @@ forceReloadAllData() {
             const pdf = await loadingTask.promise;
             let fullText = '';
             
+            // Leitura de todas as páginas
             for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
                 const percent = (pageNum / pdf.numPages) * 100;
                 this.showProgress('Lendo PDF...', percent, `Lendo página ${pageNum} de ${pdf.numPages}`);
                 
                 const page = await pdf.getPage(pageNum);
                 const textContent = await page.getTextContent();
+                // Melhorando a junção para preservar espaços e quebras visuais
                 const pageText = textContent.items.map(item => item.str).join(' ');
                 fullText += pageText + '\n';
             }
             
             this.hideProgress();
 
-            console.log('PDF Content Extracted:', fullText);
+            console.log('PDF Content Raw:', fullText);
 
-            // Tenta extrair dados com regex mais específicos baseados no layout real da O.S.
+            // === Lógica de Extração Melhorada ===
             
-            // 1. Número da OS: "Ordem de serviço - 357"
-            const osMatch = fullText.match(/Ordem de serviço\s*-\s*(\d+)/i);
-            
-            // 2. Data de Abertura: "Abertura: 22/01/2026"
-            const dataMatch = fullText.match(/Abertura:\s*(\d{2}\/\d{2}\/\d{4})/i);
-            
-            // 3. Responsável: "Resp. Apl.: NOME DO RESPONSAVEL"
-            // Pega tudo até encontrar a palavra "Empresa" ou quebra de linha
-            const respMatch = fullText.match(/Resp\.?\s*Apl\.?:\s*([^\n\r]+?)(?=\s+Empresa|\s+Área|$)/i);
-            
-            // 4. Empresa: "Empresa: 4-4 CAMBUI"
-            const empresaMatch = fullText.match(/Empresa:\s*([^\n\r]+?)(?=\s+Área|$)/i);
-            
-            // 5. Frente: "Frente: 99 A DEFINIR" -> extrair apenas o número ou tudo
-            const frenteMatch = fullText.match(/Frente:\s*(\d+)/i);
-            
-            // 6. Atividade Agrícola: Código e nome na tabela inferior
-            // Ex: "2243-TRANSPORTE DE COMPOSTAGEM"
-            // Procura padrão de código-texto seguido de datas
-            const ativMatch = fullText.match(/(\d+-[A-Z\s]+COMPOSTAGEM[^\n\r]*)/i) || 
-                              fullText.match(/Atividade Agrícola\s*([\w\s-]+)/i);
+            // Helper para limpar strings
+            const clean = (s) => s ? s.trim().replace(/\s+/g, ' ') : '';
+            const getNum = (s) => s ? parseFloat(s.replace(/\./g, '').replace(',', '.')) : 0;
 
-            // 7. Produto: "150944-COMPOSTO ORGANICO"
-            // Geralmente está abaixo da atividade ou próximo
-            const prodMatch = fullText.match(/(\d+-COMPOSTO[^\n\r]*)/i) ||
-                              fullText.match(/Produto\s*([^\n\r]+)/i);
+            // 1. Número da OS
+            // Padrões: "Ordem de serviço - 123", "OS: 123", "Nº: 123"
+            let osMatch = fullText.match(/Ordem de servi[çc]o\s*[-:]?\s*(\d+)/i) ||
+                          fullText.match(/O\.?S\.?\s*[:\.]?\s*(\d+)/i) ||
+                          fullText.match(/N[ºo]\.?\s*(\d+)/i);
 
-            // 8. Quantidade e Unidade: "13,0000 1-TN 572,000"
-            // A quantidade total geralmente é o maior número na linha do produto ou coluna específica
-            // Regex tenta capturar a linha do produto e seus valores
+            // 2. Data de Abertura
+            // Procura primeira data válida no texto
+            let dataMatch = fullText.match(/(\d{2}\/\d{2}\/\d{4})/);
+
+            // 3. Responsável
+            // Tenta pegar linha com "Resp" ou "Aplicador"
+            let respMatch = fullText.match(/(?:Resp\.?|Respons[áa]vel|Aplicador)[^:]*:\s*([^\n\r]+?)(?=\s+Empresa|\s+Data|\s+Área|$)/i);
+
+            // 4. Empresa
+            let empresaMatch = fullText.match(/Empresa\s*:\s*([^\n\r]+?)(?=\s+Área|\s+Frente|$)/i);
+
+            // 5. Frente
+            let frenteMatch = fullText.match(/Frente\s*:\s*(\d+)/i);
+
+            // 6. Produto e Atividade
+            // Tenta identificar códigos comuns ou palavras chave
+            let prodMatch = fullText.match(/Produto\s*:\s*([^\n\r]+)/i) ||
+                            fullText.match(/(\d+\s*-\s*COMPOSTO[^\n\r]*)/i); // Ex: 123 - COMPOSTO...
+            
+            let ativMatch = fullText.match(/Atividade\s*:\s*([^\n\r]+)/i) ||
+                            fullText.match(/(\d+\s*-\s*[A-Z\s]+COMPOSTAGEM[^\n\r]*)/i);
+
+            // 7. Quantidade e Unidade
+            // Estratégia: Procurar o maior número decimal que pareça uma quantidade (geralmente > 10)
+            // Ou procurar padrão específico da tabela: "13,0000 1-TN 572,000"
             let qtdVal = 0;
             let undVal = 't';
+
+            // Padrão de linha de tabela: VALOR UNIDADE VALOR_TOTAL
+            const tableRowMatch = fullText.match(/(\d+(?:[.,]\d+)?)\s+(\d+-[A-Z]+)\s+(\d+(?:[.,]\d+)?)/);
             
-            // Tenta achar a linha de totais ou valores específicos do produto
-            // Padrão: Dose Rec. Unidade Quantidade
-            // Ex: 13,0000 1-TN 572,000
-            const valMatch = fullText.match(/(\d+(?:[.,]\d+)?)\s+(\d+-[A-Z]+)\s+(\d+(?:[.,]\d+)?)/);
-            
-            if (valMatch) {
-                // valMatch[1] = Dose (13,0000)
-                // valMatch[2] = Unidade (1-TN)
-                // valMatch[3] = Quantidade Total (572,000)
-                undVal = valMatch[2];
-                qtdVal = parseFloat(valMatch[3].replace('.','').replace(',','.'));
+            if (tableRowMatch) {
+                // Prioridade para linha estruturada
+                undVal = tableRowMatch[2]; // Unidade (ex: 1-TN)
+                qtdVal = getNum(tableRowMatch[3]); // Valor Total
             } else {
-                // Fallback simples
-                const qtdMatch = fullText.match(/(?:Qtde|Quantidade|Peso|Volume|Total)[:\s]*([\d,.]+)/i);
-                if (qtdMatch) qtdVal = parseFloat(qtdMatch[1].replace('.','').replace(',','.'));
+                // Fallback: Procura labels de quantidade
+                const qtdLabelMatch = fullText.match(/(?:Qtde|Quantidade|Peso|Total)[:\s]*([\d,.]+)/i);
+                if (qtdLabelMatch) {
+                    qtdVal = getNum(qtdLabelMatch[1]);
+                }
             }
-
-            // Fallback para OS no nome do arquivo
-            const osFile = file.name.match(/\d+/);
             
-            // Limpeza de strings capturadas
-            const cleanStr = (s) => s ? s.trim() : '';
-
+            // Montar objeto final
             const extractedData = {
-                numero_os: osMatch ? osMatch[1] : (osFile ? osFile[0] : ''),
+                numero_os: osMatch ? osMatch[1] : '',
                 data_abertura: dataMatch ? dataMatch[1].split('/').reverse().join('-') : new Date().toISOString().split('T')[0],
-                responsavel_aplicacao: cleanStr(respMatch ? respMatch[1] : 'Importado PDF'),
-                empresa: cleanStr(empresaMatch ? empresaMatch[1] : 'Detectado via PDF'),
+                responsavel_aplicacao: clean(respMatch ? respMatch[1] : ''),
+                empresa: clean(empresaMatch ? empresaMatch[1] : ''),
                 frente: frenteMatch ? frenteMatch[1] : '',
-                produto: cleanStr(prodMatch ? prodMatch[1] : 'COMPOSTO'),
+                produto: clean(prodMatch ? prodMatch[1] : 'COMPOSTO'),
                 quantidade: qtdVal,
-                unidade: cleanStr(undVal),
-                atividade_agricola: cleanStr(ativMatch ? ativMatch[1].split('  ')[0] : 'ADUBACAO'), // Split para evitar pegar datas junto
+                unidade: clean(undVal),
+                atividade_agricola: clean(ativMatch ? ativMatch[1] : 'ADUBACAO'),
                 status: 'ABERTO'
             };
+
+            console.log('Dados Extraídos:', extractedData);
 
             this._lastImportedData = extractedData;
              
@@ -5655,7 +5662,10 @@ forceReloadAllData() {
                  document.getElementById('import-preview').style.display = 'block';
             }
             
-            this.ui.showNotification('PDF processado com sucesso!', 'success');
+            this.ui.showNotification('PDF processado! Verifique os dados.', 'success');
+            
+            // Preencher formulário automaticamente para visualização imediata
+            this.fillCompostoForm(extractedData);
 
         } catch (err) {
             this.hideProgress();
