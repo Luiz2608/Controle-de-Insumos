@@ -5821,56 +5821,58 @@ InsumosApp.prototype.updateCharts = function(data) {
 };
 
 InsumosApp.prototype.loadEstoqueAndRender = async function() {
-    try {
-        const [resEstoque, resOS, resImport] = await Promise.all([
-            this.api.getEstoque(),
-            this.api.getOSList(), // Busca OSs para saber todas as frentes possíveis
-            this.api.supabase.from('insumos_fazendas').select('os, frente, produto').not('os', 'is', null)
-        ]);
+        if (this.isLoadingEstoque) return;
+        this.isLoadingEstoque = true;
+        try {
+            const [resEstoque, resOS, resImport] = await Promise.all([
+                this.api.getEstoque(),
+                this.api.getOSList(), // Busca OSs para saber todas as frentes possíveis
+                this.api.supabase.from('insumos_fazendas').select('os, frente, produto').not('os', 'is', null)
+            ]);
 
-        if (!resEstoque || !resEstoque.success) return;
-        
-        // Dados vêm como array de objetos do Supabase: [{frente, produto, quantidade, os_numero, data_cadastro}, ...]
-        const estoqueList = Array.isArray(resEstoque.data) ? resEstoque.data : [];
-        const osList = (resOS && resOS.success && Array.isArray(resOS.data)) ? resOS.data : [];
-        const importList = (resImport && Array.isArray(resImport.data)) ? resImport.data : [];
-
-        // Coletar frentes únicas de AMBOS (estoque, OS e importados) para popular filtros
-        const frentesEstoque = estoqueList.map(e => e.frente).filter(Boolean);
-        const frentesOS = osList.map(o => o.frente).filter(Boolean);
-        const frentesImport = importList.map(i => i.frente).filter(Boolean);
-        const todasFrentes = [...new Set([...frentesEstoque, ...frentesOS, ...frentesImport])].sort((a,b) => 
-            a.localeCompare(b, undefined, {numeric: true, sensitivity: 'base'})
-        );
-
-        // === DROPDOWNS POPULATION ===
-        // Popular filtro de Frente
-        const updateSelect = (id, options, includeAllOption = false) => {
-            const sel = document.getElementById(id);
-            if (!sel) return;
-            const currentVal = sel.value;
+            if (!resEstoque || !resEstoque.success) { this.isLoadingEstoque = false; return; }
             
-            let html = '';
-            if (includeAllOption) html += '<option value="all">Todas as Frentes</option>';
-            else html += '<option value="">Selecione</option>'; 
+            // Dados vêm como array de objetos do Supabase: [{frente, produto, quantidade, os_numero, data_cadastro}, ...]
+            const estoqueList = Array.isArray(resEstoque.data) ? resEstoque.data : [];
+            const osList = (resOS && resOS.success && Array.isArray(resOS.data)) ? resOS.data : [];
+            const importList = (resImport && Array.isArray(resImport.data)) ? resImport.data : [];
 
-            options.forEach(opt => {
-                html += `<option value="${opt}">${opt}</option>`;
-            });
-            
-            // Só atualiza se mudou significativamente
-            if (sel.innerHTML.length < 50 || sel.options.length !== (options.length + (includeAllOption?1:1))) {
-                 sel.innerHTML = html;
-                 if (currentVal && (options.includes(currentVal) || currentVal === 'all')) {
-                     sel.value = currentVal;
-                 } else if (includeAllOption) {
-                     sel.value = 'all';
-                 }
-            }
-        };
+            // Coletar frentes únicas de AMBOS (estoque, OS e importados) para popular filtros
+            const frentesEstoque = estoqueList.map(e => e.frente).filter(Boolean);
+            const frentesOS = osList.map(o => o.frente).filter(Boolean);
+            const frentesImport = importList.map(i => i.frente).filter(Boolean);
+            const todasFrentes = [...new Set([...frentesEstoque, ...frentesOS, ...frentesImport])].sort((a,b) => 
+                a.localeCompare(b, undefined, {numeric: true, sensitivity: 'base'})
+            );
 
-        updateSelect('estoque-frente-filter', todasFrentes, true);
-        updateSelect('estoque-frente', todasFrentes, false);
+            // === DROPDOWNS POPULATION ===
+            // Popular filtro de Frente
+            const updateSelect = (id, options, includeAllOption = false) => {
+                const sel = document.getElementById(id);
+                if (!sel) return;
+                const currentVal = sel.value;
+                
+                let html = '';
+                if (includeAllOption) html += '<option value="all">Todas as Frentes</option>';
+                else html += '<option value="">Selecione</option>'; 
+
+                options.forEach(opt => {
+                    html += `<option value="${opt}">${opt}</option>`;
+                });
+                
+                // Só atualiza se mudou significativamente
+                if (sel.innerHTML.length < 50 || sel.options.length !== (options.length + (includeAllOption?1:1))) {
+                     sel.innerHTML = html;
+                     if (currentVal && (options.includes(currentVal) || currentVal === 'all')) {
+                         sel.value = currentVal;
+                     } else if (includeAllOption) {
+                         sel.value = 'all';
+                     }
+                }
+            };
+
+            updateSelect('estoque-frente-filter', todasFrentes, true);
+            updateSelect('estoque-frente', todasFrentes, false);
 
         // Popular Dropdown de O.S. (Manual) - Incluindo OSs importadas
         const osNumbersOS = osList.map(o => o.numero).filter(Boolean);
@@ -6020,6 +6022,8 @@ InsumosApp.prototype.loadEstoqueAndRender = async function() {
         }
     } catch(e) {
         console.error('Error loading estoque:', e);
+    } finally {
+        this.isLoadingEstoque = false;
     }
 };
 

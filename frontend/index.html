@@ -847,6 +847,32 @@
         </div>
     </div>
     </div> <!-- End of tab-content #viagens-adubo -->
+
+    <!-- Tab Plantio Dia -->
+    <div class="tab-content" id="plantio-dia">
+        <div class="dashboard-wrapper">
+             <div class="chart-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h4 style="margin: 0;">Registros de Plantio Diário</h4>
+                </div>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Frentes</th>
+                                <th>Área Total (ha)</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="plantio-table-body">
+                            <tr><td colspan="4" class="loading">Carregando...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
     
     <!-- Modal Details (Generic) -->
     <div id="import-preview" class="modal" style="display:none;">
@@ -872,36 +898,6 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" id="viagem-detail-cancel">Fechar</button>
                 <button type="button" class="btn btn-primary" id="viagem-detail-print">🖨️ Imprimir</button>
-            </div>
-        </div>
-    </div>
-
-
-
-    <!-- Tab Plantio Diário -->
-    <div class="tab-content" id="plantio-dia">
-        <div class="action-bar">
-            <button id="btn-novo-lancamento" class="btn btn-primary">➕ NOVO Lançamento</button>
-            <div class="action-group">
-                <button id="btn-open-fazendas-modal" class="btn btn-secondary">🏡 Fazendas</button>
-                <button id="btn-liberacao-colheita" class="btn btn-secondary">🌾 Liberação</button>
-                <button id="btn-os" class="btn btn-secondary">📋 OS</button>
-            </div>
-        </div>
-
-        <div class="dashboard-wrapper">
-            <div class="table-container">
-                <table class="data-table" id="plantio-table">
-                    <thead>
-                        <tr>
-                            <th>Data</th>
-                            <th>Frentes do dia</th>
-                            <th>Σ Área (ha)</th>
-                            <th>Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody id="plantio-table-body"></tbody>
-                </table>
             </div>
         </div>
     </div>
@@ -1668,6 +1664,34 @@
                             </div>
                         </div>
                         
+                        <div style="margin-top:20px; display:flex; gap:10px; justify-content: flex-end; padding-top: 15px; border-top: 1px solid var(--border);">
+                            <button class="btn btn-secondary close-novo-lancamento-modal">Cancelar</button>
+                            <button id="plantio-save-btn" class="btn btn-primary" style="padding: 10px 25px; font-size: 1.1em;">💾 Registrar Dia</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        </div> <!-- End of .content-area -->
+    </div>
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        // Configurar worker do PDF.js
+        if (window.pdfjsLib) {
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.28/dist/jspdf.plugin.autotable.min.js"></script>
+    <script src="api.js?v=20260119-5"></script>
+    <script src="ui.js?v=20260119-5"></script>
+    <script src="import.js?v=20260119-5"></script>
+    <script src="app.js?v=20260119-5"></script>
+</body>
+</html>
                         <div style="margin-top:20px; display:flex; gap:10px; justify-content: flex-end; padding-top: 15px; border-top: 1px solid var(--border);">
                             <button class="btn btn-secondary close-novo-lancamento-modal">Cancelar</button>
                             <button id="plantio-save-btn" class="btn btn-primary" style="padding: 10px 25px; font-size: 1.1em;">💾 Registrar Dia</button>
