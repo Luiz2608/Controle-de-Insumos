@@ -3651,12 +3651,14 @@ forceReloadAllData() {
         const estoqueProdutoFilter = document.getElementById('estoque-produto-filter');
         if (estoqueFrenteFilter) {
             estoqueFrenteFilter.addEventListener('change', async () => {
+                if (this.isLoadingEstoque) return; // Prevent recursive calls
                 this.estoqueFilters.frente = estoqueFrenteFilter.value || 'all';
                 await this.loadEstoqueAndRender();
             });
         }
         if (estoqueProdutoFilter) {
             estoqueProdutoFilter.addEventListener('input', async () => {
+                if (this.isLoadingEstoque) return; // Prevent recursive calls
                 this.estoqueFilters.produto = (estoqueProdutoFilter.value || '').trim();
                 await this.loadEstoqueAndRender();
             });

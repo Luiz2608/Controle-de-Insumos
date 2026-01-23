@@ -125,7 +125,6 @@ body {
 /* Content Area */
 .tab-content {
     flex: 1;
-    overflow-y: auto; /* Allow scrolling within content */
     padding: 20px 25px;
     position: relative;
     display: none; /* Hide by default, JS toggles it */
