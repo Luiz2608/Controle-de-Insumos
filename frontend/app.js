@@ -1388,9 +1388,15 @@ forceReloadAllData() {
         const themeToggle = document.getElementById('theme-toggle');
         if (themeToggle) {
             themeToggle.addEventListener('click', () => {
-                const isDark = document.body.classList.toggle('theme-dark');
+                const isDark = document.body.classList.toggle('dark-mode');
                 localStorage.setItem('theme', isDark ? 'dark' : 'light');
             });
+            
+            // Restore theme on load
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'dark') {
+                document.body.classList.add('dark-mode');
+            }
         }
         const estoqueSaveBtn = document.getElementById('estoque-save-btn');
         if (estoqueSaveBtn) {
@@ -5470,45 +5476,70 @@ forceReloadAllData() {
 
     async handleCompostoImport(file) {
         if (!file) return;
-        this.ui.showNotification('Lendo arquivo PDF (simulação)...', 'info');
         
-        // CLIENT-SIDE SIMULATION OR PDF.JS
-        // Since we are on GitHub Pages (static), we cannot use the previous backend endpoint.
-        // If pdf.js is not present, we will just mock the extraction or warn the user.
-        
-        try {
-             // Mock extraction for demonstration/prototype on static host
-             // In a real scenario, use pdfjs-dist here.
-             
-             console.log('Simulating PDF extraction for file:', file.name);
-             
-             // Extract OS number from filename if possible or just random
-             const mockOS = file.name.match(/\d+/) ? file.name.match(/\d+/)[0] : Math.floor(Math.random() * 10000);
-             
-             const mockData = {
-                 numero_os: mockOS,
-                 data_abertura: new Date().toISOString(),
-                 responsavel_aplicacao: 'Importado via PDF',
-                 empresa: 'Usina Demo',
-                 frente: '4001',
-                 produto: 'COMPOSTO',
-                 quantidade: 35.5,
-                 unidade: 't',
-                 atividade_agricola: 'ADUBACAO',
-                 status: 'ABERTO'
-             };
+        if (!window.pdfjsLib) {
+             this.ui.showNotification('Biblioteca PDF não carregada (pdf.js). Verifique a conexão.', 'error');
+             return;
+        }
 
-             this._lastImportedData = mockData;
+        try {
+            this.showProgress('Lendo PDF...', 0, 'Iniciando leitura...');
+            const buffer = await file.arrayBuffer();
+            const loadingTask = window.pdfjsLib.getDocument({ data: buffer });
+            const pdf = await loadingTask.promise;
+            let fullText = '';
+            
+            for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                const percent = (pageNum / pdf.numPages) * 100;
+                this.showProgress('Lendo PDF...', percent, `Lendo página ${pageNum} de ${pdf.numPages}`);
+                
+                const page = await pdf.getPage(pageNum);
+                const textContent = await page.getTextContent();
+                const pageText = textContent.items.map(item => item.str).join(' ');
+                fullText += pageText + '\n';
+            }
+            
+            this.hideProgress();
+
+            console.log('PDF Content Extracted:', fullText);
+
+            // Tenta extrair dados com regex básicos (Best Effort)
+            const osMatch = fullText.match(/(?:OS|Ordem|N[ºo])[:\s]*(\d{3,})/i);
+            const dataMatch = fullText.match(/(\d{2}\/\d{2}\/\d{4})/);
+            const frenteMatch = fullText.match(/Frente[:\s]*(\d+)/i);
+            const produtoMatch = fullText.match(/(?:Produto|Material)[:\s]*([A-Za-z\s]+)/i);
+            const qtdMatch = fullText.match(/(?:Qtde|Quantidade|Peso|Volume|Total)[:\s]*([\d,.]+)/i);
+
+            // Fallback para OS no nome do arquivo
+            const osFile = file.name.match(/\d+/);
+
+            const extractedData = {
+                numero_os: osMatch ? osMatch[1] : (osFile ? osFile[0] : ''),
+                data_abertura: dataMatch ? dataMatch[1].split('/').reverse().join('-') : new Date().toISOString().split('T')[0],
+                responsavel_aplicacao: 'Importado PDF',
+                empresa: 'Detectado via PDF',
+                frente: frenteMatch ? frenteMatch[1] : '',
+                produto: produtoMatch ? produtoMatch[1].trim() : 'COMPOSTO',
+                quantidade: qtdMatch ? parseFloat(qtdMatch[1].replace('.','').replace(',','.')) : 0,
+                unidade: 't',
+                atividade_agricola: 'ADUBACAO',
+                status: 'ABERTO'
+            };
+
+            this._lastImportedData = extractedData;
              
-             const preview = document.getElementById('import-result-json');
-             if (preview) {
-                 preview.textContent = JSON.stringify(mockData, null, 2);
+            const preview = document.getElementById('import-result-json');
+            if (preview) {
+                 preview.textContent = JSON.stringify(extractedData, null, 2);
                  document.getElementById('import-preview').style.display = 'block';
-             }
+            }
+            
+            this.ui.showNotification('PDF processado com sucesso!', 'success');
 
         } catch (err) {
+            this.hideProgress();
             console.error(err);
-            this.ui.showNotification('Erro ao ler PDF: ' + err.message, 'error');
+            this.ui.showNotification('Erro ao processar PDF: ' + err.message, 'error');
         }
     }
 

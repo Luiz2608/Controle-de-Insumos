@@ -5,8 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestão de Insumos</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        // Configurar worker do PDF.js
+        if (window.pdfjsLib) {
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        }
+    </script>
     <script src="config.js"></script>
-    <link rel="stylesheet" href="main.css?v=20260119-2">
+    <link rel="stylesheet" href="main.css?v=20260123-2">
 </head>
 <body>
     <div class="app-container">
@@ -851,7 +858,7 @@
     <div id="import-preview" class="modal" style="display:none;">
         <div class="modal-content">
             <div class="modal-header"><h3>Resultado da Importação</h3><button class="close-modal" onclick="document.getElementById('import-preview').style.display='none'">&times;</button></div>
-            <div class="modal-body"><pre id="import-result-json" style="background:#f4f4f4; padding:10px; overflow:auto; max-height:300px;"></pre></div>
+            <div class="modal-body"><pre id="import-result-json" class="json-preview"></pre></div>
             <div class="modal-footer">
                 <button class="btn btn-primary" id="btn-confirm-import">Preencher Formulário</button>
             </div>
