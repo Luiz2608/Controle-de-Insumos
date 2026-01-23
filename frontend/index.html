@@ -6,7 +6,7 @@
     <title>Gestão de Insumos</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
-    <link rel="stylesheet" href="main.css?v=20260123-3">
+    <link rel="stylesheet" href="main.css?v=FIX-LAYOUT-2">
 </head>
 <body>
     <div class="app-container">
@@ -448,7 +448,7 @@
                 <canvas id="chart-estoque-frente"></canvas>
             </div>
 
-            <div class="chart-card full-width">
+            <div class="chart-card form-card full-width">
                 <h4 style="margin: 0 0 15px 0; border-bottom: 1px solid var(--border); padding-bottom: 10px;">📝 Lançamento Manual de Estoque</h4>
                 <div class="manual-entry-container">
                     <div class="manual-entry-group">
@@ -560,7 +560,7 @@
         </div>
 
         <div class="dashboard-wrapper">
-            <div class="chart-card">
+            <div class="chart-card form-card">
                 <h4 style="margin: 0 0 10px 0;">Cadastro de Viagem</h4>
                 <div class="form-grid boletim-grid">
                     <div class="form-group">
@@ -752,7 +752,7 @@
         
         <!-- Formulário Fixo de Cadastro -->
         <div class="dashboard-wrapper" style="margin-bottom: 20px;">
-            <div class="chart-card">
+            <div class="chart-card form-card">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                     <h4 style="margin:0;">Cadastro de Transporte de Composto</h4>
                     <div style="display:flex; gap:10px;">
@@ -817,9 +817,9 @@
         </div>
 
         <!-- Filtros e Tabela -->
-        <div class="filters" style="margin-bottom: 15px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
-             <input type="text" id="composto-search-os" placeholder="Buscar Nº OS..." style="padding: 8px; border-radius: 4px; border: 1px solid #ddd; width: 200px;">
-             <select id="composto-filter-status" style="padding: 8px; border-radius: 4px; border: 1px solid #ddd;">
+        <div class="filters">
+             <input type="text" id="composto-search-os" placeholder="Buscar Nº OS..." style="width: 200px;">
+             <select id="composto-filter-status">
                 <option value="">Todos Status</option>
                 <option value="ABERTO">Aberto</option>
                 <option value="FECHADO">Fechado</option>
@@ -851,11 +851,11 @@
     <!-- Tab Plantio Dia -->
     <div class="tab-content" id="plantio-dia">
         <div class="dashboard-wrapper">
-             <div class="chart-card">
+             <div class="chart-card" style="height: 80vh; min-height: 500px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                     <h4 style="margin: 0;">Registros de Plantio Diário</h4>
                 </div>
-                <div class="table-container">
+                <div class="table-container" style="flex: 1; overflow-y: auto;">
                     <table class="data-table">
                         <thead>
                             <tr>
@@ -1686,9 +1686,9 @@
     </script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.28/dist/jspdf.plugin.autotable.min.js"></script>
-    <script src="api.js?v=20260119-5"></script>
-    <script src="ui.js?v=20260119-5"></script>
-    <script src="import.js?v=20260119-5"></script>
-    <script src="app.js?v=20260119-5"></script>
+    <script src="api.js?v=FIX-LAYOUT-2"></script>
+    <script src="ui.js?v=FIX-LAYOUT-2"></script>
+    <script src="import.js?v=FIX-LAYOUT-2"></script>
+    <script src="app.js?v=FIX-LAYOUT-2"></script>
 </body>
 </html>

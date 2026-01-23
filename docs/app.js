@@ -1464,6 +1464,7 @@ forceReloadAllData() {
         
         this.setupDashboardListeners();
         this.setupOSListeners();
+        this.legacyListenersAttached = true;
         console.log('setupEventListeners completed');
     }
 
@@ -2067,7 +2068,21 @@ forceReloadAllData() {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { position: 'bottom' }
+                    legend: { position: 'bottom' },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.raw !== null) {
+                                    label += context.raw.toLocaleString('pt-BR');
+                                }
+                                return label;
+                            }
+                        }
+                    }
                 }
             }
         });
@@ -2119,7 +2134,23 @@ forceReloadAllData() {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { position: 'bottom' } }
+                plugins: { 
+                    legend: { position: 'bottom' },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed.y !== null) {
+                                    label += context.parsed.y.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                }
             }
         });
     }
@@ -2170,22 +2201,38 @@ forceReloadAllData() {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed.y !== null) {
+                                    label += context.parsed.y.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                },
                 scales: { y: { beginAtZero: true } }
             }
         });
     }
 
     renderEstoqueGeralChart() {
-         const ctx = document.getElementById('chart-estoque-geral');
+         const ctxId = 'chart-estoque-geral';
+         const ctx = document.getElementById(ctxId);
          if (!ctx) return;
 
-         const existingChart = Chart.getChart(ctx);
-         if (existingChart) {
-             existingChart.destroy();
-         }
+         this.destroyChart(ctxId, 'estoqueGeral');
          
          const data = this.estoqueList || [];
+         if (data.length === 0) return;
+
          // Agrupar por Frente
          const porFrente = {};
          data.forEach(item => {
@@ -2194,12 +2241,24 @@ forceReloadAllData() {
              porFrente[f] += parseFloat(item.quantidade || 0);
          });
          
-         const labels = Object.keys(porFrente);
-         const values = Object.values(porFrente);
+         // Ordenar e limitar
+         let labels = Object.keys(porFrente).sort((a,b) => porFrente[b] - porFrente[a]);
+         let values = labels.map(l => porFrente[l]);
 
-         if (this._charts.estoqueGeral) {
-             this._charts.estoqueGeral.destroy();
+         // Limit to top 15
+         if (labels.length > 15) {
+             const top15Labels = labels.slice(0, 15);
+             const top15Values = values.slice(0, 15);
+             const othersVal = values.slice(15).reduce((acc, v) => acc + v, 0);
+             
+             top15Labels.push('Outras...');
+             top15Values.push(othersVal);
+             
+             labels = top15Labels;
+             values = top15Values;
          }
+
+         if (labels.length === 0) return;
 
          this._charts.estoqueGeral = new Chart(ctx, {
              type: 'bar',
@@ -2213,7 +2272,23 @@ forceReloadAllData() {
              },
              options: {
                  responsive: true,
-                 maintainAspectRatio: false
+                 maintainAspectRatio: false,
+                 plugins: {
+                     tooltip: {
+                         callbacks: {
+                             label: function(context) {
+                                 let label = context.dataset.label || '';
+                                 if (label) {
+                                     label += ': ';
+                                 }
+                                 if (context.parsed.y !== null) {
+                                     label += context.parsed.y.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+                                 }
+                                 return label;
+                             }
+                         }
+                     }
+                 }
              }
          });
     }
@@ -2226,13 +2301,11 @@ forceReloadAllData() {
     }
 
     renderLogisticsCharts() {
-        const ctx = document.getElementById('chart-viagens-diarias');
+        const ctxId = 'chart-viagens-diarias';
+        const ctx = document.getElementById(ctxId);
         if (!ctx) return;
 
-        const existingChart = Chart.getChart(ctx);
-        if (existingChart) {
-            existingChart.destroy();
-        }
+        this.destroyChart(ctxId, 'logistics');
 
         const periodo = document.getElementById('dashboard-periodo')?.value || '30';
         const now = new Date();
@@ -2247,6 +2320,8 @@ forceReloadAllData() {
 
         const data = (this.viagensAdubo || []).filter(v => filterDate(v.data));
         
+        if (data.length === 0) return; // Don't create chart if no data
+
         // Group by Date
         const dailyCounts = {};
         data.forEach(v => {
@@ -2263,10 +2338,6 @@ forceReloadAllData() {
              const parts = d.split('-');
              return parts.length === 3 ? `${parts[2]}/${parts[1]}` : d;
         });
-
-        if (this._charts.logistics) {
-            this._charts.logistics.destroy();
-        }
 
         const gradientLogistics = ctx.getContext('2d').createLinearGradient(0, 0, 0, 300);
         gradientLogistics.addColorStop(0, 'rgba(255, 193, 7, 0.4)');
@@ -2301,7 +2372,15 @@ forceReloadAllData() {
                         borderColor: '#e0e0e0',
                         borderWidth: 1,
                         intersect: false,
-                        mode: 'index'
+                        mode: 'index',
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) label += ': ';
+                                if (context.parsed.y !== null) label += context.parsed.y.toLocaleString('pt-BR');
+                                return label;
+                            }
+                        }
                     }
                 },
                 scales: {
@@ -2325,13 +2404,11 @@ forceReloadAllData() {
     }
 
     renderFarmProgressChart() {
-        const ctx = document.getElementById('chart-fazenda-progresso');
+        const ctxId = 'chart-fazenda-progresso';
+        const ctx = document.getElementById(ctxId);
         if (!ctx) return;
 
-        const existingChart = Chart.getChart(ctx);
-        if (existingChart) {
-            existingChart.destroy();
-        }
+        this.destroyChart(ctxId, 'farmProgress');
 
         const normalize = (s) => (s || '').trim().toLowerCase();
 
@@ -2377,6 +2454,8 @@ forceReloadAllData() {
             return hasOS;
         });
         
+        if (farms.length === 0) return; // Don't create chart if no data
+
         // Sort by area total descending and take top 15 to avoid clutter
         farms.sort((a, b) => parseFloat(b.area_total) - parseFloat(a.area_total));
         farms = farms.slice(0, 15);
@@ -2420,10 +2499,6 @@ forceReloadAllData() {
             return total > 0 ? (done / total) * 100 : 0;
         });
 
-        if (this._charts.farmProgress) {
-            this._charts.farmProgress.destroy();
-        }
-
         // Gradient for progress bars
         const gradientComplete = ctx.getContext('2d').createLinearGradient(0, 0, 200, 0);
         gradientComplete.addColorStop(0, '#43a047');
@@ -2440,9 +2515,12 @@ forceReloadAllData() {
                 datasets: [{
                     label: 'Progresso (%)',
                     data: progressData,
-                    backgroundColor: progressData.map(v => v >= 100 ? gradientComplete : gradientProgress),
+                    backgroundColor: context => {
+                        const value = context.dataset.data[context.dataIndex];
+                        return value >= 100 ? gradientComplete : gradientProgress;
+                    },
                     borderRadius: 4,
-                    barPercentage: 0.7
+                    barPercentage: 0.6
                 }]
             },
             options: {
@@ -2452,15 +2530,8 @@ forceReloadAllData() {
                 plugins: {
                     legend: { display: false },
                     tooltip: {
-                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                        titleColor: '#333',
-                        bodyColor: '#333',
-                        borderColor: '#e0e0e0',
-                        borderWidth: 1,
                         callbacks: {
-                            label: function(context) {
-                                return `Progresso: ${context.parsed.x.toFixed(1)}%`;
-                            }
+                            label: (context) => `Progresso: ${context.raw.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`
                         }
                     }
                 },
@@ -2469,11 +2540,10 @@ forceReloadAllData() {
                         max: 100, 
                         beginAtZero: true,
                         grid: { color: '#f0f0f0' },
-                        ticks: { color: '#666' }
+                        ticks: { callback: v => v + '%' }
                     },
                     y: {
-                        grid: { display: false },
-                        ticks: { color: '#333', font: { weight: '500' } }
+                        grid: { display: false }
                     }
                 }
             }
@@ -3620,7 +3690,7 @@ forceReloadAllData() {
                                     label += ': ';
                                 }
                                 if (context.parsed.y !== null) {
-                                    label += context.parsed.y.toFixed(2) + ' ha';
+                                    label += context.parsed.y.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ha';
                                 }
                                 return label;
                             }
@@ -3646,6 +3716,7 @@ forceReloadAllData() {
         });
     }
     async setupLegacyListeners() {
+        if (this.legacyListenersAttached) return;
         console.log('setupLegacyListeners started');
         const estoqueFrenteFilter = document.getElementById('estoque-frente-filter');
         const estoqueProdutoFilter = document.getElementById('estoque-produto-filter');
@@ -5633,9 +5704,11 @@ forceReloadAllData() {
                         <td>${item.produto || '-'}</td>
                         <td>${this.ui.formatNumber(item.quantidade, 3)}</td>
                         <td><span class="badge ${item.status === 'ABERTO' ? 'badge-warning' : 'badge-success'}">${item.status}</span></td>
-                        <td>
-                            <button class="btn btn-sm btn-secondary" onclick="window.insumosApp.editComposto('${item.id}')">✏️</button>
-                            <button class="btn btn-sm btn-danger" onclick="window.insumosApp.deleteComposto('${item.id}')">🗑️</button>
+                        <td style="white-space: nowrap; min-width: 120px;">
+                            <div style="display: flex; gap: 8px;">
+                                <button class="btn btn-sm btn-secondary" onclick="window.insumosApp.editComposto('${item.id}')" title="Editar">✏️</button>
+                                <button class="btn btn-sm btn-danger" onclick="window.insumosApp.deleteComposto('${item.id}')" title="Excluir">🗑️</button>
+                            </div>
                         </td>
                     </tr>
                 `).join('');
@@ -5716,9 +5789,32 @@ InsumosApp.prototype.updateInsumosDashboard = function(data) {
     setText('dash-produtos-distintos', String(produtos.size));
 };
 
+InsumosApp.prototype.destroyChart = function(ctxId, chartProp) {
+    const ctx = document.getElementById(ctxId);
+    if (ctx) {
+        const existing = Chart.getChart(ctx);
+        if (existing) existing.destroy();
+    }
+    if (this._charts && this._charts[chartProp]) {
+        this._charts[chartProp].destroy();
+        this._charts[chartProp] = null;
+    }
+};
+
 InsumosApp.prototype.updateCharts = function(data) {
     try {
         if (!window.Chart) return;
+
+        // Destroy existing charts first using the helper to prevent "invisible infinite" issues
+        this.destroyChart('chart-recomendacao-dose', 'doseProd');
+        this.destroyChart('chart-recomendacao-aplicacao', 'doseGlobal');
+        this.destroyChart('chart-recomendacao-diferenca', 'diffProd');
+
+        if (!data || data.length === 0) {
+            console.log('Nenhum dado para exibir nos gráficos de Insumos.');
+            return;
+        }
+
         const byProdutoDose = {};
         const num = v => {
             if (typeof v === 'number') return v;
@@ -5762,11 +5858,43 @@ InsumosApp.prototype.updateCharts = function(data) {
         recAvg = idxs.map(i=>recAvg[i]);
         aplAvg = idxs.map(i=>aplAvg[i]);
         diffPct = idxs.map(i=>diffPct[i]);
-        const doseProdCtx = document.getElementById('chart-dose-produtos');
-        const doseGlobalCtx = document.getElementById('chart-dose-global');
-        const diffProdCtx = document.getElementById('chart-diff-produtos');
+        
+        // IDs matched to renderInsumos HTML
+        const doseProdCtx = document.getElementById('chart-recomendacao-dose');
+        const doseGlobalCtx = document.getElementById('chart-recomendacao-aplicacao');
+        const diffProdCtx = document.getElementById('chart-recomendacao-diferenca');
+        
         if (!this._charts) this._charts = {};
-        const baseOpts = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'top' } }, scales: { x: { grid: { display: false } }, y: { grid: { display: false } } } };
+        const baseOpts = { 
+            responsive: true, 
+            maintainAspectRatio: false, 
+            plugins: { 
+                legend: { display: true, position: 'top' },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) label += ': ';
+                            
+                            let value = context.parsed.y;
+                            // Check if horizontal bar (indexAxis: 'y')
+                            if (context.chart.config.options.indexAxis === 'y') {
+                                value = context.parsed.x;
+                            }
+                            
+                            if (value !== null && value !== undefined) {
+                                label += value.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+                            }
+                            
+                            if (context.dataset.label && context.dataset.label.includes('Diferença')) label += '%';
+                            return label;
+                        }
+                    }
+                }
+            }, 
+            scales: { x: { grid: { display: false } }, y: { grid: { display: false } } } 
+        };
+        
         const doseProdData = {
             labels: produtos,
             datasets: [
@@ -5787,35 +5915,15 @@ InsumosApp.prototype.updateCharts = function(data) {
             labels: produtos,
             datasets: [ { label: 'Diferença (%)', data: diffPct, backgroundColor: '#2196F3' } ]
         };
-        if (doseProdCtx) {
-            const existing = Chart.getChart(doseProdCtx);
-            if (existing && (!this._charts.doseProd || existing !== this._charts.doseProd)) {
-                existing.destroy();
-                this._charts.doseProd = null;
-            }
 
-            if (this._charts.doseProd) { this._charts.doseProd.data = doseProdData; this._charts.doseProd.update(); }
-            else this._charts.doseProd = new Chart(doseProdCtx, { type: 'bar', data: doseProdData, options: baseOpts });
+        if (doseProdCtx) {
+            this._charts.doseProd = new Chart(doseProdCtx, { type: 'bar', data: doseProdData, options: baseOpts });
         }
         if (doseGlobalCtx) {
-            const existing = Chart.getChart(doseGlobalCtx);
-            if (existing && (!this._charts.doseGlobal || existing !== this._charts.doseGlobal)) {
-                existing.destroy();
-                this._charts.doseGlobal = null;
-            }
-
-            if (this._charts.doseGlobal) { this._charts.doseGlobal.data = doseGlobalData; this._charts.doseGlobal.update(); }
-            else this._charts.doseGlobal = new Chart(doseGlobalCtx, { type: 'bar', data: doseGlobalData, options: baseOpts });
+            this._charts.doseGlobal = new Chart(doseGlobalCtx, { type: 'bar', data: doseGlobalData, options: baseOpts });
         }
         if (diffProdCtx) {
-            const existing = Chart.getChart(diffProdCtx);
-            if (existing && (!this._charts.diffProd || existing !== this._charts.diffProd)) {
-                existing.destroy();
-                this._charts.diffProd = null;
-            }
-
-            if (this._charts.diffProd) { this._charts.diffProd.data = diffProdData; this._charts.diffProd.options = { ...baseOpts, indexAxis: 'y' }; this._charts.diffProd.update(); }
-            else this._charts.diffProd = new Chart(diffProdCtx, { type: 'bar', data: diffProdData, options: { ...baseOpts, indexAxis: 'y' } });
+            this._charts.diffProd = new Chart(diffProdCtx, { type: 'bar', data: diffProdData, options: { ...baseOpts, indexAxis: 'y' } });
         }
     } catch(e) {
         console.error('chart error', e);
@@ -5925,6 +6033,9 @@ InsumosApp.prototype.loadEstoqueAndRender = async function() {
 
         const ctx = document.getElementById('chart-estoque-frente');
         if (ctx) {
+            // Destruir gráfico anterior para evitar sobreposição infinita
+            this.destroyChart('chart-estoque-frente', 'estoqueFrente');
+
             if (!this._charts) this._charts = {};
             let chartData;
             let chartOpts = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'top' } } };
@@ -5947,8 +6058,15 @@ InsumosApp.prototype.loadEstoqueAndRender = async function() {
                 // Sort by quantity desc
                 filteredRows.sort((a,b) => b[1] - a[1]);
 
-                const labels = filteredRows.map(([prod]) => prod);
-                const values = filteredRows.map(([,v]) => v);
+                // Limit to top 30 items to prevent "infinite" chart
+                const limitedRows = filteredRows.slice(0, 30);
+                if (filteredRows.length > 30) {
+                     const othersCount = filteredRows.slice(30).reduce((acc, [,v]) => acc + v, 0);
+                     limitedRows.push(['Outros...', othersCount]);
+                }
+
+                const labels = limitedRows.map(([prod]) => prod);
+                const values = limitedRows.map(([,v]) => v);
                 
                 chartData = { labels, datasets: [{ label: 'Estoque Total (Todas as Frentes)', data: values, backgroundColor: '#9C27B0' }] };
                 chartOpts = { ...chartOpts, indexAxis: 'y' };
@@ -5961,27 +6079,25 @@ InsumosApp.prototype.loadEstoqueAndRender = async function() {
                 // Sort by quantity desc
                 filteredRows.sort((a,b) => b[1] - a[1]);
 
-                const labels = filteredRows.map(([prod]) => prod);
-                const values = filteredRows.map(([,v]) => v);
+                // Limit to top 30 items
+                const limitedRows = filteredRows.slice(0, 30);
+                if (filteredRows.length > 30) {
+                     const othersCount = filteredRows.slice(30).reduce((acc, [,v]) => acc + v, 0);
+                     limitedRows.push(['Outros...', othersCount]);
+                }
+
+                const labels = limitedRows.map(([prod]) => prod);
+                const values = limitedRows.map(([,v]) => v);
                 
                 chartData = { labels, datasets: [{ label: `Estoque - ${f}`, data: values, backgroundColor: '#9C27B0' }] };
                 chartOpts = { ...chartOpts, indexAxis: 'y' };
             }
             
-            if (this._charts.estoqueFrente) { 
-                const existing = Chart.getChart(ctx);
-                if (existing && existing !== this._charts.estoqueFrente) {
-                     existing.destroy();
-                     this._charts.estoqueFrente = new Chart(ctx, { type: 'bar', data: chartData, options: chartOpts });
-                } else {
-                     this._charts.estoqueFrente.data = chartData; 
-                     this._charts.estoqueFrente.options = chartOpts; 
-                     this._charts.estoqueFrente.update(); 
-                }
-            } else {
-                const existing = Chart.getChart(ctx);
-                if (existing) existing.destroy();
+            // Só cria o gráfico se houver dados, senão apenas loga (ou mostra vazio se preferir, mas sem dados evita loop de render)
+            if (chartData && chartData.labels && chartData.labels.length > 0) {
                 this._charts.estoqueFrente = new Chart(ctx, { type: 'bar', data: chartData, options: chartOpts });
+            } else {
+                // Se não houver dados, podemos mostrar uma mensagem ou deixar em branco, mas garantindo que o chart anterior foi destruído (já feito acima)
             }
         }
 
