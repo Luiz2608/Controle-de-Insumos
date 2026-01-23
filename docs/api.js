@@ -891,10 +891,24 @@ class ApiService {
         
         // Clean payload
         const item = { ...payload };
+        
+        // Remove ID if empty (for new records)
         if (!item.id) delete item.id;
         
-        // Ensure numeric types
-        if (item.quantidade) item.quantidade = parseFloat(item.quantidade);
+        // Sanitize Date Fields
+        if (item.data_abertura === '') item.data_abertura = null;
+        
+        // Sanitize Numeric Fields
+        if (item.quantidade === '' || item.quantidade == null) {
+            item.quantidade = null;
+        } else {
+            item.quantidade = parseFloat(item.quantidade);
+        }
+
+        // Sanitize Empty Strings to Null for other optional fields to avoid constraints if any
+        ['responsavel_aplicacao', 'empresa', 'frente', 'atividade_agricola'].forEach(field => {
+            if (item[field] === '') item[field] = null;
+        });
         
         const { data, error } = await this.supabase
             .from('transporte_composto')

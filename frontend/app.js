@@ -5651,6 +5651,7 @@ forceReloadAllData() {
         }
 
         try {
+            console.log('Salvando transporte composto:', data); // Debug
             // Save to Supabase directly
             const res = await this.api.saveTransporteComposto(data);
 
@@ -5663,7 +5664,8 @@ forceReloadAllData() {
                 throw new Error(res.message || 'Erro ao salvar');
             }
         } catch (err) {
-            this.ui.showNotification('Erro ao salvar: ' + err.message, 'error');
+            console.error('Erro ao salvar transporte composto:', err);
+            this.ui.showNotification('Erro ao salvar: ' + (err.message || JSON.stringify(err)), 'error');
         }
     }
 
