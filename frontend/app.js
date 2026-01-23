@@ -5583,18 +5583,19 @@ forceReloadAllData() {
 
             // Show Debug Info
             const debugArea = document.getElementById('import-debug-area');
-            const debugText = document.getElementById('import-raw-text');
             const debugMsg = document.getElementById('import-status-msg');
             
-            if (debugArea && debugText) {
+            if (debugArea && debugMsg) {
                 debugArea.style.display = 'block';
-                debugText.value = fullText;
+                
                 if (fullText.trim().length < 50) {
                     debugMsg.textContent = "ALERTA: Pouco texto extraído. O PDF pode ser uma imagem (scanned) e não texto selecionável.";
-                    debugMsg.style.color = "red";
+                    debugMsg.style.color = "#dc3545"; // Red
+                    debugArea.style.borderColor = "#dc3545";
                 } else {
-                    debugMsg.textContent = "Texto extraído com sucesso. Verifique se os dados estão legíveis acima.";
-                    debugMsg.style.color = "green";
+                    debugMsg.textContent = "Leitura do PDF concluída. Verifique os dados abaixo.";
+                    debugMsg.style.color = "#28a745"; // Green
+                    debugArea.style.borderColor = "#28a745";
                 }
             }
 
