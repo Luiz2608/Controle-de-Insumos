@@ -5,15 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestão de Insumos</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <script>
-        // Configurar worker do PDF.js
-        if (window.pdfjsLib) {
-            window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-        }
-    </script>
     <script src="config.js"></script>
-    <link rel="stylesheet" href="main.css?v=20260123-2">
+    <link rel="stylesheet" href="main.css?v=20260123-3">
 </head>
 <body>
     <div class="app-container">
@@ -853,6 +846,7 @@
             </table>
         </div>
     </div>
+    </div> <!-- End of tab-content #viagens-adubo -->
     
     <!-- Modal Details (Generic) -->
     <div id="import-preview" class="modal" style="display:none;">
@@ -1331,16 +1325,7 @@
         </div>
     </div>
 
-    <!-- Scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.28/dist/jspdf.plugin.autotable.min.js"></script>
-    <script src="api.js?v=20260119-5"></script>
-    <script src="ui.js?v=20260119-5"></script>
-    <script src="import.js?v=20260119-5"></script>
-    <script src="app.js?v=20260119-5"></script>
+
     <!-- Modal Novo Lançamento Plantio -->
     <div id="novo-lancamento-modal" class="modal" style="display: none;">
         <div class="modal-content" style="max-width: 95%;">
@@ -1693,5 +1678,21 @@
         </div>
         </div> <!-- End of .content-area -->
     </div>
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        // Configurar worker do PDF.js
+        if (window.pdfjsLib) {
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.28/dist/jspdf.plugin.autotable.min.js"></script>
+    <script src="api.js?v=20260119-5"></script>
+    <script src="ui.js?v=20260119-5"></script>
+    <script src="import.js?v=20260119-5"></script>
+    <script src="app.js?v=20260119-5"></script>
 </body>
 </html>
