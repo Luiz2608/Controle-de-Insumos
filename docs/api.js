@@ -846,7 +846,7 @@ class ApiService {
         return { success: true };
     }
 
-    async saveLiberacao(payload) {
+    async saveLiberacaoColheita(payload) {
         this.checkConfig();
         const item = {
             numero_liberacao: payload.numero_liberacao,
@@ -867,6 +867,53 @@ class ApiService {
 
         if (error) throw error;
         return { success: true, data: data[0] };
+    }
+
+    // === TRANSPORTE DE COMPOSTO ===
+
+    async getTransporteComposto() {
+        this.checkConfig();
+        const { data, error } = await this.supabase
+            .from('transporte_composto')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.error('Erro ao buscar transporte de composto:', error);
+            if (error.code === '42P01') return { success: true, data: [] }; 
+            throw error;
+        }
+        return { success: true, data };
+    }
+
+    async saveTransporteComposto(payload) {
+        this.checkConfig();
+        
+        // Clean payload
+        const item = { ...payload };
+        if (!item.id) delete item.id;
+        
+        // Ensure numeric types
+        if (item.quantidade) item.quantidade = parseFloat(item.quantidade);
+        
+        const { data, error } = await this.supabase
+            .from('transporte_composto')
+            .upsert(item)
+            .select();
+
+        if (error) throw error;
+        return { success: true, data: data[0] };
+    }
+
+    async deleteTransporteComposto(id) {
+        this.checkConfig();
+        const { error } = await this.supabase
+            .from('transporte_composto')
+            .delete()
+            .eq('id', id);
+            
+        if (error) throw error;
+        return { success: true };
     }
 }
 

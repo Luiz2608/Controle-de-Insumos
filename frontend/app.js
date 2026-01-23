@@ -5651,17 +5651,12 @@ forceReloadAllData() {
         }
 
         try {
-            // Save to backend
-            // Using a new endpoint /api/transporte-composto
-            const res = await this.api.request('/transporte-composto', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
+            // Save to Supabase directly
+            const res = await this.api.saveTransporteComposto(data);
 
             if (res && res.success) {
                 this.ui.showNotification('Salvo com sucesso!', 'success');
-                document.getElementById('modal-transporte-composto').style.display = 'none';
+                document.getElementById('modal-transporte-composto').style.display = 'none'; // Assuming modal ID, though form is fixed in layout now
                 form.reset();
                 this.renderTransporteComposto();
             } else {
@@ -5679,8 +5674,8 @@ forceReloadAllData() {
         tbody.innerHTML = '<tr><td colspan="7" class="loading">Carregando...</td></tr>';
 
         try {
-            // Fetch data
-            const res = await this.api.request('/transporte-composto'); // GET
+            // Fetch data from Supabase
+            const res = await this.api.getTransporteComposto();
             if (res && res.success && Array.isArray(res.data)) {
                 let list = res.data;
                 
@@ -5730,7 +5725,7 @@ forceReloadAllData() {
     deleteComposto(id) {
         if(confirm('Excluir este registro?')) {
             // Implement delete
-             this.api.request(`/transporte-composto/${id}`, { method: 'DELETE' })
+             this.api.deleteTransporteComposto(id)
                 .then(res => {
                     if(res.success) {
                         this.ui.showNotification('Excluído', 'success');
