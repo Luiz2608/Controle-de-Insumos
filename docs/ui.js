@@ -60,6 +60,13 @@ class UIManager {
         if (typeof val === 'string') {
             const m = val.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
             if (m) return val;
+            
+            // Fix for YYYY-MM-DD causing D-1 due to timezone
+            if (/^\d{4}-\d{2}-\d{2}$/.test(val)) {
+                const [y, m, d] = val.split('-');
+                return `${d}/${m}/${y}`;
+            }
+
             const d = new Date(val);
             if (!isNaN(d)) {
                 const dd = String(d.getDate()).padStart(2,'0');

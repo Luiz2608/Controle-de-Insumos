@@ -6059,7 +6059,7 @@ forceReloadAllData() {
                         <td><span class="badge ${item.status === 'ABERTO' ? 'badge-warning' : 'badge-success'}">${item.status}</span></td>
                         <td style="white-space: nowrap;">
                             <div style="display: flex; gap: 8px;">
-                                <button class="btn btn-sm btn-info" onclick="window.insumosApp.editComposto('${item.id}')" title="Detalhes/Editar" style="color:white;">👁️</button>
+                                <button class="btn btn-sm btn-secondary" onclick="window.insumosApp.editComposto('${item.id}')" title="Ver Detalhes">Detalhes</button>
                                 <button class="btn btn-sm btn-secondary" onclick="window.insumosApp.editComposto('${item.id}')" title="Editar">✏️</button>
                                 <button class="btn btn-sm btn-danger" onclick="window.insumosApp.deleteComposto('${item.id}')" title="Excluir">🗑️</button>
                             </div>
@@ -7039,6 +7039,7 @@ InsumosApp.prototype.toggleOperacaoSections = function() {
     const secOutros = document.getElementById('sec-outros');
     const secMudaConsumo = document.getElementById('sec-muda-consumo-card');
     const secInsumos = document.getElementById('sec-insumos');
+    const secColheitaProducao = document.getElementById('sec-colheita-producao-card');
     
     if (tipo === 'plantio') {
         if (secGemas) secGemas.style.display = 'block';
@@ -7047,6 +7048,7 @@ InsumosApp.prototype.toggleOperacaoSections = function() {
         if (secMudaConsumo) secMudaConsumo.style.display = 'block';
         if (secInsumos) secInsumos.style.display = 'block';
         if (secMudas) secMudas.style.display = 'none';
+        if (secColheitaProducao) secColheitaProducao.style.display = 'none';
     } else { // colheita_muda
         if (secGemas) secGemas.style.display = 'none';
         if (secToletes) secToletes.style.display = 'none';
@@ -7054,6 +7056,7 @@ InsumosApp.prototype.toggleOperacaoSections = function() {
         if (secMudaConsumo) secMudaConsumo.style.display = 'none';
         if (secInsumos) secInsumos.style.display = 'none';
         if (secMudas) secMudas.style.display = 'block';
+        if (secColheitaProducao) secColheitaProducao.style.display = 'block';
     }
 };
 
@@ -7077,6 +7080,7 @@ InsumosApp.prototype.resetPlantioForm = function() {
         'oxifertil-dose', 'cobricao-dia', 'cobricao-acumulada',
         'muda-consumo-total', 'muda-consumo-acumulado', 'muda-consumo-dia', 'muda-previsto',
         'muda-liberacao-fazenda', 'muda-variedade', 'qual-muda-liberacao', 'qual-muda-variedade', 'muda-colheita-info', 'muda-fazenda-origem', 'muda-talhao-origem',
+        'colheita-hectares', 'colheita-tch-estimado', 'colheita-tch-real',
         'single-frente', 'single-fazenda', 'single-cod', 'single-regiao',
         'single-area', 'single-plantada', 'single-area-total', 'single-area-acumulada', 'single-plantio-dia'
     ];
@@ -7125,6 +7129,10 @@ InsumosApp.prototype.handleEditPlantio = function(id) {
     set('qual-gemas-ruins', q.gemasRuins);
     set('qual-gemas-amostra', q.gemasAmostra);
     set('qual-gemas-media', q.gemasMedia);
+
+    set('colheita-hectares', q.colheitaHectares);
+    set('colheita-tch-estimado', q.colheitaTchEstimado);
+    set('colheita-tch-real', q.colheitaTchReal);
 
     set('qual-mudas-total', q.mudasTotal);
     set('qual-mudas-boas', q.mudasBoas);
@@ -7256,7 +7264,10 @@ InsumosApp.prototype.savePlantioDia = async function() {
         mudaColheitaInfo: document.getElementById('muda-colheita-info')?.value || '',
         mudaFazendaOrigem: document.getElementById('muda-fazenda-origem')?.value || '',
         mudaTalhaoOrigem: document.getElementById('muda-talhao-origem')?.value || '',
-        mudasReboulos: parseFloat(document.getElementById('qual-mudas-reboulos')?.value || '0')
+        mudasReboulos: parseFloat(document.getElementById('qual-mudas-reboulos')?.value || '0'),
+        colheitaHectares: parseFloat(document.getElementById('colheita-hectares')?.value || '0'),
+        colheitaTchEstimado: parseFloat(document.getElementById('colheita-tch-estimado')?.value || '0'),
+        colheitaTchReal: parseFloat(document.getElementById('colheita-tch-real')?.value || '0')
     };
     let fazendaNome = document.getElementById('single-fazenda')?.value || '';
     const matchCod = fazendaNome.match(/^(\d+)\s*[-–]\s*(.+)$/);

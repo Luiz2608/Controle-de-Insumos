@@ -1717,16 +1717,33 @@
                                 <input type="text" id="muda-variedade">
                             </div>
                         </div>
-                        
-                        <div style="margin-top:20px; display:flex; gap:10px; justify-content: flex-end; padding-top: 15px; border-top: 1px solid var(--border);">
-                            <button class="btn btn-secondary close-novo-lancamento-modal">Cancelar</button>
-                            <button id="plantio-save-btn" class="btn btn-primary" style="padding: 10px 25px; font-size: 1.1em;">💾 Registrar Dia</button>
+                    </div>
+                    
+                    <!-- 5. Produção Colheita Muda (Novo Card) -->
+                    <div class="chart-card form-card" id="sec-colheita-producao-card" style="display: none;">
+                        <h4 class="section-title">4. Produção Colheita Muda</h4>
+                        <div class="modal-form-grid">
+                            <div class="form-group">
+                                <label for="colheita-hectares">Hectares colhidos</label>
+                                <input type="number" id="colheita-hectares" step="0.01">
+                            </div>
+                            <div class="form-group">
+                                <label for="colheita-tch-estimado">TCH estimado</label>
+                                <input type="number" id="colheita-tch-estimado" step="0.01">
+                            </div>
+                            <div class="form-group">
+                                <label for="colheita-tch-real">TCH real</label>
+                                <input type="number" id="colheita-tch-real" step="0.01">
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
+            <div class="modal-footer" style="border-top: 1px solid var(--border); padding-top: 15px; padding-bottom: 20px; margin-top: 10px; margin-bottom: 10px;">
+                <button class="btn btn-secondary close-novo-lancamento-modal">Cancelar</button>
+                <button id="plantio-save-btn" class="btn btn-primary" style="padding: 10px 25px; font-size: 1.1em;">💾 Registrar Dia</button>
+            </div>
         </div>
-        </div> <!-- End of .content-area -->
     </div>
     <!-- Modal Transporte de Composto -->
     <div id="modal-transporte-composto" class="modal" style="display: none;">
