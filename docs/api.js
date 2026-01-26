@@ -895,7 +895,12 @@ class ApiService {
         
         // Remove ID if empty (for new records)
         if (!item.id) delete item.id;
-        
+
+        // Remove 'transportes_diarios' from the main object to avoid schema errors
+        // because it is not a column in 'transporte_composto' table
+        const diarios = item.transportes_diarios || [];
+        delete item.transportes_diarios;
+
         // Sanitize Date Fields
         if (item.data_abertura === '') item.data_abertura = null;
         
@@ -906,24 +911,118 @@ class ApiService {
             item.quantidade = parseFloat(item.quantidade);
         }
 
-        // Sanitize Empty Strings to Null for other optional fields to avoid constraints if any
+        // Sanitize Empty Strings to Null for other optional fields
         ['responsavel_aplicacao', 'empresa', 'frente', 'atividade_agricola'].forEach(field => {
             if (item[field] === '') item[field] = null;
         });
         
+        // 1. Save Main OS
         const { data, error } = await this.supabase
             .from('transporte_composto')
             .upsert(item)
             .select();
 
         if (error) throw error;
-        return { success: true, data: data[0] };
+        
+        const savedOS = data[0];
+
+        // 2. Save Daily Items (if any)
+        if (savedOS && savedOS.id && diarios.length > 0) {
+            // Prepare items with foreign key
+            const itemsToSave = diarios.map(d => ({
+                os_id: savedOS.id, // Link to parent OS
+                data_transporte: d.data_transporte || d.data, // normalize field names
+                quantidade: parseFloat(d.quantidade || d.qtd),
+                frota: d.frota
+            }));
+
+            // First, delete existing items for this OS to avoid duplicates/orphans (full replace strategy)
+            await this.supabase
+                .from('os_transporte_diario')
+                .delete()
+                .eq('os_id', savedOS.id);
+
+            // Insert new set
+            const { error: errDiarios } = await this.supabase
+                .from('os_transporte_diario')
+                .insert(itemsToSave);
+                
+            if (errDiarios) {
+                console.error("Error saving daily items:", errDiarios);
+            }
+        } else if (savedOS && savedOS.id && diarios.length === 0) {
+             // If list is empty, clear existing items (user deleted all)
+             await this.supabase
+                .from('os_transporte_diario')
+                .delete()
+                .eq('os_id', savedOS.id);
+        }
+
+        return { success: true, data: savedOS };
     }
 
     async deleteTransporteComposto(id) {
         this.checkConfig();
         const { error } = await this.supabase
             .from('transporte_composto')
+            .delete()
+            .eq('id', id);
+            
+        if (error) throw error;
+        return { success: true };
+    }
+
+    async getTransporteCompostoById(id) {
+        this.checkConfig();
+        const { data, error } = await this.supabase
+            .from('transporte_composto')
+            .select('*')
+            .eq('id', id)
+            .single();
+        
+        if (error) {
+            console.error('Erro ao buscar transporte composto:', error);
+            return { success: false, message: error.message };
+        }
+        return { success: true, data };
+    }
+
+    // === OS Transporte Diário ===
+    async getOSTransporteDiario(osId) {
+        this.checkConfig();
+        const { data, error } = await this.supabase
+            .from('os_transporte_diario')
+            .select('*')
+            .eq('os_id', osId)
+            .order('data_transporte', { ascending: true });
+            
+        if (error) {
+             // Se tabela não existir ainda, retorna array vazio para não quebrar UI
+             if (error.code === '42P01') return { success: true, data: [] };
+             console.error('Erro ao buscar transporte diário OS:', error);
+             return { success: false, message: error.message };
+        }
+        return { success: true, data };
+    }
+
+    async saveOSTransporteDiario(item) {
+        this.checkConfig();
+        // Sanitize
+        if (item.quantidade) item.quantidade = parseFloat(item.quantidade);
+        
+        const { data, error } = await this.supabase
+            .from('os_transporte_diario')
+            .upsert(item)
+            .select();
+            
+        if (error) throw error;
+        return { success: true, data: data[0] };
+    }
+
+    async deleteOSTransporteDiario(id) {
+        this.checkConfig();
+        const { error } = await this.supabase
+            .from('os_transporte_diario')
             .delete()
             .eq('id', id);
             

@@ -29,6 +29,7 @@ class InsumosApp {
             lacre: ''
         };
         this.liberacaoTalhoesDraft = [];
+        this.compostoDiarioDraft = []; // Novo draft para itens diários de composto
 
         // Controle de Load do Dashboard (Circuit Breaker)
         this.dashboardLoadCount = 0;
@@ -2558,6 +2559,14 @@ forceReloadAllData() {
         const closeBtns = document.querySelectorAll('.close-os-modal');
         const fileInput = document.getElementById('os-file-input');
 
+        // Listener para adicionar transporte diário
+        const btnAddOSTransporte = document.getElementById('btn-add-os-transporte');
+        if (btnAddOSTransporte) {
+            btnAddOSTransporte.addEventListener('click', () => {
+                this.addOSTransporteDiario();
+            });
+        }
+
         // Inputs de Fazenda na OS para lógica de split e verificação
         const osCodFazendaInput = document.getElementById('os-cod-fazenda');
         const osFazendaInput = document.getElementById('os-fazenda');
@@ -3286,10 +3295,21 @@ forceReloadAllData() {
         if (viewList) viewList.style.display = 'none';
         if (viewForm) viewForm.style.display = 'block';
         
+        // Controle de visibilidade do transporte diário
+        const transporteContainer = document.getElementById('os-transporte-container');
+        const transporteWarning = document.getElementById('os-transporte-warning');
+        
+        if (this.currentOSData && this.currentOSData.id) {
+            if (transporteContainer) transporteContainer.style.display = 'block';
+            if (transporteWarning) transporteWarning.style.display = 'none';
+            // Carregar dados
+            this.loadOSTransporteDiario(this.currentOSData.id);
+        } else {
+            if (transporteContainer) transporteContainer.style.display = 'none';
+            if (transporteWarning) transporteWarning.style.display = 'block';
+        }
+        
         // Limpar formulário para nova inserção se não estiver editando
-        // (Mas se estiver vindo de handleEditOS, já estará preenchido. 
-        //  Se for 'Nova OS', deve limpar. Vamos assumir que quem chama lida com isso 
-        //  ou implementamos um clear aqui se currentOSData for null)
         if (!this.currentOSData) {
             this.clearOSForm();
         }
@@ -5521,6 +5541,8 @@ forceReloadAllData() {
                 const form = document.getElementById('form-transporte-composto');
                 if (form) form.reset();
                 document.getElementById('composto-id').value = '';
+                this.compostoDiarioDraft = [];
+                this.renderCompostoDiarioDraft();
             });
         }
 
@@ -5531,8 +5553,35 @@ forceReloadAllData() {
                 if (this._lastImportedData) {
                     this.fillCompostoForm(this._lastImportedData);
                     document.getElementById('import-preview').style.display = 'none';
+                    // Show Modal
+                    const modal = document.getElementById('modal-transporte-composto');
+                    if (modal) {
+                        modal.style.display = 'block';
+                    }
                 }
             });
+        }
+        
+        // 3.1 New Button: Novo Lançamento (Manual)
+        const btnNew = document.getElementById('btn-novo-lancamento-composto');
+        if (btnNew) {
+            btnNew.addEventListener('click', () => {
+                const form = document.getElementById('form-transporte-composto');
+                const modal = document.getElementById('modal-transporte-composto');
+                if (form && modal) {
+                    form.reset();
+                    document.getElementById('composto-id').value = '';
+                    this.compostoDiarioDraft = [];
+                    this.renderCompostoDiarioDraft();
+                    modal.style.display = 'block';
+                }
+            });
+        }
+        
+        // Listener for Meta Change to update summary
+        const mainQtd = document.getElementById('composto-quantidade');
+        if (mainQtd) {
+            mainQtd.addEventListener('input', () => this.renderCompostoDiarioDraft());
         }
 
         // 4. Form Submit
@@ -5548,6 +5597,31 @@ forceReloadAllData() {
         if (searchOS) searchOS.addEventListener('input', () => this.renderTransporteComposto());
         if (filterStatus) filterStatus.addEventListener('change', () => this.renderTransporteComposto());
         if (btnRefresh) btnRefresh.addEventListener('click', () => this.renderTransporteComposto());
+
+        // 6. Transportes Diários
+        const btnAddDiario = document.getElementById('btn-add-composto-diario');
+        if (btnAddDiario) {
+            btnAddDiario.addEventListener('click', () => this.addCompostoDiarioItem());
+        }
+
+        // 7. Modal Close Logic
+        const closeBtns = document.querySelectorAll('.close-composto-modal');
+        closeBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const modal = document.getElementById('modal-transporte-composto');
+                if(modal) modal.style.display = 'none';
+            });
+        });
+
+        // Close when clicking outside
+        const modalComposto = document.getElementById('modal-transporte-composto');
+        if (modalComposto) {
+            window.addEventListener('click', (e) => {
+                if (e.target === modalComposto) {
+                    modalComposto.style.display = 'none';
+                }
+            });
+        }
     }
 
     // Modal switch tab removed as we don't use tabs anymore
@@ -5759,14 +5833,104 @@ forceReloadAllData() {
         }
     }
 
-    fillCompostoForm(data) {
+    // === MÉTODOS DE TRANSPORTE DIÁRIO (COMPOSTO) ===
+    addCompostoDiarioItem() {
+        const dataEl = document.getElementById('composto-diario-data');
+        const qtdEl = document.getElementById('composto-diario-qtd');
+        const frotaEl = document.getElementById('composto-diario-frota');
+
+        const data = dataEl.value;
+        const qtd = parseFloat(qtdEl.value);
+        const frota = frotaEl.value.trim();
+
+        if (!data || isNaN(qtd) || qtd <= 0) {
+            this.ui.showNotification('Preencha data e quantidade válida.', 'warning');
+            return;
+        }
+
+        this.compostoDiarioDraft.push({
+            id: 'temp_' + Date.now(),
+            data: data,
+            quantidade: qtd,
+            frota: frota
+        });
+
+        // Limpar inputs
+        dataEl.value = '';
+        qtdEl.value = '';
+        frotaEl.value = '';
+        dataEl.focus();
+
+        this.renderCompostoDiarioDraft();
+    }
+
+    removeCompostoDiarioItem(index) {
+        this.compostoDiarioDraft.splice(index, 1);
+        this.renderCompostoDiarioDraft();
+    }
+
+    renderCompostoDiarioDraft() {
+        const tbody = document.getElementById('composto-diario-body');
+        const totalEl = document.getElementById('composto-diario-total');
+        if (!tbody) return;
+
+        tbody.innerHTML = '';
+        let total = 0;
+
+        this.compostoDiarioDraft.forEach((item, index) => {
+            total += (item.quantidade || 0);
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${this.ui.formatDateBR(item.data)}</td>
+                <td>${this.ui.formatNumber(item.quantidade, 3)}</td>
+                <td>${item.frota || '-'}</td>
+                <td>
+                    <button type="button" class="btn btn-sm btn-danger" onclick="window.insumosApp.removeCompostoDiarioItem(${index})">🗑️</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        if (totalEl) totalEl.textContent = this.ui.formatNumber(total, 3);
+        
+        // Update Summary Block
+        const mainQtdInput = document.getElementById('composto-quantidade');
+        const summaryMeta = document.getElementById('summary-meta');
+        const summaryRealizado = document.getElementById('summary-realizado');
+        const summaryRestante = document.getElementById('summary-restante');
+
+        if (summaryRealizado) summaryRealizado.textContent = this.ui.formatNumber(total, 3);
+
+        if (mainQtdInput && summaryMeta && summaryRestante) {
+            // Get raw value or 0
+            const valStr = mainQtdInput.value; 
+            // Handle comma if present (though type="number" usually uses dot or locale)
+            const meta = parseFloat(valStr) || 0;
+            
+            summaryMeta.textContent = this.ui.formatNumber(meta, 3);
+            
+            const restante = meta - total;
+            summaryRestante.textContent = this.ui.formatNumber(restante, 3);
+            
+            // Visual feedback for remaining
+            if (restante < 0) {
+                summaryRestante.style.color = 'red';
+            } else if (restante === 0 && meta > 0) {
+                summaryRestante.style.color = 'green';
+            } else {
+                summaryRestante.style.color = '#d35400'; // orange-ish
+            }
+        }
+    }
+
+    async fillCompostoForm(data) {
         const f = document.getElementById('form-transporte-composto');
         if (!f) return;
         
         // Helper to set value by name
         const set = (name, val) => {
             const el = f.querySelector(`[name="${name}"]`);
-            if (el) el.value = val || '';
+            if (el) el.value = (val !== undefined && val !== null) ? val : '';
         };
 
         set('numero_os', data.numero_os || data.os);
@@ -5775,15 +5939,52 @@ forceReloadAllData() {
         set('empresa', data.empresa);
         set('frente', data.frente);
         set('produto', data.produto || 'COMPOSTO');
-        set('quantidade', data.quantidade || data.volume);
+        // Fix: Use nullish coalescing to preserve 0
+        set('quantidade', (data.quantidade !== undefined && data.quantidade !== null) ? data.quantidade : data.volume);
         set('unidade', data.unidade || 't');
         set('atividade_agricola', data.atividade_agricola);
         set('status', data.status || 'ABERTO');
+
+        // Carregar itens diários
+        // Buscar itens relacionados na tabela filha
+        try {
+            const resDiarios = await this.api.getOSTransporteDiario(data.id);
+            if (resDiarios && resDiarios.success) {
+                // Normalize data structure for UI draft
+                this.compostoDiarioDraft = resDiarios.data.map(d => ({
+                    id: d.id, // keep db id if needed
+                    data: d.data_transporte, // UI uses 'data'
+                    quantidade: d.quantidade, // UI uses 'quantidade'
+                    frota: d.frota
+                }));
+            } else {
+                 this.compostoDiarioDraft = [];
+            }
+        } catch(e) {
+            console.error("Erro ao carregar itens diários:", e);
+            this.compostoDiarioDraft = [];
+        }
+        
+        this.renderCompostoDiarioDraft();
     }
 
     async handleCompostoSubmit(e) {
         e.preventDefault();
         const form = e.target;
+        
+        // Check if user has unsaved daily items in the inputs
+        const dailyData = document.getElementById('composto-diario-data')?.value;
+        const dailyQtd = document.getElementById('composto-diario-qtd')?.value;
+        
+        if (dailyData && dailyQtd) {
+            if (confirm('Existem dados de transporte diário preenchidos mas não adicionados à lista. Deseja adicioná-los antes de salvar?')) {
+                const btnAdd = document.getElementById('btn-add-composto-diario');
+                if (btnAdd) btnAdd.click();
+                // Pequeno delay para garantir que o evento de click processou
+                await new Promise(r => setTimeout(r, 100));
+            }
+        }
+
         const formData = new FormData(form);
         const data = Object.fromEntries(formData.entries());
 
@@ -5793,6 +5994,9 @@ forceReloadAllData() {
             return;
         }
 
+        // Add daily items
+        data.transportes_diarios = this.compostoDiarioDraft;
+
         try {
             console.log('Salvando transporte composto:', data); // Debug
             // Save to Supabase directly
@@ -5800,12 +6004,17 @@ forceReloadAllData() {
 
             if (res && res.success) {
                 this.ui.showNotification('Salvo com sucesso!', 'success');
-                // document.getElementById('modal-transporte-composto').style.display = 'none'; // Modal removed in new layout
+                const modal = document.getElementById('modal-transporte-composto');
+                if (modal) modal.style.display = 'none';
+                
                 form.reset();
                 // Clear hidden ID field to reset to create mode
                 const idField = document.getElementById('composto-id');
                 if (idField) idField.value = '';
                 
+                this.compostoDiarioDraft = [];
+                this.renderCompostoDiarioDraft();
+
                 this.renderTransporteComposto();
             } else {
                 throw new Error(res.message || 'Erro ao salvar');
@@ -5848,8 +6057,9 @@ forceReloadAllData() {
                         <td>${item.produto || '-'}</td>
                         <td>${this.ui.formatNumber(item.quantidade, 3)}</td>
                         <td><span class="badge ${item.status === 'ABERTO' ? 'badge-warning' : 'badge-success'}">${item.status}</span></td>
-                        <td style="white-space: nowrap; min-width: 120px;">
+                        <td style="white-space: nowrap;">
                             <div style="display: flex; gap: 8px;">
+                                <button class="btn btn-sm btn-info" onclick="window.insumosApp.editComposto('${item.id}')" title="Detalhes/Editar" style="color:white;">👁️</button>
                                 <button class="btn btn-sm btn-secondary" onclick="window.insumosApp.editComposto('${item.id}')" title="Editar">✏️</button>
                                 <button class="btn btn-sm btn-danger" onclick="window.insumosApp.deleteComposto('${item.id}')" title="Excluir">🗑️</button>
                             </div>
@@ -5866,23 +6076,157 @@ forceReloadAllData() {
     }
     
     // Global helpers for onclick
-    editComposto(id) {
-        // Implement edit fetch and open modal
-        this.ui.showNotification('Editar: ' + id, 'info');
+    async editComposto(id) {
+        this.ui.showNotification('Carregando dados...', 'info');
+        try {
+            const res = await this.api.getTransporteCompostoById(id);
+            if (res && res.success && res.data) {
+                this.fillCompostoForm(res.data);
+                // Set hidden ID
+                const idField = document.getElementById('composto-id');
+                if (idField) idField.value = id;
+                
+                // Show Modal
+                const modal = document.getElementById('modal-transporte-composto');
+                if (modal) modal.style.display = 'block';
+            } else {
+                this.ui.showNotification('Erro ao carregar registro.', 'error');
+            }
+        } catch (e) {
+            console.error(e);
+            this.ui.showNotification('Erro de conexão.', 'error');
+        }
     }
     
-    deleteComposto(id) {
+    async deleteComposto(id) {
         if(confirm('Excluir este registro?')) {
-            // Implement delete
-             this.api.deleteTransporteComposto(id)
-                .then(res => {
-                    if(res.success) {
-                        this.ui.showNotification('Excluído', 'success');
-                        this.renderTransporteComposto();
-                    } else {
-                        this.ui.showNotification('Erro ao excluir', 'error');
-                    }
+             const res = await this.api.deleteTransporteComposto(id);
+             if(res && res.success) {
+                 this.ui.showNotification('Excluído com sucesso', 'success');
+                 this.renderTransporteComposto();
+             } else {
+                 this.ui.showNotification('Erro ao excluir', 'error');
+             }
+        }
+    }
+
+    // === OS Transporte Diário Methods ===
+
+    async loadOSTransporteDiario(osId) {
+        const tbody = document.getElementById('os-transporte-body');
+        const tfootTotal = document.getElementById('os-transporte-total-qtd');
+        if (!tbody) return;
+        
+        tbody.innerHTML = '<tr><td colspan="4" class="loading">Carregando...</td></tr>';
+        
+        try {
+            const res = await this.api.getOSTransporteDiario(osId);
+            if (res && res.success) {
+                const list = res.data || [];
+                
+                if (list.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#888;">Nenhum lançamento.</td></tr>';
+                    if (tfootTotal) tfootTotal.textContent = '0.000';
+                    return;
+                }
+                
+                let total = 0;
+                tbody.innerHTML = list.map(item => {
+                    const qtd = Number(item.quantidade) || 0;
+                    total += qtd;
+                    return `
+                    <tr>
+                        <td>${this.ui.formatDateBR(item.data_transporte)}</td>
+                        <td>${this.ui.formatNumber(qtd, 3)}</td>
+                        <td>${item.frota || '-'}</td>
+                        <td>
+                            <button class="btn btn-sm btn-delete-os-transporte" data-id="${item.id}" style="color:red; border:none; background:transparent; cursor:pointer;" title="Excluir">🗑️</button>
+                        </td>
+                    </tr>
+                    `;
+                }).join('');
+                
+                if (tfootTotal) tfootTotal.textContent = this.ui.formatNumber(total, 3);
+                
+                // Add listeners for delete buttons
+                tbody.querySelectorAll('.btn-delete-os-transporte').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation(); // Prevent bubbling if needed
+                        const id = e.target.closest('button').getAttribute('data-id');
+                        this.deleteOSTransporte(id, osId);
+                    });
                 });
+                
+            } else {
+                tbody.innerHTML = '<tr><td colspan="4" style="color:red;">Erro ao carregar.</td></tr>';
+            }
+        } catch (e) {
+            console.error(e);
+            tbody.innerHTML = '<tr><td colspan="4" style="color:red;">Erro de conexão.</td></tr>';
+        }
+    }
+
+    async addOSTransporteDiario() {
+        if (!this.currentOSData || !this.currentOSData.id) {
+            this.ui.showNotification('Salve a OS primeiro.', 'warning');
+            return;
+        }
+
+        const dataInput = document.getElementById('os-transporte-data');
+        const qtdInput = document.getElementById('os-transporte-qtd');
+        const frotaInput = document.getElementById('os-transporte-frota');
+
+        if (!dataInput.value || !qtdInput.value) {
+            this.ui.showNotification('Preencha Data e Quantidade.', 'warning');
+            return;
+        }
+
+        const payload = {
+            os_id: this.currentOSData.id,
+            data_transporte: dataInput.value,
+            quantidade: parseFloat(qtdInput.value),
+            frota: frotaInput.value
+        };
+
+        this.ui.showLoading();
+        try {
+            const res = await this.api.saveOSTransporteDiario(payload);
+            if (res && res.success) {
+                this.ui.showNotification('Adicionado com sucesso!', 'success');
+                // Clear inputs
+                dataInput.value = '';
+                qtdInput.value = '';
+                frotaInput.value = '';
+                // Reload list
+                await this.loadOSTransporteDiario(this.currentOSData.id);
+            } else {
+                this.ui.showNotification('Erro ao adicionar.', 'error');
+            }
+        } catch (e) {
+            console.error(e);
+            this.ui.showNotification('Erro ao adicionar.', 'error');
+        } finally {
+            this.ui.hideLoading();
+        }
+    }
+
+    async deleteOSTransporte(id, osId) {
+        if (!confirm('Excluir este lançamento?')) return;
+        
+        this.ui.showLoading();
+        try {
+            const res = await this.api.deleteOSTransporteDiario(id);
+            if (res && res.success) {
+                this.ui.showNotification('Excluído.', 'success');
+                await this.loadOSTransporteDiario(osId);
+            } else {
+                this.ui.showNotification('Erro ao excluir.', 'error');
+            }
+        } catch (e) {
+            console.error(e);
+            this.ui.showNotification('Erro ao excluir.', 'error');
+        } finally {
+            this.ui.hideLoading();
         }
     }
 }

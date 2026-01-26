@@ -7,6 +7,28 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
     <link rel="stylesheet" href="main.css?v=FIX-LAYOUT-2">
+    <style>
+        /* Theme specific style */
+        body.dark-mode .header-container-theme {
+            background-color: #2c2c2c !important;
+            color: #fff;
+            border: 1px solid #444;
+        }
+        body:not(.dark-mode) .header-container-theme {
+            background-color: #fff !important;
+        }
+
+        /* Summary block theme */
+        body.dark-mode .summary-block-theme {
+            background-color: #333 !important;
+            color: #eee;
+            border-color: #555 !important;
+        }
+        body:not(.dark-mode) .summary-block-theme {
+            background-color: #f8f9fa !important;
+            color: #333;
+        }
+    </style>
 </head>
 <body>
     <div class="app-container">
@@ -750,75 +772,19 @@
     <!-- View COMPOSTO (Fixed Layout) -->
     <div id="view-composto-mode" style="display:none;">
         
-        <!-- Formulário Fixo de Cadastro -->
-        <div class="dashboard-wrapper" style="margin-bottom: 20px;">
-            <div class="chart-card form-card">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                    <h4 style="margin:0;">Cadastro de Transporte de Composto</h4>
-                    <div style="display:flex; gap:10px;">
-                        <input type="file" id="file-import-pdf" accept=".pdf" style="display:none;">
-                        <button id="btn-composto-import" class="btn btn-secondary">📂 Importar PDF</button>
-                    </div>
-                </div>
-                
-                <!-- Debug Area for PDF Import -->
-                <div id="import-debug-area" style="display:none; margin-bottom: 15px; background: #f8f9fa; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-                    <p id="import-status-msg" style="margin: 0; font-size: 14px; font-weight: bold;"></p>
-                </div>
-                
-                <form id="form-transporte-composto">
-                    <input type="hidden" name="id" id="composto-id">
-                    <div class="form-grid boletim-grid">
-                        <div class="form-group">
-                            <label>Nº OS *</label>
-                            <input type="text" name="numero_os" id="composto-numero-os" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Data Abertura</label>
-                            <input type="date" name="data_abertura" id="composto-data-abertura">
-                        </div>
-                        <div class="form-group">
-                            <label>Responsável</label>
-                            <input type="text" name="responsavel_aplicacao" id="composto-responsavel">
-                        </div>
-                        <div class="form-group">
-                            <label>Empresa</label>
-                            <input type="text" name="empresa" id="composto-empresa">
-                        </div>
-                        <div class="form-group">
-                            <label>Frente</label>
-                            <input type="text" name="frente" id="composto-frente">
-                        </div>
-                        <div class="form-group">
-                            <label>Produto</label>
-                            <input type="text" name="produto" id="composto-produto" value="COMPOSTO">
-                        </div>
-                        <div class="form-group">
-                            <label>Quantidade (t)</label>
-                            <input type="number" step="0.001" name="quantidade" id="composto-quantidade">
-                        </div>
-                        <div class="form-group">
-                            <label>Unidade</label>
-                            <input type="text" name="unidade" id="composto-unidade" value="t">
-                        </div>
-                        <div class="form-group">
-                            <label>Atividade</label>
-                            <input type="text" name="atividade_agricola" id="composto-atividade">
-                        </div>
-                        <div class="form-group">
-                            <label>Status</label>
-                            <select name="status" id="composto-status">
-                                <option value="ABERTO">ABERTO</option>
-                                <option value="FECHADO">FECHADO</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="form-actions" style="margin-top: 15px; display: flex; justify-content: flex-end; gap: 10px;">
-                        <button type="button" id="btn-composto-clear" class="btn btn-secondary">Limpar</button>
-                        <button type="submit" id="btn-composto-save" class="btn btn-primary">💾 Salvar Transporte</button>
-                    </div>
-                </form>
+        <!-- Header e Botões -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" class="header-container-theme">
+            <h4 style="margin:0;">Gerenciamento de Transporte de Composto</h4>
+            <div style="display:flex; gap:10px;">
+                 <button class="btn btn-primary" id="btn-novo-lancamento-composto">➕ Novo Transporte (Composto)</button>
+                 <input type="file" id="file-import-pdf" accept=".pdf" style="display:none;">
+                 <button id="btn-composto-import" class="btn btn-secondary">📂 Importar PDF</button>
             </div>
+        </div>
+        
+        <!-- Debug Area for PDF Import -->
+        <div id="import-debug-area" style="display:none; margin-bottom: 15px; background: #f8f9fa; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+            <p id="import-status-msg" style="margin: 0; font-size: 14px; font-weight: bold;"></p>
         </div>
 
         <!-- Filtros e Tabela -->
@@ -842,7 +808,7 @@
                         <th>Produto</th>
                         <th>Qtde (t)</th>
                         <th>Status</th>
-                        <th>Ações</th>
+                        <th style="width: 150px;">Ações</th>
                     </tr>
                 </thead>
                 <tbody id="transporte-composto-body">
@@ -863,7 +829,7 @@
                         <button class="btn btn-secondary" id="btn-os">📋 Gerenciar O.S.</button>
                         <button class="btn btn-secondary" id="btn-open-fazendas-modal">🚜 Fazendas</button>
                         <button class="btn btn-secondary" id="btn-liberacao-colheita">🌾 Liberação Colheita</button>
-                        <button class="btn btn-primary" id="btn-novo-lancamento">➕ Novo Lançamento</button>
+                        <button class="btn btn-primary" id="btn-novo-lancamento">➕ Novo Plantio</button>
                     </div>
                 </div>
                 <div class="table-container" style="flex: 1; overflow-y: auto;">
@@ -1065,6 +1031,54 @@
                                 </tbody>
                             </table>
                         </div>
+
+                        <!-- Transporte Diário de Composto (REMOVIDO: Funcionalidade movida para a aba principal de Transporte de Composto) -->
+                        <!-- 
+                        <h5 style="margin: 15px 0 5px 0; border-top: 1px solid #eee; padding-top: 15px;">Transporte Diário de Composto</h5>
+                        <div id="os-transporte-container" style="display:none;">
+                            <div class="form-grid" style="grid-template-columns: auto auto auto auto; align-items: end; margin-bottom: 10px;">
+                                <div class="form-group">
+                                    <label for="os-transporte-data">Data</label>
+                                    <input type="date" id="os-transporte-data">
+                                </div>
+                                <div class="form-group">
+                                    <label for="os-transporte-qtd">Qtd. Total (t)</label>
+                                    <input type="number" id="os-transporte-qtd" step="0.001">
+                                </div>
+                                <div class="form-group">
+                                    <label for="os-transporte-frota">Frota</label>
+                                    <input type="text" id="os-transporte-frota" placeholder="Ex: Caminhão X, Trator Y">
+                                </div>
+                                <button type="button" class="btn btn-secondary" id="btn-add-os-transporte">Adicionar</button>
+                            </div>
+
+                            <div class="table-container">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Data</th>
+                                            <th>Quantidade (t)</th>
+                                            <th>Frota</th>
+                                            <th>Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="os-transporte-body">
+                                        
+                                    </tbody>
+                                    <tfoot>
+                                        <tr>
+                                            <th>Total</th>
+                                            <th id="os-transporte-total-qtd">0.000</th>
+                                            <th colspan="2"></th>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+                        <div id="os-transporte-warning" style="color: #666; font-style: italic; padding: 10px; background: #f9f9f9; border-radius: 4px;">
+                            Salve a OS primeiro para habilitar os lançamentos de transporte.
+                        </div>
+                        -->
 
                         <div style="margin-top:20px;display:flex;gap:10px;justify-content:flex-end;">
                             <button type="button" class="btn btn-secondary" id="os-novo">Limpar</button>
@@ -1685,6 +1699,120 @@
         </div>
         </div> <!-- End of .content-area -->
     </div>
+    <!-- Modal Transporte de Composto -->
+    <div id="modal-transporte-composto" class="modal" style="display: none;">
+        <div class="modal-content" style="width: 80%; max-width: 900px;">
+            <div class="modal-header">
+                <h3>Cadastro de Transporte de Composto</h3>
+                <span class="close-modal close-composto-modal" style="cursor: pointer;">&times;</span>
+            </div>
+            
+            <form id="form-transporte-composto">
+                <input type="hidden" name="id" id="composto-id">
+                <div class="form-grid boletim-grid">
+                    <div class="form-group">
+                        <label>Nº OS *</label>
+                        <input type="text" name="numero_os" id="composto-numero-os" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Data Abertura</label>
+                        <input type="date" name="data_abertura" id="composto-data-abertura">
+                    </div>
+                    <div class="form-group">
+                        <label>Responsável</label>
+                        <input type="text" name="responsavel_aplicacao" id="composto-responsavel">
+                    </div>
+                    <div class="form-group">
+                        <label>Empresa</label>
+                        <input type="text" name="empresa" id="composto-empresa">
+                    </div>
+                    <div class="form-group">
+                        <label>Frente</label>
+                        <input type="text" name="frente" id="composto-frente">
+                    </div>
+                    <div class="form-group">
+                        <label>Produto</label>
+                        <input type="text" name="produto" id="composto-produto" value="COMPOSTO">
+                    </div>
+                    <div class="form-group">
+                        <label>Quantidade (t)</label>
+                        <input type="number" step="0.001" name="quantidade" id="composto-quantidade">
+                    </div>
+                    <div class="form-group">
+                        <label>Unidade</label>
+                        <input type="text" name="unidade" id="composto-unidade" value="t">
+                    </div>
+                    <div class="form-group">
+                        <label>Atividade</label>
+                        <input type="text" name="atividade_agricola" id="composto-atividade">
+                    </div>
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select name="status" id="composto-status">
+                            <option value="ABERTO">ABERTO</option>
+                            <option value="FECHADO">FECHADO</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Transportes Diários -->
+                <h5 style="margin: 20px 0 10px 0; border-top: 1px solid #eee; padding-top: 15px;">Transportes Diários</h5>
+                
+                <!-- Summary Block -->
+                <div class="summary-block-theme" style="display: flex; gap: 20px; padding: 10px; border-radius: 4px; margin-bottom: 10px; font-size: 0.9em; align-items: center; justify-content: space-around; border: 1px solid #ddd;">
+                    <div><strong>Meta da O.S.:</strong> <span id="summary-meta">0.000</span> t</div>
+                    <div><strong>Realizado:</strong> <span id="summary-realizado" style="color: blue;">0.000</span> t</div>
+                    <div><strong>Restante:</strong> <span id="summary-restante" style="font-weight: bold;">0.000</span> t</div>
+                </div>
+
+                <div class="form-grid" style="grid-template-columns: auto auto auto auto; align-items: end; margin-bottom: 10px; gap: 10px;">
+                    <div class="form-group">
+                        <label>Data</label>
+                        <input type="date" id="composto-diario-data">
+                    </div>
+                    <div class="form-group">
+                        <label>Qtd (t)</label>
+                        <input type="number" step="0.001" id="composto-diario-qtd">
+                    </div>
+                    <div class="form-group">
+                        <label>Frota/Caminhão</label>
+                        <input type="text" id="composto-diario-frota" placeholder="Placa ou ID">
+                    </div>
+                    <button type="button" class="btn btn-secondary" id="btn-add-composto-diario">➕ Adicionar</button>
+                </div>
+
+                <div class="table-container" style="max-height: 200px; overflow-y: auto; margin-bottom: 15px;">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Quantidade (t)</th>
+                                <th>Frota</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="composto-diario-body">
+                            <!-- JS Render -->
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <th>Total</th>
+                                <th id="composto-diario-total">0.000</th>
+                                <th colspan="2"></th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+
+                <div class="form-actions" style="margin-top: 15px; display: flex; justify-content: flex-end; gap: 10px;">
+                    <button type="button" class="btn btn-secondary close-composto-modal">Cancelar</button>
+                    <button type="button" id="btn-composto-clear" class="btn btn-secondary">Limpar</button>
+                    <button type="submit" id="btn-composto-save" class="btn btn-primary">💾 Salvar Transporte</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -1698,9 +1826,9 @@
     </script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.28/dist/jspdf.plugin.autotable.min.js"></script>
-    <script src="api.js?v=FIX-LAYOUT-2"></script>
-    <script src="ui.js?v=FIX-LAYOUT-2"></script>
-    <script src="import.js?v=FIX-LAYOUT-2"></script>
-    <script src="app.js?v=FIX-LAYOUT-2"></script>
+    <script src="api.js?v=FIX-LAYOUT-8"></script>
+    <script src="ui.js?v=FIX-LAYOUT-8"></script>
+    <script src="import.js?v=FIX-LAYOUT-8"></script>
+    <script src="app.js?v=FIX-LAYOUT-8"></script>
 </body>
 </html>
