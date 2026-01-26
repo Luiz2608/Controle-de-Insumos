@@ -5609,7 +5609,22 @@ forceReloadAllData() {
                                 
                                 await page.render({ canvasContext: context, viewport: viewport }).promise;
                                 
-                                const result = await Tesseract.recognize(canvas, 'por');
+                                const result = await Tesseract.recognize(canvas, 'por', {
+                                    logger: m => {
+                                        console.log('[Tesseract Log]:', m);
+                                        // Atualiza a barra de progresso com o status detalhado do OCR
+                                        // Status comuns: 'loading tesseract core', 'initializing api', 'recognizing text'
+                                        let statusText = m.status;
+                                        let progressVal = m.status === 'recognizing text' ? m.progress * 100 : 0;
+                                        
+                                        // Traduzindo status para o usuário
+                                        if (m.status.includes('loading') || m.status.includes('downloading')) statusText = 'Baixando componentes OCR...';
+                                        if (m.status === 'initializing api') statusText = 'Inicializando IA...';
+                                        if (m.status === 'recognizing text') statusText = `Lendo Texto da Pág ${pageNum}... ${(m.progress * 100).toFixed(0)}%`;
+
+                                        this.showProgress('Processando Imagem (OCR)', progressVal, statusText);
+                                    }
+                                });
                                 fullText += result.data.text + '\n\n';
                             }
                             debugMsg.textContent = "Leitura OCR concluída com sucesso.";
