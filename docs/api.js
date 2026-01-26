@@ -707,7 +707,8 @@ class ApiService {
         const { data, error } = await this.supabase.from('metas_plantio').select('*');
         if (error) {
             console.warn('Erro ao buscar metas (tabela pode não existir):', error);
-            return { success: false, error };
+            // Se a tabela não existir (42P01) ou outro erro, retorna vazio para não quebrar UI
+            return { success: true, data: [] };
         }
         return { success: true, data };
     }
