@@ -5589,9 +5589,39 @@ forceReloadAllData() {
                 debugArea.style.display = 'block';
                 
                 if (fullText.trim().length < 50) {
-                    debugMsg.textContent = "ALERTA: Pouco texto extraído. O PDF pode ser uma imagem (scanned) e não texto selecionável.";
-                    debugMsg.style.color = "#dc3545"; // Red
-                    debugArea.style.borderColor = "#dc3545";
+                    debugMsg.textContent = "ALERTA: Pouco texto extraído. Tentando ler como imagem (OCR)... Aguarde, isso pode demorar.";
+                    debugMsg.style.color = "#d39e00"; // Orange
+                    debugArea.style.borderColor = "#d39e00";
+
+                    // Tesseract OCR Fallback
+                    if (window.Tesseract) {
+                        try {
+                            fullText = ''; // Reset para preencher com OCR
+                            for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                                this.showProgress('Processando Imagem (OCR)...', (pageNum/pdf.numPages)*100, `Lendo página ${pageNum} de ${pdf.numPages} com IA...`);
+                                
+                                const page = await pdf.getPage(pageNum);
+                                const viewport = page.getViewport({ scale: 2.0 }); // Melhor resolução
+                                const canvas = document.createElement('canvas');
+                                const context = canvas.getContext('2d');
+                                canvas.height = viewport.height;
+                                canvas.width = viewport.width;
+                                
+                                await page.render({ canvasContext: context, viewport: viewport }).promise;
+                                
+                                const result = await Tesseract.recognize(canvas, 'por');
+                                fullText += result.data.text + '\n\n';
+                            }
+                            debugMsg.textContent = "Leitura OCR concluída com sucesso.";
+                            debugMsg.style.color = "#28a745"; // Green
+                            debugArea.style.borderColor = "#28a745";
+                        } catch (ocrErr) {
+                            console.error("OCR Error:", ocrErr);
+                            debugMsg.textContent = "Erro na leitura OCR. Tente um PDF com texto selecionável.";
+                            debugMsg.style.color = "#dc3545";
+                        }
+                    }
+
                 } else {
                     debugMsg.textContent = "Leitura do PDF concluída. Verifique os dados abaixo.";
                     debugMsg.style.color = "#28a745"; // Green
