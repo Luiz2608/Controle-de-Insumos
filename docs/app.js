@@ -6736,15 +6736,17 @@ InsumosApp.prototype.updateMudasPercent = function() {
     const bonsEl = document.getElementById('qual-mudas-boas');
     const ruinsEl = document.getElementById('qual-mudas-ruins');
     const bonsPctEl = document.getElementById('qual-mudas-boas-pct');
+    // ruinsPctEl e amostraEl podem não existir no modo colheita_muda, então tratamos como opcional
     const ruinsPctEl = document.getElementById('qual-mudas-ruins-pct');
     const amostraEl = document.getElementById('qual-mudas-amostra');
     const mediaEl = document.getElementById('qual-mudas-media');
 
-    if (!totalEl || !bonsEl || !ruinsEl || !bonsPctEl || !ruinsPctEl) return;
+    if (!totalEl || !bonsEl || !ruinsEl || !bonsPctEl) return;
     const total = parseFloat(totalEl.value || '0');
-    const amostra = parseFloat(amostraEl?.value || '0');
+    // Se não tiver amostraEl, assume 0 (ou 100 se for fixo, mas aqui é para cálculo de média que pode não existir)
+    const amostra = amostraEl ? parseFloat(amostraEl.value || '0') : 0;
 
-    if (mediaEl) {
+    if (mediaEl && amostraEl) {
         mediaEl.value = (amostra > 0 && total > 0) ? (total / amostra).toFixed(2) : '';
     }
 
@@ -6759,10 +6761,10 @@ InsumosApp.prototype.updateMudasPercent = function() {
             bonsEl.value = bons;
         }
         bonsPctEl.value = ((bons / total) * 100).toFixed(2);
-        ruinsPctEl.value = ((ruins / total) * 100).toFixed(2);
+        if (ruinsPctEl) ruinsPctEl.value = ((ruins / total) * 100).toFixed(2);
     } else {
         bonsPctEl.value = '';
-        ruinsPctEl.value = '';
+        if (ruinsPctEl) ruinsPctEl.value = '';
     }
 };
 
@@ -7035,16 +7037,22 @@ InsumosApp.prototype.toggleOperacaoSections = function() {
     const secToletes = document.getElementById('sec-toletes');
     const secMudas = document.getElementById('sec-mudas');
     const secOutros = document.getElementById('sec-outros');
+    const secMudaConsumo = document.getElementById('sec-muda-consumo-card');
+    const secInsumos = document.getElementById('sec-insumos');
     
     if (tipo === 'plantio') {
         if (secGemas) secGemas.style.display = 'block';
         if (secToletes) secToletes.style.display = 'block';
         if (secOutros) secOutros.style.display = 'block';
+        if (secMudaConsumo) secMudaConsumo.style.display = 'block';
+        if (secInsumos) secInsumos.style.display = 'block';
         if (secMudas) secMudas.style.display = 'none';
     } else { // colheita_muda
         if (secGemas) secGemas.style.display = 'none';
         if (secToletes) secToletes.style.display = 'none';
         if (secOutros) secOutros.style.display = 'none';
+        if (secMudaConsumo) secMudaConsumo.style.display = 'none';
+        if (secInsumos) secInsumos.style.display = 'none';
         if (secMudas) secMudas.style.display = 'block';
     }
 };
@@ -7064,11 +7072,11 @@ InsumosApp.prototype.resetPlantioForm = function() {
         'plantio-data', 'plantio-responsavel', 'plantio-obs',
         'qual-toletes-total', 'qual-toletes-bons', 'qual-toletes-ruins', 'qual-toletes-amostra',
         'qual-gemas-total', 'qual-gemas-boas', 'qual-gemas-ruins', 'qual-gemas-amostra', 'qual-gemas-media',
-        'qual-mudas-total', 'qual-mudas-boas', 'qual-mudas-ruins', 'qual-mudas-amostra', 'qual-mudas-media',
+        'qual-mudas-total', 'qual-mudas-boas', 'qual-mudas-ruins', 'qual-mudas-amostra', 'qual-mudas-media', 'qual-mudas-reboulos',
         'qual-muda', 'qual-profundidade', 'qual-cobertura', 'qual-alinhamento', 'chuva-mm',
         'oxifertil-dose', 'cobricao-dia', 'cobricao-acumulada',
         'muda-consumo-total', 'muda-consumo-acumulado', 'muda-consumo-dia', 'muda-previsto',
-        'muda-liberacao-fazenda', 'muda-variedade',
+        'muda-liberacao-fazenda', 'muda-variedade', 'qual-muda-liberacao', 'qual-muda-variedade', 'muda-colheita-info', 'muda-fazenda-origem', 'muda-talhao-origem',
         'single-frente', 'single-fazenda', 'single-cod', 'single-regiao',
         'single-area', 'single-plantada', 'single-area-total', 'single-area-acumulada', 'single-plantio-dia'
     ];
@@ -7139,7 +7147,13 @@ InsumosApp.prototype.handleEditPlantio = function(id) {
     set('muda-consumo-dia', q.mudaConsumoDia);
     set('muda-previsto', q.mudaPrevisto);
     set('muda-liberacao-fazenda', q.mudaLiberacaoFazenda);
+    set('qual-muda-liberacao', q.mudaLiberacaoFazenda);
     set('muda-variedade', q.mudaVariedade);
+    set('qual-muda-variedade', q.mudaVariedade);
+    set('muda-colheita-info', q.mudaColheitaInfo);
+    set('muda-fazenda-origem', q.mudaFazendaOrigem);
+    set('muda-talhao-origem', q.mudaTalhaoOrigem);
+    set('qual-mudas-reboulos', q.mudasReboulos);
 
     // Frentes (pega a primeira se houver)
     if (record.frentes && record.frentes.length > 0) {
@@ -7237,8 +7251,12 @@ InsumosApp.prototype.savePlantioDia = async function() {
         mudaConsumoAcumulado: parseFloat(document.getElementById('muda-consumo-acumulado')?.value || '0'),
         mudaConsumoDia: parseFloat(document.getElementById('muda-consumo-dia')?.value || '0'),
         mudaPrevisto: parseFloat(document.getElementById('muda-previsto')?.value || '0'),
-        mudaLiberacaoFazenda: document.getElementById('muda-liberacao-fazenda')?.value || '',
-        mudaVariedade: document.getElementById('muda-variedade')?.value || ''
+        mudaLiberacaoFazenda: document.getElementById('qual-muda-liberacao')?.value || document.getElementById('muda-liberacao-fazenda')?.value || '',
+        mudaVariedade: document.getElementById('qual-muda-variedade')?.value || document.getElementById('muda-variedade')?.value || '',
+        mudaColheitaInfo: document.getElementById('muda-colheita-info')?.value || '',
+        mudaFazendaOrigem: document.getElementById('muda-fazenda-origem')?.value || '',
+        mudaTalhaoOrigem: document.getElementById('muda-talhao-origem')?.value || '',
+        mudasReboulos: parseFloat(document.getElementById('qual-mudas-reboulos')?.value || '0')
     };
     let fazendaNome = document.getElementById('single-fazenda')?.value || '';
     const matchCod = fazendaNome.match(/^(\d+)\s*[-–]\s*(.+)$/);

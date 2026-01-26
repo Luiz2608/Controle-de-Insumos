@@ -32,8 +32,8 @@ body {
     background-color: var(--background);
     color: var(--text);
     min-height: 100vh;
-    width: 100vw; /* Ensure body fits viewport */
-    max-width: 100vw;
+    width: 100%; /* Changed from 100vw to avoid scrollbar overflow */
+    max-width: 100%;
     display: flex;
     flex-direction: column;
     overflow-x: hidden;
@@ -199,7 +199,7 @@ body {
 /* Dashboard Chart Container Fix */
 .tab-content .charts {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); /* Reduced from 400px for better responsiveness */
     gap: 20px;
     margin-top: 20px;
 }
@@ -451,20 +451,64 @@ body {
     border: 1px solid var(--border);
 }
 
-@keyframes slideInUp {
-    from { transform: translateY(50px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
+.modal-content.large-modal {
+    max-width: 95%;
+    width: 95%;
+}
+
+/* Modal Header */
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+}
+
+.modal-header h3 {
+    margin: 0;
 }
 
 .close-modal {
     color: var(--text-light);
-    float: right;
     font-size: 28px;
     font-weight: bold;
     cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0;
+    line-height: 1;
 }
 .close-modal:hover {
     color: var(--text);
+}
+
+/* Modal Body Grid - Vertical Stack as requested */
+.modal-body .charts {
+    display: flex;
+    flex-direction: column;
+    gap: 25px; /* Increased gap for better separation */
+    padding: 10px;
+}
+
+.modal-body .charts .chart-card {
+    width: 100%;
+    margin: 0;
+    height: auto;
+    flex: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1); /* Subtle shadow for depth */
+}
+
+@media (max-width: 768px) {
+    .modal-body .charts {
+        padding: 5px;
+    }
+}
+
+@keyframes slideInUp {
+    from { transform: translateY(50px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
 }
 
 /* Loading Overlay */

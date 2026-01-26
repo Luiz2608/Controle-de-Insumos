@@ -705,7 +705,7 @@
                 </div>
             </div>
 
-            <div class="chart-card" id="viagem-bags-section">
+            <div class="chart-card form-card" id="viagem-bags-section">
                 <h4 style="margin: 0 0 10px 0;">Bags da Viagem</h4>
                 <div class="form-grid boletim-grid">
                     <div class="form-group">
@@ -891,7 +891,7 @@
             <div class="modal-body" style="overflow-y: auto; max-height: 80vh;">
                 
                 <!-- LISTA DE OS (Visão Principal) -->
-                <div id="os-view-list" class="chart-card">
+                <div id="os-view-list" class="chart-card form-card">
                      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                         <h4 style="margin: 0;">Todas as OS Cadastradas</h4>
                         <button class="btn btn-primary" id="btn-nova-os">➕ Nova OS</button>
@@ -922,7 +922,7 @@
                     <button class="btn btn-secondary" id="btn-voltar-os-list" style="margin-bottom: 10px;">⬅ Voltar para Lista</button>
 
                     <div class="charts">
-                        <div class="chart-card">
+                        <div class="chart-card form-card">
                             <h4 style="margin: 0 0 10px 0;">Dados da OS</h4>
                         <div style="margin-bottom: 15px; padding: 10px; background-color: #f5f5f5; border-radius: 4px; display: flex; align-items: center; justify-content: space-between;">
                             <span>Importar dados de arquivo (PDF/Imagem):</span>
@@ -1103,7 +1103,7 @@
             </div>
             <div class="modal-body" style="overflow-y: auto; max-height: 80vh;">
                 <div class="charts">
-                    <div class="chart-card">
+                    <div class="chart-card form-card">
                         <h4 style="margin: 0 0 10px 0;">Cadastro de Fazendas</h4>
                         <div class="form-grid">
                             <div class="form-group">
@@ -1142,7 +1142,7 @@
                             <input type="file" id="cadastro-fazenda-pdf-input" accept="application/pdf" style="display:none">
                         </div>
                     </div>
-                    <div class="chart-card">
+                    <div class="chart-card form-card">
                         <h4 style="margin: 0 0 10px 0;">Fazendas Cadastradas</h4>
                         <div class="table-container">
                             <table id="cadastro-fazendas-table" class="data-table">
@@ -1410,7 +1410,7 @@
 
                 <div class="charts">
                     <!-- 1. Informações Gerais -->
-                    <div class="chart-card">
+                    <div class="chart-card form-card">
                         <h4 class="section-title">1. Informações Gerais</h4>
                         <div class="modal-form-grid">
                             <div class="form-group" style="grid-column: span 2;">
@@ -1420,7 +1420,7 @@
                                     <option value="colheita_muda">Colheita de Muda</option>
                                 </select>
                             </div>
-                            <div class="form-group">
+                            <div class="form-group" style="grid-column: span 2;">
                                 <label for="single-frente">Frente *</label>
                                 <select id="single-frente" style="font-weight:bold;">
                                     <option value="">Selecione</option>
@@ -1451,7 +1451,7 @@
                         </div>
                         
                         <!-- Insumos Section -->
-                        <div class="modal-subsection" style="margin-top: 15px; border-top: 1px solid var(--border); padding-top: 10px;">
+                        <div class="modal-subsection" id="sec-insumos" style="margin-top: 15px; border-top: 1px solid var(--border); padding-top: 10px;">
                             <h4 style="margin-bottom: 10px;">Insumos Utilizados</h4>
                             <div class="modal-form-grid">
                                 <div class="form-group" style="grid-column: span 2;">
@@ -1496,7 +1496,7 @@
                     </div>
 
                     <!-- 2. Relatório Diário - Frente -->
-                    <div class="chart-card">
+                    <div class="chart-card form-card">
                         <h4 class="section-title">2. Relatório Diário - Frente</h4>
                         <div class="modal-form-grid">
                             <div class="form-group">
@@ -1543,7 +1543,7 @@
                     </div>
 
                     <!-- 3. Qualidade Muda/Plantio -->
-                    <div class="chart-card">
+                    <div class="chart-card form-card">
                         <h4 class="section-title">3. Qualidade Muda/Plantio</h4>
                         
                         <div class="modal-subsection" id="sec-gemas">
@@ -1607,32 +1607,61 @@
                         </div>
 
                         <div class="modal-subsection" id="sec-mudas">
-                            <h5 style="margin: 0 0 8px 0; color: #666; font-weight: 600;">🌱 Mudas (Qualidade)</h5>
-                            <div class="modal-form-grid" style="grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));">
+                            <h5 style="margin: 0 0 8px 0; color: #666; font-weight: 600;">🌱 Qualidade de Muda</h5>
+                            <div class="modal-form-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
+                                <!-- Campos de Identificação da Muda -->
                                 <div class="form-group">
-                                    <label for="qual-mudas-amostra">Amostra (m)</label>
-                                    <input type="number" id="qual-mudas-amostra" step="0.1">
+                                    <label for="muda-colheita-info">Colheita de muda</label>
+                                    <input type="text" id="muda-colheita-info">
                                 </div>
                                 <div class="form-group">
-                                    <label for="qual-mudas-total">Total</label>
+                                    <label for="qual-muda-liberacao">Liberação</label>
+                                    <input type="text" id="qual-muda-liberacao">
+                                </div>
+                                <div class="form-group">
+                                    <label for="muda-fazenda-origem">Fazenda</label>
+                                    <input type="text" id="muda-fazenda-origem">
+                                </div>
+                                <div class="form-group">
+                                    <label for="muda-talhao-origem">Talhão</label>
+                                    <input type="text" id="muda-talhao-origem">
+                                </div>
+                                <div class="form-group">
+                                    <label for="qual-muda-variedade">Variedade</label>
+                                    <input type="text" id="qual-muda-variedade">
+                                </div>
+
+                                <!-- Campos de Métricas -->
+                                <div class="form-group">
+                                    <label for="qual-mudas-amostra-fixo">Amostra Fixa</label>
+                                    <input type="text" id="qual-mudas-amostra-fixo" value="100 toletes" readonly style="background-color: #e9ecef;">
+                                </div>
+                                <div class="form-group">
+                                    <label for="qual-mudas-total">Total de gemas</label>
                                     <input type="number" id="qual-mudas-total" step="1">
                                 </div>
                                 <div class="form-group">
-                                    <label for="qual-mudas-media">Média/m</label>
-                                    <input type="number" id="qual-mudas-media" step="0.01" class="readonly-field" readonly>
-                                </div>
-                                <div class="form-group">
-                                    <label for="qual-mudas-boas">Boas</label>
+                                    <label for="qual-mudas-boas">Gemas boas</label>
                                     <input type="number" id="qual-mudas-boas" step="1">
                                 </div>
                                 <div class="form-group">
-                                    <label for="qual-mudas-ruins">Ruins</label>
+                                    <label for="qual-mudas-ruins">Gemas ruins</label>
                                     <input type="number" id="qual-mudas-ruins" step="1">
                                 </div>
                                 <div class="form-group">
-                                    <label for="qual-mudas-boas-pct">% Boas</label>
+                                    <label for="qual-mudas-boas-pct">% recomendada de boas (>80%)</label>
                                     <input type="number" id="qual-mudas-boas-pct" step="0.01" class="readonly-field" readonly>
                                 </div>
+                                <div class="form-group">
+                                    <label for="qual-mudas-reboulos">Reboulos</label>
+                                    <input type="number" id="qual-mudas-reboulos" step="1">
+                                </div>
+                                
+                                <!-- Hidden/Legacy fields that might be needed for calculation but hidden in UI if not requested? 
+                                     Actually I'll just remove the ones not requested from this section view 
+                                     or keep them if they are essential. 
+                                     The user listed specific fields. I replaced the old structure with this new one. 
+                                -->
                             </div>
                         </div>
 
@@ -1660,7 +1689,7 @@
                     </div>
 
                     <!-- 4. Muda -->
-                    <div class="chart-card">
+                    <div class="chart-card form-card" id="sec-muda-consumo-card">
                         <h4 class="section-title">4. Muda (Consumo)</h4>
                         <div class="modal-form-grid">
                             <div class="form-group">
