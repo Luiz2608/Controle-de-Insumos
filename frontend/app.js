@@ -5630,10 +5630,12 @@ forceReloadAllData() {
                             debugMsg.textContent = "Leitura OCR concluída com sucesso.";
                             debugMsg.style.color = "#28a745"; // Green
                             debugArea.style.borderColor = "#28a745";
+                            this.hideProgress();
                         } catch (ocrErr) {
                             console.error("OCR Error:", ocrErr);
                             debugMsg.textContent = "Erro na leitura OCR. Tente um PDF com texto selecionável.";
                             debugMsg.style.color = "#dc3545";
+                            this.hideProgress();
                         }
                     }
 
