@@ -1865,6 +1865,10 @@ forceReloadAllData() {
             
             // Correção: Somar área das frentes se existir array de frentes, ou usar area_plantada direta
             const totalArea = plantioFiltered.reduce((acc, curr) => {
+                // Ignorar registros que sejam de colheita_muda para a soma de área plantada
+                // Assumindo que 'plantio' é o padrão ou nulo
+                if (curr.tipo_operacao === 'colheita_muda') return acc;
+
                 let areaDia = 0;
                 
                 // Normalização defensiva: tentar parsear frentes se for string (caso escape da normalização anterior)
@@ -1888,6 +1892,27 @@ forceReloadAllData() {
                 }
                 return acc + areaDia;
             }, 0);
+
+            // 1.1 Área Colhida (Novo KPI)
+            const colheitaFiltered = this.plantioDiarioData.filter(p => {
+                const isColheita = p.tipo_operacao === 'colheita_muda';
+                return isColheita && filterDate(p.data);
+            });
+
+            const totalColheita = colheitaFiltered.reduce((acc, curr) => {
+                let val = parseFloat(curr.colheita_hectares) || 0;
+                // Fallback para qualidade.colheitaHectares caso o root esteja vazio
+                if (val === 0 && curr.qualidade && curr.qualidade.colheitaHectares) {
+                    val = parseFloat(curr.qualidade.colheitaHectares) || 0;
+                }
+                return acc + val;
+            }, 0);
+
+            // 1.2 Razão Colheita / Plantio
+            let razaoColheitaPlantio = 0;
+            if (totalColheita > 0) {
+                razaoColheitaPlantio = totalArea / totalColheita;
+            }
             
             // 2. OS Ativas
             const osActive = (this.osListCache || []).filter(os => {
@@ -1943,6 +1968,8 @@ forceReloadAllData() {
             const setTxt = (id, txt) => { const el = document.getElementById(id); if(el) el.textContent = txt; };
             
             setTxt('kpi-area-plantada', `${totalArea.toLocaleString('pt-BR', {maximumFractionDigits: 1})} ha`);
+            setTxt('kpi-area-colhida', `${totalColheita.toLocaleString('pt-BR', {maximumFractionDigits: 1})} ha`);
+            setTxt('kpi-colheita-plantio', razaoColheitaPlantio.toLocaleString('pt-BR', {maximumFractionDigits: 2}));
             setTxt('kpi-os-ativas', osActive);
             setTxt('kpi-eficiencia', `${efficiency > 0 ? efficiency.toFixed(1) : 0}%`);
             setTxt('kpi-estoque-items', produtosComSaldo);
@@ -7753,6 +7780,20 @@ InsumosApp.prototype.handleEditPlantio = function(id) {
     set('plantio-responsavel', record.responsavel);
     set('plantio-obs', record.observacoes);
 
+    // Tipo de Operação
+    const tipoOp = record.tipo_operacao || 'plantio';
+    set('tipo-operacao', tipoOp);
+    // Disparar evento para ajustar visibilidade das seções
+    const tipoOpEl = document.getElementById('tipo-operacao');
+    if (tipoOpEl) {
+        // Forçar chamada do toggle se o evento não funcionar como esperado ou para garantir
+        if (typeof this.toggleOperacaoSections === 'function') {
+            this.toggleOperacaoSections();
+        } else {
+            tipoOpEl.dispatchEvent(new Event('change'));
+        }
+    }
+
     // Qualidade
     const q = record.qualidade || {};
     set('qual-toletes-total', q.toletesTotal);
@@ -7934,8 +7975,16 @@ InsumosApp.prototype.savePlantioDia = async function() {
         areaAcumulada: parseFloat(document.getElementById('single-area-acumulada')?.value || '0'),
         plantioDiario: parseFloat(document.getElementById('single-plantio-dia')?.value || '0')
     };
+    
+    // Capturar tipo de operação e colheita
+    const tipoOperacao = document.getElementById('tipo-operacao')?.value || 'plantio';
+    // Se for colheita_muda, pegar do input específico, senão 0
+    const colheitaHa = parseFloat(document.getElementById('colheita-hectares')?.value || '0');
+
     const payload = {
         data, responsavel, observacoes,
+        tipo_operacao: tipoOperacao,
+        colheita_hectares: colheitaHa,
         frentes: [frente],
         insumos: this.plantioInsumosDraft.slice(),
         qualidade
