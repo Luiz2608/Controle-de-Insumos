@@ -887,6 +887,22 @@ class ApiService {
         return { success: true, data };
     }
 
+    async getAllTransporteDiario() {
+        this.checkConfig();
+        // Assuming table name is 'os_transporte_diario' based on saveTransporteComposto
+        const { data, error } = await this.supabase
+            .from('os_transporte_diario')
+            .select('*');
+            
+        if (error) {
+            console.error('Erro ao buscar todos transportes diários:', error);
+            if (error.code === '42P01') return { success: true, data: [] };
+            // If table doesn't exist or other error, return empty to not break report
+            return { success: false, data: [] };
+        }
+        return { success: true, data };
+    }
+
     async saveTransporteComposto(payload) {
         this.checkConfig();
         
@@ -912,7 +928,7 @@ class ApiService {
         }
 
         // Sanitize Empty Strings to Null for other optional fields
-        ['responsavel_aplicacao', 'empresa', 'frente', 'atividade_agricola'].forEach(field => {
+        ['responsavel_aplicacao', 'empresa', 'frente', 'atividade_agricola', 'fazenda'].forEach(field => {
             if (item[field] === '') item[field] = null;
         });
         

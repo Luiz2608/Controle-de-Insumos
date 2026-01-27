@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestão de Insumos</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
     <script src="config.js"></script>
     <link rel="stylesheet" href="main.css?v=FIX-LAYOUT-2">
     <style>
@@ -806,7 +808,8 @@
                         <th>Data Abertura</th>
                         <th>Fazenda/Frente</th>
                         <th>Produto</th>
-                        <th>Qtde (t)</th>
+                        <th>Meta (t)</th>
+                        <th>Restante (t)</th>
                         <th>Status</th>
                         <th style="width: 150px;">Ações</th>
                     </tr>
@@ -1773,6 +1776,10 @@
                         <input type="text" name="empresa" id="composto-empresa">
                     </div>
                     <div class="form-group">
+                        <label>Fazenda</label>
+                        <input type="text" name="fazenda" id="composto-fazenda">
+                    </div>
+                    <div class="form-group">
                         <label>Frente</label>
                         <input type="text" name="frente" id="composto-frente">
                     </div>
@@ -1851,6 +1858,7 @@
                 </div>
 
                 <div class="form-actions" style="margin-top: 15px; display: flex; justify-content: flex-end; gap: 10px;">
+                    <button type="button" class="btn btn-secondary" id="btn-print-composto-detail" title="Imprimir Detalhes">🖨️ Imprimir</button>
                     <button type="button" class="btn btn-secondary close-composto-modal">Cancelar</button>
                     <button type="button" id="btn-composto-clear" class="btn btn-secondary">Limpar</button>
                     <button type="submit" id="btn-composto-save" class="btn btn-primary">💾 Salvar Transporte</button>
@@ -1872,9 +1880,9 @@
     </script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.28/dist/jspdf.plugin.autotable.min.js"></script>
-    <script src="api.js?v=FIX-LAYOUT-8"></script>
-    <script src="ui.js?v=FIX-LAYOUT-8"></script>
-    <script src="import.js?v=FIX-LAYOUT-8"></script>
-    <script src="app.js?v=FIX-LAYOUT-8"></script>
+    <script src="api.js?v=FIX-LAYOUT-15"></script>
+    <script src="ui.js?v=FIX-LAYOUT-15"></script>
+    <script src="import.js?v=FIX-LAYOUT-15"></script>
+    <script src="app.js?v=FIX-LAYOUT-15"></script>
 </body>
 </html>

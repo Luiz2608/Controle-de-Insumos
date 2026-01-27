@@ -5534,6 +5534,12 @@ forceReloadAllData() {
             });
         }
 
+        // 1.1 Print Detail
+        const btnPrintDetail = document.getElementById('btn-print-composto-detail');
+        if (btnPrintDetail) {
+            btnPrintDetail.addEventListener('click', () => this.exportCompostoDetailToPDF());
+        }
+
         // 2. Clear Form
         const btnClear = document.getElementById('btn-composto-clear');
         if (btnClear) {
@@ -5743,17 +5749,40 @@ forceReloadAllData() {
             // 4. Empresa
             let empresaMatch = fullText.match(/Empresa(?:[^:]*):(?:[^a-zA-Z0-9]*)([^\n\r\|]+)/i);
 
+            // 4.5 Fazenda / Local
+            let fazendaMatch = fullText.match(/(?:Fazenda|Propriedade|Local|Unidade)(?:[^:]*):(?:[^a-zA-Z0-9]*)([^\n\r\|]+)/i);
+            let rawFazenda = clean(fazendaMatch ? fazendaMatch[1] : '');
+            // Remove código inicial se existir (ex: "12 - FAZENDA")
+            if (/^\d+\s*-\s*/.test(rawFazenda)) {
+                rawFazenda = rawFazenda.replace(/^\d+\s*-\s*/, '');
+            }
+
             // 5. Frente
             let frenteMatch = fullText.match(/Frente(?:[^:]*):(?:[^0-9]*)([\d]+)/i);
 
             // 6. Produto e Atividade
-            // Tenta pegar linha com código numérico seguido de texto uppercase
-            // Ex: 150944-COMPOSTO ORGANICO
-            let prodMatch = fullText.match(/(\d+\s*-\s*COMPOSTO[^\n\r\|]*)/i) ||
+            // Tenta pegar linha com código numérico seguido de texto uppercase (Ex: 150944-COMPOSTO)
+            // Agora a regex captura o grupo inteiro: CODIGO + NOME, mas para de capturar ao encontrar padrões numéricos de quantidade
+            let prodMatch = fullText.match(/(\d+\s*-\s*[A-Z\s\.]+)(?=\s*\d+[.,]\d+)/i) || 
+                            fullText.match(/(\d+\s*-\s*COMPOSTO[^\n\r\|]*)/i) ||
                             fullText.match(/Produto(?:[^:]*):(?:[^a-zA-Z0-9]*)([^\n\r\|]+)/i);
             
-            let ativMatch = fullText.match(/(\d+\s*-\s*[A-Z\s]*COMPOSTAGEM[^\n\r\|]*)/i) ||
+            let rawProd = clean(prodMatch ? prodMatch[1] : 'COMPOSTO');
+            
+            // Remove lixo do final se tiver passado (ex: "78-FERT. ORGANICO 13,000")
+            // Remove sequências numéricas longas ou com vírgula no final da string
+            rawProd = rawProd.replace(/\s+\d+[.,]\d+.*$/, '').trim();
+            // Remove "1-TN" ou unidades soltas no final
+            rawProd = rawProd.replace(/\s+\d+-[A-Z]+.*$/, '').trim();
+
+            // Lógica similar para Atividade
+            let ativMatch = fullText.match(/(\d+\s*-\s*[A-Z\s\.]*COMPOSTAGEM[^\n\r\|]*)/i) ||
                             fullText.match(/Atividade(?:[^:]*):(?:[^a-zA-Z0-9]*)([^\n\r\|]+)/i);
+            
+            let rawAtiv = clean(ativMatch ? ativMatch[1] : 'ADUBACAO');
+            // Limpeza extra para atividade
+            rawAtiv = rawAtiv.replace(/\s+\d+[.,]\d+.*$/, '').trim();
+            rawAtiv = rawAtiv.replace(/\s+\d+-[A-Z]+.*$/, '').trim();
 
             // 7. Quantidade e Unidade
             // Estratégia: Procurar números com 4 casas decimais (padrão 13,0000)
@@ -5803,11 +5832,12 @@ forceReloadAllData() {
                 data_abertura: dataMatch ? dataMatch[1].split('/').reverse().join('-') : new Date().toISOString().split('T')[0],
                 responsavel_aplicacao: clean(respMatch ? respMatch[1] : ''),
                 empresa: clean(empresaMatch ? empresaMatch[1] : ''),
+                fazenda: rawFazenda,
                 frente: frenteMatch ? frenteMatch[1] : '',
-                produto: clean(prodMatch ? prodMatch[1] : 'COMPOSTO'),
+                produto: rawProd,
                 quantidade: qtdVal,
                 unidade: clean(undVal),
-                atividade_agricola: clean(ativMatch ? ativMatch[1] : 'ADUBACAO'),
+                atividade_agricola: rawAtiv,
                 status: 'ABERTO'
             };
 
@@ -5937,6 +5967,7 @@ forceReloadAllData() {
         set('data_abertura', data.data_abertura ? data.data_abertura.split('T')[0] : '');
         set('responsavel_aplicacao', data.responsavel_aplicacao || data.responsavel);
         set('empresa', data.empresa);
+        set('fazenda', data.fazenda);
         set('frente', data.frente);
         set('produto', data.produto || 'COMPOSTO');
         // Fix: Use nullish coalescing to preserve 0
@@ -6025,18 +6056,522 @@ forceReloadAllData() {
         }
     }
 
+    exportCompostoDetailToPDF() {
+        if (!window.jspdf || !window.jspdf.jsPDF) {
+            this.ui.showNotification('Biblioteca PDF não carregada. Tente atualizar a página.', 'error');
+            return;
+        }
+
+        const doc = new window.jspdf.jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+        
+        // Helper to get value
+        const getVal = (id) => {
+            const el = document.getElementById(id);
+            return el ? (el.value || '') : '';
+        };
+
+        const os = getVal('composto-numero-os');
+        
+        if (!os) {
+            this.ui.showNotification('Não há dados de OS para imprimir.', 'warning');
+            return;
+        }
+
+        const dataAbertura = getVal('composto-data-abertura');
+        const resp = getVal('composto-responsavel');
+        const empresa = getVal('composto-empresa');
+        const fazenda = getVal('composto-fazenda');
+        const frente = getVal('composto-frente');
+        const produto = getVal('composto-produto');
+        const status = getVal('composto-status');
+        const meta = parseFloat(getVal('composto-quantidade')) || 0;
+
+        // Calculate Totals from Draft
+        const realizado = this.compostoDiarioDraft.reduce((acc, curr) => acc + (parseFloat(curr.quantidade) || 0), 0);
+        const restante = meta - realizado;
+        const percent = meta > 0 ? (realizado / meta) * 100 : 0;
+
+        // Helper for Centered Text (Matches Consolidated Report Style)
+        const centerText = (text, y) => {
+            const textWidth = doc.getStringUnitWidth(text) * doc.internal.getFontSize() / doc.internal.scaleFactor;
+            const x = (pageWidth - textWidth) / 2;
+            doc.text(text, x, y);
+        };
+
+        // === HEADER / CAPA ===
+        doc.setFontSize(18);
+        doc.setFont(undefined, 'bold');
+        centerText("Relatório de Gestão de Transporte (O.S.)", 20);
+        
+        doc.setFontSize(12);
+        doc.setFont(undefined, 'normal');
+        centerText(`O.S. Nº ${os} - ${fazenda}`, 28);
+
+        doc.setFontSize(10);
+        doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, pageWidth - 14, 35, { align: 'right' });
+
+        doc.setLineWidth(0.5);
+        doc.line(14, 38, pageWidth - 14, 38);
+
+        let y = 50;
+
+        // === 1. VISÃO GERAL ===
+        doc.setFontSize(14);
+        doc.setFont(undefined, 'bold');
+        doc.text("1. Visão Geral da O.S.", 14, y);
+        y += 10;
+
+        // Box background (Gray Box - Same as Consolidated)
+        doc.setDrawColor(200);
+        doc.setFillColor(245, 247, 250);
+        doc.rect(14, y, pageWidth - 28, 55, 'FD'); // Increased height to accommodate progress bar text
+
+        doc.setFontSize(12);
+        doc.setTextColor(0,0,0);
+        doc.setFont(undefined, 'bold');
+        doc.text(`Status Atual: ${status}`, 20, y + 10);
+        
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'normal');
+
+        // Fix: Handle long product names
+        const maxTextWidth = 85; // Space between left (20) and right col (110) - margin
+        const splitProd = doc.splitTextToSize(`Produto: ${produto}`, maxTextWidth);
+        doc.text(splitProd, 20, y + 18);
+        
+        // Adjust vertical spacing based on product lines
+        const prodHeight = (splitProd.length * 4); // approx 4 units per line
+        let currentY = y + 18 + prodHeight + 2; // +2 padding
+
+        doc.text(`Empresa: ${empresa}`, 20, currentY);
+        doc.text(`Responsável: ${resp}`, 20, currentY + 6);
+
+        // Stats Column (Right Side of Box)
+        const col2X = 110;
+        doc.setFont(undefined, 'bold');
+        doc.text("Meta Total:", col2X, y + 10);
+        doc.setFont(undefined, 'normal');
+        doc.text(`${this.ui.formatNumber(meta, 3)} t`, col2X + 35, y + 10);
+
+        doc.setFont(undefined, 'bold');
+        doc.text("Realizado:", col2X, y + 18);
+        doc.setFont(undefined, 'normal');
+        doc.text(`${this.ui.formatNumber(realizado, 3)} t`, col2X + 35, y + 18);
+
+        doc.setTextColor(0, 0, 0); // Force black text
+        doc.setFont(undefined, 'bold');
+        doc.text("Restante:", col2X, y + 26);
+        doc.setFont(undefined, 'normal');
+        doc.text(`${this.ui.formatNumber(restante, 3)} t`, col2X + 35, y + 26);
+
+        // Progress Bar
+        const barX = col2X;
+        const barY = y + 32;
+        const barW = 60;
+        const barH = 8;
+        
+        doc.setDrawColor(0);
+        doc.rect(barX, barY, barW, barH); // border
+        const fillWidth = Math.min(barW, (percent / 100) * barW);
+        
+        if (percent >= 100) {
+            doc.setFillColor(40, 167, 69);
+        } else {
+            doc.setFillColor(0, 123, 255);
+        }
+        
+        doc.rect(barX, barY, fillWidth, barH, 'F');
+        
+        // Percent text BELOW bar
+        doc.setFontSize(9);
+        doc.setTextColor(0, 0, 0); // Force black text
+        
+        // Center text relative to bar
+        const percentText = `${this.ui.formatNumber(percent, 1)}% Concluído`;
+        const textWidth = doc.getStringUnitWidth(percentText) * doc.internal.getFontSize() / doc.internal.scaleFactor;
+        const textX = barX + (barW - textWidth) / 2;
+        
+        // Ajuste Y para evitar corte (movemos para y + 55 para proxima seção, então barY + barH + 5 = y + 32 + 8 + 5 = y + 45. OK)
+        // Mas se o box anterior era 45 de altura, precisamos garantir que o texto não "saia" visualmente se o box tiver borda
+        // O box cinza vai até y + 45 (rect(..., y, ..., 45)).
+        // barY = y + 32. barH = 8. Bottom = y + 40. Text em y + 45 fica no limite da borda do box.
+        // Vamos aumentar a altura do box para 55 na chamada do rect acima.
+        
+        doc.text(percentText, textX, barY + barH + 5);
+
+        y += 65; // Aumentado espaço antes da próxima seção para evitar sobreposição
+
+        // === 2. DETALHAMENTO TÉCNICO ===
+        doc.setFontSize(14);
+        doc.setTextColor(0, 0, 0); // Force black text
+        doc.setFont(undefined, 'bold');
+        doc.text("2. Detalhamento Técnico", 14, y);
+        y += 8;
+
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'normal');
+        
+        // Use a cleaner grid layout with explicit column widths
+        doc.autoTable({
+            startY: y,
+            showHead: 'never', // Remove header as requested
+            body: [
+                ['Data Abertura', this.ui.formatDateBR(dataAbertura), 'Frente', frente],
+                ['Unidade', getVal('composto-unidade'), 'Atividade', getVal('composto-atividade') || '-']
+            ],
+            theme: 'grid', // Switch to grid for better borders
+            styles: { 
+                fontSize: 10, 
+                cellPadding: 4,
+                lineColor: [200, 200, 200],
+                lineWidth: 0.1,
+                textColor: [0, 0, 0] // Force black text in table
+            },
+            columnStyles: {
+                0: { fontStyle: 'bold', width: 40, fillColor: [250, 250, 250], textColor: [0, 0, 0] }, // Label col 1
+                1: { width: 50, textColor: [0, 0, 0] }, // Value col 1
+                2: { fontStyle: 'bold', width: 40, fillColor: [250, 250, 250], textColor: [0, 0, 0] }, // Label col 2
+                3: { width: 50, textColor: [0, 0, 0] }  // Value col 2
+            }
+        });
+
+        y = doc.lastAutoTable.finalY + 15;
+
+        // === 3. REGISTROS DE TRANSPORTE ===
+        doc.setFontSize(14);
+        doc.setTextColor(0, 0, 0); // Force black text
+        doc.setFont(undefined, 'bold');
+        doc.text("3. Registros de Viagens (Diário)", 14, y);
+        
+        // Table
+        const headers = [['Data', 'Quantidade (t)', 'Frota/Caminhão', 'Acumulado (t)']];
+        
+        // Use draft data
+        // Sort by date
+        const sortedDraft = [...this.compostoDiarioDraft].sort((a,b) => {
+             return new Date(a.data) - new Date(b.data);
+        });
+
+        let acumulado = 0;
+        const rows = sortedDraft.map(item => {
+            const qtd = parseFloat(item.quantidade) || 0;
+            acumulado += qtd;
+            return [
+                this.ui.formatDateBR(item.data),
+                this.ui.formatNumber(qtd, 3),
+                item.frota || '-',
+                this.ui.formatNumber(acumulado, 3)
+            ];
+        });
+        
+        doc.autoTable({
+            head: headers,
+            body: rows,
+            startY: y + 5,
+            theme: 'striped',
+            headStyles: { fillColor: [44, 62, 80], textColor: [255, 255, 255] },
+            styles: { fontSize: 10, cellPadding: 3, halign: 'center', textColor: [0, 0, 0] },
+            columnStyles: {
+                0: { halign: 'center' }, // Data
+                2: { halign: 'left' }    // Frota
+            },
+            foot: [
+                ['TOTAL REALIZADO', this.ui.formatNumber(realizado, 3), '', ''],
+                ['RESTANTE (META)', this.ui.formatNumber(restante, 3), '', '']
+            ],
+            footStyles: { fillColor: [220, 220, 220], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'center' }
+        });
+
+        // Footer / Signature Area
+        const finalY = doc.lastAutoTable.finalY + 30;
+        if (finalY < 250) {
+            doc.setLineWidth(0.5);
+            doc.line(40, finalY, 90, finalY);
+            doc.line(120, finalY, 170, finalY);
+            
+            doc.setFontSize(8);
+            doc.text("Responsável Emissão", 65, finalY + 5, { align: 'center' });
+            doc.text("Responsável Transporte", 145, finalY + 5, { align: 'center' });
+        }
+
+        doc.save(`relatorio_os_${os}.pdf`);
+    }
+
+    async exportConsolidatedReport() {
+        if (!window.jspdf || !window.jspdf.jsPDF) {
+            this.ui.showNotification('Biblioteca PDF não carregada.', 'error');
+            return;
+        }
+
+        this.ui.showNotification('Gerando relatório consolidado...', 'info');
+
+        try {
+            // 1. Fetch Data
+            // We need ALL OS and ALL Daily Items to build the report properly
+            const [resOS, resDaily] = await Promise.all([
+                this.api.getTransporteComposto(),
+                this.api.getAllTransporteDiario()
+            ]);
+
+            if (!resOS.success) throw new Error('Falha ao buscar dados de OS');
+            
+            const osList = resOS.data || [];
+            const dailyList = (resDaily.success && resDaily.data) ? resDaily.data : [];
+
+            // 2. Process Data
+            // Link daily items to OS
+            const fullData = osList.map(os => {
+                const items = dailyList.filter(d => d.os_id === os.id);
+                const realizado = items.reduce((acc, curr) => acc + (parseFloat(curr.quantidade) || 0), 0);
+                const meta = parseFloat(os.quantidade) || 0; // "quantidade" field in OS table stores the Goal/Meta
+                const percent = meta > 0 ? (realizado / meta) * 100 : 0;
+                
+                return {
+                    ...os,
+                    items: items.sort((a,b) => new Date(a.data_transporte) - new Date(b.data_transporte)),
+                    realizado: realizado,
+                    meta: meta,
+                    restante: meta - realizado,
+                    percent: percent,
+                    status: os.status || 'ABERTO'
+                };
+            });
+
+            // Calculate Global Totals
+            const totalOS = fullData.length;
+            const totalTransportado = fullData.reduce((acc, curr) => acc + curr.realizado, 0);
+            const totalMeta = fullData.reduce((acc, curr) => acc + curr.meta, 0);
+            const totalPercent = totalMeta > 0 ? (totalTransportado / totalMeta) * 100 : 0;
+            
+            // Sort for Ranking (by % completion descending)
+            const rankedData = [...fullData].sort((a,b) => b.percent - a.percent);
+            const topOS = rankedData.length > 0 ? rankedData[0] : null;
+            const bottomOS = rankedData.length > 0 ? rankedData[rankedData.length - 1] : null;
+
+            // 3. Generate PDF
+            const doc = new window.jspdf.jsPDF();
+            const pageWidth = doc.internal.pageSize.getWidth();
+            
+            // Helper for Centered Text
+            const centerText = (text, y) => {
+                const textWidth = doc.getStringUnitWidth(text) * doc.internal.getFontSize() / doc.internal.scaleFactor;
+                const x = (pageWidth - textWidth) / 2;
+                doc.text(text, x, y);
+            };
+
+            // === TITLE PAGE / HEADER ===
+            doc.setFontSize(18);
+            doc.setFont(undefined, 'bold');
+            centerText("Relatório Consolidado de Transportes Diários", 20);
+            
+            doc.setFontSize(12);
+            doc.setFont(undefined, 'normal');
+            centerText(`Múltiplas O.S. - Gerado em: ${new Date().toLocaleString('pt-BR')}`, 28);
+            
+            doc.line(14, 32, pageWidth - 14, 32);
+
+            // === VISÃO GERAL ===
+            let y = 45;
+            doc.setFontSize(14);
+            doc.setFont(undefined, 'bold');
+            doc.text("1. Visão Geral Consolidada", 14, y);
+            
+            y += 10;
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'normal');
+            
+            // Draw Overview Box
+            doc.setDrawColor(200);
+            doc.setFillColor(245, 247, 250);
+            doc.rect(14, y, pageWidth - 28, 25, 'FD');
+            
+            y += 8;
+            doc.text(`Total de O.S.: ${totalOS}`, 20, y);
+            doc.text(`Total Transportado: ${this.ui.formatNumber(totalTransportado, 3)} t`, 80, y);
+            
+            y += 8;
+            doc.text(`Meta Total: ${this.ui.formatNumber(totalMeta, 3)} t`, 20, y);
+            doc.text(`Conclusão Geral: ${this.ui.formatNumber(totalPercent, 1)}%`, 80, y);
+            
+            // Visual Progress Bar for Global
+            doc.setDrawColor(0);
+            doc.rect(150, y - 10, 40, 6); // border
+            const fillWidth = Math.min(40, (totalPercent / 100) * 40);
+            doc.setFillColor(totalPercent >= 100 ? [40, 167, 69] : [0, 123, 255]);
+            doc.rect(150, y - 10, fillWidth, 6, 'F');
+
+
+            // === TABELA RESUMO ===
+            y += 25;
+            doc.setFontSize(14);
+            doc.setFont(undefined, 'bold');
+            doc.text("2. Tabela Resumo por O.S.", 14, y);
+            
+            y += 5;
+            const summaryRows = fullData.map(item => [
+                item.numero_os,
+                item.fazenda || '-',
+                item.produto || '-',
+                this.ui.formatNumber(item.meta, 1),
+                this.ui.formatNumber(item.realizado, 1),
+                this.ui.formatNumber(item.restante, 1),
+                `${this.ui.formatNumber(item.percent, 1)}%`,
+                item.status
+            ]);
+
+            doc.autoTable({
+                startY: y,
+                head: [['Nº OS', 'Fazenda', 'Produto', 'Meta', 'Realizado', 'Restante', '%', 'Status']],
+                body: summaryRows,
+                theme: 'striped',
+                headStyles: { fillColor: [44, 62, 80], fontSize: 9 },
+                styles: { fontSize: 8, cellPadding: 2 },
+                columnStyles: {
+                    0: { cellWidth: 20, fontStyle: 'bold' },
+                    6: { fontStyle: 'bold' }
+                }
+            });
+
+            y = doc.lastAutoTable.finalY + 15;
+
+            // === ANÁLISE COMPARATIVA ===
+            // Check if we need new page
+            if (y > 250) { doc.addPage(); y = 20; }
+            
+            doc.setFontSize(14);
+            doc.setFont(undefined, 'bold');
+            doc.text("3. Análise Comparativa e KPIs", 14, y);
+            y += 10;
+
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'normal');
+            
+            // Top/Bottom
+            const topText = topOS ? `${topOS.numero_os} (${this.ui.formatNumber(topOS.percent, 1)}%)` : '-';
+            const botText = bottomOS ? `${bottomOS.numero_os} (${this.ui.formatNumber(bottomOS.percent, 1)}%)` : '-';
+            
+            doc.text(`• O.S. com maior avanço: ${topText}`, 20, y);
+            y += 6;
+            doc.text(`• O.S. com menor avanço: ${botText}`, 20, y);
+            y += 6;
+            doc.text(`• Média de transporte por O.S.: ${this.ui.formatNumber(totalOS > 0 ? totalTransportado / totalOS : 0, 2)} t`, 20, y);
+
+            // === DETALHAMENTO ===
+            y += 15;
+            doc.setFontSize(14);
+            doc.setFont(undefined, 'bold');
+            doc.text("4. Detalhamento por O.S.", 14, y);
+            y += 5;
+
+            // Loop through each OS to print details
+            fullData.forEach((os, index) => {
+                // Check page break for header
+                if (y > 250) { doc.addPage(); y = 20; }
+                
+                y += 10;
+                
+                // OS Header Box
+                doc.setFillColor(230, 230, 230);
+                doc.rect(14, y, pageWidth - 28, 18, 'F');
+                
+                doc.setFontSize(11);
+                doc.setFont(undefined, 'bold');
+                doc.setTextColor(0,0,0);
+                doc.text(`O.S. ${os.numero_os} - ${os.fazenda} (${os.status})`, 18, y + 6);
+                
+                doc.setFontSize(9);
+                doc.setFont(undefined, 'normal');
+                doc.text(`Responsável: ${os.responsavel_aplicacao || '-'} | Empresa: ${os.empresa || '-'} | Abertura: ${this.ui.formatDateBR(os.data_abertura)}`, 18, y + 12);
+                
+                y += 20;
+
+                // Daily Table for this OS
+                if (os.items.length > 0) {
+                    doc.autoTable({
+                        startY: y,
+                        head: [['Data', 'Quantidade (t)', 'Frota']],
+                        body: os.items.map(d => [
+                            this.ui.formatDateBR(d.data_transporte),
+                            this.ui.formatNumber(d.quantidade, 3),
+                            d.frota || '-'
+                        ]),
+                        theme: 'grid',
+                        headStyles: { fillColor: [100, 100, 100], fontSize: 8 },
+                        styles: { fontSize: 8, cellPadding: 1 },
+                        margin: { left: 20 }
+                    });
+                    y = doc.lastAutoTable.finalY;
+                } else {
+                    doc.setFontSize(9);
+                    doc.setTextColor(100);
+                    doc.text("(Sem registros diários lançados)", 20, y);
+                    y += 5;
+                }
+            });
+
+            // === RECOMENDAÇÕES ===
+            if (y > 240) { doc.addPage(); y = 20; }
+            y += 15;
+            
+            doc.setFontSize(14);
+            doc.setFont(undefined, 'bold');
+            doc.setTextColor(0,0,0);
+            doc.text("5. Observações", 14, y);
+            y += 8;
+            
+            doc.setFontSize(10);
+            doc.setFont(undefined, 'normal');
+            doc.text("__________________________________________________________________________________", 14, y);
+            y += 8;
+            doc.text("__________________________________________________________________________________", 14, y);
+            y += 8;
+            doc.text("__________________________________________________________________________________", 14, y);
+
+            // Footer
+            const pageCount = doc.internal.getNumberOfPages();
+            for(let i = 1; i <= pageCount; i++) {
+                doc.setPage(i);
+                doc.setFontSize(8);
+                doc.text(`Página ${i} de ${pageCount}`, pageWidth - 30, doc.internal.pageSize.getHeight() - 10);
+                doc.text("Controle de Insumos - Relatório Gerencial", 14, doc.internal.pageSize.getHeight() - 10);
+            }
+
+            doc.save(`relatorio_consolidado_${new Date().toISOString().slice(0,10)}.pdf`);
+            this.ui.showNotification('Relatório gerado com sucesso!', 'success');
+
+        } catch (err) {
+            console.error(err);
+            this.ui.showNotification('Erro ao gerar relatório: ' + err.message, 'error');
+        }
+    }
+
     async renderTransporteComposto() {
         const tbody = document.getElementById('transporte-composto-body');
         if (!tbody) return;
         
-        tbody.innerHTML = '<tr><td colspan="7" class="loading">Carregando...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="loading">Carregando...</td></tr>';
 
         try {
-            // Fetch data from Supabase
-            const res = await this.api.getTransporteComposto();
+            // Fetch data from Supabase (Main OS and Daily Items for calc)
+            const [res, resDaily] = await Promise.all([
+                this.api.getTransporteComposto(),
+                this.api.getAllTransporteDiario()
+            ]);
+
             if (res && res.success && Array.isArray(res.data)) {
                 let list = res.data;
+                const dailyItems = (resDaily && resDaily.success) ? resDaily.data : [];
                 
+                // Calculate totals per OS
+                const totals = {};
+                dailyItems.forEach(d => {
+                    // Ensure we match types (os_id is usually uuid or int)
+                    const oid = d.os_id; 
+                    if (!totals[oid]) totals[oid] = 0;
+                    totals[oid] += (parseFloat(d.quantidade) || 0);
+                });
+
                 // Filter
                 const search = document.getElementById('composto-search-os')?.value.toLowerCase();
                 const status = document.getElementById('composto-filter-status')?.value;
@@ -6045,17 +6580,27 @@ forceReloadAllData() {
                 if (status) list = list.filter(i => i.status === status);
 
                 if (list.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Nenhum registro encontrado.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">Nenhum registro encontrado.</td></tr>';
                     return;
                 }
 
-                tbody.innerHTML = list.map(item => `
+                tbody.innerHTML = list.map(item => {
+                    const meta = parseFloat(item.quantidade) || 0;
+                    const realizado = totals[item.id] || 0;
+                    const restante = meta - realizado;
+                    // Color logic: Red if negative (over limit), Green if exactly 0 (complete), Orange if positive (pending)
+                    let restColor = '#d35400';
+                    if (restante < -0.01) restColor = 'red';
+                    else if (Math.abs(restante) < 0.01 && meta > 0) restColor = 'green';
+
+                    return `
                     <tr>
                         <td>${item.numero_os || '-'}</td>
                         <td>${this.ui.formatDateBR(item.data_abertura)}</td>
                         <td>${item.fazenda || '-'} / ${item.frente || '-'}</td>
                         <td>${item.produto || '-'}</td>
-                        <td>${this.ui.formatNumber(item.quantidade, 3)}</td>
+                        <td>${this.ui.formatNumber(meta, 3)}</td>
+                        <td style="color: ${restColor}; font-weight: bold;">${this.ui.formatNumber(restante, 3)}</td>
                         <td><span class="badge ${item.status === 'ABERTO' ? 'badge-warning' : 'badge-success'}">${item.status}</span></td>
                         <td style="white-space: nowrap;">
                             <div style="display: flex; gap: 8px;">
@@ -6065,13 +6610,13 @@ forceReloadAllData() {
                             </div>
                         </td>
                     </tr>
-                `).join('');
+                `}).join('');
             } else {
-                tbody.innerHTML = '<tr><td colspan="7" style="color:red;">Erro ao carregar dados.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" style="color:red;">Erro ao carregar dados.</td></tr>';
             }
         } catch (err) {
             console.error(err);
-            tbody.innerHTML = '<tr><td colspan="7" style="color:red;">Erro de conexão.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" style="color:red;">Erro de conexão.</td></tr>';
         }
     }
     
@@ -7040,6 +7585,23 @@ InsumosApp.prototype.toggleOperacaoSections = function() {
     const secMudaConsumo = document.getElementById('sec-muda-consumo-card');
     const secInsumos = document.getElementById('sec-insumos');
     const secColheitaProducao = document.getElementById('sec-colheita-producao-card');
+
+    // Campos específicos para esconder em Colheita de Muda
+    const fieldsToHideInColheita = [
+        'single-area',           // Área Planejada OS
+        'single-plantio-dia',    // Plantio dia
+        'single-area-acumulada', // Acumulado Plantio
+        'cobricao-dia',          // Cobrição Dia
+        'cobricao-acumulada'     // Cobrição Acumulado
+    ];
+
+    fieldsToHideInColheita.forEach(id => {
+        const el = document.getElementById(id);
+        const group = el?.closest('.form-group');
+        if (group) {
+            group.style.display = tipo === 'colheita_muda' ? 'none' : 'block';
+        }
+    });
     
     if (tipo === 'plantio') {
         if (secGemas) secGemas.style.display = 'block';
