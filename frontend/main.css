@@ -172,6 +172,14 @@ body {
     box-shadow: var(--shadow-hover);
 }
 
+.kpi-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin-top: 10px;
+}
+
 .kpi-value {
     font-size: 1.8rem;
     font-weight: 700;
