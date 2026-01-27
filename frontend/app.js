@@ -5579,6 +5579,10 @@ forceReloadAllData() {
                     document.getElementById('composto-id').value = '';
                     this.compostoDiarioDraft = [];
                     this.renderCompostoDiarioDraft();
+                    
+                    // Unlock fields for new entry
+                    this.toggleCompostoFields(false);
+                    
                     modal.style.display = 'block';
                 }
             });
@@ -5615,7 +5619,12 @@ forceReloadAllData() {
         closeBtns.forEach(btn => {
             btn.addEventListener('click', () => {
                 const modal = document.getElementById('modal-transporte-composto');
-                if(modal) modal.style.display = 'none';
+                if(modal) {
+                    modal.style.display = 'none';
+                    // Reset fields to editable state when closing
+                    this.toggleCompostoFields(false);
+                    document.getElementById('form-transporte-composto')?.reset();
+                }
             });
         });
 
@@ -5625,6 +5634,9 @@ forceReloadAllData() {
             window.addEventListener('click', (e) => {
                 if (e.target === modalComposto) {
                     modalComposto.style.display = 'none';
+                    // Reset fields to editable state when closing
+                    this.toggleCompostoFields(false);
+                    document.getElementById('form-transporte-composto')?.reset();
                 }
             });
         }
@@ -5964,7 +5976,7 @@ forceReloadAllData() {
         };
 
         set('numero_os', data.numero_os || data.os);
-        set('data_abertura', data.data_abertura ? data.data_abertura.split('T')[0] : '');
+        set('data_abertura', this.ui.formatDateForInput(data.data_abertura));
         set('responsavel_aplicacao', data.responsavel_aplicacao || data.responsavel);
         set('empresa', data.empresa);
         set('fazenda', data.fazenda);
@@ -6018,6 +6030,15 @@ forceReloadAllData() {
 
         const formData = new FormData(form);
         const data = Object.fromEntries(formData.entries());
+
+        // Sanitize data_abertura if it comes in BR format (from readonly text field)
+        if (data.data_abertura && typeof data.data_abertura === 'string' && data.data_abertura.includes('/')) {
+            const parts = data.data_abertura.split('/');
+            if (parts.length === 3) {
+                const [d, m, y] = parts;
+                data.data_abertura = `${y}-${m}-${d}`;
+            }
+        }
 
         // Validate
         if (!data.numero_os) {
@@ -6621,6 +6642,56 @@ forceReloadAllData() {
     }
     
     // Global helpers for onclick
+    toggleCompostoFields(readOnly) {
+        const fields = [
+            'composto-numero-os', 'composto-data-abertura', 'composto-responsavel', 
+            'composto-empresa', 'composto-fazenda', 'composto-frente', 
+            'composto-produto', 'composto-quantidade', 'composto-unidade', 
+            'composto-atividade'
+        ];
+        fields.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                // Special handling for data_abertura to force BR format in readonly mode
+                if (id === 'composto-data-abertura') {
+                    if (readOnly) {
+                        // Store original value if needed or just use current value
+                        const currentVal = el.value; // YYYY-MM-DD
+                        // Change type to text to allow custom formatting display
+                        el.setAttribute('type', 'text');
+                        el.value = this.ui.formatDateBR(currentVal);
+                    } else {
+                        // Revert to date input
+                        const currentVal = el.value; // DD/MM/YYYY
+                        el.setAttribute('type', 'date');
+                        // Try to convert back to YYYY-MM-DD for date input
+                        if (currentVal && /^\d{2}\/\d{2}\/\d{4}$/.test(currentVal)) {
+                            const [d, m, y] = currentVal.split('/');
+                            el.value = `${y}-${m}-${d}`;
+                        } else if (currentVal && /^\d{4}-\d{2}-\d{2}$/.test(currentVal)) {
+                             el.value = currentVal;
+                        }
+                    }
+                }
+
+                el.readOnly = readOnly;
+                // Use CSS classes for better styling and theme support
+                if (readOnly) {
+                    el.classList.add('readonly-input');
+                    // Remove inline styles that might conflict
+                    el.style.backgroundColor = '';
+                    el.style.cursor = '';
+                    el.style.opacity = '';
+                } else {
+                    el.classList.remove('readonly-input');
+                    el.style.backgroundColor = '';
+                    el.style.cursor = '';
+                    el.style.opacity = '';
+                }
+            }
+        });
+    }
+
     async editComposto(id) {
         this.ui.showNotification('Carregando dados...', 'info');
         try {
@@ -6630,6 +6701,9 @@ forceReloadAllData() {
                 // Set hidden ID
                 const idField = document.getElementById('composto-id');
                 if (idField) idField.value = id;
+                
+                // Lock fields for editing (View Mode)
+                this.toggleCompostoFields(true);
                 
                 // Show Modal
                 const modal = document.getElementById('modal-transporte-composto');

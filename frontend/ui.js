@@ -57,32 +57,66 @@ class UIManager {
 
     formatDateBR(val) {
         if (!val) return '-';
-        if (typeof val === 'string') {
-            const m = val.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-            if (m) return val;
-            
-            // Fix for YYYY-MM-DD causing D-1 due to timezone
-            if (/^\d{4}-\d{2}-\d{2}$/.test(val)) {
-                const [y, m, d] = val.split('-');
+        
+        // Case 1: Already in DD/MM/YYYY format
+        if (typeof val === 'string' && /^\d{2}\/\d{2}\/\d{4}$/.test(val)) {
+            return val;
+        }
+
+        // Case 2: YYYY-MM-DD string (fix D-1 by treating as local date parts)
+        if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}/.test(val)) {
+            // Extract YYYY, MM, DD regardless of time component
+            const parts = val.split('T')[0].split('-'); 
+            if (parts.length === 3) {
+                const [y, m, d] = parts;
                 return `${d}/${m}/${y}`;
             }
-
-            const d = new Date(val);
-            if (!isNaN(d)) {
-                const dd = String(d.getDate()).padStart(2,'0');
-                const mm = String(d.getMonth()+1).padStart(2,'0');
-                const yyyy = d.getFullYear();
-                return `${dd}/${mm}/${yyyy}`;
-            }
-            return '-';
         }
-        if (val instanceof Date) {
-            const dd = String(val.getDate()).padStart(2,'0');
-            const mm = String(val.getMonth()+1).padStart(2,'0');
-            const yyyy = val.getFullYear();
+
+        // Case 3: Date Object or other string format
+        const d = (val instanceof Date) ? val : new Date(val);
+        if (!isNaN(d)) {
+            // Use UTC methods if the original string was ISO UTC (endsWith Z) 
+            // BUT for this system, we want to treat everything as "what you see is what you get"
+            // Best approach for "2025-01-27" string -> display "27/01/2025"
+            // If we use new Date("2025-01-27"), it is UTC. toLocaleString might shift it.
+            // So we rely on getUTC* methods if we suspect it's a date-only string, 
+            // or get* methods if it includes time.
+            
+            // Simpler: Just format using local time, but correct for the specific "date-only" parsing issue if needed.
+            // Actually, best is to use the manual extraction above for strings. 
+            // For real Date objects:
+            const dd = String(d.getDate()).padStart(2,'0');
+            const mm = String(d.getMonth()+1).padStart(2,'0');
+            const yyyy = d.getFullYear();
             return `${dd}/${mm}/${yyyy}`;
         }
+        
         return '-';
+    }
+
+    // Helper to set <input type="date"> values correctly avoiding timezone shifts
+    formatDateForInput(val) {
+        if (!val) return '';
+        
+        // If it's already YYYY-MM-DD
+        if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(val)) {
+            return val;
+        }
+        
+        // If it's YYYY-MM-DDTHH:mm... take the date part
+        if (typeof val === 'string' && val.includes('T')) {
+            return val.split('T')[0];
+        }
+
+        const d = (val instanceof Date) ? val : new Date(val);
+        if (isNaN(d)) return '';
+
+        // Manually construct YYYY-MM-DD from local time to avoid UTC shift
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
     }
 
     getDifferenceClass(difference) {

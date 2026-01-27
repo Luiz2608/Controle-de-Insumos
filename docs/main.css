@@ -639,3 +639,24 @@ body.dark-mode input, body.dark-mode select {
 .dropdown-menu button:hover {
     background: rgba(0,0,0,0.05);
 }
+
+/* Readonly Input Styles - Melhor legibilidade */
+input.readonly-input, select.readonly-input {
+    cursor: default !important;
+    opacity: 1 !important; /* Garantir opacidade total */
+}
+
+/* Light Mode Defaults */
+input.readonly-input, select.readonly-input {
+    background-color: #f8f9fa !important; /* Fundo muito leve */
+    color: #212529 !important; /* Texto quase preto para contraste máximo */
+    border-color: #ced4da !important;
+    font-weight: 500;
+}
+
+/* Dark Mode Overrides */
+body.dark-mode input.readonly-input, body.dark-mode select.readonly-input {
+    background-color: #383838 !important; /* Distinto do fundo #1e1e1e e input normal #2d2d2d */
+    color: #ffffff !important; /* Texto branco puro */
+    border-color: #555 !important;
+}
