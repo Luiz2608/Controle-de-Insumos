@@ -56,6 +56,15 @@ class ApiService {
         const { data: { session } } = await this.supabase.auth.getSession();
         if (session) {
             this.user = session.user;
+            
+            // SECURITY: Auto-promote admins
+            if (this.user.email && this.ADMIN_EMAILS.includes(this.user.email.toLowerCase())) {
+                this.user.role = 'admin';
+                if (!this.user.user_metadata) this.user.user_metadata = {};
+                this.user.user_metadata.role = 'admin';
+                this.ensureAdminRole(this.user);
+            }
+
             localStorage.setItem('authUser', JSON.stringify(this.user));
             localStorage.setItem('authToken', session.access_token);
         }
@@ -70,69 +79,162 @@ class ApiService {
 
     // === AUTH ===
 
-    async login(email, password) {
-        this.checkConfig();
-        // O app original usa username, mas Supabase Auth usa email.
-        // Vamos assumir que o "username" é um email ou criar um email fake se for apenas nome
-        let emailToUse = email;
-        if (!email.includes('@')) {
-            emailToUse = `${email}@exemplo.com`; // Adaptação técnica se necessário
-        }
+    // Lista de emails que são automaticamente promovidos a admin
+    get ADMIN_EMAILS() {
+        return [
+            'santossilvaluizeduardo@gmail.com',
+            'gutemberggg10@gmail.com'
+        ];
+    }
 
+    // Helper para sincronizar usuário do Auth com tabela pública 'users'
+    async syncUserToPublicTable(user) {
+        if (!user || !user.id) return;
+        
+        try {
+            const publicUser = {
+                id: user.id,
+                email: user.email,
+                username: user.user_metadata?.username || user.email.split('@')[0],
+                first_name: user.user_metadata?.first_name || '',
+                last_name: user.user_metadata?.last_name || '',
+                role: user.user_metadata?.role || 'user',
+                password: 'managed_by_supabase_auth' // Campo obrigatório no esquema legado
+            };
+            
+            // Use upsert para garantir que o registro exista e esteja atualizado
+            const { error } = await this.supabase.from('users').upsert(publicUser);
+            if (error) {
+                console.error('Erro detalhado Supabase sync:', error);
+                // Tenta alertar se for erro de permissão (RLS)
+                if (error.code === '42501') {
+                    console.warn('Erro de permissão (RLS). Verifique as políticas do Supabase.');
+                }
+            } else {
+                console.log('Usuário sincronizado com sucesso na tabela pública.');
+            }
+        } catch (e) {
+            console.error('Erro ao sincronizar usuário público:', e);
+        }
+    }
+
+    async login(username, password) {
+        this.checkConfig();
+        
+        // Tenta login direto com Supabase
+        let email = username;
+        
         const { data, error } = await this.supabase.auth.signInWithPassword({
-            email: emailToUse,
+            email: email,
             password: password
         });
 
         if (error) {
-            console.error('Erro no login:', error);
+            console.error('Erro no login Supabase:', error);
+            // Verifica se o erro é especificamente sobre email não confirmado
+            if (error.message.includes('Email not confirmed')) {
+                return { success: false, message: 'Email não confirmado. Verifique sua caixa de entrada.' };
+            }
+            return { success: false, message: 'Email ou senha inválidos' };
+        }
+
+        if (data.session) {
+            this.user = data.user;
+            
+            // Verificação adicional de segurança: se o usuário pediu para bloquear,
+            // garantimos que email_confirmed_at esteja preenchido.
+            if (!this.user.email_confirmed_at) {
+                // Se o Supabase permitiu login mas o email não tem data de confirmação,
+                // pode ser que a configuração do projeto esteja como "Confirm Email: OFF".
+                // Mas se o usuário quer EXIGIR, podemos bloquear aqui.
+                // PORÉM: Se estiver OFF, email_confirmed_at pode ser null pra sempre ou preenchido auto.
+                // Se estiver NULL e logou, vamos barrar.
+                // Se o usuário acabou de criar a conta, email_confirmed_at é null.
+                
+                await this.supabase.auth.signOut();
+                return { success: false, message: 'Acesso negado: Email ainda não confirmado.' };
+            }
+
+            // SECURITY: Auto-promote admins
+            if (this.user.email && this.ADMIN_EMAILS.includes(this.user.email.toLowerCase())) {
+                this.user.role = 'admin';
+                if (!this.user.user_metadata) this.user.user_metadata = {};
+                this.user.user_metadata.role = 'admin';
+                this.ensureAdminRole(this.user);
+            }
+
+            // Sincroniza com tabela pública
+            await this.syncUserToPublicTable(this.user);
+
+            localStorage.setItem('authUser', JSON.stringify(this.user));
+            localStorage.setItem('authToken', data.session.access_token);
+            
+            // Tenta recuperar role dos metadados
+            const role = (this.user.user_metadata && this.user.user_metadata.role) || 'user';
+            localStorage.setItem('authRole', role);
+            
+            return { success: true, user: this.user };
+        }
+
+        return { success: false, message: 'Erro desconhecido no login' };
+    }
+
+    async register(userData) {
+        this.checkConfig();
+        const { email, password, username, firstName, lastName } = userData;
+
+        const { data, error } = await this.supabase.auth.signUp({
+            email: email,
+            password: password,
+            options: {
+                data: {
+                    username: username,
+                    first_name: firstName,
+                    last_name: lastName,
+                    nome: `${firstName} ${lastName}`.trim(),
+                    role: 'user' // Default role
+                }
+            }
+        });
+
+        if (error) {
+            console.error('Erro no registro Supabase:', error);
             return { success: false, message: error.message };
         }
 
-        this.user = data.user;
-        localStorage.setItem('authUser', JSON.stringify(this.user));
-        localStorage.setItem('authToken', data.session.access_token);
+        if (data.user) {
+            // Sincroniza imediatamente com tabela pública
+            await this.syncUserToPublicTable(data.user);
 
-        return { success: true, token: data.session.access_token, user: this.user };
+            // Se o cadastro foi bem sucedido, faz logout imediato para forçar confirmação de email
+            // mesmo que o Supabase tenha retornado uma sessão (caso a opção de confirmação esteja desabilitada no painel)
+            // O usuário solicitou explicitamente: "n aceite o usuario entrar no sistema sem confirmar o emial"
+            
+            if (data.session) {
+                await this.supabase.auth.signOut();
+            }
+
+            return { 
+                success: true, 
+                user: data.user, 
+                message: 'Cadastro realizado! Por favor, verifique seu email para confirmar a conta antes de entrar.' 
+            };
+        }
+
+        return { success: false, message: 'Erro ao criar conta' };
     }
 
     async logout() {
         if (this.supabase) {
             await this.supabase.auth.signOut();
         }
-        this.user = null;
-        localStorage.removeItem('authToken');
         localStorage.removeItem('authUser');
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('authRole');
+        this.user = null;
         return { success: true };
     }
 
-    async register(email, password, metadata = {}) {
-        this.checkConfig();
-        let emailToUse = email;
-        if (!email.includes('@')) {
-            emailToUse = `${email}@exemplo.com`;
-        }
-
-        const { data, error } = await this.supabase.auth.signUp({
-            email: emailToUse,
-            password: password,
-            options: {
-                data: metadata
-            }
-        });
-
-        if (error) {
-            return { success: false, message: error.message };
-        }
-
-        if (data.session) {
-            this.user = data.user;
-            localStorage.setItem('authUser', JSON.stringify(this.user));
-            localStorage.setItem('authToken', data.session.access_token);
-        }
-
-        return { success: true, user: data.user, session: data.session };
-    }
 
     async updateProfile(metadata) {
         this.checkConfig();
@@ -151,11 +253,130 @@ class ApiService {
 
     async me() {
         if (!this.supabase) return { success: false };
-        const { data: { user } } = await this.supabase.auth.getUser();
-        if (user) {
-            return { success: true, user };
+        
+        const { data: { session }, error } = await this.supabase.auth.getSession();
+        
+        if (session && session.user) {
+            this.user = session.user;
+            
+            // Auto-promote Admin se estiver na lista de emails permitidos
+            if (this.user.email && this.ADMIN_EMAILS.includes(this.user.email.toLowerCase())) {
+                // Força o role no objeto local
+                this.user.role = 'admin';
+                if (!this.user.user_metadata) this.user.user_metadata = {};
+                this.user.user_metadata.role = 'admin';
+                
+                // Tenta atualizar no banco de dados se não estiver como admin
+                this.ensureAdminRole(this.user);
+            }
+
+            // Buscar role atualizado da tabela pública (se não for auto-admin)
+            if (!this.user.role || this.user.role !== 'admin') {
+                try {
+                    const { data: publicUser } = await this.supabase
+                        .from('users')
+                        .select('role')
+                        .eq('id', this.user.id)
+                        .single();
+                    
+                    if (publicUser && publicUser.role) {
+                        this.user.role = publicUser.role;
+                        if (!this.user.user_metadata) this.user.user_metadata = {};
+                        this.user.user_metadata.role = publicUser.role;
+                    }
+                } catch (e) {
+                    // Silently fail
+                }
+            }
+
+            // Sync localStorage
+            localStorage.setItem('authRole', this.user.role || 'user');
+            localStorage.setItem('authUser', JSON.stringify(this.user));
+            localStorage.setItem('authToken', session.access_token);
+            return { success: true, user: this.user };
         }
+        
         return { success: false };
+    }
+
+    async ensureAdminRole(user) {
+        // Atualiza metadados do Auth
+        if (user.user_metadata && user.user_metadata.role !== 'admin') {
+            await this.supabase.auth.updateUser({
+                data: { role: 'admin' }
+            });
+        }
+        
+        // Atualiza tabela pública
+        try {
+            const { data: publicUser } = await this.supabase
+                .from('users')
+                .select('role')
+                .eq('id', user.id)
+                .single();
+                
+            if (!publicUser || publicUser.role !== 'admin') {
+                 await this.supabase
+                    .from('users')
+                    .upsert({ 
+                        id: user.id, 
+                        role: 'admin',
+                        email: user.email,
+                        username: user.user_metadata?.username || user.email.split('@')[0]
+                    });
+            }
+        } catch (e) {
+            console.warn('Erro ao garantir admin role:', e);
+        }
+    }
+
+    // === ADMIN ===
+    
+    async getUsers() {
+        this.checkConfig();
+        // Consulta tabela pública 'users'
+        const { data, error } = await this.supabase
+            .from('users')
+            .select('*')
+            .order('username', { ascending: true });
+
+        if (error) {
+            console.error('Erro ao buscar usuários:', error);
+            return { success: false, message: error.message };
+        }
+        return { success: true, data };
+    }
+
+    async updateUser(id, updates) {
+        this.checkConfig();
+        // Atualiza tabela pública 'users'
+        // Nota: Isso não atualiza o auth.users do Supabase, apenas os dados públicos/permissões da aplicação
+        const { data, error } = await this.supabase
+            .from('users')
+            .update(updates)
+            .eq('id', id)
+            .select();
+
+        if (error) {
+            console.error('Erro ao atualizar usuário:', error);
+            return { success: false, message: error.message };
+        }
+        return { success: true, data: data[0] };
+    }
+
+    async deleteUser(id) {
+        this.checkConfig();
+        // Deleta da tabela pública 'users'
+        const { error } = await this.supabase
+            .from('users')
+            .delete()
+            .eq('id', id);
+
+        if (error) {
+            console.error('Erro ao excluir usuário:', error);
+            return { success: false, message: error.message };
+        }
+        return { success: true };
     }
 
     // === DADOS ===

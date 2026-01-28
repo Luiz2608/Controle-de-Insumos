@@ -44,6 +44,11 @@ const filterData = {
 const crypto = require('crypto');
 const AUTH_SECRET = process.env.AUTH_SECRET || 'dev-secret';
 
+const ADMIN_EMAILS = [
+    'santossilvaluizeduardo@gmail.com',
+    'gutemberggg10@gmail.com'
+];
+
 function b64url(buf) { return Buffer.from(buf).toString('base64').replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_'); }
 
 function signToken(username, expSec = 7 * 24 * 60 * 60) {
@@ -443,34 +448,131 @@ app.use('/api/importar', importRoutes);
 
 // === AUTH ===
 app.post('/api/auth/login', async (req, res) => {
-    const { username, password } = req.body || {};
+    const { username, email, password } = req.body || {};
+    // Allow login with username OR email
+    const identifier = username || email;
+    if (!identifier || !password) return res.status(400).json({ success: false, message: 'Credenciais incompletas' });
+
     try {
-        const { data: user, error } = await supabase.from('users').select('*').eq('username', username).eq('password', password).single();
+        let query = supabase.from('users').select('*').eq('password', password);
+        if (username) query = query.eq('username', username);
+        else if (email) query = query.eq('email', email);
+        
+        const { data: user, error } = await query.single();
+        
         if (error || !user) return res.status(401).json({ success: false, message: 'Credenciais inválidas' });
         
-        const token = signToken(username);
-        res.json({ success: true, token, user: { username } });
-    } catch(e) { res.status(500).json({ success: false, message: 'Erro no login' }); }
+        // Auto-promote to admin if email matches
+        if (user.email && ADMIN_EMAILS.includes(user.email.trim()) && user.role !== 'admin') {
+            await supabase.from('users').update({ role: 'admin', permissions: { all: true } }).eq('id', user.id);
+            user.role = 'admin';
+            user.permissions = { all: true };
+        }
+
+        // Update token to include role? Or just keep username and fetch role on demand.
+        // Keeping it simple: signToken uses username as 'sub'.
+        const token = signToken(user.username);
+        
+        res.json({ 
+            success: true, 
+            token, 
+            user: { 
+                username: user.username,
+                email: user.email,
+                firstName: user.first_name,
+                lastName: user.last_name,
+                role: user.role || 'user',
+                permissions: user.permissions || {}
+            } 
+        });
+    } catch(e) { res.status(500).json({ success: false, message: 'Erro no login: ' + e.message }); }
 });
 
 app.post('/api/auth/register', async (req, res) => {
-    const { username, password } = req.body || {};
-    if (!username || !password) return res.status(400).json({ success: false, message: 'Campos obrigatórios' });
+    const { username, password, email, firstName, lastName } = req.body || {};
+    if (!username || !password || !email) return res.status(400).json({ success: false, message: 'Campos obrigatórios: Usuário, Senha e Email' });
+    
     try {
-        const { data: existing } = await supabase.from('users').select('id').eq('username', username).single();
-        if (existing) return res.status(409).json({ success: false, message: 'Usuário já existe' });
+        // Check existing
+        const { data: existing } = await supabase.from('users').select('id').or(`username.eq.${username},email.eq.${email}`).single();
+        if (existing) return res.status(409).json({ success: false, message: 'Usuário ou Email já existe' });
 
-        const { error } = await supabase.from('users').insert([{ username, password }]);
+        const isAdmin = ADMIN_EMAILS.includes(email.trim());
+        const newUser = {
+            username,
+            password,
+            email,
+            first_name: firstName,
+            last_name: lastName,
+            role: isAdmin ? 'admin' : 'user', 
+            permissions: isAdmin ? { all: true } : {}
+        };
+
+        const { error } = await supabase.from('users').insert([newUser]);
         if (error) throw error;
 
         const token = signToken(username);
-        res.json({ success: true, token, user: { username } });
-    } catch(e) { res.status(500).json({ success: false, message: 'Erro no registro' }); }
+        res.json({ success: true, token, user: newUser });
+    } catch(e) { res.status(500).json({ success: false, message: 'Erro no registro: ' + e.message }); }
 });
 
-app.get('/api/auth/me', requireAuth, (req, res) => {
-    res.json({ success: true, user: { username: req.user.username } });
+// Admin Middleware
+async function requireAdmin(req, res, next) {
+    if (!req.user || !req.user.username) return res.status(401).json({ success: false, message: 'Não autenticado' });
+    try {
+        const { data: user } = await supabase.from('users').select('role').eq('username', req.user.username).single();
+        if (user && user.role === 'admin') {
+            next();
+        } else {
+            res.status(403).json({ success: false, message: 'Acesso negado: Requer Admin' });
+        }
+    } catch(e) {
+        res.status(500).json({ success: false, message: 'Erro ao verificar permissões' });
+    }
+}
+
+app.get('/api/auth/me', requireAuth, async (req, res) => {
+    try {
+        const { data: user } = await supabase.from('users').select('username, email, first_name, last_name, role, permissions').eq('username', req.user.username).single();
+        if (!user) return res.status(404).json({ success: false, message: 'Usuário não encontrado' });
+        res.json({ success: true, user });
+    } catch(e) {
+        res.status(500).json({ success: false, message: 'Erro ao buscar dados do usuário' });
+    }
 });
+
+// === ADMIN ROUTES ===
+app.get('/api/users', requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const { data: users, error } = await supabase.from('users').select('id, username, email, first_name, last_name, role, permissions, created_at').order('created_at', { ascending: false });
+        if (error) throw error;
+        res.json({ success: true, data: users });
+    } catch(e) { res.status(500).json({ success: false, message: 'Erro ao listar usuários' }); }
+});
+
+app.put('/api/users/:id', requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { role, permissions } = req.body;
+        const updates = {};
+        if (role) updates.role = role;
+        if (permissions) updates.permissions = permissions;
+        
+        const { data, error } = await supabase.from('users').update(updates).eq('id', id).select();
+        if (error) throw error;
+        res.json({ success: true, data: data[0] });
+    } catch(e) { res.status(500).json({ success: false, message: 'Erro ao atualizar usuário' }); }
+});
+
+app.delete('/api/users/:id', requireAuth, requireAdmin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { error } = await supabase.from('users').delete().eq('id', id);
+        if (error) throw error;
+        res.json({ success: true });
+    } catch(e) { res.status(500).json({ success: false, message: 'Erro ao excluir usuário' }); }
+});
+
 app.post('/api/auth/logout', (req, res) => {
     res.json({ success: true });
 });

@@ -853,18 +853,22 @@ class InsumosApp {
             
             this.initTheme();
             await this.setupEventListeners();
+            this.setupAdminPanel();
             await this.ensureApiReady();
             await this.loadStaticData();
             
-            this.hideLoginScreen();
-            
-            // Verificar metadados se usuário estiver logado
+            // Verificar autenticação
             if (this.api && this.api.user) {
+                this.hideLoginScreen();
+                
+                // Verificar metadados
                 const meta = this.api.user.user_metadata || {};
                 if (!meta.nome || !meta.matricula) {
                     const updateScreen = document.getElementById('update-profile-screen');
                     if (updateScreen) updateScreen.style.display = 'flex';
                 }
+            } else {
+                this.showLoginScreen();
             }
 
             this.updateCurrentUserUI();
@@ -8325,21 +8329,31 @@ InsumosApp.prototype.handleLogin = async function() {
 InsumosApp.prototype.handleRegister = async function() {
     const u = document.getElementById('register-user')?.value || '';
     const p = document.getElementById('register-pass')?.value || '';
-    const nome = document.getElementById('register-name')?.value || '';
-    const matricula = document.getElementById('register-matricula')?.value || '';
+    const email = document.getElementById('register-email')?.value || '';
+    const firstName = document.getElementById('register-firstname')?.value || '';
+    const lastName = document.getElementById('register-lastname')?.value || '';
 
-    if (!u || !p) { this.ui.showNotification('Informe novo usuário e senha', 'warning'); return; }
+    if (!u || !p || !email) { this.ui.showNotification('Preencha Usuário, Email e Senha', 'warning'); return; }
+    
     try {
-        const res = await this.api.register(u, p, { nome, matricula });
+        const res = await this.api.register({ username: u, password: p, email, firstName, lastName });
         if (res && res.success) {
-            this.ui.showNotification('Conta criada e login efetuado', 'success', 1500);
-            this.hideLoginScreen();
-            this.updateCurrentUserUI();
-            await this.loadInitialData();
+            this.ui.showNotification(res.message || 'Conta criada! Verifique seu email para confirmar.', 'success', 5000);
+            this.showLoginScreen();
+            
+            // Clear inputs
+            const inputs = ['register-user', 'register-pass', 'register-email', 'register-firstname', 'register-lastname'];
+            inputs.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
         } else {
             this.ui.showNotification('Erro ao criar conta: ' + (res.message||''), 'error');
         }
-    } catch(e) { this.ui.showNotification('Erro ao criar conta', 'error'); }
+    } catch(e) { 
+        console.error(e);
+        this.ui.showNotification('Erro ao criar conta', 'error'); 
+    }
 };
 
 InsumosApp.prototype.handleUpdateProfile = async function() {
@@ -8369,6 +8383,112 @@ InsumosApp.prototype.handleLogout = async function() {
     this.updateCurrentUserUI();
 };
 
+InsumosApp.prototype.setupAdminPanel = function() {
+    const btn = document.getElementById('admin-panel-btn');
+    const modal = document.getElementById('admin-modal');
+    const closeBtn = document.querySelector('.close-admin-modal');
+
+    if (btn) {
+        btn.addEventListener('click', () => {
+            if (modal) {
+                modal.style.display = 'block';
+                this.loadAdminUsers();
+            }
+        });
+    }
+
+    if (closeBtn && modal) {
+        closeBtn.addEventListener('click', () => {
+            modal.style.display = 'none';
+        });
+    }
+
+    if (modal) {
+        window.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.style.display = 'none';
+            }
+        });
+    }
+};
+
+InsumosApp.prototype.loadAdminUsers = async function() {
+    const tbody = document.getElementById('admin-users-list');
+    if (!tbody) return;
+    
+    tbody.innerHTML = '<tr><td colspan="5" class="loading">Carregando...</td></tr>';
+
+    try {
+        const res = await this.api.getUsers();
+        if (res && res.success) {
+            const users = res.data || [];
+            if (users.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5">Nenhum usuário encontrado.</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = '';
+            users.forEach(u => {
+                const tr = document.createElement('tr');
+                const isMe = this.api.user && this.api.user.id === u.id;
+                
+                tr.innerHTML = `
+                    <td>${u.username}</td>
+                    <td>${u.email || '-'}</td>
+                    <td>${u.first_name || ''} ${u.last_name || ''}</td>
+                    <td>
+                        <select onchange="window.insumosApp.handleUpdateRole('${u.id}', this.value)" ${isMe ? 'disabled' : ''}>
+                            <option value="user" ${u.role === 'user' ? 'selected' : ''}>User</option>
+                            <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Admin</option>
+                            <option value="readonly" ${u.role === 'readonly' ? 'selected' : ''}>Read-Only</option>
+                        </select>
+                    </td>
+                    <td>
+                        <button class="btn btn-delete-fazenda" onclick="window.insumosApp.handleDeleteUser('${u.id}')" ${isMe ? 'disabled' : ''} style="padding: 5px 10px; font-size: 0.8em;">Excluir</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        } else {
+            tbody.innerHTML = '<tr><td colspan="5" class="error">Erro ao carregar usuários.</td></tr>';
+        }
+    } catch (e) {
+        console.error(e);
+        tbody.innerHTML = '<tr><td colspan="5" class="error">Erro de conexão.</td></tr>';
+    }
+};
+
+InsumosApp.prototype.handleUpdateRole = async function(id, role) {
+    try {
+        const res = await this.api.updateUser(id, { role });
+        if (res && res.success) {
+            this.ui.showNotification('Permissão atualizada!', 'success');
+        } else {
+            this.ui.showNotification('Erro ao atualizar permissão.', 'error');
+            this.loadAdminUsers(); // Revert changes in UI
+        }
+    } catch (e) {
+        this.ui.showNotification('Erro de conexão.', 'error');
+        this.loadAdminUsers();
+    }
+};
+
+InsumosApp.prototype.handleDeleteUser = async function(id) {
+    if (!confirm('Tem certeza que deseja excluir este usuário?')) return;
+    
+    try {
+        const res = await this.api.deleteUser(id);
+        if (res && res.success) {
+            this.ui.showNotification('Usuário excluído!', 'success');
+            this.loadAdminUsers();
+        } else {
+            this.ui.showNotification('Erro ao excluir usuário.', 'error');
+        }
+    } catch (e) {
+        this.ui.showNotification('Erro de conexão.', 'error');
+    }
+};
+
 InsumosApp.prototype.updateLoginStatus = function() {
 };
 InsumosApp.prototype.updateCurrentUserUI = function() {
@@ -8388,10 +8508,23 @@ InsumosApp.prototype.updateCurrentUserUI = function() {
         if (u) { el.style.display = 'inline-block'; el.textContent = `👤 ${u}`; }
         else { el.style.display = 'none'; el.textContent = ''; }
     }
+
+    // Admin Button Logic
+    const adminBtn = document.getElementById('admin-panel-btn');
+    if (adminBtn) {
+        if (this.api && this.api.user && this.api.user.role === 'admin') {
+            adminBtn.style.display = 'inline-block';
+        } else {
+            adminBtn.style.display = 'none';
+        }
+    }
 };
 InsumosApp.prototype.showLoginScreen = function() {
     const el = document.getElementById('login-screen');
+    const appContent = document.getElementById('app-content');
     if (el) el.style.display = 'flex';
+    if (appContent) appContent.style.display = 'none';
+    
     const registerArea = document.getElementById('register-area');
     const loginGrid = document.querySelector('#login-screen .form-grid.boletim-grid');
     const loginButton = document.getElementById('login-btn');
@@ -8401,7 +8534,12 @@ InsumosApp.prototype.showLoginScreen = function() {
     if (loginButton) loginButton.style.display = 'inline-block';
     if (regToggle) regToggle.textContent = 'Cadastrar';
 };
-InsumosApp.prototype.hideLoginScreen = function() { const el = document.getElementById('login-screen'); if (el) el.style.display = 'none'; };
+InsumosApp.prototype.hideLoginScreen = function() { 
+    const el = document.getElementById('login-screen'); 
+    if (el) el.style.display = 'none';
+    const appContent = document.getElementById('app-content');
+    if (appContent) appContent.style.display = 'flex';
+};
 
 InsumosApp.prototype.handlePrintReport = async function() {
     this.ui.showNotification('Preparando relatório para impressão...', 'info');

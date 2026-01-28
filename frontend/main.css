@@ -583,12 +583,45 @@ body.dark-mode {
     background-image: linear-gradient(to bottom right, #121212, #0d1b10);
 }
 
-body.dark-mode .login-screen {
-    background: rgba(0,0,0,0.85);
+/* Tela de Login Fullscreen */
+.login-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f0f2f5;
+    background-image: linear-gradient(to bottom right, #f0f2f5, #e3f2fd);
 }
-body.dark-mode .login-box {
-    background: #1e1e1e;
-    border-color: #333;
+
+body.dark-mode .login-screen {
+    background: #121212;
+    background-image: linear-gradient(to bottom right, #121212, #0d1b10);
+}
+
+.login-box {
+    background: var(--surface);
+    padding: 30px;
+    border-radius: var(--radius);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    width: 100%;
+    max-width: 400px;
+    border: 1px solid var(--border);
+    animation: slideInUp 0.3s ease-out;
+}
+
+.login-box h2 {
+    margin-top: 0;
+    color: var(--primary);
+    text-align: center;
+}
+
+.login-box p {
+    text-align: center;
 }
 body.dark-mode input, body.dark-mode select {
     background: #2d2d2d;
