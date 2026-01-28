@@ -907,6 +907,7 @@ forceReloadAllData() {
 
     async setupEventListeners() {
         console.log('setupEventListeners started');
+        this.setupViagemAduboListeners();
         // Modal de Gerenciar Fazendas
         const btnOpenFazendas = document.getElementById('btn-open-fazendas-modal');
         const fazendasModal = document.getElementById('fazendas-modal');

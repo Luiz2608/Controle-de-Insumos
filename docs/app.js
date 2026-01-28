@@ -907,6 +907,7 @@ forceReloadAllData() {
 
     async setupEventListeners() {
         console.log('setupEventListeners started');
+        this.setupViagemAduboListeners();
         // Modal de Gerenciar Fazendas
         const btnOpenFazendas = document.getElementById('btn-open-fazendas-modal');
         const fazendasModal = document.getElementById('fazendas-modal');
@@ -5299,6 +5300,13 @@ forceReloadAllData() {
 
             if (res.success) {
                 if (this.ui) this.ui.showNotification('Viagem salva com sucesso!', 'success');
+                
+                // Update Stock
+                if (payload.frente) {
+                    await this.updateEstoqueFromOS(payload.frente);
+                    await this.loadEstoqueAndRender();
+                }
+
                 document.getElementById('modal-viagem-adubo').style.display = 'none';
                 this.loadViagensAdubo();
             } else {
@@ -5311,22 +5319,11 @@ forceReloadAllData() {
     }
 
     async deleteViagemAdubo(id) {
-        let frente = null;
-        if (this.viagensAdubo) {
-             const v = this.viagensAdubo.find(i => String(i.id) === String(id));
-             if (v) frente = v.frente;
-        }
 
         try {
             const res = await this.api.deleteViagemAdubo(id);
             if (res.success) {
                 if (this.ui) this.ui.showNotification('Viagem excluída com sucesso!', 'success');
-                
-                if (frente) {
-                     await this.updateEstoqueFromOS(frente);
-                     await this.loadEstoqueAndRender();
-                }
-
                 this.loadViagensAdubo();
             } else {
                 throw new Error(res.message);
@@ -6818,13 +6815,6 @@ forceReloadAllData() {
 
             if (res && res.success) {
                 this.ui.showNotification('Salvo com sucesso!', 'success');
-                
-                // Update Stock
-                if (data.frente) {
-                    await this.updateEstoqueFromOS(data.frente);
-                    await this.loadEstoqueAndRender();
-                }
-
                 const modal = document.getElementById('modal-transporte-composto');
                 if (modal) modal.style.display = 'none';
                 
@@ -7489,9 +7479,23 @@ forceReloadAllData() {
     
     async deleteComposto(id) {
         if(confirm('Excluir este registro?')) {
+             let frente = null;
+             // Try to fetch or find in cache if available, but here we just fetch by ID if needed or rely on simple fetch
+             // Since we don't have a reliable cache variable exposed here (maybe this.transporteCompostoData?), we try api
+             try {
+                 const { data } = await this.api.getTransporteCompostoById(id);
+                 if (data) frente = data.frente;
+             } catch(e) { console.warn('Ignore fetch error on delete', e); }
+
              const res = await this.api.deleteTransporteComposto(id);
              if(res && res.success) {
                  this.ui.showNotification('Excluído com sucesso', 'success');
+                 
+                 if (frente) {
+                     await this.updateEstoqueFromOS(frente);
+                     await this.loadEstoqueAndRender();
+                 }
+
                  this.renderTransporteComposto();
              } else {
                  this.ui.showNotification('Erro ao excluir', 'error');
@@ -9159,6 +9163,126 @@ InsumosApp.prototype.setupAdminPanel = function() {
                 modal.style.display = 'none';
             }
         });
+        
+        // Tab switching
+        const tabs = modal.querySelectorAll('.admin-tabs .tab');
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                
+                const target = tab.getAttribute('data-tab');
+                modal.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                const targetContent = document.getElementById(target);
+                if (targetContent) targetContent.classList.add('active');
+                
+                if (target === 'admin-users') this.loadAdminUsers();
+                if (target === 'admin-logs') this.loadAuditLogs();
+            });
+        });
+    }
+
+    // Permissions Modal Handlers
+    const permModal = document.getElementById('permissions-modal');
+    const closePerms = document.querySelectorAll('.close-permissions-modal');
+    closePerms.forEach(btn => btn.addEventListener('click', () => {
+        if (permModal) permModal.style.display = 'none';
+    }));
+
+    const permForm = document.getElementById('permissions-form');
+    if (permForm) {
+        permForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.savePermissions();
+        });
+    }
+};
+
+InsumosApp.prototype.loadAuditLogs = async function() {
+    const tbody = document.getElementById('admin-logs-list');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="4" class="loading">Carregando histórico...</td></tr>';
+
+    try {
+        const res = await this.api.getAuditLogs();
+        if (res && res.success) {
+            const logs = res.data || [];
+            if (logs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4">Nenhum registro encontrado.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = logs.map(log => `
+                <tr>
+                    <td>${new Date(log.created_at).toLocaleString('pt-BR')}</td>
+                    <td>${log.users ? (log.users.username || log.users.email) : 'Desconhecido'}</td>
+                    <td>${log.action}</td>
+                    <td style="font-size: 0.8em; color: #666;">${JSON.stringify(log.details || {}).substring(0, 50)}...</td>
+                </tr>
+            `).join('');
+        } else {
+            tbody.innerHTML = '<tr><td colspan="4" class="error">Erro ao carregar logs.</td></tr>';
+        }
+    } catch (e) {
+        console.error(e);
+        tbody.innerHTML = '<tr><td colspan="4" class="error">Erro de conexão.</td></tr>';
+    }
+};
+
+InsumosApp.prototype.handleEditPermissions = function(userId, username, permsStr) {
+    const modal = document.getElementById('permissions-modal');
+    if (!modal) return;
+    
+    this.currentEditingUserId = userId;
+    const nameEl = document.getElementById('permissions-user-name');
+    if (nameEl) nameEl.textContent = `Usuário: ${username}`;
+    
+    let perms = {};
+    try {
+        perms = JSON.parse(decodeURIComponent(permsStr));
+    } catch (e) {
+        perms = {};
+    }
+
+    const form = document.getElementById('permissions-form');
+    if (!form) return;
+    
+    form.reset();
+
+    const checkboxes = form.querySelectorAll('input[type="checkbox"]');
+    checkboxes.forEach(cb => {
+        if (perms[cb.value]) {
+            cb.checked = true;
+        }
+    });
+
+    modal.style.display = 'flex';
+};
+
+InsumosApp.prototype.savePermissions = async function() {
+    if (!this.currentEditingUserId) return;
+    
+    const form = document.getElementById('permissions-form');
+    const checkboxes = form.querySelectorAll('input[type="checkbox"]');
+    
+    const newPerms = {};
+    checkboxes.forEach(cb => {
+        if (cb.checked) {
+            newPerms[cb.value] = true;
+        }
+    });
+    
+    try {
+        const res = await this.api.updateUser(this.currentEditingUserId, { permissions: newPerms });
+        if (res && res.success) {
+            this.ui.showNotification('Permissões salvas!', 'success');
+            document.getElementById('permissions-modal').style.display = 'none';
+            this.loadAdminUsers();
+        } else {
+            this.ui.showNotification('Erro ao salvar permissões', 'error');
+        }
+    } catch (e) {
+        console.error(e);
+        this.ui.showNotification('Erro de conexão', 'error');
     }
 };
 
@@ -9194,6 +9318,7 @@ InsumosApp.prototype.loadAdminUsers = async function() {
                         </select>
                     </td>
                     <td>
+                        <button class="btn btn-secondary" onclick="window.insumosApp.handleEditPermissions('${u.id}', '${u.username}', '${encodeURIComponent(JSON.stringify(u.permissions || {}))}')" style="padding: 5px 10px; font-size: 0.8em; margin-right: 5px;">🔑 Permissões</button>
                         <button class="btn btn-delete-fazenda" onclick="window.insumosApp.handleDeleteUser('${u.id}')" ${isMe ? 'disabled' : ''} style="padding: 5px 10px; font-size: 0.8em;">Excluir</button>
                     </td>
                 `;
@@ -9267,6 +9392,34 @@ InsumosApp.prototype.updateCurrentUserUI = function() {
         } else {
             adminBtn.style.display = 'none';
         }
+    }
+
+    // Apply Page Permissions
+    const mainTabs = document.querySelectorAll('.tabs:not(.admin-tabs) .tab');
+    const userPerms = (this.api && this.api.user && this.api.user.permissions) ? this.api.user.permissions : {};
+    const role = (this.api && this.api.user && this.api.user.role) ? this.api.user.role : 'user';
+
+    // Se for admin ou tiver permissão 'all', vê tudo. Caso contrário, filtra.
+    const canSeeAll = role === 'admin' || userPerms.all === true;
+
+    let firstVisible = null;
+    mainTabs.forEach(t => {
+        const key = t.getAttribute('data-tab');
+        // Se tem permissão total OU permissão específica
+        if (canSeeAll || userPerms[key]) {
+            t.style.display = 'inline-block';
+            if (!firstVisible) firstVisible = t;
+        } else {
+            t.style.display = 'none';
+        }
+    });
+
+    // Se a tab ativa atual ficou invisível, mudar para a primeira visível
+    const currentActive = document.querySelector('.tabs:not(.admin-tabs) .tab.active');
+    if (currentActive && currentActive.style.display === 'none' && firstVisible) {
+        firstVisible.click();
+    } else if (!currentActive && firstVisible) {
+        firstVisible.click();
     }
 };
 InsumosApp.prototype.showLoginScreen = function() {
