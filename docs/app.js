@@ -5172,8 +5172,21 @@ forceReloadAllData() {
         if (btnSaveModal) {
             btnSaveModal.onclick = (e) => {
                 e.preventDefault();
-                console.log('Save button clicked (Modal)!');
-                this.saveViagemAdubo(true);
+                console.log('Save button clicked (Modal)! Calling saveViagemAdubo(true)...');
+                if (typeof this.saveViagemAdubo === 'function') {
+                    try {
+                        this.saveViagemAdubo(true).catch(err => {
+                            console.error('Error in saveViagemAdubo promise:', err);
+                            alert('Erro interno ao processar salvamento: ' + err.message);
+                        });
+                    } catch (syncErr) {
+                         console.error('Error calling saveViagemAdubo:', syncErr);
+                         alert('Erro ao chamar função de salvar: ' + syncErr.message);
+                    }
+                } else {
+                    console.error('this.saveViagemAdubo is not a function!', this);
+                    alert('Erro crítico: Função de salvar não encontrada.');
+                }
             };
         }
 
@@ -5438,6 +5451,7 @@ forceReloadAllData() {
     }
 
     async saveViagemAdubo(isModal = false) {
+        alert('Entrou na função saveViagemAdubo! isModal: ' + isModal);
         console.log('Attempting to save Viagem Adubo...', { isModal });
         
         const prefix = isModal ? 'modal-' : '';
