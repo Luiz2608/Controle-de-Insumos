@@ -744,7 +744,15 @@
 
         <!-- View ADUBO -->
         <div id="view-adubo-mode">
-            <button id="btn-toggle-viagens-filters" class="btn btn-secondary" style="margin-bottom: 10px; width: auto; padding: 6px 16px; font-size: 14px;">🔍 Filtrar</button>
+            <!-- Header e Botões (Novo Layout Padronizado) -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" class="header-container-theme">
+                <h4 style="margin:0;">Gerenciamento de Transporte de Adubo</h4>
+                <div style="display:flex; gap:10px;">
+                     <button id="btn-nova-viagem-adubo" class="btn btn-primary">➕ Nova Viagem</button>
+                     <button id="btn-toggle-viagens-filters" class="btn btn-secondary">🔍 Filtrar</button>
+                </div>
+            </div>
+
         <div id="viagens-filters-container" class="filters" style="display: none;">
             <div class="filter-group">
                 <label for="viagens-tipo-filter">Tipo</label>
@@ -784,7 +792,7 @@
             <button id="reset-viagens-filters" class="btn btn-secondary">🔄 Limpar</button>
         </div>
 
-        <div class="dashboard-wrapper">
+        <div class="dashboard-wrapper" id="new-viagem-container" style="display: none;">
             <div class="chart-card form-card">
                 <h4 style="margin: 0 0 10px 0;">Cadastro de Viagem</h4>
                 <div class="form-grid boletim-grid">
@@ -2084,12 +2092,12 @@
             <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
                 <div class="form-grid boletim-grid">
                     <div class="form-group">
-                        <label for="viagem-data">Data</label>
-                        <input type="date" id="viagem-data">
+                        <label for="modal-viagem-data">Data</label>
+                        <input type="date" id="modal-viagem-data">
                     </div>
                     <div class="form-group adubo-field">
-                        <label for="viagem-frente">Frente</label>
-                        <select id="viagem-frente">
+                        <label for="modal-viagem-frente">Frente</label>
+                        <select id="modal-viagem-frente">
                             <option value="">Selecione</option>
                             <option value="4001">4001</option>
                             <option value="4002">4002</option>
@@ -2097,28 +2105,28 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="viagem-codigo-fazenda">Código</label>
-                        <select id="viagem-codigo-fazenda">
+                        <label for="modal-viagem-codigo-fazenda">Código</label>
+                        <select id="modal-viagem-codigo-fazenda">
                             <option value="">Selecione</option>
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="viagem-fazenda">Fazenda</label>
-                        <select id="viagem-fazenda">
+                        <label for="modal-viagem-fazenda">Fazenda</label>
+                        <select id="modal-viagem-fazenda">
                             <option value="">Selecione a Fazenda</option>
                         </select>
                     </div>
                     <div class="form-group adubo-field">
-                        <label for="viagem-origem">Origem</label>
-                        <input type="text" id="viagem-origem" placeholder="Ex.: Armazém A">
+                        <label for="modal-viagem-origem">Origem</label>
+                        <input type="text" id="modal-viagem-origem" placeholder="Ex.: Armazém A">
                     </div>
                     <div class="form-group adubo-field">
-                        <label for="viagem-destino">Destino</label>
-                        <input type="text" id="viagem-destino" placeholder="Ex.: Talhão 1">
+                        <label for="modal-viagem-destino">Destino</label>
+                        <input type="text" id="modal-viagem-destino" placeholder="Ex.: Talhão 1">
                     </div>
                     <div class="form-group">
-                        <label for="viagem-produto">Produto</label>
-                        <select id="viagem-produto">
+                        <label for="modal-viagem-produto">Produto</label>
+                        <select id="modal-viagem-produto">
                             <option value="">Selecione</option>
                             <option>BIOZYME</option>
                             <option>04-30-10</option>
@@ -2135,12 +2143,12 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="viagem-quantidade-total">Quantidade (t)</label>
-                        <input type="number" id="viagem-quantidade-total" step="0.001">
+                        <label for="modal-viagem-quantidade-total">Quantidade (t)</label>
+                        <input type="number" id="modal-viagem-quantidade-total" step="0.001">
                     </div>
                     <div class="form-group adubo-field">
-                        <label for="viagem-unidade">Unidade</label>
-                        <select id="viagem-unidade">
+                        <label for="modal-viagem-unidade">Unidade</label>
+                        <select id="modal-viagem-unidade">
                             <option value="">Selecione</option>
                             <option value="t">t</option>
                             <option value="kg">kg</option>
@@ -2150,53 +2158,53 @@
                         </select>
                     </div>
                     <div class="form-group adubo-field">
-                        <label for="viagem-caminhao">Caminhão</label>
-                        <input type="text" id="viagem-caminhao" placeholder="Placa / identificação">
+                        <label for="modal-viagem-caminhao">Caminhão</label>
+                        <input type="text" id="modal-viagem-caminhao" placeholder="Placa / identificação">
                     </div>
                     <div class="form-group adubo-field">
-                        <label for="viagem-carreta1">Carreta 1</label>
-                        <input type="text" id="viagem-carreta1" placeholder="Opcional">
+                        <label for="modal-viagem-carreta1">Carreta 1</label>
+                        <input type="text" id="modal-viagem-carreta1" placeholder="Opcional">
                     </div>
                     <div class="form-group adubo-field">
-                        <label for="viagem-carreta2">Carreta 2</label>
-                        <input type="text" id="viagem-carreta2" placeholder="Opcional">
+                        <label for="modal-viagem-carreta2">Carreta 2</label>
+                        <input type="text" id="modal-viagem-carreta2" placeholder="Opcional">
                     </div>
                     <div class="form-group adubo-field">
-                        <label for="viagem-motorista">Motorista</label>
-                        <input type="text" id="viagem-motorista">
+                        <label for="modal-viagem-motorista">Motorista</label>
+                        <input type="text" id="modal-viagem-motorista">
                     </div>
                     <div class="form-group adubo-field">
-                        <label for="viagem-documento-motorista">Doc. Motorista</label>
-                        <input type="text" id="viagem-documento-motorista" placeholder="CPF / CNH">
+                        <label for="modal-viagem-documento-motorista">Doc. Motorista</label>
+                        <input type="text" id="modal-viagem-documento-motorista" placeholder="CPF / CNH">
                     </div>
                     <div class="form-group adubo-field">
-                        <label for="viagem-transportadora">Transportadora</label>
-                        <input type="text" id="viagem-transportadora">
+                        <label for="modal-viagem-transportadora">Transportadora</label>
+                        <input type="text" id="modal-viagem-transportadora">
                     </div>
                     <div class="form-group">
-                        <label for="viagem-observacoes">Observações</label>
-                        <input type="text" id="viagem-observacoes" placeholder="Opcional">
+                        <label for="modal-viagem-observacoes">Observações</label>
+                        <input type="text" id="modal-viagem-observacoes" placeholder="Opcional">
                     </div>
                 </div>
 
-                <div class="chart-card form-card" id="viagem-bags-section" style="margin-top: 15px;">
+                <div class="chart-card form-card" id="modal-viagem-bags-section" style="margin-top: 15px;">
                     <h4 style="margin: 0 0 10px 0;">Bags da Viagem</h4>
                     <div class="form-grid boletim-grid">
                         <div class="form-group">
-                            <label for="bag-identificacao">Identificação</label>
-                            <input type="text" id="bag-identificacao" placeholder="Ex.: BAG 001">
+                            <label for="modal-bag-identificacao">Identificação</label>
+                            <input type="text" id="modal-bag-identificacao" placeholder="Ex.: BAG 001">
                         </div>
                         <div class="form-group">
-                            <label for="bag-lacre">Lacre</label>
-                            <input type="text" id="bag-lacre" placeholder="Lacre / selo">
+                            <label for="modal-bag-lacre">Lacre</label>
+                            <input type="text" id="modal-bag-lacre" placeholder="Lacre / selo">
                         </div>
                         <div class="form-group">
-                            <label for="bag-observacoes">Observações</label>
-                            <input type="text" id="bag-observacoes" placeholder="Opcional">
+                            <label for="modal-bag-observacoes">Observações</label>
+                            <input type="text" id="modal-bag-observacoes" placeholder="Opcional">
                         </div>
                     </div>
                     <div style="margin-top:10px; display:flex; gap:10px;">
-                        <button id="bag-add-btn" class="btn btn-secondary">➕ Adicionar Bag</button>
+                        <button id="modal-bag-add-btn" class="btn btn-secondary">➕ Adicionar Bag</button>
                     </div>
                     <div class="table-container" style="margin-top:10px;">
                         <table class="data-table">
@@ -2208,15 +2216,15 @@
                                     <th>Ações</th>
                                 </tr>
                             </thead>
-                            <tbody id="bags-table-body"></tbody>
+                            <tbody id="modal-bags-table-body"></tbody>
                         </table>
                     </div>
                 </div>
             </div>
             <div class="modal-footer" style="margin-top: 15px; display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid #eee; padding-top: 15px;">
-                 <button type="button" class="btn btn-secondary" id="btn-print-viagem-adubo" title="Imprimir Detalhes">🖨️ Imprimir</button>
+                 <button type="button" class="btn btn-secondary" id="modal-btn-print-viagem-adubo" title="Imprimir Detalhes">🖨️ Imprimir</button>
                  <button type="button" class="btn btn-secondary close-viagem-adubo-modal">Cancelar</button>
-                 <button type="button" id="viagem-save-btn" class="btn btn-primary">💾 Registrar Viagem</button>
+                 <button type="button" id="modal-viagem-save-btn" class="btn btn-primary">💾 Registrar Viagem</button>
             </div>
         </div>
     </div>
