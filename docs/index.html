@@ -610,7 +610,6 @@
             <table id="estoque-table" class="data-table">
                 <thead>
                     <tr>
-                        <th>Tipo</th>
                         <th>Data</th>
                         <th>Nº O.S.</th>
                         <th>Frente</th>
@@ -896,6 +895,7 @@
                     <tr>
                         <th>OS</th>
                         <th>Data Abertura</th>
+                        <th>Cód. Fazenda</th>
                         <th>Fazenda/Frente</th>
                         <th>Produto</th>
                         <th>Meta (t)</th>
@@ -1293,10 +1293,9 @@
                 <div class="form-grid" style="grid-template-columns: 1fr 1fr auto; align-items: end;">
                     <div class="form-group">
                         <label for="meta-frente">Frente</label>
-                        <input type="text" id="meta-frente" placeholder="Ex: 4001, Frente 1..." list="frentes-list">
-                        <datalist id="frentes-list">
-                            <!-- Preenchido via JS -->
-                        </datalist>
+                        <select id="meta-frente">
+                            <option value="">Selecione a Frente...</option>
+                        </select>
                     </div>
                     <div class="form-group">
                         <label for="meta-valor">Meta Diária (ha)</label>
@@ -1866,6 +1865,10 @@
                         <input type="text" name="empresa" id="composto-empresa">
                     </div>
                     <div class="form-group">
+                        <label>Cód. Fazenda</label>
+                        <input type="number" name="fazenda_codigo" id="composto-fazenda-codigo">
+                    </div>
+                    <div class="form-group">
                         <label>Fazenda</label>
                         <input type="text" name="fazenda" id="composto-fazenda">
                     </div>
@@ -1957,6 +1960,155 @@
         </div>
     </div>
 
+ 
+    <!-- Modal Viagem Adubo (Standardized) -->
+    <div id="modal-viagem-adubo" class="modal" style="display: none;">
+        <div class="modal-content" style="width: 80%; max-width: 900px;">
+            <div class="modal-header">
+                <h3>Cadastro de Viagem (Adubo)</h3>
+                <span class="close-modal close-viagem-adubo-modal" style="cursor: pointer;">&times;</span>
+            </div>
+            <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+                <div class="form-grid boletim-grid">
+                    <div class="form-group">
+                        <label for="viagem-data">Data</label>
+                        <input type="date" id="viagem-data">
+                    </div>
+                    <div class="form-group adubo-field">
+                        <label for="viagem-frente">Frente</label>
+                        <select id="viagem-frente">
+                            <option value="">Selecione</option>
+                            <option value="4001">4001</option>
+                            <option value="4002">4002</option>
+                            <option value="4009 Abençoada">4009 Abençoada</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="viagem-codigo-fazenda">Código</label>
+                        <select id="viagem-codigo-fazenda">
+                            <option value="">Selecione</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="viagem-fazenda">Fazenda</label>
+                        <select id="viagem-fazenda">
+                            <option value="">Selecione a Fazenda</option>
+                        </select>
+                    </div>
+                    <div class="form-group adubo-field">
+                        <label for="viagem-origem">Origem</label>
+                        <input type="text" id="viagem-origem" placeholder="Ex.: Armazém A">
+                    </div>
+                    <div class="form-group adubo-field">
+                        <label for="viagem-destino">Destino</label>
+                        <input type="text" id="viagem-destino" placeholder="Ex.: Talhão 1">
+                    </div>
+                    <div class="form-group">
+                        <label for="viagem-produto">Produto</label>
+                        <select id="viagem-produto">
+                            <option value="">Selecione</option>
+                            <option>BIOZYME</option>
+                            <option>04-30-10</option>
+                            <option>QUALITY</option>
+                            <option>AZOKOP</option>
+                            <option>SURVEY (FIPRONIL)</option>
+                            <option>OXIFERTIL</option>
+                            <option>LANEX 800 WG (REGENTE)</option>
+                            <option>COMET</option>
+                            <option>COMPOSTO</option>
+                            <option>10-49-00</option>
+                            <option>PEREGRINO</option>
+                            <option>NO-NEMA</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="viagem-quantidade-total">Quantidade (t)</label>
+                        <input type="number" id="viagem-quantidade-total" step="0.001">
+                    </div>
+                    <div class="form-group adubo-field">
+                        <label for="viagem-unidade">Unidade</label>
+                        <select id="viagem-unidade">
+                            <option value="">Selecione</option>
+                            <option value="t">t</option>
+                            <option value="kg">kg</option>
+                            <option value="L">L</option>
+                            <option value="sc">sc</option>
+                            <option value="bag">bag</option>
+                        </select>
+                    </div>
+                    <div class="form-group adubo-field">
+                        <label for="viagem-caminhao">Caminhão</label>
+                        <input type="text" id="viagem-caminhao" placeholder="Placa / identificação">
+                    </div>
+                    <div class="form-group adubo-field">
+                        <label for="viagem-carreta1">Carreta 1</label>
+                        <input type="text" id="viagem-carreta1" placeholder="Opcional">
+                    </div>
+                    <div class="form-group adubo-field">
+                        <label for="viagem-carreta2">Carreta 2</label>
+                        <input type="text" id="viagem-carreta2" placeholder="Opcional">
+                    </div>
+                    <div class="form-group adubo-field">
+                        <label for="viagem-motorista">Motorista</label>
+                        <input type="text" id="viagem-motorista">
+                    </div>
+                    <div class="form-group adubo-field">
+                        <label for="viagem-documento-motorista">Doc. Motorista</label>
+                        <input type="text" id="viagem-documento-motorista" placeholder="CPF / CNH">
+                    </div>
+                    <div class="form-group adubo-field">
+                        <label for="viagem-transportadora">Transportadora</label>
+                        <input type="text" id="viagem-transportadora">
+                    </div>
+                    <div class="form-group">
+                        <label for="viagem-observacoes">Observações</label>
+                        <input type="text" id="viagem-observacoes" placeholder="Opcional">
+                    </div>
+                </div>
+
+                <div class="chart-card form-card" id="viagem-bags-section" style="margin-top: 15px;">
+                    <h4 style="margin: 0 0 10px 0;">Bags da Viagem</h4>
+                    <div class="form-grid boletim-grid">
+                        <div class="form-group">
+                            <label for="bag-identificacao">Identificação</label>
+                            <input type="text" id="bag-identificacao" placeholder="Ex.: BAG 001">
+                        </div>
+                        <div class="form-group">
+                            <label for="bag-lacre">Lacre</label>
+                            <input type="text" id="bag-lacre" placeholder="Lacre / selo">
+                        </div>
+                        <div class="form-group">
+                            <label for="bag-observacoes">Observações</label>
+                            <input type="text" id="bag-observacoes" placeholder="Opcional">
+                        </div>
+                    </div>
+                    <div style="margin-top:10px; display:flex; gap:10px;">
+                        <button id="bag-add-btn" class="btn btn-secondary">➕ Adicionar Bag</button>
+                    </div>
+                    <div class="table-container" style="margin-top:10px;">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Identificação</th>
+                                    <th>Lacre</th>
+                                    <th>Observações</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="bags-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" style="margin-top: 15px; display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid #eee; padding-top: 15px;">
+                 <button type="button" class="btn btn-secondary" id="btn-print-viagem-adubo" title="Imprimir Detalhes">🖨️ Imprimir</button>
+                 <button type="button" class="btn btn-secondary close-viagem-adubo-modal">Cancelar</button>
+                 <button type="button" id="viagem-save-btn" class="btn btn-primary">💾 Registrar Viagem</button>
+            </div>
+        </div>
+    </div>
+
+ 
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>

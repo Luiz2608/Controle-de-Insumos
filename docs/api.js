@@ -381,6 +381,13 @@ class ApiService {
 
     // === DADOS ===
 
+    async getPlantioDiario() {
+        this.checkConfig();
+        const { data, error } = await this.supabase.from('plantio_diario').select('*');
+        if (error) throw error;
+        return { success: true, data };
+    }
+
     async getOxifertil(filters = {}) {
         this.checkConfig();
         
@@ -518,6 +525,7 @@ class ApiService {
                     fazenda: fazendaNome,
                     produto: ins.produto,
                     inicio: dataPlantio,
+                    dataInicio: dataPlantio,
                     quantidadeAplicada: qtd,
                     doseAplicada: dose,
                     areaTotalAplicada: areaDia,
@@ -535,7 +543,8 @@ class ApiService {
                     
                     // Metadados extras
                     origem: 'plantio_diario',
-                    plantioId: record.id
+                    plantioId: record.id,
+                    frente: talhao // Adiciona frente (que é o talhão/frente de trabalho) para compatibilidade
                 });
             });
         });
@@ -558,6 +567,7 @@ class ApiService {
                 insumosList.push({
                     ...d,
                     id: d.id, // ID original
+                    dataInicio: d.inicio,
                     areaTalhao: d.area_talhao || d.area_total_aplicada,
                     areaTotalAplicada: d.area_total_aplicada,
                     doseRecomendada: d.dose_recomendada,
@@ -1149,7 +1159,7 @@ class ApiService {
         }
 
         // Sanitize Empty Strings to Null for other optional fields
-        ['responsavel_aplicacao', 'empresa', 'frente', 'atividade_agricola', 'fazenda'].forEach(field => {
+        ['responsavel_aplicacao', 'empresa', 'frente', 'atividade_agricola', 'fazenda', 'fazenda_codigo'].forEach(field => {
             if (item[field] === '') item[field] = null;
         });
         
