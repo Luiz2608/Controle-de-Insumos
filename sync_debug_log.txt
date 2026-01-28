@@ -1,0 +1,20 @@
+﻿**********************
+Início da transcrição do Windows PowerShell
+Hora de início: 20260128103646
+Nome de Usuário: GUTEMBERGGOMES\gutem
+Executar como Usuário: GUTEMBERGGOMES\gutem
+Nome da Configuração: 
+Computador: GUTEMBERGGOMES (Microsoft Windows NT 10.0.26200.0)
+Aplicativo Host: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -ExecutionPolicy Bypass -File force_sync.ps1
+ID do Processo: 21556
+PSVersion: 5.1.26100.7627
+PSEdition: Desktop
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1.26100.7627
+BuildVersion: 10.0.26100.7627
+CLRVersion: 4.0.30319.42000
+WSManStackVersion: 3.0
+PSRemotingProtocolVersion: 2.3
+SerializationVersion: 1.1.0.1
+**********************
+Transcrição iniciada, o arquivo de saída é C:\Users\gutem\OneDrive\Desktop\Insumos\sync_debug_log.txt
+--- START SYNC DEBUG ---
