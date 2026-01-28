@@ -1167,6 +1167,21 @@ class ApiService {
         return { success: true, data: data[0] };
     }
 
+    async getLiberacaoColheita() {
+        this.checkConfig();
+        const { data, error } = await this.supabase
+            .from('liberacao_colheita')
+            .select('*')
+            .order('data', { ascending: false });
+
+        if (error) {
+            console.error('Erro ao buscar liberacao_colheita:', error);
+            if (error.code === '42P01') return { success: true, data: [] };
+            throw error;
+        }
+        return { success: true, data };
+    }
+
     // === TRANSPORTE DE COMPOSTO ===
 
     async getTransporteComposto() {

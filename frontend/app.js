@@ -29,6 +29,8 @@ class InsumosApp {
             lacre: ''
         };
         this.liberacaoTalhoesDraft = [];
+        this.transporteCompostoData = [];
+        this.liberacaoColheitaData = [];
         this.compostoDiarioDraft = []; // Novo draft para itens diários de composto
 
         // Controle de Load do Dashboard (Circuit Breaker)
@@ -39,11 +41,50 @@ class InsumosApp {
         this._lastDashboardLoad = 0;
 
         // Inicializar PDF.js worker
+        this.dashboardFilters = { fazenda: 'all', produto: 'all', frente: 'all' };
         if (window.pdfjsLib) {
             window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
         }
     }
 
+    populateDashboardFilters() {
+        const fazendaSelect = document.getElementById('dashboard-fazenda');
+        const produtoSelect = document.getElementById('dashboard-produto');
+        const frenteSelect = document.getElementById('dashboard-frente');
+        if (fazendaSelect) {
+            const set = new Set();
+            (this.cadastroFazendas || []).forEach(f => f && f.nome && set.add(String(f.nome)));
+            (this.insumosFazendasData || []).forEach(i => i && i.fazenda && set.add(String(i.fazenda)));
+            const prev = fazendaSelect.value || 'all';
+            fazendaSelect.innerHTML = '';
+            const optAll = document.createElement('option'); optAll.value = 'all'; optAll.textContent = 'Todas as Fazendas'; fazendaSelect.appendChild(optAll);
+            Array.from(set).sort().forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n; fazendaSelect.appendChild(o); });
+            fazendaSelect.value = prev;
+        }
+        if (produtoSelect) {
+            const set = new Set();
+            (this.insumosFazendasData || []).forEach(i => i && i.produto && set.add(String(i.produto)));
+            const prev = produtoSelect.value || 'all';
+            produtoSelect.innerHTML = '';
+            const optAll = document.createElement('option'); optAll.value = 'all'; optAll.textContent = 'Todos os Produtos'; produtoSelect.appendChild(optAll);
+            Array.from(set).sort().forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n; produtoSelect.appendChild(o); });
+            produtoSelect.value = prev;
+        }
+        if (frenteSelect) {
+            const set = new Set();
+            (this.plantioDiarioData || []).forEach(p => {
+                const fr = Array.isArray(p.frentes) ? p.frentes : [];
+                fr.forEach(f => f && f.frente && set.add(String(f.frente)));
+            });
+            (this.estoqueList || []).forEach(e => e && e.frente && set.add(String(e.frente)));
+            (this.viagensAdubo || []).forEach(v => v && v.frente && set.add(String(v.frente)));
+            const prev = frenteSelect.value || 'all';
+            frenteSelect.innerHTML = '';
+            const optAll = document.createElement('option'); optAll.value = 'all'; optAll.textContent = 'Todas as Frentes'; frenteSelect.appendChild(optAll);
+            Array.from(set).sort().forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n; frenteSelect.appendChild(o); });
+            frenteSelect.value = prev;
+        }
+    }
     async autofetchFazendaByCodigoApi(codInputId) {
         const el = document.getElementById(codInputId);
         const codigo = el && el.value ? el.value.trim() : '';
@@ -1555,6 +1596,30 @@ forceReloadAllData() {
                  this.openMetasModal();
             });
         }
+
+        const fazendaSelect = document.getElementById('dashboard-fazenda');
+        if (fazendaSelect) {
+            fazendaSelect.addEventListener('change', () => {
+                this.dashboardFilters.fazenda = fazendaSelect.value || 'all';
+                this.loadDashboard();
+            });
+        }
+
+        const produtoSelect = document.getElementById('dashboard-produto');
+        if (produtoSelect) {
+            produtoSelect.addEventListener('change', () => {
+                this.dashboardFilters.produto = produtoSelect.value || 'all';
+                this.loadDashboard();
+            });
+        }
+
+        const frenteSelect = document.getElementById('dashboard-frente');
+        if (frenteSelect) {
+            frenteSelect.addEventListener('change', () => {
+                this.dashboardFilters.frente = frenteSelect.value || 'all';
+                this.loadDashboard();
+            });
+        }
     }
 
     handlePrintReport() {
@@ -1797,13 +1862,15 @@ forceReloadAllData() {
             // console.log('🔄 Loading Dashboard...');
             
             // Carregar dados em paralelo
-            const [plantioRes, osRes, insumosRes, estoqueRes, viagensRes, fazendasRes] = await Promise.all([
+            const [plantioRes, osRes, insumosRes, estoqueRes, viagensRes, fazendasRes, compostoRes, liberacaoRes] = await Promise.all([
                 this.api.getPlantioDia(),
                 this.api.getOSList(),
                 this.api.getInsumosFazendas(),
                 this.api.getEstoque(),
                 this.api.getViagensAdubo(),
-                this.api.getFazendas()
+                this.api.getFazendas(),
+                this.api.getTransporteComposto(),
+                this.api.getLiberacaoColheita()
             ]);
 
             if (plantioRes.success) {
@@ -1820,7 +1887,10 @@ forceReloadAllData() {
             if (estoqueRes.success) this.estoqueList = estoqueRes.data;
             if (viagensRes && viagensRes.success) this.viagensAdubo = viagensRes.data;
             if (fazendasRes && fazendasRes.success) this.cadastroFazendas = fazendasRes.data;
+            if (compostoRes && compostoRes.success) this.transporteCompostoData = compostoRes.data;
+            if (liberacaoRes && liberacaoRes.success) this.liberacaoColheitaData = liberacaoRes.data;
 
+            this.populateDashboardFilters();
             this.calculateKPIs();
             
             // Renderização protegida para evitar travamento da UI
@@ -1986,6 +2056,35 @@ forceReloadAllData() {
             setTxt('kpi-insumos-total', `${totalInsumos.toLocaleString('pt-BR', {maximumFractionDigits: 1})} L/kg`);
             setTxt('kpi-os-concluidas', osConcluidas);
 
+            // Novos KPIs
+            // Transporte Composto
+            let totalComposto = 0;
+            if (this.transporteCompostoData && Array.isArray(this.transporteCompostoData)) {
+                totalComposto = this.transporteCompostoData.reduce((acc, curr) => {
+                     // Filter by date if needed, but for now just total or filtered
+                     // Use existing filterDate
+                     const d = curr.data_abertura || curr.created_at;
+                     if (filterDate(d)) {
+                         return acc + (parseFloat(curr.quantidade) || 0);
+                     }
+                     return acc;
+                }, 0);
+            }
+            setTxt('kpi-volume-composto', `${totalComposto.toLocaleString('pt-BR', {maximumFractionDigits: 1})} t`);
+
+            // Liberacao Colheita
+            let areaLiberada = 0;
+            if (this.liberacaoColheitaData && Array.isArray(this.liberacaoColheitaData)) {
+                areaLiberada = this.liberacaoColheitaData.reduce((acc, curr) => {
+                    const d = curr.data;
+                    if (filterDate(d) && (curr.status === 'LIBERADO' || curr.status === 'CONCLUIDO')) {
+                        return acc + (parseFloat(curr.area_total) || 0);
+                    }
+                    return acc;
+                }, 0);
+            }
+            setTxt('kpi-area-liberada', `${areaLiberada.toLocaleString('pt-BR', {maximumFractionDigits: 1})} ha`);
+
         } catch(e) {
             console.error('Erro crítico em calculateKPIs:', e);
         }
@@ -2015,6 +2114,8 @@ forceReloadAllData() {
         try { this.renderEstoqueGeralChart(); } catch(e) { console.error('Erro Chart Estoque:', e); }
         try { this.renderProductDetailsCharts(); } catch(e) { console.error('Erro Chart Produtos:', e); }
         try { this.renderLogisticsCharts(); } catch(e) { console.error('Erro Chart Logistica:', e); }
+        try { this.renderTransporteCompostoChart(); } catch(e) { console.error('Erro Chart Composto:', e); }
+        try { this.renderLiberacaoStatusChart(); } catch(e) { console.error('Erro Chart Liberacao:', e); }
         try { this.renderFarmProgressChart(); } catch(e) { console.error('Erro Chart Fazendas:', e); }
         try { this.renderInsumosGlobalChart(); } catch(e) { console.error('Erro Chart Insumos Global:', e); }
         try { this.renderInsumosTimelineChart(); } catch(e) { console.error('Erro Chart Insumos Timeline:', e); }
@@ -2059,6 +2160,95 @@ forceReloadAllData() {
         } catch(e) { } // console.error('Erro renderFarmProgressChart:', e);
     }
     */
+
+    renderTransporteCompostoChart() {
+        const ctx = document.getElementById('chart-transporte-composto');
+        if (!ctx) return;
+        
+        const existing = Chart.getChart(ctx);
+        if (existing) existing.destroy();
+
+        const data = this.transporteCompostoData || [];
+        // Group by Date
+        const daily = {};
+        data.forEach(item => {
+            const d = item.data_abertura || item.created_at;
+            if (!d) return;
+            const dateStr = d.split('T')[0];
+            if (!daily[dateStr]) daily[dateStr] = 0;
+            daily[dateStr] += parseFloat(item.quantidade || 0);
+        });
+
+        const sortedDates = Object.keys(daily).sort();
+        const values = sortedDates.map(d => daily[d]);
+        const labels = sortedDates.map(d => {
+            const parts = d.split('-');
+            return `${parts[2]}/${parts[1]}`;
+        });
+
+        if (this._charts.transporteComposto) this._charts.transporteComposto.destroy();
+
+        this._charts.transporteComposto = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Volume (t)',
+                    data: values,
+                    backgroundColor: '#795548'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } }
+            }
+        });
+    }
+
+    renderLiberacaoStatusChart() {
+        const ctx = document.getElementById('chart-liberacao-status');
+        if (!ctx) return;
+        
+        const existing = Chart.getChart(ctx);
+        if (existing) existing.destroy();
+
+        const data = this.liberacaoColheitaData || [];
+        const statusCounts = {};
+        data.forEach(item => {
+            const s = item.status || 'PENDENTE';
+            statusCounts[s] = (statusCounts[s] || 0) + 1;
+        });
+
+        const labels = Object.keys(statusCounts);
+        const values = Object.values(statusCounts);
+        
+        const colors = labels.map(s => {
+            if (s === 'LIBERADO') return '#4CAF50';
+            if (s === 'PENDENTE') return '#FFC107';
+            if (s === 'REJEITADO') return '#F44336';
+            return '#9E9E9E';
+        });
+
+        if (this._charts.liberacaoStatus) this._charts.liberacaoStatus.destroy();
+
+        this._charts.liberacaoStatus = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: values,
+                    backgroundColor: colors,
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'right' } }
+            }
+        });
+    }
 
     renderOSStatusChart() {
         const ctx = document.getElementById('chart-os-status');

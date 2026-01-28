@@ -287,6 +287,32 @@
                             <option value="all">Todo o Período</option>
                         </select>
                     </div>
+                    <div class="filter-group">
+                        <label for="dashboard-fazenda">Fazenda:</label>
+                        <select id="dashboard-fazenda">
+                            <option value="all">Todas as Fazendas</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="dashboard-produto">Produto:</label>
+                        <select id="dashboard-produto">
+                            <option value="all">Todos os Produtos</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="dashboard-frente">Frente:</label>
+                        <select id="dashboard-frente">
+                            <option value="all">Todas as Frentes</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="charts-order-select">Ordenação:</label>
+                        <select id="charts-order-select">
+                            <option value="az">A → Z</option>
+                            <option value="za">Z → A</option>
+                            <option value="max">Maior Primeiro</option>
+                        </select>
+                    </div>
                     <button id="btn-refresh-dashboard" class="btn btn-primary">🔄 Atualizar Dados</button>
                     <button id="btn-config-metas" class="btn btn-secondary">⚙️ Metas</button>
                     <button id="btn-print-report" class="btn btn-secondary" style="background-color: #607D8B; color: white;">🖨️ Imprimir Relatório</button>
@@ -369,6 +395,21 @@
                         <span class="kpi-value" id="kpi-os-concluidas">0</span>
                     </div>
                 </div>
+                <!-- KPIs Adicionais -->
+                <div class="kpi-card">
+                    <div class="kpi-icon">🚛</div>
+                    <div class="kpi-info">
+                        <span class="kpi-label">Vol. Composto</span>
+                        <span class="kpi-value" id="kpi-volume-composto">0 t</span>
+                    </div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon">🔓</div>
+                    <div class="kpi-info">
+                        <span class="kpi-label">Área Liberada</span>
+                        <span class="kpi-value" id="kpi-area-liberada">0 ha</span>
+                    </div>
+                </div>
             </div>
 
             <div class="charts">
@@ -398,6 +439,16 @@
                 <div class="chart-card">
                     <h4>Logística: Viagens Diárias</h4>
                     <canvas id="chart-viagens-diarias"></canvas>
+                </div>
+
+                <!-- Linha Nova: Composto e Liberação -->
+                <div class="chart-card">
+                    <h4>Transporte Composto Diário</h4>
+                    <canvas id="chart-transporte-composto"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h4>Status Liberação Colheita</h4>
+                    <canvas id="chart-liberacao-status"></canvas>
                 </div>
 
                 <!-- Linha 3: Insumos e Estoque -->
