@@ -72,34 +72,16 @@
 </head>
 <body>
     <div class="app-container">
-        <!-- Header -->
-        <header class="header">
-            <h1>🧪 Gestão de Insumos Agrícolas</h1>
-            <div class="header-actions">
-                <div class="actions-dropdown">
-                    <button id="more-actions-btn" class="btn btn-secondary">⋯ Mais Ações</button>
-                    <div id="more-actions-menu" class="dropdown-menu">
-                        <button id="export-csv-btn" class="btn btn-secondary">⬇️ Exportar CSV</button>
-                        <button id="export-excel-btn" class="btn btn-secondary">⬇️ Exportar Excel</button>
-                        <button id="export-pdf-btn" class="btn btn-secondary">⬇️ Exportar PDF</button>
-                        <button id="clear-import-btn" class="btn btn-secondary">🗑️ Limpar Histórico</button>
-                        <button id="logout-btn" class="btn btn-secondary">Sair</button>
-                    </div>
-                </div>
-                <button id="theme-toggle" class="btn btn-secondary">🌓 Tema</button>
-                <span id="current-user" class="user-badge" title="Usuário autenticado" style="display:none;"></span>
-            </div>
-        </header>
-
-        <!-- Tela de Login -->
-        <div id="login-screen" class="login-screen" style="display:none;">
+        
+        <!-- Tela de Login (Full Screen Overlay) -->
+        <div id="login-screen" class="login-screen" style="display:flex;">
             <div class="login-box">
                 <h2>Controle de Insumos</h2>
                 <p style="opacity:0.8;margin-bottom:12px;">Acesse para liberar o software</p>
                 <div class="form-grid boletim-grid">
                     <div class="form-group">
-                        <label for="login-user">Usuário</label>
-                        <input type="text" id="login-user" placeholder="admin">
+                        <label for="login-user">Email</label>
+                        <input type="email" id="login-user" placeholder="email@exemplo.com">
                     </div>
                     <div class="form-group">
                         <label for="login-pass">Senha</label>
@@ -115,20 +97,24 @@
                 <div id="register-area" style="display:none;margin-top:12px;">
                     <div class="form-grid">
                         <div class="form-group">
-                            <label for="register-user">Novo usuário (Email)</label>
-                            <input type="text" id="register-user" placeholder="ex.: joao">
+                            <label for="register-user">Usuário (Login)</label>
+                            <input type="text" id="register-user" placeholder="ex.: joao123">
+                        </div>
+                        <div class="form-group">
+                            <label for="register-email">Email</label>
+                            <input type="email" id="register-email" placeholder="joao@exemplo.com">
                         </div>
                         <div class="form-group">
                             <label for="register-pass">Senha</label>
                             <input type="password" id="register-pass" placeholder="min. 6 caracteres">
                         </div>
                         <div class="form-group">
-                            <label for="register-name">Nome Completo</label>
-                            <input type="text" id="register-name" placeholder="Nome Completo">
+                            <label for="register-firstname">Nome</label>
+                            <input type="text" id="register-firstname" placeholder="Primeiro Nome">
                         </div>
                         <div class="form-group">
-                            <label for="register-matricula">Matrícula</label>
-                            <input type="text" id="register-matricula" placeholder="12345">
+                            <label for="register-lastname">Sobrenome</label>
+                            <input type="text" id="register-lastname" placeholder="Sobrenome">
                         </div>
                     </div>
                     <div style="margin-top:10px;display:flex;gap:10px;justify-content:flex-end;">
@@ -136,44 +122,96 @@
                     </div>
                 </div>
             </div>
-
-            </div>
-
-        <!-- Tela de Atualização Cadastral -->
-        <div id="update-profile-screen" class="login-screen" style="display:none; z-index: 9999;">
-            <div class="login-box">
-                <h2>Atualização Cadastral</h2>
-                <p style="opacity:0.8;margin-bottom:12px;">Por favor, complete seu cadastro para continuar.</p>
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label for="update-name">Nome Completo</label>
-                        <input type="text" id="update-name" placeholder="Nome Completo">
-                    </div>
-                    <div class="form-group">
-                        <label for="update-matricula">Matrícula</label>
-                        <input type="text" id="update-matricula" placeholder="12345">
-                    </div>
-                </div>
-                <div style="margin-top:10px;display:flex;gap:10px;justify-content:flex-end;">
-                    <button id="update-profile-btn" class="btn btn-primary">Salvar e Continuar</button>
-                </div>
-            </div>
         </div>
 
-        <!-- Container para Relatório Avançado de Impressão -->
-        <div id="report-print-container" class="print-only"></div>
+        <!-- Conteúdo do App (Escondido até login) -->
+        <div id="app-content" style="display:none; flex-direction: column; height: 100%;">
+            <!-- Header -->
+            <header class="header">
+                <h1>🧪 Gestão de Insumos Agrícolas</h1>
+                <div class="header-actions">
+                    <div class="actions-dropdown">
+                        <button id="more-actions-btn" class="btn btn-secondary">⋯ Mais Ações</button>
+                        <div id="more-actions-menu" class="dropdown-menu">
+                            <button id="export-csv-btn" class="btn btn-secondary">⬇️ Exportar CSV</button>
+                            <button id="export-excel-btn" class="btn btn-secondary">⬇️ Exportar Excel</button>
+                            <button id="export-pdf-btn" class="btn btn-secondary">⬇️ Exportar PDF</button>
+                            <button id="clear-import-btn" class="btn btn-secondary">🗑️ Limpar Histórico</button>
+                            <button id="logout-btn" class="btn btn-secondary">Sair</button>
+                        </div>
+                    </div>
+                    <div id="admin-panel-btn-container" style="display:inline-block;">
+                        <button id="admin-panel-btn" class="btn btn-secondary" style="display:none; background-color: #673AB7; color: white;">🛡️ Admin</button>
+                    </div>
+                    <button id="theme-toggle" class="btn btn-secondary">🌓 Tema</button>
+                    <span id="current-user" class="user-badge" title="Usuário autenticado" style="display:none;"></span>
+                </div>
+            </header>
 
-        
-        <div class="tabs">
-            <button class="tab active" data-tab="graficos">📈 Dashboard</button>
-            <button class="tab" data-tab="plantio-dia">📅 Plantio</button>
-            <button class="tab" data-tab="viagens-adubo">🚚 Viagens Adubo</button>
-            <button class="tab" data-tab="insumos-fazendas">🌱 Insumos</button>
-            <button class="tab" data-tab="estoque">📦 Estoque</button>
-        </div>
+            <!-- Tela de Atualização Cadastral -->
+            <div id="update-profile-screen" class="login-screen" style="display:none; z-index: 9999;">
+                <div class="login-box">
+                    <h2>Atualização Cadastral</h2>
+                    <p style="opacity:0.8;margin-bottom:12px;">Por favor, complete seu cadastro para continuar.</p>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="update-name">Nome Completo</label>
+                            <input type="text" id="update-name" placeholder="Nome Completo">
+                        </div>
+                        <div class="form-group">
+                            <label for="update-matricula">Matrícula</label>
+                            <input type="text" id="update-matricula" placeholder="12345">
+                        </div>
+                    </div>
+                    <div style="margin-top:10px;display:flex;gap:10px;justify-content:flex-end;">
+                        <button id="update-profile-btn" class="btn btn-primary">Salvar e Continuar</button>
+                    </div>
+                </div>
+            </div>
 
-        <!-- Conteúdo das Tabs -->
-        <div class="content-area">
+            <!-- Admin Modal -->
+            <div id="admin-modal" class="modal" style="display: none; z-index: 10000;">
+                <div class="modal-content" style="max-width: 900px;">
+                    <div class="modal-header">
+                        <h3>🛡️ Painel Administrativo</h3>
+                        <button class="close-modal close-admin-modal">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <p style="margin-bottom: 15px;">Gerencie usuários e permissões de acesso.</p>
+                        <div class="table-container" style="max-height: 400px; overflow-y: auto;">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Usuário</th>
+                                        <th>Email</th>
+                                        <th>Nome</th>
+                                        <th>Role</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="admin-users-list">
+                                    <tr><td colspan="5" class="loading">Carregando...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Container para Relatório Avançado de Impressão -->
+            <div id="report-print-container" class="print-only"></div>
+
+            
+            <div class="tabs">
+                <button class="tab active" data-tab="graficos">📈 Dashboard</button>
+                <button class="tab" data-tab="plantio-dia">📅 Plantio</button>
+                <button class="tab" data-tab="viagens-adubo">🚚 Viagens Adubo</button>
+                <button class="tab" data-tab="insumos-fazendas">🌱 Insumos</button>
+                <button class="tab" data-tab="estoque">📦 Estoque</button>
+            </div>
+
+            <!-- Conteúdo das Tabs -->
+            <div class="content-area">
 
         <!-- Tab DASHBOARD -->
         <div class="tab-content active" id="graficos">
@@ -1932,10 +1970,15 @@
     </script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.28/dist/jspdf.plugin.autotable.min.js"></script>
-    <script src="api.js?v=FIX-LAYOUT-16"></script>
-    <script src="ui.js?v=FIX-LAYOUT-16"></script>
-    <script src="import.js?v=FIX-LAYOUT-16"></script>
-    <script src="app.js?v=FIX-LAYOUT-16"></script>
-    <link rel="stylesheet" href="main.css?v=FIX-LAYOUT-16">
+    
+    <!-- Supabase & Config -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js?v=FIX-LAYOUT-20"></script>
+    
+    <script src="api.js?v=FIX-LAYOUT-20"></script>
+    <script src="ui.js?v=FIX-LAYOUT-20"></script>
+    <script src="import.js?v=FIX-LAYOUT-20"></script>
+    <script src="app.js?v=FIX-LAYOUT-20"></script>
+    <link rel="stylesheet" href="main.css?v=FIX-LAYOUT-19">
 </body>
 </html>
