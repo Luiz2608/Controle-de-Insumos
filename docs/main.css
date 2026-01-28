@@ -445,11 +445,17 @@ body {
     overflow: auto;
     background-color: rgba(0,0,0,0.5);
     backdrop-filter: blur(2px);
+    justify-content: center;
+    align-items: center;
+}
+
+.modal[style*="display: block"] {
+    display: flex !important;
 }
 
 .modal-content {
     background-color: var(--surface);
-    margin: 5% auto;
+    margin: auto;
     padding: 25px;
     border-radius: var(--radius);
     width: 90%;
@@ -457,6 +463,9 @@ body {
     box-shadow: 0 20px 40px rgba(0,0,0,0.2);
     animation: slideInUp 0.3s;
     border: 1px solid var(--border);
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
 }
 
 .modal-content.large-modal {
