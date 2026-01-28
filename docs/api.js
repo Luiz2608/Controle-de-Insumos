@@ -350,7 +350,6 @@ class ApiService {
     async updateUser(id, updates) {
         this.checkConfig();
         // Atualiza tabela pública 'users'
-        // Nota: Isso não atualiza o auth.users do Supabase, apenas os dados públicos/permissões da aplicação
         const { data, error } = await this.supabase
             .from('users')
             .update(updates)
@@ -361,6 +360,9 @@ class ApiService {
             console.error('Erro ao atualizar usuário:', error);
             return { success: false, message: error.message };
         }
+        
+        await this.logAction('UPDATE_USER', { target_user_id: id, updates });
+        
         return { success: true, data: data[0] };
     }
 
@@ -376,7 +378,50 @@ class ApiService {
             console.error('Erro ao excluir usuário:', error);
             return { success: false, message: error.message };
         }
+        
+        await this.logAction('DELETE_USER', { target_user_id: id });
+        
         return { success: true };
+    }
+
+    // === AUDIT LOGS ===
+
+    async logAction(action, details = {}) {
+        if (!this.user) return; 
+        
+        try {
+            const { error } = await this.supabase
+                .from('audit_logs')
+                .insert({
+                    user_id: this.user.id,
+                    action: action,
+                    details: details
+                });
+            
+            if (error) console.error('Error logging action:', error);
+        } catch (e) {
+            console.error('Error logging action:', e);
+        }
+    }
+
+    async getAuditLogs(limit = 100) {
+        this.checkConfig();
+        try {
+            const { data, error } = await this.supabase
+                .from('audit_logs')
+                .select('*, users(email, username)')
+                .order('created_at', { ascending: false })
+                .limit(limit);
+
+            if (error) {
+                console.error('Error fetching audit logs:', error);
+                return { success: false, message: error.message };
+            }
+            return { success: true, data };
+        } catch (e) {
+            console.error('Error fetching audit logs:', e);
+            return { success: false, message: e.message };
+        }
     }
 
     // === DADOS ===
@@ -434,6 +479,8 @@ class ApiService {
                     areaTalhao: areaDia,
                     areaTotalAplicada: areaDia,
                     talhao: talhao,
+                    frente: talhao, // Map talhao to frente for compatibility
+                    frente: talhao, // Map talhao to frente for compatibility
                     
                     // Campos de compatibilidade
                     area_talhao: areaDia,
@@ -610,6 +657,7 @@ class ApiService {
         this.checkConfig();
         const { error } = await this.supabase.from('insumos_fazendas').delete().eq('id', id);
         if (error) throw error;
+        await this.logAction('DELETE_INSUMO', { id });
         return { success: true };
     }
 
@@ -629,6 +677,7 @@ class ApiService {
 
         const { data, error } = await this.supabase.from('insumos_fazendas').insert([item]).select();
         if (error) throw error;
+        await this.logAction('ADD_INSUMO', { item });
         return { success: true, data: data[0] };
     }
 
@@ -666,6 +715,7 @@ class ApiService {
             .select();
             
         if (error) throw error;
+        await this.logAction('CREATE_FAZENDA', { item });
         return { success: true, data: data[0] };
     }
 
@@ -682,6 +732,7 @@ class ApiService {
 
         const { data, error } = await this.supabase.from('fazendas').update(updates).eq('codigo', codigo).select();
         if (error) throw error;
+        await this.logAction('UPDATE_FAZENDA', { codigo, updates });
         return { success: true, data: data[0] };
     }
 
@@ -689,6 +740,7 @@ class ApiService {
         this.checkConfig();
         const { error } = await this.supabase.from('fazendas').delete().eq('codigo', codigo);
         if (error) throw error;
+        await this.logAction('DELETE_FAZENDA', { codigo });
         return { success: true };
     }
 
@@ -744,6 +796,7 @@ class ApiService {
         if (error) throw error;
         
         const saved = data[0];
+        await this.logAction('ADD_VIAGEM', { id: saved.id, item });
         const mapped = {
             ...saved,
             transportType: saved.transport_type || 'adubo',
@@ -794,6 +847,7 @@ class ApiService {
         if (error) throw error;
 
         const saved = data[0];
+        await this.logAction('UPDATE_VIAGEM', { id, updates });
         const mapped = {
             ...saved,
             transportType: saved.transport_type || 'adubo',
@@ -813,6 +867,7 @@ class ApiService {
         this.checkConfig();
         const { error } = await this.supabase.from('viagens_adubo').delete().eq('id', id);
         if (error) throw error;
+        await this.logAction('DELETE_VIAGEM', { id });
         return { success: true };
     }
 
@@ -837,6 +892,7 @@ class ApiService {
             .select();
             
         if (error) throw error;
+        await this.logAction('SET_ESTOQUE', { payload });
         return { success: true, data: data[0] };
     }
 
@@ -844,6 +900,7 @@ class ApiService {
         this.checkConfig();
         const { error } = await this.supabase.from('estoque').delete().eq('frente', frente).eq('produto', produto);
         if (error) throw error;
+        await this.logAction('DELETE_ESTOQUE', { frente, produto });
         return { success: true };
     }
 
@@ -864,6 +921,7 @@ class ApiService {
         };
         const { data, error } = await this.supabase.from('plantio_diario').insert([item]).select();
         if (error) throw error;
+        await this.logAction('ADD_PLANTIO', { id: item.id, item });
         return { success: true, data: data[0] };
     }
 
@@ -879,6 +937,7 @@ class ApiService {
             .select();
             
         if (error) throw error;
+        await this.logAction('UPDATE_PLANTIO', { id, updateData });
         return { success: true, data: data[0] };
     }
 
@@ -886,6 +945,7 @@ class ApiService {
         this.checkConfig();
         const { error } = await this.supabase.from('plantio_diario').delete().eq('id', id);
         if (error) throw error;
+        await this.logAction('DELETE_PLANTIO', { id });
         return { success: true };
     }
 
@@ -898,6 +958,7 @@ class ApiService {
         if (e1) throw e1;
         if (e2) throw e2;
         
+        await this.logAction('CLEAR_IMPORT_DATA', {});
         return { success: true };
     }
 
@@ -916,6 +977,7 @@ class ApiService {
             // Fazendas (novo requisito)
             await this.supabase.from('fazendas').delete().neq('codigo', '');
             
+            await this.logAction('CLEAR_ALL_DATA', {});
             return { success: true };
         } catch (error) {
             console.error('Erro ao limpar tudo:', error);
@@ -959,6 +1021,7 @@ class ApiService {
             .select();
 
         if (error) throw error;
+        await this.logAction('SAVE_META', { item });
         return { success: true, data: data[0] };
     }
 
@@ -1064,6 +1127,7 @@ class ApiService {
             .select();
 
         if (error) throw error;
+        await this.logAction('SAVE_OS', { numero: item.numero, status: item.status });
         return { success: true, data: data[0] };
     }
 
@@ -1075,6 +1139,7 @@ class ApiService {
             .eq('numero', numero);
         
         if (error) throw error;
+        await this.logAction('DELETE_OS', { numero });
         return { success: true };
     }
 
@@ -1098,6 +1163,7 @@ class ApiService {
             .select();
 
         if (error) throw error;
+        await this.logAction('SAVE_LIBERACAO', { numero: item.numero_liberacao, status: item.status });
         return { success: true, data: data[0] };
     }
 
@@ -1172,6 +1238,7 @@ class ApiService {
         if (error) throw error;
         
         const savedOS = data[0];
+        await this.logAction('SAVE_TRANSPORTE_COMPOSTO', { id: savedOS.id, item });
 
         // 2. Save Daily Items (if any)
         if (savedOS && savedOS.id && diarios.length > 0) {
@@ -1216,6 +1283,7 @@ class ApiService {
             .eq('id', id);
             
         if (error) throw error;
+        await this.logAction('DELETE_TRANSPORTE_COMPOSTO', { id });
         return { success: true };
     }
 
@@ -1263,6 +1331,7 @@ class ApiService {
             .select();
             
         if (error) throw error;
+        await this.logAction('SAVE_OS_TRANSPORTE_DIARIO', { item });
         return { success: true, data: data[0] };
     }
 
@@ -1274,6 +1343,7 @@ class ApiService {
             .eq('id', id);
             
         if (error) throw error;
+        await this.logAction('DELETE_OS_TRANSPORTE_DIARIO', { id });
         return { success: true };
     }
 }

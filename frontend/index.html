@@ -177,23 +177,85 @@
                         <button class="close-modal close-admin-modal">&times;</button>
                     </div>
                     <div class="modal-body">
-                        <p style="margin-bottom: 15px;">Gerencie usuários e permissões de acesso.</p>
-                        <div class="table-container" style="max-height: 400px; overflow-y: auto;">
-                            <table class="data-table">
-                                <thead>
-                                    <tr>
-                                        <th>Usuário</th>
-                                        <th>Email</th>
-                                        <th>Nome</th>
-                                        <th>Role</th>
-                                        <th>Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="admin-users-list">
-                                    <tr><td colspan="5" class="loading">Carregando...</td></tr>
-                                </tbody>
-                            </table>
+                        <div class="tabs admin-tabs" style="margin-bottom: 15px;">
+                            <button class="tab active" data-tab="admin-users">👥 Usuários</button>
+                            <button class="tab" data-tab="admin-logs">📜 Histórico (Audit)</button>
                         </div>
+
+                        <!-- Tab Usuários -->
+                        <div id="admin-users" class="tab-content active">
+                            <p style="margin-bottom: 15px;">Gerencie usuários e permissões de acesso.</p>
+                            <div class="table-container" style="max-height: 400px; overflow-y: auto;">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Usuário</th>
+                                            <th>Email</th>
+                                            <th>Nome</th>
+                                            <th>Role</th>
+                                            <th>Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="admin-users-list">
+                                        <tr><td colspan="5" class="loading">Carregando...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Tab Histórico -->
+                        <div id="admin-logs" class="tab-content">
+                            <p style="margin-bottom: 15px;">Histórico de atividades do sistema.</p>
+                            <div class="table-container" style="max-height: 400px; overflow-y: auto;">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Data/Hora</th>
+                                            <th>Usuário</th>
+                                            <th>Ação</th>
+                                            <th>Detalhes</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="admin-logs-list">
+                                        <tr><td colspan="4" class="loading">Carregando...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Permissions Modal -->
+            <div id="permissions-modal" class="modal" style="display: none; z-index: 10001;">
+                <div class="modal-content" style="max-width: 500px;">
+                    <div class="modal-header">
+                        <h3>🔒 Permissões de Acesso</h3>
+                        <button class="close-modal close-permissions-modal">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <p id="permissions-user-name" style="font-weight: bold; margin-bottom: 10px;"></p>
+                        <form id="permissions-form">
+                            <div class="form-group">
+                                <label><input type="checkbox" name="perm_dashboard" value="graficos"> Dashboard</label>
+                            </div>
+                            <div class="form-group">
+                                <label><input type="checkbox" name="perm_plantio" value="plantio-dia"> Plantio</label>
+                            </div>
+                            <div class="form-group">
+                                <label><input type="checkbox" name="perm_viagens" value="viagens-adubo"> Viagens Adubo</label>
+                            </div>
+                            <div class="form-group">
+                                <label><input type="checkbox" name="perm_insumos" value="insumos-fazendas"> Insumos</label>
+                            </div>
+                            <div class="form-group">
+                                <label><input type="checkbox" name="perm_estoque" value="estoque"> Estoque</label>
+                            </div>
+                            <div style="margin-top: 15px; display: flex; justify-content: flex-end; gap: 10px;">
+                                <button type="button" class="btn btn-secondary close-permissions-modal">Cancelar</button>
+                                <button type="submit" class="btn btn-primary">Salvar Permissões</button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             </div>
