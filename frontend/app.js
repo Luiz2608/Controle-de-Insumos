@@ -5476,6 +5476,7 @@ forceReloadAllData() {
 
     async saveViagemAdubo(isModal = false) {
         // console.warn('!!! saveViagemAdubo CALLED !!!', { isModal });
+        alert('DEBUG: Entrou no saveViagemAdubo. isModal: ' + isModal);
         
         // UI Feedback for Modal Button
         let btnSaveModal = null;
@@ -5502,6 +5503,8 @@ forceReloadAllData() {
             const qtdStr = getVal('viagem-quantidade-total');
             const quantidadeTotalNum = parseFloat((qtdStr || '').toString().replace(',', '.'));
             
+            alert(`DEBUG VALORES:\nData: ${data}\nFazenda: ${fazenda}\nProduto: ${produto}\nQtd: ${qtdStr} -> ${quantidadeTotalNum}`);
+
             if (!data || !fazenda || !produto || isNaN(quantidadeTotalNum)) {
                 let missing = [];
                 if (!data) missing.push('Data');
@@ -5509,6 +5512,7 @@ forceReloadAllData() {
                 if (!produto) missing.push('Produto');
                 if (isNaN(quantidadeTotalNum)) missing.push('Quantidade');
                 
+                alert('DEBUG: Falta campos: ' + missing.join(', '));
                 console.warn('Campos obrigatórios ausentes:', missing);
                 if (this.ui && this.ui.showNotification) {
                     this.ui.showNotification(`Preencha os campos obrigatórios: ${missing.join(', ')}`, 'warning');
