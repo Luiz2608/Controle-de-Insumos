@@ -559,6 +559,7 @@ class ApiService {
             .select('*');
             
         if (plantioError) throw plantioError;
+        console.log('DEBUG: getInsumosFazendas - plantioData length:', plantioData ? plantioData.length : 0);
 
         let insumosList = [];
         // Set para controle de duplicatas (chave: fazenda|produto|data|talhao)
@@ -584,6 +585,11 @@ class ApiService {
 
                 const dose = parseFloat(ins.doseRealizada || 0);
                 const qtd = dose * areaDia;
+                const dosePrevista = parseFloat(ins.dosePrevista || 0);
+                let diff = 0;
+                if (dosePrevista > 0) {
+                    diff = ((dose - dosePrevista) / dosePrevista) * 100;
+                }
 
                 // Gerar chave única para deduplicação
                 const key = `${fazendaNome}|${ins.produto}|${dataPlantio}|${talhao}`.toUpperCase();
@@ -599,12 +605,14 @@ class ApiService {
                     doseAplicada: dose,
                     areaTotalAplicada: areaDia,
                     talhao: talhao,
+                    diferenca: diff,
+                    dif: diff,
                     
                     // Campos de compatibilidade para interface
                     areaTalhao: areaDia, 
                     area_total_aplicada: areaDia,
-                    doseRecomendada: parseFloat(ins.dosePrevista || 0),
-                    dose_recomendada: parseFloat(ins.dosePrevista || 0),
+                    doseRecomendada: dosePrevista,
+                    dose_recomendada: dosePrevista,
                     quantidade_aplicada: qtd,
                     dose_aplicada: dose,
                     insumDoseAplicada: dose,

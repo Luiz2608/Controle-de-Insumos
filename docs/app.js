@@ -1821,6 +1821,71 @@ forceReloadAllData() {
         }
     }
 
+    isDateInPeriod(dateStr) {
+        // Default to 'all' to ensure data visibility unless user explicitly filters
+        const periodoEl = document.getElementById('dashboard-periodo');
+        let periodo = periodoEl ? periodoEl.value : 'all';
+        
+        // Force 'all' if empty or invalid to prevent hiding data by mistake
+        if (!periodo || periodo === '') periodo = 'all';
+
+        if (periodo === 'all') return true;
+        
+        // If date is missing, decide whether to show or hide. 
+        // Showing is safer to avoid "empty chart" complaints.
+        if (!dateStr) return true; 
+        
+        // Handle ISO strings, YYYY-MM-DD, DD-MM-YYYY etc.
+        let d;
+        try {
+            if (dateStr instanceof Date) {
+                d = dateStr;
+            } else if (typeof dateStr === 'string') {
+                 if (dateStr.includes('T')) {
+                    const parts = dateStr.split('T')[0].split('-');
+                    if (parts.length < 3) return true; // Invalid format, pass through
+                    d = new Date(parts[0], parts[1]-1, parts[2]);
+                } else if (dateStr.includes('-')) {
+                     const parts = dateStr.split('-');
+                     if (parts.length === 3) {
+                         // YYYY-MM-DD
+                         if (parts[0].length === 4) {
+                             d = new Date(parts[0], parts[1]-1, parts[2]);
+                         } 
+                         // DD-MM-YYYY
+                         else if (parts[2].length === 4) {
+                             d = new Date(parts[2], parts[1]-1, parts[0]);
+                         }
+                         else {
+                             d = new Date(dateStr);
+                         }
+                     } else {
+                         d = new Date(dateStr);
+                     }
+                } else {
+                    d = new Date(dateStr);
+                }
+            } else {
+                return true; // Unknown type, pass through
+            }
+            
+            if (isNaN(d.getTime())) return true; // Invalid date, pass through
+
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            
+            // Calculate difference in days
+            const diffTime = today - d; // Positive if past
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            // console.log(`DEBUG isDateInPeriod: Date=${dateStr}, Period=${periodo}, DiffDays=${diffDays}`);
+            return diffDays <= parseInt(periodo);
+        } catch(e) {
+            console.warn('Error in isDateInPeriod:', e);
+            return true; // Default to true on error
+        }
+    }
+
     async loadDashboard() {
         if (this.dashboardDisabled) {
             console.error('⛔ Dashboard desativado devido a excesso de recargas.');
@@ -1861,17 +1926,26 @@ forceReloadAllData() {
         try {
             // console.log('🔄 Loading Dashboard...');
             
-            // Carregar dados em paralelo
+            // Carregar dados em paralelo com tratamento individual de erros
             const [plantioRes, osRes, insumosRes, estoqueRes, viagensRes, fazendasRes, compostoRes, liberacaoRes] = await Promise.all([
-                this.api.getPlantioDia(),
-                this.api.getOSList(),
-                this.api.getInsumosFazendas(),
-                this.api.getEstoque(),
-                this.api.getViagensAdubo(),
-                this.api.getFazendas(),
-                this.api.getTransporteComposto(),
-                this.api.getLiberacaoColheita()
+                this.api.getPlantioDia().catch(e => ({ success: false, error: e })),
+                this.api.getOSList().catch(e => ({ success: false, error: e })),
+                this.api.getInsumosFazendas().catch(e => ({ success: false, error: e })),
+                this.api.getEstoque().catch(e => ({ success: false, error: e })),
+                this.api.getViagensAdubo().catch(e => ({ success: false, error: e })),
+                this.api.getFazendas().catch(e => ({ success: false, error: e })),
+                this.api.getTransporteComposto().catch(e => ({ success: false, error: e })),
+                this.api.getLiberacaoColheita().catch(e => ({ success: false, error: e }))
             ]);
+
+            console.log('--- DEBUG LOADDASHBOARD RESPONSES ---');
+            console.log('Plantio:', plantioRes.success, plantioRes.data?.length);
+            console.log('OS:', osRes.success, osRes.data?.length);
+            console.log('Insumos:', insumosRes.success, insumosRes.data?.length);
+            console.log('Estoque:', estoqueRes.success, estoqueRes.data?.length);
+            console.log('Viagens:', viagensRes?.success, viagensRes?.data?.length);
+            console.log('Fazendas:', fazendasRes?.success, fazendasRes?.data?.length);
+            console.log('---------------------------------------');
 
             if (plantioRes.success) {
                 // Normalizar dados (parsear JSON se necessário)
@@ -2106,6 +2180,15 @@ forceReloadAllData() {
         }
         
         console.log('📊 Renderizando gráficos...');
+        console.log('--- DEBUG DATA COUNTS ---');
+        console.log('InsumosFazendas:', this.insumosFazendasData ? this.insumosFazendasData.length : 0);
+        console.log('PlantioDiario:', this.plantioDiarioData ? this.plantioDiarioData.length : 0);
+        console.log('ViagensAdubo:', this.viagensAdubo ? this.viagensAdubo.length : 0);
+        console.log('EstoqueList:', this.estoqueList ? this.estoqueList.length : 0);
+        console.log('TransporteComposto:', this.transporteCompostoData ? this.transporteCompostoData.length : 0);
+        console.log('LiberacaoColheita:', this.liberacaoColheitaData ? this.liberacaoColheitaData.length : 0);
+        console.log('OSList:', this.osListCache ? this.osListCache.length : 0);
+        console.log('-------------------------');
 
         // Sequência de renderização
         try { this.renderPlantioChart(); } catch(e) { console.error('Erro Chart Plantio:', e); }
@@ -2169,12 +2252,15 @@ forceReloadAllData() {
         if (existing) existing.destroy();
 
         const data = this.transporteCompostoData || [];
+
         // Group by Date
         const daily = {};
         data.forEach(item => {
             const d = item.data_abertura || item.created_at;
             if (!d) return;
             const dateStr = d.split('T')[0];
+            if (!this.isDateInPeriod(dateStr)) return;
+            
             if (!daily[dateStr]) daily[dateStr] = 0;
             daily[dateStr] += parseFloat(item.quantidade || 0);
         });
@@ -2188,6 +2274,8 @@ forceReloadAllData() {
 
         if (this._charts.transporteComposto) this._charts.transporteComposto.destroy();
 
+        const gradient = this.createGradient(ctx, '#8d6e63', '#5d4037'); // Brown 400-700
+
         this._charts.transporteComposto = new Chart(ctx, {
             type: 'bar',
             data: {
@@ -2195,14 +2283,23 @@ forceReloadAllData() {
                 datasets: [{
                     label: 'Volume (t)',
                     data: values,
-                    backgroundColor: '#795548'
+                    backgroundColor: gradient,
+                    borderRadius: 8,
+                    borderSkipped: false,
+                    barPercentage: 0.7,
+                    categoryPercentage: 0.8
                 }]
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } }
-            }
+            options: this.getCommonChartOptions({
+                plugins: { 
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => `Volume: ${context.raw.toLocaleString('pt-BR')} t`
+                        }
+                    }
+                }
+            })
         });
     }
 
@@ -2213,10 +2310,14 @@ forceReloadAllData() {
         const existing = Chart.getChart(ctx);
         if (existing) existing.destroy();
 
-        const data = this.liberacaoColheitaData || [];
+        const data = (this.liberacaoColheitaData || []).filter(item => {
+            const d = item.data || item.created_at;
+            return this.isDateInPeriod(d);
+        });
+
         const statusCounts = {};
         data.forEach(item => {
-            const s = item.status || 'PENDENTE';
+            const s = (item.status || 'PENDENTE').toUpperCase();
             statusCounts[s] = (statusCounts[s] || 0) + 1;
         });
 
@@ -2224,10 +2325,10 @@ forceReloadAllData() {
         const values = Object.values(statusCounts);
         
         const colors = labels.map(s => {
-            if (s === 'LIBERADO') return '#4CAF50';
-            if (s === 'PENDENTE') return '#FFC107';
-            if (s === 'REJEITADO') return '#F44336';
-            return '#9E9E9E';
+            if (s === 'LIBERADO') return this.createGradient(ctx, '#4ade80', '#16a34a'); // Green 400-600
+            if (s === 'PENDENTE') return this.createGradient(ctx, '#fbbf24', '#d97706'); // Amber 400-600
+            if (s === 'REJEITADO') return this.createGradient(ctx, '#f87171', '#dc2626'); // Red 400-600
+            return '#e2e8f0';
         });
 
         if (this._charts.liberacaoStatus) this._charts.liberacaoStatus.destroy();
@@ -2239,14 +2340,27 @@ forceReloadAllData() {
                 datasets: [{
                     data: values,
                     backgroundColor: colors,
-                    borderWidth: 0
+                    borderWidth: 0,
+                    hoverOffset: 15,
+                    borderRadius: 8,
+                    spacing: 4
                 }]
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { position: 'right' } }
-            }
+            options: this.getCommonChartOptions({
+                scales: { x: { display: false }, y: { display: false } },
+                plugins: { 
+                    legend: { 
+                        position: 'bottom',
+                        labels: { usePointStyle: true, padding: 20 }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => ` ${context.label}: ${context.raw}`
+                        }
+                    }
+                },
+                cutout: '75%'
+            })
         });
     }
 
@@ -2259,7 +2373,12 @@ forceReloadAllData() {
             existingChart.destroy();
         }
 
-        const data = this.osListCache || [];
+        const rawData = this.osListCache || [];
+        const data = rawData.filter(item => {
+            const d = item.data_abertura || item.data || item.created_at;
+            return this.isDateInPeriod(d);
+        });
+        
         const statusCounts = {};
         
         data.forEach(os => {
@@ -2270,10 +2389,10 @@ forceReloadAllData() {
         const labels = Object.keys(statusCounts);
         const values = Object.values(statusCounts);
         const colors = labels.map(s => {
-            if(s.includes('CONCLU')) return '#4CAF50';
-            if(s.includes('ANDAMENTO') || s.includes('ABERTA')) return '#2196F3';
-            if(s.includes('CANCEL')) return '#F44336';
-            return '#FF9800';
+            if(s.includes('CONCLU')) return this.createGradient(ctx, '#4ade80', '#16a34a');
+            if(s.includes('ANDAMENTO') || s.includes('ABERTA')) return this.createGradient(ctx, '#60a5fa', '#2563eb');
+            if(s.includes('CANCEL')) return this.createGradient(ctx, '#f87171', '#dc2626');
+            return this.createGradient(ctx, '#fbbf24', '#d97706');
         });
 
         if (this._charts.osStatus) {
@@ -2287,14 +2406,19 @@ forceReloadAllData() {
                 datasets: [{
                     data: values,
                     backgroundColor: colors,
-                    borderWidth: 0
+                    borderWidth: 0,
+                    hoverOffset: 15,
+                    borderRadius: 8,
+                    spacing: 4
                 }]
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
+            options: this.getCommonChartOptions({
+                scales: { x: { display: false }, y: { display: false } },
                 plugins: {
-                    legend: { position: 'bottom' },
+                    legend: { 
+                        position: 'bottom',
+                        labels: { usePointStyle: true, padding: 20 }
+                    },
                     tooltip: {
                         callbacks: {
                             label: function(context) {
@@ -2309,9 +2433,92 @@ forceReloadAllData() {
                             }
                         }
                     }
-                }
-            }
+                },
+                cutout: '75%'
+            })
         });
+    }
+
+    // --- Modern Chart Helpers ---
+    createGradient(ctx, colorStart, colorEnd) {
+        const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 400);
+        gradient.addColorStop(0, colorStart);
+        gradient.addColorStop(1, colorEnd);
+        return gradient;
+    }
+
+    getCommonChartOptions(overrides = {}) {
+        const defaults = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { 
+                        usePointStyle: true, 
+                        pointStyle: 'circle',
+                        font: { family: "'Inter', sans-serif", size: 12 },
+                        padding: 20,
+                        color: '#666'
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(255, 255, 255, 0.98)',
+                    titleColor: '#1e293b',
+                    bodyColor: '#475569',
+                    borderColor: 'rgba(0,0,0,0.05)',
+                    borderWidth: 1,
+                    padding: 12,
+                    cornerRadius: 8,
+                    titleFont: { family: "'Inter', sans-serif", size: 13, weight: '600' },
+                    bodyFont: { family: "'Inter', sans-serif", size: 12 },
+                    displayColors: true,
+                    boxPadding: 4,
+                    callbacks: {}
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { 
+                        color: '#f1f5f9', 
+                        borderDash: [4, 4],
+                        drawBorder: false
+                    },
+                    ticks: { 
+                        font: { family: "'Inter', sans-serif", size: 11 }, 
+                        color: '#94a3b8',
+                        padding: 8
+                    },
+                    border: { display: false }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { 
+                        font: { family: "'Inter', sans-serif", size: 11 }, 
+                        color: '#94a3b8',
+                        autoSkip: true,
+                        maxRotation: 0
+                    },
+                    border: { display: false }
+                }
+            },
+            animation: {
+                duration: 1000,
+                easing: 'easeOutQuart'
+            }
+        };
+
+        if (overrides.plugins) {
+            Object.assign(defaults.plugins, overrides.plugins);
+            if (overrides.plugins.tooltip && overrides.plugins.tooltip.callbacks) {
+                defaults.plugins.tooltip.callbacks = overrides.plugins.tooltip.callbacks;
+            }
+        }
+        if (overrides.scales) Object.assign(defaults.scales, overrides.scales);
+        if (overrides.indexAxis) defaults.indexAxis = overrides.indexAxis;
+
+        return defaults;
     }
 
     renderInsumosGlobalChart() {
@@ -2321,7 +2528,12 @@ forceReloadAllData() {
         const existingChart = Chart.getChart(ctx);
         if (existingChart) existingChart.destroy();
         
-        const data = this.insumosFazendasData || [];
+        const rawData = this.insumosFazendasData || [];
+        const data = rawData.filter(item => {
+            const d = item.inicio || item.data || item.created_at;
+            return this.isDateInPeriod(d);
+        });
+
         const products = {};
 
         data.forEach(item => {
@@ -2340,6 +2552,26 @@ forceReloadAllData() {
 
         if (this._charts.insumosGlobal) this._charts.insumosGlobal.destroy();
 
+        const gradientPlanned = this.createGradient(ctx, '#60a5fa', '#2563eb');
+        const gradientReal = this.createGradient(ctx, '#34d399', '#059669');
+
+        const options = this.getCommonChartOptions({
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) label += ': ';
+                            if (context.parsed.y !== null) {
+                                label += context.parsed.y.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+                            }
+                            return label;
+                        }
+                    }
+                }
+            }
+        });
+
         this._charts.insumosGlobal = new Chart(ctx, {
             type: 'bar',
             data: {
@@ -2348,36 +2580,22 @@ forceReloadAllData() {
                     {
                         label: 'Planejado (L/kg)',
                         data: plannedData,
-                        backgroundColor: '#90CAF9'
+                        backgroundColor: gradientPlanned,
+                        borderRadius: 8,
+                        barPercentage: 0.7,
+                        categoryPercentage: 0.8
                     },
                     {
                         label: 'Realizado (L/kg)',
                         data: realData,
-                        backgroundColor: '#1E88E5'
+                        backgroundColor: gradientReal,
+                        borderRadius: 8,
+                        barPercentage: 0.7,
+                        categoryPercentage: 0.8
                     }
                 ]
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { 
-                    legend: { position: 'bottom' },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                let label = context.dataset.label || '';
-                                if (label) {
-                                    label += ': ';
-                                }
-                                if (context.parsed.y !== null) {
-                                    label += context.parsed.y.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
-                                }
-                                return label;
-                            }
-                        }
-                    }
-                }
-            }
+            options: options
         });
     }
 
@@ -2389,11 +2607,23 @@ forceReloadAllData() {
         if (existingChart) existingChart.destroy();
 
         const data = this.insumosFazendasData || [];
+        
         const daily = {};
+        let skippedCount = 0;
+        let processedCount = 0;
 
         data.forEach(item => {
             const date = item.inicio ? item.inicio.split('T')[0] : null;
-            if (!date) return;
+            if (!date) {
+                skippedCount++;
+                return;
+            }
+            if (!this.isDateInPeriod(date)) {
+                skippedCount++;
+                return;
+            }
+            
+            processedCount++;
             if (!daily[date]) daily[date] = 0;
             daily[date] += parseFloat(item.quantidadeAplicada || 0);
         });
@@ -2407,9 +2637,25 @@ forceReloadAllData() {
 
         if (this._charts.insumosTimeline) this._charts.insumosTimeline.destroy();
 
-        const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 300);
-        gradient.addColorStop(0, 'rgba(0, 150, 136, 0.4)');
-        gradient.addColorStop(1, 'rgba(0, 150, 136, 0.0)');
+        const gradient = this.createGradient(ctx, 'rgba(14, 165, 233, 0.2)', 'rgba(14, 165, 233, 0.0)'); // Sky Blue
+
+        const options = this.getCommonChartOptions({
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) label += ': ';
+                            if (context.parsed.y !== null) {
+                                label += context.parsed.y.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+                            }
+                            return label;
+                        }
+                    }
+                }
+            }
+        });
 
         this._charts.insumosTimeline = new Chart(ctx, {
             type: 'line',
@@ -2418,47 +2664,35 @@ forceReloadAllData() {
                 datasets: [{
                     label: 'Aplicação Diária (L/kg)',
                     data: values,
-                    borderColor: '#009688',
+                    borderColor: '#0ea5e9', // Sky 500
+                    borderWidth: 3,
                     backgroundColor: gradient,
                     fill: true,
-                    tension: 0.3
+                    tension: 0.4,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: '#fff',
+                    pointBorderColor: '#0ea5e9',
+                    pointBorderWidth: 2
                 }]
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                let label = context.dataset.label || '';
-                                if (label) {
-                                    label += ': ';
-                                }
-                                if (context.parsed.y !== null) {
-                                    label += context.parsed.y.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
-                                }
-                                return label;
-                            }
-                        }
-                    }
-                },
-                scales: { y: { beginAtZero: true } }
-            }
+            options: options
         });
     }
 
     renderEstoqueGeralChart() {
+         console.log('📊 Renderizando Estoque Geral...');
          const ctxId = 'chart-estoque-geral';
          const ctx = document.getElementById(ctxId);
-         if (!ctx) return;
+         if (!ctx) {
+             console.warn('⚠️ Canvas chart-estoque-geral não encontrado.');
+             return;
+         }
 
          this.destroyChart(ctxId, 'estoqueGeral');
          
          const data = this.estoqueList || [];
-         if (data.length === 0) return;
-
+         
          // Agrupar por Frente
          const porFrente = {};
          data.forEach(item => {
@@ -2484,7 +2718,25 @@ forceReloadAllData() {
              values = top15Values;
          }
 
-         if (labels.length === 0) return;
+        const gradient = this.createGradient(ctx, '#d946ef', '#a21caf'); // Fuchsia 500-700
+
+        const options = this.getCommonChartOptions({
+             plugins: {
+                 legend: { display: false },
+                 tooltip: {
+                     callbacks: {
+                         label: function(context) {
+                             let label = context.dataset.label || '';
+                             if (label) label += ': ';
+                             if (context.parsed.y !== null) {
+                                 label += context.parsed.y.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+                             }
+                             return label;
+                         }
+                     }
+                 }
+             }
+         });
 
          this._charts.estoqueGeral = new Chart(ctx, {
              type: 'bar',
@@ -2493,36 +2745,148 @@ forceReloadAllData() {
                  datasets: [{
                      label: 'Quantidade em Estoque',
                      data: values,
-                     backgroundColor: '#9C27B0'
-                 }]
+                     backgroundColor: gradient,
+                    borderRadius: 8,
+                    barPercentage: 0.7
+                }]
              },
-             options: {
-                 responsive: true,
-                 maintainAspectRatio: false,
-                 plugins: {
-                     tooltip: {
-                         callbacks: {
-                             label: function(context) {
-                                 let label = context.dataset.label || '';
-                                 if (label) {
-                                     label += ': ';
-                                 }
-                                 if (context.parsed.y !== null) {
-                                     label += context.parsed.y.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
-                                 }
-                                 return label;
-                             }
-                         }
-                     }
-                 }
-             }
+             options: options
          });
+    }
+
+    updateCharts(data) {
+        console.log('DEBUG: updateCharts called with data length:', data ? data.length : 'null');
+        if (!data) return;
+
+        // --- Chart: Diferença por Produto (%) ---
+        const diffCtx = document.getElementById('chart-diff-produtos');
+        if (diffCtx) {
+            console.log('DEBUG: chart-diff-produtos found');
+            if (this._charts.diffProdutos) this._charts.diffProdutos.destroy();
+            
+            const productStats = {};
+            data.forEach(item => {
+                const p = item.produto;
+                if (!p) return;
+                if (!productStats[p]) productStats[p] = { diffSum: 0, count: 0 };
+                
+                let diff = parseFloat(item.diferenca);
+                if (isNaN(diff)) {
+                    // Tentar calcular se não vier pronto
+                    const rec = parseFloat(item.dose_recomendada || 0);
+                    const app = parseFloat(item.dose_aplicada || 0);
+                    if (rec > 0) {
+                         diff = ((app - rec) / rec) * 100;
+                    } else {
+                         diff = 0;
+                    }
+                }
+                
+                productStats[p].diffSum += diff;
+                productStats[p].count++;
+            });
+            console.log('DEBUG: productStats keys:', Object.keys(productStats));
+            
+            const labels = Object.keys(productStats);
+            const values = labels.map(p => productStats[p].count ? (productStats[p].diffSum / productStats[p].count) : 0);
+            
+            const gradientRed = this.createGradient(diffCtx, '#ef4444', '#b91c1c'); // Red 500-700
+            const gradientGreen = this.createGradient(diffCtx, '#22c55e', '#15803d'); // Green 500-700
+
+            this._charts.diffProdutos = new Chart(diffCtx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Diferença Média (%)',
+                        data: values,
+                        backgroundColor: values.map(v => Math.abs(v) > 5 ? gradientRed : gradientGreen),
+                        borderRadius: 8,
+                        barPercentage: 0.7
+                    }]
+                },
+                options: this.getCommonChartOptions({
+                    indexAxis: 'y',
+                    plugins: { 
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => `Diferença: ${ctx.raw.toFixed(2)}%`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { 
+                            ticks: { callback: v => v + '%' } 
+                        }
+                    }
+                })
+            });
+        }
+
+        // --- Chart: Comparação por Produto (Dose) ---
+        const doseCtx = document.getElementById('chart-dose-produtos');
+        if (doseCtx) {
+            if (this._charts.doseProdutos) this._charts.doseProdutos.destroy();
+            
+            const doseStats = {};
+            data.forEach(item => {
+                const p = item.produto;
+                if (!p) return;
+                if (!doseStats[p]) doseStats[p] = { recSum: 0, appSum: 0, count: 0 };
+                
+                doseStats[p].recSum += parseFloat(item.dose_recomendada || 0);
+                doseStats[p].appSum += parseFloat(item.dose_aplicada || 0);
+                doseStats[p].count++;
+            });
+            
+            const labels = Object.keys(doseStats);
+            const recValues = labels.map(p => doseStats[p].count ? (doseStats[p].recSum / doseStats[p].count) : 0);
+            const appValues = labels.map(p => doseStats[p].count ? (doseStats[p].appSum / doseStats[p].count) : 0);
+            
+            const gradientBlue = this.createGradient(doseCtx, '#3b82f6', '#1d4ed8'); // Blue 500-700
+            const gradientAmber = this.createGradient(doseCtx, '#f59e0b', '#b45309'); // Amber 500-700
+
+            this._charts.doseProdutos = new Chart(doseCtx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Dose Rec.',
+                            data: recValues,
+                            backgroundColor: gradientBlue,
+                            borderRadius: 8,
+                            barPercentage: 0.7,
+                            categoryPercentage: 0.8
+                        },
+                        {
+                            label: 'Dose Apl.',
+                            data: appValues,
+                            backgroundColor: gradientAmber,
+                            borderRadius: 8,
+                            barPercentage: 0.7,
+                            categoryPercentage: 0.8
+                        }
+                    ]
+                },
+                options: this.getCommonChartOptions({
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                })
+            });
+        }
     }
 
     renderProductDetailsCharts() {
          // Wrapper para chamar a antiga updateCharts com os dados atuais
          if (this.insumosFazendasData) {
-             this.updateCharts(this.insumosFazendasData);
+             const filteredData = this.insumosFazendasData.filter(item => {
+                 const d = item.inicio || item.data || item.created_at;
+                 return this.isDateInPeriod(d);
+             });
+             this.updateCharts(filteredData);
          }
     }
 
@@ -2533,21 +2897,9 @@ forceReloadAllData() {
 
         this.destroyChart(ctxId, 'logistics');
 
-        const periodo = document.getElementById('dashboard-periodo')?.value || '30';
-        const now = new Date();
-        const filterDate = (dateStr) => {
-            if (periodo === 'all') return true;
-            if (!dateStr) return false;
-            const d = new Date(dateStr);
-            const diffTime = Math.abs(now - d);
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            return diffDays <= parseInt(periodo);
-        };
-
-        const data = (this.viagensAdubo || []).filter(v => filterDate(v.data));
+        const rawData = this.viagensAdubo || [];
+        const data = rawData.filter(v => this.isDateInPeriod(v.data));
         
-        if (data.length === 0) return; // Don't create chart if no data
-
         // Group by Date
         const dailyCounts = {};
         data.forEach(v => {
@@ -2565,9 +2917,7 @@ forceReloadAllData() {
              return parts.length === 3 ? `${parts[2]}/${parts[1]}` : d;
         });
 
-        const gradientLogistics = ctx.getContext('2d').createLinearGradient(0, 0, 0, 300);
-        gradientLogistics.addColorStop(0, 'rgba(255, 193, 7, 0.4)');
-        gradientLogistics.addColorStop(1, 'rgba(255, 193, 7, 0.0)');
+        const gradientLogistics = this.createGradient(ctx, '#fbbf24', '#d97706'); // Amber 400-600
 
         this._charts.logistics = new Chart(ctx, {
             type: 'line',
@@ -2576,29 +2926,21 @@ forceReloadAllData() {
                 datasets: [{
                     label: 'Viagens por Dia',
                     data: values,
-                    borderColor: '#FFC107',
+                    borderColor: '#d97706',
                     backgroundColor: gradientLogistics,
                     tension: 0.4,
                     fill: true,
                     pointBackgroundColor: '#FFF',
-                    pointBorderColor: '#FFB300',
+                    pointBorderColor: '#b45309',
                     pointRadius: 4,
-                    pointHoverRadius: 6
+                    pointHoverRadius: 6,
+                    pointBorderWidth: 2
                 }]
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
+            options: this.getCommonChartOptions({
                 plugins: {
                     legend: { display: false },
                     tooltip: {
-                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                        titleColor: '#333',
-                        bodyColor: '#333',
-                        borderColor: '#e0e0e0',
-                        borderWidth: 1,
-                        intersect: false,
-                        mode: 'index',
                         callbacks: {
                             label: function(context) {
                                 let label = context.dataset.label || '';
@@ -2612,12 +2954,7 @@ forceReloadAllData() {
                 scales: {
                     y: { 
                         beginAtZero: true, 
-                        ticks: { stepSize: 1, color: '#666' },
-                        grid: { color: '#f0f0f0' }
-                    },
-                    x: {
-                        grid: { display: false },
-                        ticks: { color: '#666' }
+                        ticks: { stepSize: 1 }
                     }
                 },
                 interaction: {
@@ -2625,7 +2962,7 @@ forceReloadAllData() {
                     axis: 'x',
                     intersect: false
                 }
-            }
+            })
         });
     }
 
@@ -2637,7 +2974,7 @@ forceReloadAllData() {
         this.destroyChart(ctxId, 'farmProgress');
 
         const normalize = (s) => (s || '').trim().toLowerCase();
-
+        
         // 1. Identify farms present in OS List (registered OS)
         const osFarms = new Set();
         if (this.osListCache && Array.isArray(this.osListCache)) {
@@ -2652,36 +2989,15 @@ forceReloadAllData() {
                     }
                 }
             });
-        } else {
-             // console.warn('⚠️ OS List Cache is empty or invalid during Farm Progress Chart render.');
         }
 
         // Use cadastroFazendas for total area and current progress
-        // Filter out farms with 0 area AND only show farms that have registered OS
+        // Filter out farms with 0 area
         let farms = (this.cadastroFazendas || []).filter(f => {
             const area = parseFloat(f.area_total);
-            if (area <= 0) return false;
-
-            // Check if linked to any OS
-            const nome = normalize(f.nome);
-            const cod = String(f.codigo || '').trim();
-            
-            let hasOS = osFarms.has(cod) || osFarms.has(nome);
-            
-            if (!hasOS) {
-                // Check if any OS farm string contains this farm name or starts with code
-                for (const osFarm of osFarms) {
-                    if (osFarm.includes(nome) || (cod && osFarm.startsWith(cod + ' '))) {
-                        hasOS = true;
-                        break;
-                    }
-                }
-            }
-            return hasOS;
+            return area > 0;
         });
         
-        if (farms.length === 0) return; // Don't create chart if no data
-
         // Sort by area total descending and take top 15 to avoid clutter
         farms.sort((a, b) => parseFloat(b.area_total) - parseFloat(a.area_total));
         farms = farms.slice(0, 15);
@@ -2693,6 +3009,9 @@ forceReloadAllData() {
 
             // Calcular realizado varrendo plantioDiarioData para garantir dados atualizados
             (this.plantioDiarioData || []).forEach(p => {
+                // Apply date filter
+                if (!this.isDateInPeriod(p.data)) return;
+
                 const processItem = (fazendaStr, area) => {
                     if (!fazendaStr || !area) return;
                     const fStr = normalize(fazendaStr);
@@ -2726,13 +3045,8 @@ forceReloadAllData() {
         });
 
         // Gradient for progress bars
-        const gradientComplete = ctx.getContext('2d').createLinearGradient(0, 0, 200, 0);
-        gradientComplete.addColorStop(0, '#43a047');
-        gradientComplete.addColorStop(1, '#66bb6a');
-
-        const gradientProgress = ctx.getContext('2d').createLinearGradient(0, 0, 200, 0);
-        gradientProgress.addColorStop(0, '#1976d2');
-        gradientProgress.addColorStop(1, '#42a5f5');
+        const gradientComplete = this.createGradient(ctx, '#4ade80', '#16a34a'); // Green 400-600
+        const gradientProgress = this.createGradient(ctx, '#60a5fa', '#2563eb'); // Blue 400-600
 
         this._charts.farmProgress = new Chart(ctx, {
             type: 'bar',
@@ -2745,14 +3059,13 @@ forceReloadAllData() {
                         const value = context.dataset.data[context.dataIndex];
                         return value >= 100 ? gradientComplete : gradientProgress;
                     },
-                    borderRadius: 4,
-                    barPercentage: 0.6
+                    borderRadius: 8,
+                    barPercentage: 0.7,
+                    categoryPercentage: 0.8
                 }]
             },
-            options: {
+            options: this.getCommonChartOptions({
                 indexAxis: 'y', // Horizontal bar
-                responsive: true,
-                maintainAspectRatio: false,
                 plugins: {
                     legend: { display: false },
                     tooltip: {
@@ -2765,14 +3078,12 @@ forceReloadAllData() {
                     x: { 
                         max: 100, 
                         beginAtZero: true,
-                        grid: { color: '#f0f0f0' },
-                        ticks: { callback: v => v + '%' }
-                    },
-                    y: {
-                        grid: { display: false }
+                        ticks: { 
+                            callback: v => v + '%'
+                        }
                     }
                 }
-            }
+            })
         });
     }
 
@@ -3862,19 +4173,13 @@ forceReloadAllData() {
     renderPlantioChart() {
         // console.log('📈 renderPlantioChart iniciado');
         const canvas = document.getElementById('chart-plantio-diario');
-        if (!canvas) {
-             // console.error('❌ Canvas chart-plantio-diario não encontrado');
-             return;
-        }
+        if (!canvas) return;
 
         const existingChart = Chart.getChart(canvas);
-        if (existingChart) {
-            existingChart.destroy();
-        }
+        if (existingChart) existingChart.destroy();
 
-        // Dados base - CORREÇÃO: Usar plantioDiarioData em vez de insumosFazendasData
+        // Dados base
         const data = this.plantioDiarioData || [];
-        // console.log(`📊 Dados para plantio: ${data.length} registros`);
         const metas = this.metasData || [];
 
         // Filtro de frente
@@ -3891,7 +4196,6 @@ forceReloadAllData() {
             const dataKey = item.data ? item.data.split('T')[0] : null;
             if (!dataKey) return;
 
-            // Função helper para processar entrada de frente/área
             const addEntry = (frenteRaw, area) => {
                 const f = normalize(frenteRaw) || 'Geral';
                 if (filterFrente !== 'all' && f !== filterFrente) return;
@@ -3904,25 +4208,20 @@ forceReloadAllData() {
                 datesSet.add(dataKey);
             };
 
-            // Verifica se tem array de frentes (estrutura nova)
             if (item.frentes && Array.isArray(item.frentes)) {
                 item.frentes.forEach(f => {
-                    // Correção: Usar plantioDiario com fallback seguro
                     let val = f.plantioDiario;
                     if (val === undefined || val === null) val = f.plantada;
                     addEntry(f.frente, val);
                 });
             } else {
-                // Estrutura antiga ou simplificada
                 addEntry(item.frente, item.area_plantada);
             }
         });
 
-        // Ordenar datas
         const dates = Array.from(datesSet).sort();
         
         if (dates.length === 0) {
-            console.warn('⚠️ Sem dados de datas para renderizar gráfico de plantio.');
             if (this.plantioChartInstance) {
                 this.plantioChartInstance.destroy();
                 this.plantioChartInstance = null;
@@ -3930,32 +4229,26 @@ forceReloadAllData() {
             return;
         }
 
-        // Se quiser limitar aos últimos 30 dias:
-        // const dates = Array.from(datesSet).sort().slice(-30);
-
         const frentes = Array.from(frentesSet).sort();
 
         // Datasets
         const datasets = [];
         
-        // Paleta de gradients
+        // Paleta de gradients moderna
         const palettes = [
-            ['#42a5f5', '#1976d2'], // Blue
-            ['#66bb6a', '#43a047'], // Green
-            ['#ffa726', '#f57c00'], // Orange
-            ['#ab47bc', '#7b1fa2'], // Purple
-            ['#ef5350', '#c62828'], // Red
-            ['#26c6da', '#00acc1'], // Cyan
-            ['#8d6e63', '#5d4037'], // Brown
-            ['#78909c', '#455a64']  // Grey
+            ['#3b82f6', '#1d4ed8'], // Blue 500-700
+            ['#22c55e', '#15803d'], // Green 500-700
+            ['#f59e0b', '#b45309'], // Amber 500-700
+            ['#a855f7', '#7e22ce'], // Purple 500-700
+            ['#ef4444', '#b91c1c'], // Red 500-700
+            ['#06b6d4', '#0e7490'], // Cyan 500-700
+            ['#8b5cf6', '#6d28d9'], // Violet 500-700
+            ['#64748b', '#334155']  // Slate 500-700
         ];
 
         frentes.forEach((frente, index) => {
             const palette = palettes[index % palettes.length];
-            const ctx = canvas.getContext('2d');
-            const gradient = ctx.createLinearGradient(0, 0, 0, 400);
-            gradient.addColorStop(0, palette[0]);
-            gradient.addColorStop(1, palette[1]);
+            const gradient = this.createGradient(canvas, palette[0], palette[1]);
             
             // Dados de Realizado (Barras)
             const dataPoints = dates.map(d => diario[d] && diario[d][frente] ? diario[d][frente] : 0);
@@ -3964,9 +4257,10 @@ forceReloadAllData() {
                 label: `Realizado - ${frente}`,
                 data: dataPoints,
                 backgroundColor: gradient,
-                borderColor: palette[1],
-                borderWidth: 1,
-                borderRadius: 4,
+                borderRadius: 8,
+                borderSkipped: false,
+                barPercentage: 0.7,
+                categoryPercentage: 0.8,
                 type: 'bar',
                 order: 2
             });
@@ -3978,25 +4272,19 @@ forceReloadAllData() {
                 datasets.push({
                     label: `Meta - ${frente}`,
                     data: dates.map(() => metaVal),
-                    borderColor: palette[1], // Mesma cor base da barra
+                    borderColor: palette[1],
                     borderWidth: 2,
                     borderDash: [5, 5],
                     type: 'line',
                     pointRadius: 0,
                     pointHoverRadius: 4,
                     fill: false,
-                    tension: 0, // Linha reta
+                    tension: 0,
                     order: 1
                 });
             }
         });
 
-        // Destruir anterior
-        if (this.plantioChartInstance) {
-            this.plantioChartInstance.destroy();
-        }
-
-        // Criar novo Chart
         this.plantioChartInstance = new Chart(canvas, {
             type: 'bar',
             data: {
@@ -4006,9 +4294,7 @@ forceReloadAllData() {
                 }),
                 datasets: datasets
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
+            options: this.getCommonChartOptions({
                 interaction: {
                     mode: 'index',
                     intersect: false,
@@ -4018,33 +4304,30 @@ forceReloadAllData() {
                         callbacks: {
                             label: function(context) {
                                 let label = context.dataset.label || '';
-                                if (label) {
-                                    label += ': ';
-                                }
+                                if (label) label += ': ';
                                 if (context.parsed.y !== null) {
                                     label += context.parsed.y.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ha';
                                 }
                                 return label;
                             }
                         }
-                    },
-                    legend: {
-                        position: 'bottom'
                     }
                 },
                 scales: {
                     x: {
-                        stacked: false // Lado a lado para facilitar comparação
+                        stacked: false,
+                        grid: { display: false }
                     },
                     y: {
-                        beginAtZero: true,
                         title: {
                             display: true,
-                            text: 'Hectares (ha)'
+                            text: 'Hectares (ha)',
+                            font: { family: "'Inter', sans-serif", size: 12 },
+                            color: '#64748b'
                         }
                     }
                 }
-            }
+            })
         });
     }
     async setupLegacyListeners() {
@@ -7954,7 +8237,7 @@ InsumosApp.prototype.updateCharts = function(data) {
 
         if (!data || data.length === 0) {
             console.log('Nenhum dado para exibir nos gráficos de Insumos.');
-            return;
+            // Continue to render empty charts
         }
 
         const byProdutoDose = {};
@@ -8007,65 +8290,106 @@ InsumosApp.prototype.updateCharts = function(data) {
         const diffProdCtx = document.getElementById('chart-recomendacao-diferenca');
         
         if (!this._charts) this._charts = {};
-        const baseOpts = { 
-            responsive: true, 
-            maintainAspectRatio: false, 
-            plugins: { 
-                legend: { display: true, position: 'top' },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            let label = context.dataset.label || '';
-                            if (label) label += ': ';
-                            
-                            let value = context.parsed.y;
-                            // Check if horizontal bar (indexAxis: 'y')
-                            if (context.chart.config.options.indexAxis === 'y') {
-                                value = context.parsed.x;
-                            }
-                            
-                            if (value !== null && value !== undefined) {
-                                label += value.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
-                            }
-                            
-                            if (context.dataset.label && context.dataset.label.includes('Diferença')) label += '%';
-                            return label;
-                        }
-                    }
-                }
-            }, 
-            scales: { x: { grid: { display: false } }, y: { grid: { display: false } } } 
-        };
-        
-        const doseProdData = {
-            labels: produtos,
-            datasets: [
-                { label: 'Dose Recomendada', data: recAvg, backgroundColor: '#4CAF50' },
-                { label: 'Dose Aplicada', data: aplAvg, backgroundColor: '#FF9800' }
-            ]
-        };
-        const globalRec = recAvg.reduce((s,v)=>s+v,0)/ (recAvg.filter(v=>v>0).length || 1);
-        const globalApl = aplAvg.reduce((s,v)=>s+v,0)/ (aplAvg.filter(v=>v>0).length || 1);
-        const doseGlobalData = {
-            labels: ['Global'],
-            datasets: [
-                { label: 'Dose Recomendada', data: [globalRec], backgroundColor: '#4CAF50' },
-                { label: 'Dose Aplicada', data: [globalApl], backgroundColor: '#FF9800' }
-            ]
-        };
-        const diffProdData = {
-            labels: produtos,
-            datasets: [ { label: 'Diferença (%)', data: diffPct, backgroundColor: '#2196F3' } ]
-        };
 
         if (doseProdCtx) {
-            this._charts.doseProd = new Chart(doseProdCtx, { type: 'bar', data: doseProdData, options: baseOpts });
+            const gradRec = this.createGradient(doseProdCtx, '#22c55e', '#15803d'); // Green 500-700
+            const gradApl = this.createGradient(doseProdCtx, '#f59e0b', '#b45309'); // Amber 500-700
+
+            const doseProdData = {
+                labels: produtos,
+                datasets: [
+                    { 
+                        label: 'Dose Recomendada', 
+                        data: recAvg, 
+                        backgroundColor: gradRec,
+                        borderRadius: 8,
+                        barPercentage: 0.7,
+                        categoryPercentage: 0.8
+                    },
+                    { 
+                        label: 'Dose Aplicada', 
+                        data: aplAvg, 
+                        backgroundColor: gradApl,
+                        borderRadius: 8,
+                        barPercentage: 0.7,
+                        categoryPercentage: 0.8
+                    }
+                ]
+            };
+            this._charts.doseProd = new Chart(doseProdCtx, { 
+                type: 'bar', 
+                data: doseProdData, 
+                options: this.getCommonChartOptions({
+                    scales: { y: { beginAtZero: true } }
+                })
+            });
         }
+        
         if (doseGlobalCtx) {
-            this._charts.doseGlobal = new Chart(doseGlobalCtx, { type: 'bar', data: doseGlobalData, options: baseOpts });
+            const gradRec = this.createGradient(doseGlobalCtx, '#22c55e', '#15803d');
+            const gradApl = this.createGradient(doseGlobalCtx, '#f59e0b', '#b45309');
+
+            const globalRec = recAvg.reduce((s,v)=>s+v,0)/ (recAvg.filter(v=>v>0).length || 1);
+            const globalApl = aplAvg.reduce((s,v)=>s+v,0)/ (aplAvg.filter(v=>v>0).length || 1);
+            const doseGlobalData = {
+                labels: ['Global'],
+                datasets: [
+                    { 
+                        label: 'Dose Recomendada', 
+                        data: [globalRec], 
+                        backgroundColor: gradRec,
+                        borderRadius: 8,
+                        barPercentage: 0.7
+                    },
+                    { 
+                        label: 'Dose Aplicada', 
+                        data: [globalApl], 
+                        backgroundColor: gradApl,
+                        borderRadius: 8,
+                        barPercentage: 0.7
+                    }
+                ]
+            };
+            this._charts.doseGlobal = new Chart(doseGlobalCtx, { 
+                type: 'bar', 
+                data: doseGlobalData, 
+                options: this.getCommonChartOptions({
+                    scales: { y: { beginAtZero: true } }
+                })
+            });
         }
+        
         if (diffProdCtx) {
-            this._charts.diffProd = new Chart(diffProdCtx, { type: 'bar', data: diffProdData, options: { ...baseOpts, indexAxis: 'y' } });
+            const gradDiff = this.createGradient(diffProdCtx, '#3b82f6', '#1d4ed8'); // Blue 500-700
+            const diffProdData = {
+                labels: produtos,
+                datasets: [ { 
+                    label: 'Diferença (%)', 
+                    data: diffPct, 
+                    backgroundColor: gradDiff,
+                    borderRadius: 8,
+                    barPercentage: 0.7,
+                    categoryPercentage: 0.8
+                } ]
+            };
+
+            this._charts.diffProd = new Chart(diffProdCtx, { 
+                type: 'bar', 
+                data: diffProdData, 
+                options: this.getCommonChartOptions({
+                    indexAxis: 'y',
+                    scales: {
+                        x: { ticks: { callback: v => v + '%' } }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => `Diferença: ${ctx.raw.toFixed(2)}%`
+                            }
+                        }
+                    }
+                })
+            });
         }
     } catch(e) {
         console.error('chart error', e);
@@ -8180,7 +8504,9 @@ InsumosApp.prototype.loadEstoqueAndRender = async function() {
 
             if (!this._charts) this._charts = {};
             let chartData;
-            let chartOpts = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'top' } } };
+            
+            // Gradient
+            const gradientEstoque = this.createGradient(ctx, '#a855f7', '#7e22ce'); // Purple 500-700
             
             // Se o filtro atual não estiver na lista (ex: usuário digitou algo manual no filtro?), fallback para 'all'
             // Mas o filtro é um select agora.
@@ -8210,8 +8536,17 @@ InsumosApp.prototype.loadEstoqueAndRender = async function() {
                 const labels = limitedRows.map(([prod]) => prod);
                 const values = limitedRows.map(([,v]) => v);
                 
-                chartData = { labels, datasets: [{ label: 'Estoque Total (Todas as Frentes)', data: values, backgroundColor: '#9C27B0' }] };
-                chartOpts = { ...chartOpts, indexAxis: 'y' };
+                chartData = { 
+                    labels, 
+                    datasets: [{ 
+                        label: 'Estoque Total (Todas as Frentes)', 
+                        data: values, 
+                        backgroundColor: gradientEstoque,
+                        borderRadius: 8,
+                        barPercentage: 0.7,
+                        categoryPercentage: 0.8
+                    }] 
+                };
             } else {
                 const f = this.estoqueFilters.frente;
                 const byProd = estoqueMap[f] || {};
@@ -8231,13 +8566,41 @@ InsumosApp.prototype.loadEstoqueAndRender = async function() {
                 const labels = limitedRows.map(([prod]) => prod);
                 const values = limitedRows.map(([,v]) => v);
                 
-                chartData = { labels, datasets: [{ label: `Estoque - ${f}`, data: values, backgroundColor: '#9C27B0' }] };
-                chartOpts = { ...chartOpts, indexAxis: 'y' };
+                chartData = { 
+                    labels, 
+                    datasets: [{ 
+                        label: `Estoque - ${f}`, 
+                        data: values, 
+                        backgroundColor: gradientEstoque,
+                        borderRadius: 8,
+                        barPercentage: 0.7,
+                        categoryPercentage: 0.8
+                    }] 
+                };
             }
             
             // Só cria o gráfico se houver dados, senão apenas loga (ou mostra vazio se preferir, mas sem dados evita loop de render)
             if (chartData && chartData.labels && chartData.labels.length > 0) {
-                this._charts.estoqueFrente = new Chart(ctx, { type: 'bar', data: chartData, options: chartOpts });
+                this._charts.estoqueFrente = new Chart(ctx, { 
+                    type: 'bar', 
+                    data: chartData, 
+                    options: this.getCommonChartOptions({
+                        indexAxis: 'y',
+                        scales: { x: { grid: { display: false } } },
+                        plugins: {
+                            tooltip: {
+                                callbacks: {
+                                    label: (context) => {
+                                        let label = context.dataset.label || '';
+                                        if (label) label += ': ';
+                                        if (context.parsed.x !== null) label += context.parsed.x.toLocaleString('pt-BR');
+                                        return label;
+                                    }
+                                }
+                            }
+                        }
+                    }) 
+                });
             } else {
                 // Se não houver dados, podemos mostrar uma mensagem ou deixar em branco, mas garantindo que o chart anterior foi destruído (já feito acima)
             }

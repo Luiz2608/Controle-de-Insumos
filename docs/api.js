@@ -559,6 +559,7 @@ class ApiService {
             .select('*');
             
         if (plantioError) throw plantioError;
+        console.log('DEBUG: getInsumosFazendas - plantioData length:', plantioData ? plantioData.length : 0);
 
         let insumosList = [];
         // Set para controle de duplicatas (chave: fazenda|produto|data|talhao)
@@ -584,6 +585,11 @@ class ApiService {
 
                 const dose = parseFloat(ins.doseRealizada || 0);
                 const qtd = dose * areaDia;
+                const dosePrevista = parseFloat(ins.dosePrevista || 0);
+                let diff = 0;
+                if (dosePrevista > 0) {
+                    diff = ((dose - dosePrevista) / dosePrevista) * 100;
+                }
 
                 // Gerar chave única para deduplicação
                 const key = `${fazendaNome}|${ins.produto}|${dataPlantio}|${talhao}`.toUpperCase();
@@ -599,12 +605,14 @@ class ApiService {
                     doseAplicada: dose,
                     areaTotalAplicada: areaDia,
                     talhao: talhao,
+                    diferenca: diff,
+                    dif: diff,
                     
                     // Campos de compatibilidade para interface
                     areaTalhao: areaDia, 
                     area_total_aplicada: areaDia,
-                    doseRecomendada: parseFloat(ins.dosePrevista || 0),
-                    dose_recomendada: parseFloat(ins.dosePrevista || 0),
+                    doseRecomendada: dosePrevista,
+                    dose_recomendada: dosePrevista,
                     quantidade_aplicada: qtd,
                     dose_aplicada: dose,
                     insumDoseAplicada: dose,
@@ -1198,8 +1206,11 @@ class ApiService {
 
         if (error) {
             console.error('Erro ao buscar liberacao_colheita:', error);
-            if (error.code === '42P01') return { success: true, data: [] };
-            throw error;
+            // Return empty array instead of throwing to prevent dashboard crash
+            // 42P01 is table missing in Postgres
+            // PGRST205 is table missing in PostgREST schema cache
+            if (error.code === '42P01' || error.code === 'PGRST205') return { success: true, data: [] };
+            return { success: true, data: [] }; // Fallback safe for dashboard
         }
         return { success: true, data };
     }
@@ -1215,8 +1226,8 @@ class ApiService {
 
         if (error) {
             console.error('Erro ao buscar transporte de composto:', error);
-            if (error.code === '42P01') return { success: true, data: [] }; 
-            throw error;
+            if (error.code === '42P01' || error.code === 'PGRST205') return { success: true, data: [] }; 
+            return { success: true, data: [] }; // Fallback safe
         }
         return { success: true, data };
     }

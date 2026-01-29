@@ -1835,7 +1835,7 @@ forceReloadAllData() {
         // Showing is safer to avoid "empty chart" complaints.
         if (!dateStr) return true; 
         
-        // Handle ISO strings, YYYY-MM-DD, etc.
+        // Handle ISO strings, YYYY-MM-DD, DD-MM-YYYY etc.
         let d;
         try {
             if (dateStr instanceof Date) {
@@ -1848,7 +1848,17 @@ forceReloadAllData() {
                 } else if (dateStr.includes('-')) {
                      const parts = dateStr.split('-');
                      if (parts.length === 3) {
-                         d = new Date(parts[0], parts[1]-1, parts[2]);
+                         // YYYY-MM-DD
+                         if (parts[0].length === 4) {
+                             d = new Date(parts[0], parts[1]-1, parts[2]);
+                         } 
+                         // DD-MM-YYYY
+                         else if (parts[2].length === 4) {
+                             d = new Date(parts[2], parts[1]-1, parts[0]);
+                         }
+                         else {
+                             d = new Date(dateStr);
+                         }
                      } else {
                          d = new Date(dateStr);
                      }
@@ -2242,7 +2252,6 @@ forceReloadAllData() {
         if (existing) existing.destroy();
 
         const data = this.transporteCompostoData || [];
-        console.log(`📊 TransporteComposto: ${data.length} itens.`);
 
         // Group by Date
         const daily = {};
@@ -2265,9 +2274,7 @@ forceReloadAllData() {
 
         if (this._charts.transporteComposto) this._charts.transporteComposto.destroy();
 
-        const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 400);
-        gradient.addColorStop(0, '#8D6E63'); // Brown 400
-        gradient.addColorStop(1, '#5D4037'); // Brown 700
+        const gradient = this.createGradient(ctx, '#8d6e63', '#5d4037'); // Brown 400-700
 
         this._charts.transporteComposto = new Chart(ctx, {
             type: 'bar',
@@ -2277,42 +2284,22 @@ forceReloadAllData() {
                     label: 'Volume (t)',
                     data: values,
                     backgroundColor: gradient,
-                    borderRadius: 6,
+                    borderRadius: 8,
                     borderSkipped: false,
-                    barPercentage: 0.6,
+                    barPercentage: 0.7,
                     categoryPercentage: 0.8
                 }]
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
+            options: this.getCommonChartOptions({
                 plugins: { 
                     legend: { display: false },
                     tooltip: {
-                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                        titleColor: '#1a1a1a',
-                        bodyColor: '#1a1a1a',
-                        borderColor: '#e0e0e0',
-                        borderWidth: 1,
-                        padding: 10,
-                        displayColors: false,
                         callbacks: {
                             label: (context) => `Volume: ${context.raw.toLocaleString('pt-BR')} t`
                         }
                     }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        grid: { color: '#f0f0f0', borderDash: [5, 5] },
-                        ticks: { color: '#757575', font: { family: 'Inter' } }
-                    },
-                    x: {
-                        grid: { display: false },
-                        ticks: { color: '#757575', font: { family: 'Inter' } }
-                    }
                 }
-            }
+            })
         });
     }
 
@@ -2330,7 +2317,7 @@ forceReloadAllData() {
 
         const statusCounts = {};
         data.forEach(item => {
-            const s = item.status || 'PENDENTE';
+            const s = (item.status || 'PENDENTE').toUpperCase();
             statusCounts[s] = (statusCounts[s] || 0) + 1;
         });
 
@@ -2338,10 +2325,10 @@ forceReloadAllData() {
         const values = Object.values(statusCounts);
         
         const colors = labels.map(s => {
-            if (s === 'LIBERADO') return '#66BB6A'; // Green 400
-            if (s === 'PENDENTE') return '#FFA726'; // Orange 400
-            if (s === 'REJEITADO') return '#EF5350'; // Red 400
-            return '#BDBDBD';
+            if (s === 'LIBERADO') return this.createGradient(ctx, '#4ade80', '#16a34a'); // Green 400-600
+            if (s === 'PENDENTE') return this.createGradient(ctx, '#fbbf24', '#d97706'); // Amber 400-600
+            if (s === 'REJEITADO') return this.createGradient(ctx, '#f87171', '#dc2626'); // Red 400-600
+            return '#e2e8f0';
         });
 
         if (this._charts.liberacaoStatus) this._charts.liberacaoStatus.destroy();
@@ -2355,31 +2342,25 @@ forceReloadAllData() {
                     backgroundColor: colors,
                     borderWidth: 0,
                     hoverOffset: 15,
-                    borderRadius: 5
+                    borderRadius: 8,
+                    spacing: 4
                 }]
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                cutout: '75%',
+            options: this.getCommonChartOptions({
+                scales: { x: { display: false }, y: { display: false } },
                 plugins: { 
                     legend: { 
                         position: 'bottom',
-                        labels: { usePointStyle: true, padding: 20, font: { family: 'Inter', size: 12 } }
+                        labels: { usePointStyle: true, padding: 20 }
                     },
                     tooltip: {
-                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                        bodyColor: '#333',
-                        titleColor: '#333',
-                        borderColor: '#eee',
-                        borderWidth: 1,
-                        padding: 12,
                         callbacks: {
                             label: (context) => ` ${context.label}: ${context.raw}`
                         }
                     }
-                }
-            }
+                },
+                cutout: '75%'
+            })
         });
     }
 
@@ -2398,8 +2379,6 @@ forceReloadAllData() {
             return this.isDateInPeriod(d);
         });
         
-        console.log(`📊 OSStatus: ${rawData.length} itens (filtrados: ${data.length})`);
-
         const statusCounts = {};
         
         data.forEach(os => {
@@ -2410,10 +2389,10 @@ forceReloadAllData() {
         const labels = Object.keys(statusCounts);
         const values = Object.values(statusCounts);
         const colors = labels.map(s => {
-            if(s.includes('CONCLU')) return '#66BB6A';
-            if(s.includes('ANDAMENTO') || s.includes('ABERTA')) return '#42A5F5';
-            if(s.includes('CANCEL')) return '#EF5350';
-            return '#FFA726';
+            if(s.includes('CONCLU')) return this.createGradient(ctx, '#4ade80', '#16a34a');
+            if(s.includes('ANDAMENTO') || s.includes('ABERTA')) return this.createGradient(ctx, '#60a5fa', '#2563eb');
+            if(s.includes('CANCEL')) return this.createGradient(ctx, '#f87171', '#dc2626');
+            return this.createGradient(ctx, '#fbbf24', '#d97706');
         });
 
         if (this._charts.osStatus) {
@@ -2429,25 +2408,18 @@ forceReloadAllData() {
                     backgroundColor: colors,
                     borderWidth: 0,
                     hoverOffset: 15,
-                    borderRadius: 5
+                    borderRadius: 8,
+                    spacing: 4
                 }]
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                cutout: '75%',
+            options: this.getCommonChartOptions({
+                scales: { x: { display: false }, y: { display: false } },
                 plugins: {
                     legend: { 
                         position: 'bottom',
-                        labels: { usePointStyle: true, padding: 20, font: { family: 'Inter' } }
+                        labels: { usePointStyle: true, padding: 20 }
                     },
                     tooltip: {
-                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                        bodyColor: '#333',
-                        titleColor: '#333',
-                        borderColor: '#eee',
-                        borderWidth: 1,
-                        padding: 12,
                         callbacks: {
                             label: function(context) {
                                 let label = context.label || '';
@@ -2461,9 +2433,92 @@ forceReloadAllData() {
                             }
                         }
                     }
-                }
-            }
+                },
+                cutout: '75%'
+            })
         });
+    }
+
+    // --- Modern Chart Helpers ---
+    createGradient(ctx, colorStart, colorEnd) {
+        const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 400);
+        gradient.addColorStop(0, colorStart);
+        gradient.addColorStop(1, colorEnd);
+        return gradient;
+    }
+
+    getCommonChartOptions(overrides = {}) {
+        const defaults = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { 
+                        usePointStyle: true, 
+                        pointStyle: 'circle',
+                        font: { family: "'Inter', sans-serif", size: 12 },
+                        padding: 20,
+                        color: '#666'
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(255, 255, 255, 0.98)',
+                    titleColor: '#1e293b',
+                    bodyColor: '#475569',
+                    borderColor: 'rgba(0,0,0,0.05)',
+                    borderWidth: 1,
+                    padding: 12,
+                    cornerRadius: 8,
+                    titleFont: { family: "'Inter', sans-serif", size: 13, weight: '600' },
+                    bodyFont: { family: "'Inter', sans-serif", size: 12 },
+                    displayColors: true,
+                    boxPadding: 4,
+                    callbacks: {}
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { 
+                        color: '#f1f5f9', 
+                        borderDash: [4, 4],
+                        drawBorder: false
+                    },
+                    ticks: { 
+                        font: { family: "'Inter', sans-serif", size: 11 }, 
+                        color: '#94a3b8',
+                        padding: 8
+                    },
+                    border: { display: false }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { 
+                        font: { family: "'Inter', sans-serif", size: 11 }, 
+                        color: '#94a3b8',
+                        autoSkip: true,
+                        maxRotation: 0
+                    },
+                    border: { display: false }
+                }
+            },
+            animation: {
+                duration: 1000,
+                easing: 'easeOutQuart'
+            }
+        };
+
+        if (overrides.plugins) {
+            Object.assign(defaults.plugins, overrides.plugins);
+            if (overrides.plugins.tooltip && overrides.plugins.tooltip.callbacks) {
+                defaults.plugins.tooltip.callbacks = overrides.plugins.tooltip.callbacks;
+            }
+        }
+        if (overrides.scales) Object.assign(defaults.scales, overrides.scales);
+        if (overrides.indexAxis) defaults.indexAxis = overrides.indexAxis;
+
+        return defaults;
     }
 
     renderInsumosGlobalChart() {
@@ -2478,8 +2533,6 @@ forceReloadAllData() {
             const d = item.inicio || item.data || item.created_at;
             return this.isDateInPeriod(d);
         });
-
-        console.log(`📊 InsumosGlobal: ${rawData.length} itens (filtrados: ${data.length})`);
 
         const products = {};
 
@@ -2499,13 +2552,25 @@ forceReloadAllData() {
 
         if (this._charts.insumosGlobal) this._charts.insumosGlobal.destroy();
 
-        const gradientPlanned = ctx.getContext('2d').createLinearGradient(0, 0, 0, 400);
-        gradientPlanned.addColorStop(0, '#90CAF9');
-        gradientPlanned.addColorStop(1, '#64B5F6');
+        const gradientPlanned = this.createGradient(ctx, '#60a5fa', '#2563eb');
+        const gradientReal = this.createGradient(ctx, '#34d399', '#059669');
 
-        const gradientReal = ctx.getContext('2d').createLinearGradient(0, 0, 0, 400);
-        gradientReal.addColorStop(0, '#1E88E5');
-        gradientReal.addColorStop(1, '#1565C0');
+        const options = this.getCommonChartOptions({
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) label += ': ';
+                            if (context.parsed.y !== null) {
+                                label += context.parsed.y.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+                            }
+                            return label;
+                        }
+                    }
+                }
+            }
+        });
 
         this._charts.insumosGlobal = new Chart(ctx, {
             type: 'bar',
@@ -2516,7 +2581,7 @@ forceReloadAllData() {
                         label: 'Planejado (L/kg)',
                         data: plannedData,
                         backgroundColor: gradientPlanned,
-                        borderRadius: 6,
+                        borderRadius: 8,
                         barPercentage: 0.7,
                         categoryPercentage: 0.8
                     },
@@ -2524,53 +2589,13 @@ forceReloadAllData() {
                         label: 'Realizado (L/kg)',
                         data: realData,
                         backgroundColor: gradientReal,
-                        borderRadius: 6,
+                        borderRadius: 8,
                         barPercentage: 0.7,
                         categoryPercentage: 0.8
                     }
                 ]
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { 
-                    legend: { 
-                        position: 'bottom',
-                        labels: { usePointStyle: true, font: { family: 'Inter' }, padding: 20 }
-                    },
-                    tooltip: {
-                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                        bodyColor: '#333',
-                        titleColor: '#333',
-                        borderColor: '#eee',
-                        borderWidth: 1,
-                        padding: 10,
-                        callbacks: {
-                            label: function(context) {
-                                let label = context.dataset.label || '';
-                                if (label) {
-                                    label += ': ';
-                                }
-                                if (context.parsed.y !== null) {
-                                    label += context.parsed.y.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
-                                }
-                                return label;
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    y: { 
-                        beginAtZero: true, 
-                        grid: { color: '#f0f0f0', borderDash: [5, 5] },
-                        ticks: { font: { family: 'Inter' }, color: '#757575' }
-                    },
-                    x: {
-                        grid: { display: false },
-                        ticks: { font: { family: 'Inter' }, color: '#757575' }
-                    }
-                }
-            }
+            options: options
         });
     }
 
@@ -2582,8 +2607,7 @@ forceReloadAllData() {
         if (existingChart) existingChart.destroy();
 
         const data = this.insumosFazendasData || [];
-        console.log(`📊 InsumosTimeline: ${data.length} itens totais.`);
-
+        
         const daily = {};
         let skippedCount = 0;
         let processedCount = 0;
@@ -2594,7 +2618,6 @@ forceReloadAllData() {
                 skippedCount++;
                 return;
             }
-            // Apply dashboard filter
             if (!this.isDateInPeriod(date)) {
                 skippedCount++;
                 return;
@@ -2605,12 +2628,6 @@ forceReloadAllData() {
             daily[date] += parseFloat(item.quantidadeAplicada || 0);
         });
 
-        console.log(`📊 InsumosTimeline: Processados=${processedCount}, Pulados=${skippedCount}`);
-        
-        if (processedCount === 0 && data.length > 0) {
-            console.warn('⚠️ Todos os itens de insumos foram filtrados ou inválidos para o gráfico de evolução.');
-        }
-
         const sortedDates = Object.keys(daily).sort();
         const values = sortedDates.map(d => daily[d]);
         const labels = sortedDates.map(d => {
@@ -2620,9 +2637,25 @@ forceReloadAllData() {
 
         if (this._charts.insumosTimeline) this._charts.insumosTimeline.destroy();
 
-        const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 300);
-        gradient.addColorStop(0, 'rgba(0, 150, 136, 0.5)');
-        gradient.addColorStop(1, 'rgba(0, 150, 136, 0.0)');
+        const gradient = this.createGradient(ctx, 'rgba(14, 165, 233, 0.2)', 'rgba(14, 165, 233, 0.0)'); // Sky Blue
+
+        const options = this.getCommonChartOptions({
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) label += ': ';
+                            if (context.parsed.y !== null) {
+                                label += context.parsed.y.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+                            }
+                            return label;
+                        }
+                    }
+                }
+            }
+        });
 
         this._charts.insumosTimeline = new Chart(ctx, {
             type: 'line',
@@ -2631,7 +2664,7 @@ forceReloadAllData() {
                 datasets: [{
                     label: 'Aplicação Diária (L/kg)',
                     data: values,
-                    borderColor: '#009688',
+                    borderColor: '#0ea5e9', // Sky 500
                     borderWidth: 3,
                     backgroundColor: gradient,
                     fill: true,
@@ -2639,48 +2672,11 @@ forceReloadAllData() {
                     pointRadius: 4,
                     pointHoverRadius: 6,
                     pointBackgroundColor: '#fff',
-                    pointBorderColor: '#009688',
+                    pointBorderColor: '#0ea5e9',
                     pointBorderWidth: 2
                 }]
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                        bodyColor: '#333',
-                        titleColor: '#333',
-                        borderColor: '#eee',
-                        borderWidth: 1,
-                        padding: 10,
-                        callbacks: {
-                            label: function(context) {
-                                let label = context.dataset.label || '';
-                                if (label) {
-                                    label += ': ';
-                                }
-                                if (context.parsed.y !== null) {
-                                    label += context.parsed.y.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
-                                }
-                                return label;
-                            }
-                        }
-                    }
-                },
-                scales: { 
-                    y: { 
-                        beginAtZero: true,
-                        grid: { color: '#f0f0f0', borderDash: [5, 5] },
-                        ticks: { font: { family: 'Inter' } }
-                    },
-                    x: {
-                        grid: { display: false },
-                        ticks: { font: { family: 'Inter' } }
-                    }
-                }
-            }
+            options: options
         });
     }
 
@@ -2696,15 +2692,7 @@ forceReloadAllData() {
          this.destroyChart(ctxId, 'estoqueGeral');
          
          const data = this.estoqueList || [];
-         console.log('📦 Dados Estoque:', data.length, 'itens');
          
-         // Debug: Check first item structure
-         if (data.length > 0) {
-             console.log('📦 Exemplo item estoque (raw):', JSON.stringify(data[0]));
-         } else {
-             console.warn('⚠️ Lista de estoque vazia!');
-         }
-
          // Agrupar por Frente
          const porFrente = {};
          data.forEach(item => {
@@ -2712,8 +2700,6 @@ forceReloadAllData() {
              if (!porFrente[f]) porFrente[f] = 0;
              porFrente[f] += parseFloat(item.quantidade || 0);
          });
-         
-         console.log('📦 Estoque Agrupado:', porFrente);
          
          // Ordenar e limitar
          let labels = Object.keys(porFrente).sort((a,b) => porFrente[b] - porFrente[a]);
@@ -2732,13 +2718,25 @@ forceReloadAllData() {
              values = top15Values;
          }
 
-         if (labels.length === 0) {
-            // Allow empty chart
-        }
+        const gradient = this.createGradient(ctx, '#d946ef', '#a21caf'); // Fuchsia 500-700
 
-        const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 400);
-         gradient.addColorStop(0, '#AB47BC');
-         gradient.addColorStop(1, '#7B1FA2');
+        const options = this.getCommonChartOptions({
+             plugins: {
+                 legend: { display: false },
+                 tooltip: {
+                     callbacks: {
+                         label: function(context) {
+                             let label = context.dataset.label || '';
+                             if (label) label += ': ';
+                             if (context.parsed.y !== null) {
+                                 label += context.parsed.y.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+                             }
+                             return label;
+                         }
+                     }
+                 }
+             }
+         });
 
          this._charts.estoqueGeral = new Chart(ctx, {
              type: 'bar',
@@ -2748,57 +2746,22 @@ forceReloadAllData() {
                      label: 'Quantidade em Estoque',
                      data: values,
                      backgroundColor: gradient,
-                     borderRadius: 6,
-                     barPercentage: 0.6
-                 }]
+                    borderRadius: 8,
+                    barPercentage: 0.7
+                }]
              },
-             options: {
-                 responsive: true,
-                 maintainAspectRatio: false,
-                 plugins: {
-                     legend: { display: false },
-                     tooltip: {
-                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                        bodyColor: '#333',
-                        titleColor: '#333',
-                        borderColor: '#eee',
-                        borderWidth: 1,
-                        padding: 10,
-                         callbacks: {
-                             label: function(context) {
-                                 let label = context.dataset.label || '';
-                                 if (label) {
-                                     label += ': ';
-                                 }
-                                 if (context.parsed.y !== null) {
-                                     label += context.parsed.y.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
-                                 }
-                                 return label;
-                             }
-                         }
-                     }
-                 },
-                 scales: {
-                    y: { 
-                        beginAtZero: true,
-                        grid: { color: '#f0f0f0', borderDash: [5, 5] },
-                        ticks: { font: { family: 'Inter' } }
-                    },
-                    x: {
-                        grid: { display: false },
-                        ticks: { font: { family: 'Inter' } }
-                    }
-                }
-             }
+             options: options
          });
     }
 
     updateCharts(data) {
+        console.log('DEBUG: updateCharts called with data length:', data ? data.length : 'null');
         if (!data) return;
 
         // --- Chart: Diferença por Produto (%) ---
         const diffCtx = document.getElementById('chart-diff-produtos');
         if (diffCtx) {
+            console.log('DEBUG: chart-diff-produtos found');
             if (this._charts.diffProdutos) this._charts.diffProdutos.destroy();
             
             const productStats = {};
@@ -2808,16 +2771,27 @@ forceReloadAllData() {
                 if (!productStats[p]) productStats[p] = { diffSum: 0, count: 0 };
                 
                 let diff = parseFloat(item.diferenca);
-                if (isNaN(diff)) diff = 0;
+                if (isNaN(diff)) {
+                    // Tentar calcular se não vier pronto
+                    const rec = parseFloat(item.dose_recomendada || 0);
+                    const app = parseFloat(item.dose_aplicada || 0);
+                    if (rec > 0) {
+                         diff = ((app - rec) / rec) * 100;
+                    } else {
+                         diff = 0;
+                    }
+                }
                 
                 productStats[p].diffSum += diff;
                 productStats[p].count++;
             });
+            console.log('DEBUG: productStats keys:', Object.keys(productStats));
             
             const labels = Object.keys(productStats);
             const values = labels.map(p => productStats[p].count ? (productStats[p].diffSum / productStats[p].count) : 0);
             
-            const bgColors = values.map(v => Math.abs(v) > 5 ? '#ef5350' : '#66bb6a'); 
+            const gradientRed = this.createGradient(diffCtx, '#ef4444', '#b91c1c'); // Red 500-700
+            const gradientGreen = this.createGradient(diffCtx, '#22c55e', '#15803d'); // Green 500-700
 
             this._charts.diffProdutos = new Chart(diffCtx, {
                 type: 'bar',
@@ -2826,14 +2800,13 @@ forceReloadAllData() {
                     datasets: [{
                         label: 'Diferença Média (%)',
                         data: values,
-                        backgroundColor: bgColors,
-                        borderRadius: 4
+                        backgroundColor: values.map(v => Math.abs(v) > 5 ? gradientRed : gradientGreen),
+                        borderRadius: 8,
+                        barPercentage: 0.7
                     }]
                 },
-                options: {
+                options: this.getCommonChartOptions({
                     indexAxis: 'y',
-                    responsive: true,
-                    maintainAspectRatio: false,
                     plugins: { 
                         legend: { display: false },
                         tooltip: {
@@ -2844,12 +2817,10 @@ forceReloadAllData() {
                     },
                     scales: {
                         x: { 
-                            grid: { color: '#f0f0f0' },
                             ticks: { callback: v => v + '%' } 
-                        },
-                        y: { grid: { display: false } }
+                        }
                     }
-                }
+                })
             });
         }
 
@@ -2873,6 +2844,9 @@ forceReloadAllData() {
             const recValues = labels.map(p => doseStats[p].count ? (doseStats[p].recSum / doseStats[p].count) : 0);
             const appValues = labels.map(p => doseStats[p].count ? (doseStats[p].appSum / doseStats[p].count) : 0);
             
+            const gradientBlue = this.createGradient(doseCtx, '#3b82f6', '#1d4ed8'); // Blue 500-700
+            const gradientAmber = this.createGradient(doseCtx, '#f59e0b', '#b45309'); // Amber 500-700
+
             this._charts.doseProdutos = new Chart(doseCtx, {
                 type: 'bar',
                 data: {
@@ -2881,25 +2855,26 @@ forceReloadAllData() {
                         {
                             label: 'Dose Rec.',
                             data: recValues,
-                            backgroundColor: '#42A5F5',
-                            borderRadius: 4
+                            backgroundColor: gradientBlue,
+                            borderRadius: 8,
+                            barPercentage: 0.7,
+                            categoryPercentage: 0.8
                         },
                         {
                             label: 'Dose Apl.',
                             data: appValues,
-                            backgroundColor: '#FFA726',
-                            borderRadius: 4
+                            backgroundColor: gradientAmber,
+                            borderRadius: 8,
+                            barPercentage: 0.7,
+                            categoryPercentage: 0.8
                         }
                     ]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
+                options: this.getCommonChartOptions({
                     scales: {
-                        y: { beginAtZero: true, grid: { color: '#f0f0f0' } },
-                        x: { grid: { display: false } }
+                        y: { beginAtZero: true }
                     }
-                }
+                })
             });
         }
     }
@@ -2916,7 +2891,6 @@ forceReloadAllData() {
     }
 
     renderLogisticsCharts() {
-        console.log('📊 Renderizando Logística...');
         const ctxId = 'chart-viagens-diarias';
         const ctx = document.getElementById(ctxId);
         if (!ctx) return;
@@ -2926,11 +2900,6 @@ forceReloadAllData() {
         const rawData = this.viagensAdubo || [];
         const data = rawData.filter(v => this.isDateInPeriod(v.data));
         
-        console.log('🚚 Viagens Total:', rawData.length, '| Filtradas:', data.length);
-        if (rawData.length > 0 && data.length === 0) {
-            console.warn('⚠️ Todas as viagens foram filtradas! Verifique as datas.', rawData[0].data);
-        }
-
         // Group by Date
         const dailyCounts = {};
         data.forEach(v => {
@@ -2948,9 +2917,7 @@ forceReloadAllData() {
              return parts.length === 3 ? `${parts[2]}/${parts[1]}` : d;
         });
 
-        const gradientLogistics = ctx.getContext('2d').createLinearGradient(0, 0, 0, 300);
-        gradientLogistics.addColorStop(0, 'rgba(255, 193, 7, 0.4)');
-        gradientLogistics.addColorStop(1, 'rgba(255, 193, 7, 0.0)');
+        const gradientLogistics = this.createGradient(ctx, '#fbbf24', '#d97706'); // Amber 400-600
 
         this._charts.logistics = new Chart(ctx, {
             type: 'line',
@@ -2959,30 +2926,21 @@ forceReloadAllData() {
                 datasets: [{
                     label: 'Viagens por Dia',
                     data: values,
-                    borderColor: '#FFC107',
+                    borderColor: '#d97706',
                     backgroundColor: gradientLogistics,
                     tension: 0.4,
                     fill: true,
                     pointBackgroundColor: '#FFF',
-                    pointBorderColor: '#FFB300',
+                    pointBorderColor: '#b45309',
                     pointRadius: 4,
-                    pointHoverRadius: 6
+                    pointHoverRadius: 6,
+                    pointBorderWidth: 2
                 }]
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
+            options: this.getCommonChartOptions({
                 plugins: {
                     legend: { display: false },
                     tooltip: {
-                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                        titleColor: '#1a1a1a',
-                        bodyColor: '#1a1a1a',
-                        borderColor: '#e0e0e0',
-                        borderWidth: 1,
-                        padding: 10,
-                        intersect: false,
-                        mode: 'index',
                         callbacks: {
                             label: function(context) {
                                 let label = context.dataset.label || '';
@@ -2996,19 +2954,7 @@ forceReloadAllData() {
                 scales: {
                     y: { 
                         beginAtZero: true, 
-                        ticks: { 
-                            stepSize: 1, 
-                            color: '#757575',
-                            font: { family: 'Inter' }
-                        },
-                        grid: { color: '#f0f0f0', borderDash: [5, 5] }
-                    },
-                    x: {
-                        grid: { display: false },
-                        ticks: { 
-                            color: '#757575',
-                            font: { family: 'Inter' }
-                        }
+                        ticks: { stepSize: 1 }
                     }
                 },
                 interaction: {
@@ -3016,12 +2962,11 @@ forceReloadAllData() {
                     axis: 'x',
                     intersect: false
                 }
-            }
+            })
         });
     }
 
     renderFarmProgressChart() {
-        console.log('📊 Renderizando Progresso Fazendas...');
         const ctxId = 'chart-fazenda-progresso';
         const ctx = document.getElementById(ctxId);
         if (!ctx) return;
@@ -3030,10 +2975,6 @@ forceReloadAllData() {
 
         const normalize = (s) => (s || '').trim().toLowerCase();
         
-        console.log('🌱 Fazendas cadastradas:', (this.cadastroFazendas || []).length);
-        const plantioFilteredCount = (this.plantioDiarioData || []).filter(p => this.isDateInPeriod(p.data)).length;
-        console.log('🌱 Dados de Plantio (no período):', plantioFilteredCount, '/', (this.plantioDiarioData || []).length);
-
         // 1. Identify farms present in OS List (registered OS)
         const osFarms = new Set();
         if (this.osListCache && Array.isArray(this.osListCache)) {
@@ -3104,13 +3045,8 @@ forceReloadAllData() {
         });
 
         // Gradient for progress bars
-        const gradientComplete = ctx.getContext('2d').createLinearGradient(0, 0, 200, 0);
-        gradientComplete.addColorStop(0, '#66BB6A'); // Green 400
-        gradientComplete.addColorStop(1, '#388E3C'); // Green 700
-
-        const gradientProgress = ctx.getContext('2d').createLinearGradient(0, 0, 200, 0);
-        gradientProgress.addColorStop(0, '#42A5F5'); // Blue 400
-        gradientProgress.addColorStop(1, '#1976D2'); // Blue 700
+        const gradientComplete = this.createGradient(ctx, '#4ade80', '#16a34a'); // Green 400-600
+        const gradientProgress = this.createGradient(ctx, '#60a5fa', '#2563eb'); // Blue 400-600
 
         this._charts.farmProgress = new Chart(ctx, {
             type: 'bar',
@@ -3123,24 +3059,16 @@ forceReloadAllData() {
                         const value = context.dataset.data[context.dataIndex];
                         return value >= 100 ? gradientComplete : gradientProgress;
                     },
-                    borderRadius: 6,
-                    barPercentage: 0.6,
+                    borderRadius: 8,
+                    barPercentage: 0.7,
                     categoryPercentage: 0.8
                 }]
             },
-            options: {
+            options: this.getCommonChartOptions({
                 indexAxis: 'y', // Horizontal bar
-                responsive: true,
-                maintainAspectRatio: false,
                 plugins: {
                     legend: { display: false },
                     tooltip: {
-                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                        titleColor: '#1a1a1a',
-                        bodyColor: '#1a1a1a',
-                        borderColor: '#e0e0e0',
-                        borderWidth: 1,
-                        padding: 10,
                         callbacks: {
                             label: (context) => `Progresso: ${context.raw.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`
                         }
@@ -3150,22 +3078,12 @@ forceReloadAllData() {
                     x: { 
                         max: 100, 
                         beginAtZero: true,
-                        grid: { color: '#f0f0f0', borderDash: [5, 5] },
                         ticks: { 
-                            callback: v => v + '%',
-                            color: '#757575',
-                            font: { family: 'Inter' }
-                        }
-                    },
-                    y: {
-                        grid: { display: false },
-                        ticks: {
-                            color: '#757575',
-                            font: { family: 'Inter' }
+                            callback: v => v + '%'
                         }
                     }
                 }
-            }
+            })
         });
     }
 
@@ -4255,19 +4173,13 @@ forceReloadAllData() {
     renderPlantioChart() {
         // console.log('📈 renderPlantioChart iniciado');
         const canvas = document.getElementById('chart-plantio-diario');
-        if (!canvas) {
-             // console.error('❌ Canvas chart-plantio-diario não encontrado');
-             return;
-        }
+        if (!canvas) return;
 
         const existingChart = Chart.getChart(canvas);
-        if (existingChart) {
-            existingChart.destroy();
-        }
+        if (existingChart) existingChart.destroy();
 
-        // Dados base - CORREÇÃO: Usar plantioDiarioData em vez de insumosFazendasData
+        // Dados base
         const data = this.plantioDiarioData || [];
-        // console.log(`📊 Dados para plantio: ${data.length} registros`);
         const metas = this.metasData || [];
 
         // Filtro de frente
@@ -4284,7 +4196,6 @@ forceReloadAllData() {
             const dataKey = item.data ? item.data.split('T')[0] : null;
             if (!dataKey) return;
 
-            // Função helper para processar entrada de frente/área
             const addEntry = (frenteRaw, area) => {
                 const f = normalize(frenteRaw) || 'Geral';
                 if (filterFrente !== 'all' && f !== filterFrente) return;
@@ -4297,25 +4208,20 @@ forceReloadAllData() {
                 datesSet.add(dataKey);
             };
 
-            // Verifica se tem array de frentes (estrutura nova)
             if (item.frentes && Array.isArray(item.frentes)) {
                 item.frentes.forEach(f => {
-                    // Correção: Usar plantioDiario com fallback seguro
                     let val = f.plantioDiario;
                     if (val === undefined || val === null) val = f.plantada;
                     addEntry(f.frente, val);
                 });
             } else {
-                // Estrutura antiga ou simplificada
                 addEntry(item.frente, item.area_plantada);
             }
         });
 
-        // Ordenar datas
         const dates = Array.from(datesSet).sort();
         
         if (dates.length === 0) {
-            console.warn('⚠️ Sem dados de datas para renderizar gráfico de plantio.');
             if (this.plantioChartInstance) {
                 this.plantioChartInstance.destroy();
                 this.plantioChartInstance = null;
@@ -4323,32 +4229,26 @@ forceReloadAllData() {
             return;
         }
 
-        // Se quiser limitar aos últimos 30 dias:
-        // const dates = Array.from(datesSet).sort().slice(-30);
-
         const frentes = Array.from(frentesSet).sort();
 
         // Datasets
         const datasets = [];
         
-        // Paleta de gradients
+        // Paleta de gradients moderna
         const palettes = [
-            ['#42a5f5', '#1976d2'], // Blue
-            ['#66bb6a', '#43a047'], // Green
-            ['#ffa726', '#f57c00'], // Orange
-            ['#ab47bc', '#7b1fa2'], // Purple
-            ['#ef5350', '#c62828'], // Red
-            ['#26c6da', '#00acc1'], // Cyan
-            ['#8d6e63', '#5d4037'], // Brown
-            ['#78909c', '#455a64']  // Grey
+            ['#3b82f6', '#1d4ed8'], // Blue 500-700
+            ['#22c55e', '#15803d'], // Green 500-700
+            ['#f59e0b', '#b45309'], // Amber 500-700
+            ['#a855f7', '#7e22ce'], // Purple 500-700
+            ['#ef4444', '#b91c1c'], // Red 500-700
+            ['#06b6d4', '#0e7490'], // Cyan 500-700
+            ['#8b5cf6', '#6d28d9'], // Violet 500-700
+            ['#64748b', '#334155']  // Slate 500-700
         ];
 
         frentes.forEach((frente, index) => {
             const palette = palettes[index % palettes.length];
-            const ctx = canvas.getContext('2d');
-            const gradient = ctx.createLinearGradient(0, 0, 0, 400);
-            gradient.addColorStop(0, palette[0]);
-            gradient.addColorStop(1, palette[1]);
+            const gradient = this.createGradient(canvas, palette[0], palette[1]);
             
             // Dados de Realizado (Barras)
             const dataPoints = dates.map(d => diario[d] && diario[d][frente] ? diario[d][frente] : 0);
@@ -4357,7 +4257,7 @@ forceReloadAllData() {
                 label: `Realizado - ${frente}`,
                 data: dataPoints,
                 backgroundColor: gradient,
-                borderRadius: 6,
+                borderRadius: 8,
                 borderSkipped: false,
                 barPercentage: 0.7,
                 categoryPercentage: 0.8,
@@ -4372,25 +4272,19 @@ forceReloadAllData() {
                 datasets.push({
                     label: `Meta - ${frente}`,
                     data: dates.map(() => metaVal),
-                    borderColor: palette[1], // Mesma cor base da barra
+                    borderColor: palette[1],
                     borderWidth: 2,
                     borderDash: [5, 5],
                     type: 'line',
                     pointRadius: 0,
                     pointHoverRadius: 4,
                     fill: false,
-                    tension: 0, // Linha reta
+                    tension: 0,
                     order: 1
                 });
             }
         });
 
-        // Destruir anterior
-        if (this.plantioChartInstance) {
-            this.plantioChartInstance.destroy();
-        }
-
-        // Criar novo Chart
         this.plantioChartInstance = new Chart(canvas, {
             type: 'bar',
             data: {
@@ -4400,61 +4294,40 @@ forceReloadAllData() {
                 }),
                 datasets: datasets
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
+            options: this.getCommonChartOptions({
                 interaction: {
                     mode: 'index',
                     intersect: false,
                 },
                 plugins: {
                     tooltip: {
-                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                        titleColor: '#1a1a1a',
-                        bodyColor: '#1a1a1a',
-                        borderColor: '#e0e0e0',
-                        borderWidth: 1,
-                        padding: 10,
                         callbacks: {
                             label: function(context) {
                                 let label = context.dataset.label || '';
-                                if (label) {
-                                    label += ': ';
-                                }
+                                if (label) label += ': ';
                                 if (context.parsed.y !== null) {
                                     label += context.parsed.y.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ha';
                                 }
                                 return label;
                             }
                         }
-                    },
-                    legend: {
-                        position: 'bottom',
-                        labels: {
-                            usePointStyle: true,
-                            font: { family: 'Inter' }
-                        }
                     }
                 },
                 scales: {
                     x: {
-                        stacked: false, // Lado a lado para facilitar comparação
-                        grid: { display: false },
-                        ticks: { font: { family: 'Inter' }, color: '#757575' }
+                        stacked: false,
+                        grid: { display: false }
                     },
                     y: {
-                        beginAtZero: true,
-                        grid: { color: '#f0f0f0', borderDash: [5, 5] },
-                        ticks: { font: { family: 'Inter' }, color: '#757575' },
                         title: {
                             display: true,
                             text: 'Hectares (ha)',
-                            font: { family: 'Inter' },
-                            color: '#757575'
+                            font: { family: "'Inter', sans-serif", size: 12 },
+                            color: '#64748b'
                         }
                     }
                 }
-            }
+            })
         });
     }
     async setupLegacyListeners() {
@@ -8418,68 +8291,9 @@ InsumosApp.prototype.updateCharts = function(data) {
         
         if (!this._charts) this._charts = {};
 
-        // Helper for gradients
-        const createGradient = (ctx, colorStart, colorEnd) => {
-            const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 400);
-            gradient.addColorStop(0, colorStart);
-            gradient.addColorStop(1, colorEnd);
-            return gradient;
-        };
-
-        const baseOpts = { 
-            responsive: true, 
-            maintainAspectRatio: false, 
-            plugins: { 
-                legend: { 
-                    display: true, 
-                    position: 'top',
-                    labels: { font: { family: 'Inter', size: 12 }, usePointStyle: true, boxWidth: 8 }
-                },
-                tooltip: {
-                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                    titleColor: '#1a1a1a',
-                    bodyColor: '#1a1a1a',
-                    borderColor: '#e0e0e0',
-                    borderWidth: 1,
-                    padding: 10,
-                    titleFont: { family: 'Inter', size: 13, weight: '600' },
-                    bodyFont: { family: 'Inter', size: 12 },
-                    callbacks: {
-                        label: function(context) {
-                            let label = context.dataset.label || '';
-                            if (label) label += ': ';
-                            
-                            let value = context.parsed.y;
-                            // Check if horizontal bar (indexAxis: 'y')
-                            if (context.chart.config.options.indexAxis === 'y') {
-                                value = context.parsed.x;
-                            }
-                            
-                            if (value !== null && value !== undefined) {
-                                label += value.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
-                            }
-                            
-                            if (context.dataset.label && context.dataset.label.includes('Diferença')) label += '%';
-                            return label;
-                        }
-                    }
-                }
-            }, 
-            scales: { 
-                x: { 
-                    grid: { display: false },
-                    ticks: { font: { family: 'Inter' }, color: '#757575' }
-                }, 
-                y: { 
-                    grid: { color: '#f0f0f0', borderDash: [5, 5] },
-                    ticks: { font: { family: 'Inter' }, color: '#757575' }
-                } 
-            } 
-        };
-        
         if (doseProdCtx) {
-            const gradRec = createGradient(doseProdCtx, '#66BB6A', '#2E7D32'); // Green 400-800
-            const gradApl = createGradient(doseProdCtx, '#FFA726', '#EF6C00'); // Orange 400-800
+            const gradRec = this.createGradient(doseProdCtx, '#22c55e', '#15803d'); // Green 500-700
+            const gradApl = this.createGradient(doseProdCtx, '#f59e0b', '#b45309'); // Amber 500-700
 
             const doseProdData = {
                 labels: produtos,
@@ -8488,7 +8302,7 @@ InsumosApp.prototype.updateCharts = function(data) {
                         label: 'Dose Recomendada', 
                         data: recAvg, 
                         backgroundColor: gradRec,
-                        borderRadius: 6,
+                        borderRadius: 8,
                         barPercentage: 0.7,
                         categoryPercentage: 0.8
                     },
@@ -8496,18 +8310,24 @@ InsumosApp.prototype.updateCharts = function(data) {
                         label: 'Dose Aplicada', 
                         data: aplAvg, 
                         backgroundColor: gradApl,
-                        borderRadius: 6,
+                        borderRadius: 8,
                         barPercentage: 0.7,
                         categoryPercentage: 0.8
                     }
                 ]
             };
-            this._charts.doseProd = new Chart(doseProdCtx, { type: 'bar', data: doseProdData, options: baseOpts });
+            this._charts.doseProd = new Chart(doseProdCtx, { 
+                type: 'bar', 
+                data: doseProdData, 
+                options: this.getCommonChartOptions({
+                    scales: { y: { beginAtZero: true } }
+                })
+            });
         }
         
         if (doseGlobalCtx) {
-            const gradRec = createGradient(doseGlobalCtx, '#66BB6A', '#2E7D32');
-            const gradApl = createGradient(doseGlobalCtx, '#FFA726', '#EF6C00');
+            const gradRec = this.createGradient(doseGlobalCtx, '#22c55e', '#15803d');
+            const gradApl = this.createGradient(doseGlobalCtx, '#f59e0b', '#b45309');
 
             const globalRec = recAvg.reduce((s,v)=>s+v,0)/ (recAvg.filter(v=>v>0).length || 1);
             const globalApl = aplAvg.reduce((s,v)=>s+v,0)/ (aplAvg.filter(v=>v>0).length || 1);
@@ -8518,50 +8338,58 @@ InsumosApp.prototype.updateCharts = function(data) {
                         label: 'Dose Recomendada', 
                         data: [globalRec], 
                         backgroundColor: gradRec,
-                        borderRadius: 6,
-                        barPercentage: 0.5
+                        borderRadius: 8,
+                        barPercentage: 0.7
                     },
                     { 
                         label: 'Dose Aplicada', 
                         data: [globalApl], 
                         backgroundColor: gradApl,
-                        borderRadius: 6,
-                        barPercentage: 0.5
+                        borderRadius: 8,
+                        barPercentage: 0.7
                     }
                 ]
             };
-            this._charts.doseGlobal = new Chart(doseGlobalCtx, { type: 'bar', data: doseGlobalData, options: baseOpts });
+            this._charts.doseGlobal = new Chart(doseGlobalCtx, { 
+                type: 'bar', 
+                data: doseGlobalData, 
+                options: this.getCommonChartOptions({
+                    scales: { y: { beginAtZero: true } }
+                })
+            });
         }
         
         if (diffProdCtx) {
-            const gradDiff = createGradient(diffProdCtx, '#42A5F5', '#1565C0'); // Blue 400-800
+            const gradDiff = this.createGradient(diffProdCtx, '#3b82f6', '#1d4ed8'); // Blue 500-700
             const diffProdData = {
                 labels: produtos,
                 datasets: [ { 
                     label: 'Diferença (%)', 
                     data: diffPct, 
                     backgroundColor: gradDiff,
-                    borderRadius: 6,
+                    borderRadius: 8,
                     barPercentage: 0.7,
                     categoryPercentage: 0.8
                 } ]
             };
-            // Horizontal options
-            const horizOpts = {
-                ...baseOpts,
-                indexAxis: 'y',
-                scales: {
-                    x: {
-                        grid: { color: '#f0f0f0', borderDash: [5, 5] },
-                        ticks: { font: { family: 'Inter' }, color: '#757575' }
+
+            this._charts.diffProd = new Chart(diffProdCtx, { 
+                type: 'bar', 
+                data: diffProdData, 
+                options: this.getCommonChartOptions({
+                    indexAxis: 'y',
+                    scales: {
+                        x: { ticks: { callback: v => v + '%' } }
                     },
-                    y: {
-                        grid: { display: false },
-                        ticks: { font: { family: 'Inter' }, color: '#757575' }
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => `Diferença: ${ctx.raw.toFixed(2)}%`
+                            }
+                        }
                     }
-                }
-            };
-            this._charts.diffProd = new Chart(diffProdCtx, { type: 'bar', data: diffProdData, options: horizOpts });
+                })
+            });
         }
     } catch(e) {
         console.error('chart error', e);
@@ -8677,58 +8505,8 @@ InsumosApp.prototype.loadEstoqueAndRender = async function() {
             if (!this._charts) this._charts = {};
             let chartData;
             
-            // Modern Options
-            let chartOpts = { 
-                responsive: true, 
-                maintainAspectRatio: false, 
-                plugins: { 
-                    legend: { 
-                        display: true, 
-                        position: 'top',
-                        labels: { font: { family: 'Inter', size: 12 }, usePointStyle: true, boxWidth: 8 }
-                    },
-                    tooltip: {
-                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                        titleColor: '#1a1a1a',
-                        bodyColor: '#1a1a1a',
-                        borderColor: '#e0e0e0',
-                        borderWidth: 1,
-                        padding: 10,
-                        titleFont: { family: 'Inter', size: 13, weight: '600' },
-                        bodyFont: { family: 'Inter', size: 12 },
-                        callbacks: {
-                            label: (context) => {
-                                let label = context.dataset.label || '';
-                                if (label) label += ': ';
-                                if (context.parsed.x !== null) {
-                                    label += context.parsed.x.toLocaleString('pt-BR');
-                                }
-                                return label;
-                            }
-                        }
-                    }
-                },
-                indexAxis: 'y',
-                scales: {
-                    x: {
-                        grid: { color: '#f0f0f0', borderDash: [5, 5] },
-                        ticks: { font: { family: 'Inter' }, color: '#757575' }
-                    },
-                    y: {
-                        grid: { display: false },
-                        ticks: { font: { family: 'Inter' }, color: '#757575' }
-                    }
-                }
-            };
-            
-            // Helper for gradient
-            const createGradient = (ctx, colorStart, colorEnd) => {
-                const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 400, 0); // Horizontal gradient
-                gradient.addColorStop(0, colorStart);
-                gradient.addColorStop(1, colorEnd);
-                return gradient;
-            };
-            const gradientEstoque = createGradient(ctx, '#AB47BC', '#7B1FA2'); // Purple 400-800
+            // Gradient
+            const gradientEstoque = this.createGradient(ctx, '#a855f7', '#7e22ce'); // Purple 500-700
             
             // Se o filtro atual não estiver na lista (ex: usuário digitou algo manual no filtro?), fallback para 'all'
             // Mas o filtro é um select agora.
@@ -8764,7 +8542,7 @@ InsumosApp.prototype.loadEstoqueAndRender = async function() {
                         label: 'Estoque Total (Todas as Frentes)', 
                         data: values, 
                         backgroundColor: gradientEstoque,
-                        borderRadius: 6,
+                        borderRadius: 8,
                         barPercentage: 0.7,
                         categoryPercentage: 0.8
                     }] 
@@ -8794,7 +8572,7 @@ InsumosApp.prototype.loadEstoqueAndRender = async function() {
                         label: `Estoque - ${f}`, 
                         data: values, 
                         backgroundColor: gradientEstoque,
-                        borderRadius: 6,
+                        borderRadius: 8,
                         barPercentage: 0.7,
                         categoryPercentage: 0.8
                     }] 
@@ -8803,7 +8581,26 @@ InsumosApp.prototype.loadEstoqueAndRender = async function() {
             
             // Só cria o gráfico se houver dados, senão apenas loga (ou mostra vazio se preferir, mas sem dados evita loop de render)
             if (chartData && chartData.labels && chartData.labels.length > 0) {
-                this._charts.estoqueFrente = new Chart(ctx, { type: 'bar', data: chartData, options: chartOpts });
+                this._charts.estoqueFrente = new Chart(ctx, { 
+                    type: 'bar', 
+                    data: chartData, 
+                    options: this.getCommonChartOptions({
+                        indexAxis: 'y',
+                        scales: { x: { grid: { display: false } } },
+                        plugins: {
+                            tooltip: {
+                                callbacks: {
+                                    label: (context) => {
+                                        let label = context.dataset.label || '';
+                                        if (label) label += ': ';
+                                        if (context.parsed.x !== null) label += context.parsed.x.toLocaleString('pt-BR');
+                                        return label;
+                                    }
+                                }
+                            }
+                        }
+                    }) 
+                });
             } else {
                 // Se não houver dados, podemos mostrar uma mensagem ou deixar em branco, mas garantindo que o chart anterior foi destruído (já feito acima)
             }
