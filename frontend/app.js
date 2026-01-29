@@ -1821,6 +1821,61 @@ forceReloadAllData() {
         }
     }
 
+    isDateInPeriod(dateStr) {
+        // Default to 'all' to ensure data visibility unless user explicitly filters
+        const periodoEl = document.getElementById('dashboard-periodo');
+        let periodo = periodoEl ? periodoEl.value : 'all';
+        
+        // Force 'all' if empty or invalid to prevent hiding data by mistake
+        if (!periodo || periodo === '') periodo = 'all';
+
+        if (periodo === 'all') return true;
+        
+        // If date is missing, decide whether to show or hide. 
+        // Showing is safer to avoid "empty chart" complaints.
+        if (!dateStr) return true; 
+        
+        // Handle ISO strings, YYYY-MM-DD, etc.
+        let d;
+        try {
+            if (dateStr instanceof Date) {
+                d = dateStr;
+            } else if (typeof dateStr === 'string') {
+                 if (dateStr.includes('T')) {
+                    const parts = dateStr.split('T')[0].split('-');
+                    if (parts.length < 3) return true; // Invalid format, pass through
+                    d = new Date(parts[0], parts[1]-1, parts[2]);
+                } else if (dateStr.includes('-')) {
+                     const parts = dateStr.split('-');
+                     if (parts.length === 3) {
+                         d = new Date(parts[0], parts[1]-1, parts[2]);
+                     } else {
+                         d = new Date(dateStr);
+                     }
+                } else {
+                    d = new Date(dateStr);
+                }
+            } else {
+                return true; // Unknown type, pass through
+            }
+            
+            if (isNaN(d.getTime())) return true; // Invalid date, pass through
+
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            
+            // Calculate difference in days
+            const diffTime = today - d; // Positive if past
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            // console.log(`DEBUG isDateInPeriod: Date=${dateStr}, Period=${periodo}, DiffDays=${diffDays}`);
+            return diffDays <= parseInt(periodo);
+        } catch(e) {
+            console.warn('Error in isDateInPeriod:', e);
+            return true; // Default to true on error
+        }
+    }
+
     async loadDashboard() {
         if (this.dashboardDisabled) {
             console.error('⛔ Dashboard desativado devido a excesso de recargas.');
@@ -1872,6 +1927,15 @@ forceReloadAllData() {
                 this.api.getTransporteComposto(),
                 this.api.getLiberacaoColheita()
             ]);
+
+            console.log('--- DEBUG LOADDASHBOARD RESPONSES ---');
+            console.log('Plantio:', plantioRes.success, plantioRes.data?.length);
+            console.log('OS:', osRes.success, osRes.data?.length);
+            console.log('Insumos:', insumosRes.success, insumosRes.data?.length);
+            console.log('Estoque:', estoqueRes.success, estoqueRes.data?.length);
+            console.log('Viagens:', viagensRes?.success, viagensRes?.data?.length);
+            console.log('Fazendas:', fazendasRes?.success, fazendasRes?.data?.length);
+            console.log('---------------------------------------');
 
             if (plantioRes.success) {
                 // Normalizar dados (parsear JSON se necessário)
@@ -2106,6 +2170,15 @@ forceReloadAllData() {
         }
         
         console.log('📊 Renderizando gráficos...');
+        console.log('--- DEBUG DATA COUNTS ---');
+        console.log('InsumosFazendas:', this.insumosFazendasData ? this.insumosFazendasData.length : 0);
+        console.log('PlantioDiario:', this.plantioDiarioData ? this.plantioDiarioData.length : 0);
+        console.log('ViagensAdubo:', this.viagensAdubo ? this.viagensAdubo.length : 0);
+        console.log('EstoqueList:', this.estoqueList ? this.estoqueList.length : 0);
+        console.log('TransporteComposto:', this.transporteCompostoData ? this.transporteCompostoData.length : 0);
+        console.log('LiberacaoColheita:', this.liberacaoColheitaData ? this.liberacaoColheitaData.length : 0);
+        console.log('OSList:', this.osListCache ? this.osListCache.length : 0);
+        console.log('-------------------------');
 
         // Sequência de renderização
         try { this.renderPlantioChart(); } catch(e) { console.error('Erro Chart Plantio:', e); }
@@ -2169,12 +2242,16 @@ forceReloadAllData() {
         if (existing) existing.destroy();
 
         const data = this.transporteCompostoData || [];
+        console.log(`📊 TransporteComposto: ${data.length} itens.`);
+
         // Group by Date
         const daily = {};
         data.forEach(item => {
             const d = item.data_abertura || item.created_at;
             if (!d) return;
             const dateStr = d.split('T')[0];
+            if (!this.isDateInPeriod(dateStr)) return;
+            
             if (!daily[dateStr]) daily[dateStr] = 0;
             daily[dateStr] += parseFloat(item.quantidade || 0);
         });
@@ -2188,6 +2265,10 @@ forceReloadAllData() {
 
         if (this._charts.transporteComposto) this._charts.transporteComposto.destroy();
 
+        const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 400);
+        gradient.addColorStop(0, '#8D6E63'); // Brown 400
+        gradient.addColorStop(1, '#5D4037'); // Brown 700
+
         this._charts.transporteComposto = new Chart(ctx, {
             type: 'bar',
             data: {
@@ -2195,13 +2276,42 @@ forceReloadAllData() {
                 datasets: [{
                     label: 'Volume (t)',
                     data: values,
-                    backgroundColor: '#795548'
+                    backgroundColor: gradient,
+                    borderRadius: 6,
+                    borderSkipped: false,
+                    barPercentage: 0.6,
+                    categoryPercentage: 0.8
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { display: false } }
+                plugins: { 
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                        titleColor: '#1a1a1a',
+                        bodyColor: '#1a1a1a',
+                        borderColor: '#e0e0e0',
+                        borderWidth: 1,
+                        padding: 10,
+                        displayColors: false,
+                        callbacks: {
+                            label: (context) => `Volume: ${context.raw.toLocaleString('pt-BR')} t`
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: '#f0f0f0', borderDash: [5, 5] },
+                        ticks: { color: '#757575', font: { family: 'Inter' } }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: '#757575', font: { family: 'Inter' } }
+                    }
+                }
             }
         });
     }
@@ -2213,7 +2323,11 @@ forceReloadAllData() {
         const existing = Chart.getChart(ctx);
         if (existing) existing.destroy();
 
-        const data = this.liberacaoColheitaData || [];
+        const data = (this.liberacaoColheitaData || []).filter(item => {
+            const d = item.data || item.created_at;
+            return this.isDateInPeriod(d);
+        });
+
         const statusCounts = {};
         data.forEach(item => {
             const s = item.status || 'PENDENTE';
@@ -2224,10 +2338,10 @@ forceReloadAllData() {
         const values = Object.values(statusCounts);
         
         const colors = labels.map(s => {
-            if (s === 'LIBERADO') return '#4CAF50';
-            if (s === 'PENDENTE') return '#FFC107';
-            if (s === 'REJEITADO') return '#F44336';
-            return '#9E9E9E';
+            if (s === 'LIBERADO') return '#66BB6A'; // Green 400
+            if (s === 'PENDENTE') return '#FFA726'; // Orange 400
+            if (s === 'REJEITADO') return '#EF5350'; // Red 400
+            return '#BDBDBD';
         });
 
         if (this._charts.liberacaoStatus) this._charts.liberacaoStatus.destroy();
@@ -2239,13 +2353,32 @@ forceReloadAllData() {
                 datasets: [{
                     data: values,
                     backgroundColor: colors,
-                    borderWidth: 0
+                    borderWidth: 0,
+                    hoverOffset: 15,
+                    borderRadius: 5
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { position: 'right' } }
+                cutout: '75%',
+                plugins: { 
+                    legend: { 
+                        position: 'bottom',
+                        labels: { usePointStyle: true, padding: 20, font: { family: 'Inter', size: 12 } }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                        bodyColor: '#333',
+                        titleColor: '#333',
+                        borderColor: '#eee',
+                        borderWidth: 1,
+                        padding: 12,
+                        callbacks: {
+                            label: (context) => ` ${context.label}: ${context.raw}`
+                        }
+                    }
+                }
             }
         });
     }
@@ -2259,7 +2392,14 @@ forceReloadAllData() {
             existingChart.destroy();
         }
 
-        const data = this.osListCache || [];
+        const rawData = this.osListCache || [];
+        const data = rawData.filter(item => {
+            const d = item.data_abertura || item.data || item.created_at;
+            return this.isDateInPeriod(d);
+        });
+        
+        console.log(`📊 OSStatus: ${rawData.length} itens (filtrados: ${data.length})`);
+
         const statusCounts = {};
         
         data.forEach(os => {
@@ -2270,10 +2410,10 @@ forceReloadAllData() {
         const labels = Object.keys(statusCounts);
         const values = Object.values(statusCounts);
         const colors = labels.map(s => {
-            if(s.includes('CONCLU')) return '#4CAF50';
-            if(s.includes('ANDAMENTO') || s.includes('ABERTA')) return '#2196F3';
-            if(s.includes('CANCEL')) return '#F44336';
-            return '#FF9800';
+            if(s.includes('CONCLU')) return '#66BB6A';
+            if(s.includes('ANDAMENTO') || s.includes('ABERTA')) return '#42A5F5';
+            if(s.includes('CANCEL')) return '#EF5350';
+            return '#FFA726';
         });
 
         if (this._charts.osStatus) {
@@ -2287,15 +2427,27 @@ forceReloadAllData() {
                 datasets: [{
                     data: values,
                     backgroundColor: colors,
-                    borderWidth: 0
+                    borderWidth: 0,
+                    hoverOffset: 15,
+                    borderRadius: 5
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                cutout: '75%',
                 plugins: {
-                    legend: { position: 'bottom' },
+                    legend: { 
+                        position: 'bottom',
+                        labels: { usePointStyle: true, padding: 20, font: { family: 'Inter' } }
+                    },
                     tooltip: {
+                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                        bodyColor: '#333',
+                        titleColor: '#333',
+                        borderColor: '#eee',
+                        borderWidth: 1,
+                        padding: 12,
                         callbacks: {
                             label: function(context) {
                                 let label = context.label || '';
@@ -2321,7 +2473,14 @@ forceReloadAllData() {
         const existingChart = Chart.getChart(ctx);
         if (existingChart) existingChart.destroy();
         
-        const data = this.insumosFazendasData || [];
+        const rawData = this.insumosFazendasData || [];
+        const data = rawData.filter(item => {
+            const d = item.inicio || item.data || item.created_at;
+            return this.isDateInPeriod(d);
+        });
+
+        console.log(`📊 InsumosGlobal: ${rawData.length} itens (filtrados: ${data.length})`);
+
         const products = {};
 
         data.forEach(item => {
@@ -2340,6 +2499,14 @@ forceReloadAllData() {
 
         if (this._charts.insumosGlobal) this._charts.insumosGlobal.destroy();
 
+        const gradientPlanned = ctx.getContext('2d').createLinearGradient(0, 0, 0, 400);
+        gradientPlanned.addColorStop(0, '#90CAF9');
+        gradientPlanned.addColorStop(1, '#64B5F6');
+
+        const gradientReal = ctx.getContext('2d').createLinearGradient(0, 0, 0, 400);
+        gradientReal.addColorStop(0, '#1E88E5');
+        gradientReal.addColorStop(1, '#1565C0');
+
         this._charts.insumosGlobal = new Chart(ctx, {
             type: 'bar',
             data: {
@@ -2348,12 +2515,18 @@ forceReloadAllData() {
                     {
                         label: 'Planejado (L/kg)',
                         data: plannedData,
-                        backgroundColor: '#90CAF9'
+                        backgroundColor: gradientPlanned,
+                        borderRadius: 6,
+                        barPercentage: 0.7,
+                        categoryPercentage: 0.8
                     },
                     {
                         label: 'Realizado (L/kg)',
                         data: realData,
-                        backgroundColor: '#1E88E5'
+                        backgroundColor: gradientReal,
+                        borderRadius: 6,
+                        barPercentage: 0.7,
+                        categoryPercentage: 0.8
                     }
                 ]
             },
@@ -2361,75 +2534,17 @@ forceReloadAllData() {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: { 
-                    legend: { position: 'bottom' },
+                    legend: { 
+                        position: 'bottom',
+                        labels: { usePointStyle: true, font: { family: 'Inter' }, padding: 20 }
+                    },
                     tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                let label = context.dataset.label || '';
-                                if (label) {
-                                    label += ': ';
-                                }
-                                if (context.parsed.y !== null) {
-                                    label += context.parsed.y.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
-                                }
-                                return label;
-                            }
-                        }
-                    }
-                }
-            }
-        });
-    }
-
-    renderInsumosTimelineChart() {
-        const ctx = document.getElementById('chart-insumos-evolucao');
-        if (!ctx) return;
-
-        const existingChart = Chart.getChart(ctx);
-        if (existingChart) existingChart.destroy();
-
-        const data = this.insumosFazendasData || [];
-        const daily = {};
-
-        data.forEach(item => {
-            const date = item.inicio ? item.inicio.split('T')[0] : null;
-            if (!date) return;
-            if (!daily[date]) daily[date] = 0;
-            daily[date] += parseFloat(item.quantidadeAplicada || 0);
-        });
-
-        const sortedDates = Object.keys(daily).sort();
-        const values = sortedDates.map(d => daily[d]);
-        const labels = sortedDates.map(d => {
-             const parts = d.split('-');
-             return parts.length === 3 ? `${parts[2]}/${parts[1]}` : d;
-        });
-
-        if (this._charts.insumosTimeline) this._charts.insumosTimeline.destroy();
-
-        const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 300);
-        gradient.addColorStop(0, 'rgba(0, 150, 136, 0.4)');
-        gradient.addColorStop(1, 'rgba(0, 150, 136, 0.0)');
-
-        this._charts.insumosTimeline = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'Aplicação Diária (L/kg)',
-                    data: values,
-                    borderColor: '#009688',
-                    backgroundColor: gradient,
-                    fill: true,
-                    tension: 0.3
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
+                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                        bodyColor: '#333',
+                        titleColor: '#333',
+                        borderColor: '#eee',
+                        borderWidth: 1,
+                        padding: 10,
                         callbacks: {
                             label: function(context) {
                                 let label = context.dataset.label || '';
@@ -2444,20 +2559,151 @@ forceReloadAllData() {
                         }
                     }
                 },
-                scales: { y: { beginAtZero: true } }
+                scales: {
+                    y: { 
+                        beginAtZero: true, 
+                        grid: { color: '#f0f0f0', borderDash: [5, 5] },
+                        ticks: { font: { family: 'Inter' }, color: '#757575' }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { font: { family: 'Inter' }, color: '#757575' }
+                    }
+                }
+            }
+        });
+    }
+
+    renderInsumosTimelineChart() {
+        const ctx = document.getElementById('chart-insumos-evolucao');
+        if (!ctx) return;
+
+        const existingChart = Chart.getChart(ctx);
+        if (existingChart) existingChart.destroy();
+
+        const data = this.insumosFazendasData || [];
+        console.log(`📊 InsumosTimeline: ${data.length} itens totais.`);
+
+        const daily = {};
+        let skippedCount = 0;
+        let processedCount = 0;
+
+        data.forEach(item => {
+            const date = item.inicio ? item.inicio.split('T')[0] : null;
+            if (!date) {
+                skippedCount++;
+                return;
+            }
+            // Apply dashboard filter
+            if (!this.isDateInPeriod(date)) {
+                skippedCount++;
+                return;
+            }
+            
+            processedCount++;
+            if (!daily[date]) daily[date] = 0;
+            daily[date] += parseFloat(item.quantidadeAplicada || 0);
+        });
+
+        console.log(`📊 InsumosTimeline: Processados=${processedCount}, Pulados=${skippedCount}`);
+        
+        if (processedCount === 0 && data.length > 0) {
+            console.warn('⚠️ Todos os itens de insumos foram filtrados ou inválidos para o gráfico de evolução.');
+        }
+
+        const sortedDates = Object.keys(daily).sort();
+        const values = sortedDates.map(d => daily[d]);
+        const labels = sortedDates.map(d => {
+             const parts = d.split('-');
+             return parts.length === 3 ? `${parts[2]}/${parts[1]}` : d;
+        });
+
+        if (this._charts.insumosTimeline) this._charts.insumosTimeline.destroy();
+
+        const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 300);
+        gradient.addColorStop(0, 'rgba(0, 150, 136, 0.5)');
+        gradient.addColorStop(1, 'rgba(0, 150, 136, 0.0)');
+
+        this._charts.insumosTimeline = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Aplicação Diária (L/kg)',
+                    data: values,
+                    borderColor: '#009688',
+                    borderWidth: 3,
+                    backgroundColor: gradient,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: '#fff',
+                    pointBorderColor: '#009688',
+                    pointBorderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                        bodyColor: '#333',
+                        titleColor: '#333',
+                        borderColor: '#eee',
+                        borderWidth: 1,
+                        padding: 10,
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed.y !== null) {
+                                    label += context.parsed.y.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                },
+                scales: { 
+                    y: { 
+                        beginAtZero: true,
+                        grid: { color: '#f0f0f0', borderDash: [5, 5] },
+                        ticks: { font: { family: 'Inter' } }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { font: { family: 'Inter' } }
+                    }
+                }
             }
         });
     }
 
     renderEstoqueGeralChart() {
+         console.log('📊 Renderizando Estoque Geral...');
          const ctxId = 'chart-estoque-geral';
          const ctx = document.getElementById(ctxId);
-         if (!ctx) return;
+         if (!ctx) {
+             console.warn('⚠️ Canvas chart-estoque-geral não encontrado.');
+             return;
+         }
 
          this.destroyChart(ctxId, 'estoqueGeral');
          
          const data = this.estoqueList || [];
-         if (data.length === 0) return;
+         console.log('📦 Dados Estoque:', data.length, 'itens');
+         
+         // Debug: Check first item structure
+         if (data.length > 0) {
+             console.log('📦 Exemplo item estoque (raw):', JSON.stringify(data[0]));
+         } else {
+             console.warn('⚠️ Lista de estoque vazia!');
+         }
 
          // Agrupar por Frente
          const porFrente = {};
@@ -2466,6 +2712,8 @@ forceReloadAllData() {
              if (!porFrente[f]) porFrente[f] = 0;
              porFrente[f] += parseFloat(item.quantidade || 0);
          });
+         
+         console.log('📦 Estoque Agrupado:', porFrente);
          
          // Ordenar e limitar
          let labels = Object.keys(porFrente).sort((a,b) => porFrente[b] - porFrente[a]);
@@ -2484,7 +2732,13 @@ forceReloadAllData() {
              values = top15Values;
          }
 
-         if (labels.length === 0) return;
+         if (labels.length === 0) {
+            // Allow empty chart
+        }
+
+        const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 400);
+         gradient.addColorStop(0, '#AB47BC');
+         gradient.addColorStop(1, '#7B1FA2');
 
          this._charts.estoqueGeral = new Chart(ctx, {
              type: 'bar',
@@ -2493,14 +2747,23 @@ forceReloadAllData() {
                  datasets: [{
                      label: 'Quantidade em Estoque',
                      data: values,
-                     backgroundColor: '#9C27B0'
+                     backgroundColor: gradient,
+                     borderRadius: 6,
+                     barPercentage: 0.6
                  }]
              },
              options: {
                  responsive: true,
                  maintainAspectRatio: false,
                  plugins: {
+                     legend: { display: false },
                      tooltip: {
+                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                        bodyColor: '#333',
+                        titleColor: '#333',
+                        borderColor: '#eee',
+                        borderWidth: 1,
+                        padding: 10,
                          callbacks: {
                              label: function(context) {
                                  let label = context.dataset.label || '';
@@ -2514,39 +2777,159 @@ forceReloadAllData() {
                              }
                          }
                      }
-                 }
+                 },
+                 scales: {
+                    y: { 
+                        beginAtZero: true,
+                        grid: { color: '#f0f0f0', borderDash: [5, 5] },
+                        ticks: { font: { family: 'Inter' } }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { font: { family: 'Inter' } }
+                    }
+                }
              }
          });
+    }
+
+    updateCharts(data) {
+        if (!data) return;
+
+        // --- Chart: Diferença por Produto (%) ---
+        const diffCtx = document.getElementById('chart-diff-produtos');
+        if (diffCtx) {
+            if (this._charts.diffProdutos) this._charts.diffProdutos.destroy();
+            
+            const productStats = {};
+            data.forEach(item => {
+                const p = item.produto;
+                if (!p) return;
+                if (!productStats[p]) productStats[p] = { diffSum: 0, count: 0 };
+                
+                let diff = parseFloat(item.diferenca);
+                if (isNaN(diff)) diff = 0;
+                
+                productStats[p].diffSum += diff;
+                productStats[p].count++;
+            });
+            
+            const labels = Object.keys(productStats);
+            const values = labels.map(p => productStats[p].count ? (productStats[p].diffSum / productStats[p].count) : 0);
+            
+            const bgColors = values.map(v => Math.abs(v) > 5 ? '#ef5350' : '#66bb6a'); 
+
+            this._charts.diffProdutos = new Chart(diffCtx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Diferença Média (%)',
+                        data: values,
+                        backgroundColor: bgColors,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { 
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => `Diferença: ${ctx.raw.toFixed(2)}%`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { 
+                            grid: { color: '#f0f0f0' },
+                            ticks: { callback: v => v + '%' } 
+                        },
+                        y: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        // --- Chart: Comparação por Produto (Dose) ---
+        const doseCtx = document.getElementById('chart-dose-produtos');
+        if (doseCtx) {
+            if (this._charts.doseProdutos) this._charts.doseProdutos.destroy();
+            
+            const doseStats = {};
+            data.forEach(item => {
+                const p = item.produto;
+                if (!p) return;
+                if (!doseStats[p]) doseStats[p] = { recSum: 0, appSum: 0, count: 0 };
+                
+                doseStats[p].recSum += parseFloat(item.dose_recomendada || 0);
+                doseStats[p].appSum += parseFloat(item.dose_aplicada || 0);
+                doseStats[p].count++;
+            });
+            
+            const labels = Object.keys(doseStats);
+            const recValues = labels.map(p => doseStats[p].count ? (doseStats[p].recSum / doseStats[p].count) : 0);
+            const appValues = labels.map(p => doseStats[p].count ? (doseStats[p].appSum / doseStats[p].count) : 0);
+            
+            this._charts.doseProdutos = new Chart(doseCtx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Dose Rec.',
+                            data: recValues,
+                            backgroundColor: '#42A5F5',
+                            borderRadius: 4
+                        },
+                        {
+                            label: 'Dose Apl.',
+                            data: appValues,
+                            backgroundColor: '#FFA726',
+                            borderRadius: 4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: '#f0f0f0' } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
     }
 
     renderProductDetailsCharts() {
          // Wrapper para chamar a antiga updateCharts com os dados atuais
          if (this.insumosFazendasData) {
-             this.updateCharts(this.insumosFazendasData);
+             const filteredData = this.insumosFazendasData.filter(item => {
+                 const d = item.inicio || item.data || item.created_at;
+                 return this.isDateInPeriod(d);
+             });
+             this.updateCharts(filteredData);
          }
     }
 
     renderLogisticsCharts() {
+        console.log('📊 Renderizando Logística...');
         const ctxId = 'chart-viagens-diarias';
         const ctx = document.getElementById(ctxId);
         if (!ctx) return;
 
         this.destroyChart(ctxId, 'logistics');
 
-        const periodo = document.getElementById('dashboard-periodo')?.value || '30';
-        const now = new Date();
-        const filterDate = (dateStr) => {
-            if (periodo === 'all') return true;
-            if (!dateStr) return false;
-            const d = new Date(dateStr);
-            const diffTime = Math.abs(now - d);
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            return diffDays <= parseInt(periodo);
-        };
-
-        const data = (this.viagensAdubo || []).filter(v => filterDate(v.data));
+        const rawData = this.viagensAdubo || [];
+        const data = rawData.filter(v => this.isDateInPeriod(v.data));
         
-        if (data.length === 0) return; // Don't create chart if no data
+        console.log('🚚 Viagens Total:', rawData.length, '| Filtradas:', data.length);
+        if (rawData.length > 0 && data.length === 0) {
+            console.warn('⚠️ Todas as viagens foram filtradas! Verifique as datas.', rawData[0].data);
+        }
 
         // Group by Date
         const dailyCounts = {};
@@ -2592,11 +2975,12 @@ forceReloadAllData() {
                 plugins: {
                     legend: { display: false },
                     tooltip: {
-                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                        titleColor: '#333',
-                        bodyColor: '#333',
+                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                        titleColor: '#1a1a1a',
+                        bodyColor: '#1a1a1a',
                         borderColor: '#e0e0e0',
                         borderWidth: 1,
+                        padding: 10,
                         intersect: false,
                         mode: 'index',
                         callbacks: {
@@ -2612,12 +2996,19 @@ forceReloadAllData() {
                 scales: {
                     y: { 
                         beginAtZero: true, 
-                        ticks: { stepSize: 1, color: '#666' },
-                        grid: { color: '#f0f0f0' }
+                        ticks: { 
+                            stepSize: 1, 
+                            color: '#757575',
+                            font: { family: 'Inter' }
+                        },
+                        grid: { color: '#f0f0f0', borderDash: [5, 5] }
                     },
                     x: {
                         grid: { display: false },
-                        ticks: { color: '#666' }
+                        ticks: { 
+                            color: '#757575',
+                            font: { family: 'Inter' }
+                        }
                     }
                 },
                 interaction: {
@@ -2630,6 +3021,7 @@ forceReloadAllData() {
     }
 
     renderFarmProgressChart() {
+        console.log('📊 Renderizando Progresso Fazendas...');
         const ctxId = 'chart-fazenda-progresso';
         const ctx = document.getElementById(ctxId);
         if (!ctx) return;
@@ -2637,6 +3029,10 @@ forceReloadAllData() {
         this.destroyChart(ctxId, 'farmProgress');
 
         const normalize = (s) => (s || '').trim().toLowerCase();
+        
+        console.log('🌱 Fazendas cadastradas:', (this.cadastroFazendas || []).length);
+        const plantioFilteredCount = (this.plantioDiarioData || []).filter(p => this.isDateInPeriod(p.data)).length;
+        console.log('🌱 Dados de Plantio (no período):', plantioFilteredCount, '/', (this.plantioDiarioData || []).length);
 
         // 1. Identify farms present in OS List (registered OS)
         const osFarms = new Set();
@@ -2652,36 +3048,15 @@ forceReloadAllData() {
                     }
                 }
             });
-        } else {
-             // console.warn('⚠️ OS List Cache is empty or invalid during Farm Progress Chart render.');
         }
 
         // Use cadastroFazendas for total area and current progress
-        // Filter out farms with 0 area AND only show farms that have registered OS
+        // Filter out farms with 0 area
         let farms = (this.cadastroFazendas || []).filter(f => {
             const area = parseFloat(f.area_total);
-            if (area <= 0) return false;
-
-            // Check if linked to any OS
-            const nome = normalize(f.nome);
-            const cod = String(f.codigo || '').trim();
-            
-            let hasOS = osFarms.has(cod) || osFarms.has(nome);
-            
-            if (!hasOS) {
-                // Check if any OS farm string contains this farm name or starts with code
-                for (const osFarm of osFarms) {
-                    if (osFarm.includes(nome) || (cod && osFarm.startsWith(cod + ' '))) {
-                        hasOS = true;
-                        break;
-                    }
-                }
-            }
-            return hasOS;
+            return area > 0;
         });
         
-        if (farms.length === 0) return; // Don't create chart if no data
-
         // Sort by area total descending and take top 15 to avoid clutter
         farms.sort((a, b) => parseFloat(b.area_total) - parseFloat(a.area_total));
         farms = farms.slice(0, 15);
@@ -2693,6 +3068,9 @@ forceReloadAllData() {
 
             // Calcular realizado varrendo plantioDiarioData para garantir dados atualizados
             (this.plantioDiarioData || []).forEach(p => {
+                // Apply date filter
+                if (!this.isDateInPeriod(p.data)) return;
+
                 const processItem = (fazendaStr, area) => {
                     if (!fazendaStr || !area) return;
                     const fStr = normalize(fazendaStr);
@@ -2727,12 +3105,12 @@ forceReloadAllData() {
 
         // Gradient for progress bars
         const gradientComplete = ctx.getContext('2d').createLinearGradient(0, 0, 200, 0);
-        gradientComplete.addColorStop(0, '#43a047');
-        gradientComplete.addColorStop(1, '#66bb6a');
+        gradientComplete.addColorStop(0, '#66BB6A'); // Green 400
+        gradientComplete.addColorStop(1, '#388E3C'); // Green 700
 
         const gradientProgress = ctx.getContext('2d').createLinearGradient(0, 0, 200, 0);
-        gradientProgress.addColorStop(0, '#1976d2');
-        gradientProgress.addColorStop(1, '#42a5f5');
+        gradientProgress.addColorStop(0, '#42A5F5'); // Blue 400
+        gradientProgress.addColorStop(1, '#1976D2'); // Blue 700
 
         this._charts.farmProgress = new Chart(ctx, {
             type: 'bar',
@@ -2745,8 +3123,9 @@ forceReloadAllData() {
                         const value = context.dataset.data[context.dataIndex];
                         return value >= 100 ? gradientComplete : gradientProgress;
                     },
-                    borderRadius: 4,
-                    barPercentage: 0.6
+                    borderRadius: 6,
+                    barPercentage: 0.6,
+                    categoryPercentage: 0.8
                 }]
             },
             options: {
@@ -2756,6 +3135,12 @@ forceReloadAllData() {
                 plugins: {
                     legend: { display: false },
                     tooltip: {
+                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                        titleColor: '#1a1a1a',
+                        bodyColor: '#1a1a1a',
+                        borderColor: '#e0e0e0',
+                        borderWidth: 1,
+                        padding: 10,
                         callbacks: {
                             label: (context) => `Progresso: ${context.raw.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`
                         }
@@ -2765,11 +3150,19 @@ forceReloadAllData() {
                     x: { 
                         max: 100, 
                         beginAtZero: true,
-                        grid: { color: '#f0f0f0' },
-                        ticks: { callback: v => v + '%' }
+                        grid: { color: '#f0f0f0', borderDash: [5, 5] },
+                        ticks: { 
+                            callback: v => v + '%',
+                            color: '#757575',
+                            font: { family: 'Inter' }
+                        }
                     },
                     y: {
-                        grid: { display: false }
+                        grid: { display: false },
+                        ticks: {
+                            color: '#757575',
+                            font: { family: 'Inter' }
+                        }
                     }
                 }
             }
@@ -3958,9 +4351,10 @@ forceReloadAllData() {
                 label: `Realizado - ${frente}`,
                 data: dataPoints,
                 backgroundColor: gradient,
-                borderColor: palette[1],
-                borderWidth: 1,
-                borderRadius: 4,
+                borderRadius: 6,
+                borderSkipped: false,
+                barPercentage: 0.7,
+                categoryPercentage: 0.8,
                 type: 'bar',
                 order: 2
             });
@@ -4009,6 +4403,12 @@ forceReloadAllData() {
                 },
                 plugins: {
                     tooltip: {
+                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                        titleColor: '#1a1a1a',
+                        bodyColor: '#1a1a1a',
+                        borderColor: '#e0e0e0',
+                        borderWidth: 1,
+                        padding: 10,
                         callbacks: {
                             label: function(context) {
                                 let label = context.dataset.label || '';
@@ -4023,18 +4423,28 @@ forceReloadAllData() {
                         }
                     },
                     legend: {
-                        position: 'bottom'
+                        position: 'bottom',
+                        labels: {
+                            usePointStyle: true,
+                            font: { family: 'Inter' }
+                        }
                     }
                 },
                 scales: {
                     x: {
-                        stacked: false // Lado a lado para facilitar comparação
+                        stacked: false, // Lado a lado para facilitar comparação
+                        grid: { display: false },
+                        ticks: { font: { family: 'Inter' }, color: '#757575' }
                     },
                     y: {
                         beginAtZero: true,
+                        grid: { color: '#f0f0f0', borderDash: [5, 5] },
+                        ticks: { font: { family: 'Inter' }, color: '#757575' },
                         title: {
                             display: true,
-                            text: 'Hectares (ha)'
+                            text: 'Hectares (ha)',
+                            font: { family: 'Inter' },
+                            color: '#757575'
                         }
                     }
                 }
@@ -7883,7 +8293,7 @@ InsumosApp.prototype.updateCharts = function(data) {
 
         if (!data || data.length === 0) {
             console.log('Nenhum dado para exibir nos gráficos de Insumos.');
-            return;
+            // Continue to render empty charts
         }
 
         const byProdutoDose = {};
@@ -7936,12 +8346,33 @@ InsumosApp.prototype.updateCharts = function(data) {
         const diffProdCtx = document.getElementById('chart-recomendacao-diferenca');
         
         if (!this._charts) this._charts = {};
+
+        // Helper for gradients
+        const createGradient = (ctx, colorStart, colorEnd) => {
+            const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 400);
+            gradient.addColorStop(0, colorStart);
+            gradient.addColorStop(1, colorEnd);
+            return gradient;
+        };
+
         const baseOpts = { 
             responsive: true, 
             maintainAspectRatio: false, 
             plugins: { 
-                legend: { display: true, position: 'top' },
+                legend: { 
+                    display: true, 
+                    position: 'top',
+                    labels: { font: { family: 'Inter', size: 12 }, usePointStyle: true, boxWidth: 8 }
+                },
                 tooltip: {
+                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                    titleColor: '#1a1a1a',
+                    bodyColor: '#1a1a1a',
+                    borderColor: '#e0e0e0',
+                    borderWidth: 1,
+                    padding: 10,
+                    titleFont: { family: 'Inter', size: 13, weight: '600' },
+                    bodyFont: { family: 'Inter', size: 12 },
                     callbacks: {
                         label: function(context) {
                             let label = context.dataset.label || '';
@@ -7963,38 +8394,103 @@ InsumosApp.prototype.updateCharts = function(data) {
                     }
                 }
             }, 
-            scales: { x: { grid: { display: false } }, y: { grid: { display: false } } } 
+            scales: { 
+                x: { 
+                    grid: { display: false },
+                    ticks: { font: { family: 'Inter' }, color: '#757575' }
+                }, 
+                y: { 
+                    grid: { color: '#f0f0f0', borderDash: [5, 5] },
+                    ticks: { font: { family: 'Inter' }, color: '#757575' }
+                } 
+            } 
         };
         
-        const doseProdData = {
-            labels: produtos,
-            datasets: [
-                { label: 'Dose Recomendada', data: recAvg, backgroundColor: '#4CAF50' },
-                { label: 'Dose Aplicada', data: aplAvg, backgroundColor: '#FF9800' }
-            ]
-        };
-        const globalRec = recAvg.reduce((s,v)=>s+v,0)/ (recAvg.filter(v=>v>0).length || 1);
-        const globalApl = aplAvg.reduce((s,v)=>s+v,0)/ (aplAvg.filter(v=>v>0).length || 1);
-        const doseGlobalData = {
-            labels: ['Global'],
-            datasets: [
-                { label: 'Dose Recomendada', data: [globalRec], backgroundColor: '#4CAF50' },
-                { label: 'Dose Aplicada', data: [globalApl], backgroundColor: '#FF9800' }
-            ]
-        };
-        const diffProdData = {
-            labels: produtos,
-            datasets: [ { label: 'Diferença (%)', data: diffPct, backgroundColor: '#2196F3' } ]
-        };
-
         if (doseProdCtx) {
+            const gradRec = createGradient(doseProdCtx, '#66BB6A', '#2E7D32'); // Green 400-800
+            const gradApl = createGradient(doseProdCtx, '#FFA726', '#EF6C00'); // Orange 400-800
+
+            const doseProdData = {
+                labels: produtos,
+                datasets: [
+                    { 
+                        label: 'Dose Recomendada', 
+                        data: recAvg, 
+                        backgroundColor: gradRec,
+                        borderRadius: 6,
+                        barPercentage: 0.7,
+                        categoryPercentage: 0.8
+                    },
+                    { 
+                        label: 'Dose Aplicada', 
+                        data: aplAvg, 
+                        backgroundColor: gradApl,
+                        borderRadius: 6,
+                        barPercentage: 0.7,
+                        categoryPercentage: 0.8
+                    }
+                ]
+            };
             this._charts.doseProd = new Chart(doseProdCtx, { type: 'bar', data: doseProdData, options: baseOpts });
         }
+        
         if (doseGlobalCtx) {
+            const gradRec = createGradient(doseGlobalCtx, '#66BB6A', '#2E7D32');
+            const gradApl = createGradient(doseGlobalCtx, '#FFA726', '#EF6C00');
+
+            const globalRec = recAvg.reduce((s,v)=>s+v,0)/ (recAvg.filter(v=>v>0).length || 1);
+            const globalApl = aplAvg.reduce((s,v)=>s+v,0)/ (aplAvg.filter(v=>v>0).length || 1);
+            const doseGlobalData = {
+                labels: ['Global'],
+                datasets: [
+                    { 
+                        label: 'Dose Recomendada', 
+                        data: [globalRec], 
+                        backgroundColor: gradRec,
+                        borderRadius: 6,
+                        barPercentage: 0.5
+                    },
+                    { 
+                        label: 'Dose Aplicada', 
+                        data: [globalApl], 
+                        backgroundColor: gradApl,
+                        borderRadius: 6,
+                        barPercentage: 0.5
+                    }
+                ]
+            };
             this._charts.doseGlobal = new Chart(doseGlobalCtx, { type: 'bar', data: doseGlobalData, options: baseOpts });
         }
+        
         if (diffProdCtx) {
-            this._charts.diffProd = new Chart(diffProdCtx, { type: 'bar', data: diffProdData, options: { ...baseOpts, indexAxis: 'y' } });
+            const gradDiff = createGradient(diffProdCtx, '#42A5F5', '#1565C0'); // Blue 400-800
+            const diffProdData = {
+                labels: produtos,
+                datasets: [ { 
+                    label: 'Diferença (%)', 
+                    data: diffPct, 
+                    backgroundColor: gradDiff,
+                    borderRadius: 6,
+                    barPercentage: 0.7,
+                    categoryPercentage: 0.8
+                } ]
+            };
+            // Horizontal options
+            const horizOpts = {
+                ...baseOpts,
+                indexAxis: 'y',
+                scales: {
+                    x: {
+                        grid: { color: '#f0f0f0', borderDash: [5, 5] },
+                        ticks: { font: { family: 'Inter' }, color: '#757575' }
+                    },
+                    y: {
+                        grid: { display: false },
+                        ticks: { font: { family: 'Inter' }, color: '#757575' }
+                    }
+                }
+            };
+            this._charts.diffProd = new Chart(diffProdCtx, { type: 'bar', data: diffProdData, options: horizOpts });
         }
     } catch(e) {
         console.error('chart error', e);
@@ -8109,7 +8605,59 @@ InsumosApp.prototype.loadEstoqueAndRender = async function() {
 
             if (!this._charts) this._charts = {};
             let chartData;
-            let chartOpts = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'top' } } };
+            
+            // Modern Options
+            let chartOpts = { 
+                responsive: true, 
+                maintainAspectRatio: false, 
+                plugins: { 
+                    legend: { 
+                        display: true, 
+                        position: 'top',
+                        labels: { font: { family: 'Inter', size: 12 }, usePointStyle: true, boxWidth: 8 }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                        titleColor: '#1a1a1a',
+                        bodyColor: '#1a1a1a',
+                        borderColor: '#e0e0e0',
+                        borderWidth: 1,
+                        padding: 10,
+                        titleFont: { family: 'Inter', size: 13, weight: '600' },
+                        bodyFont: { family: 'Inter', size: 12 },
+                        callbacks: {
+                            label: (context) => {
+                                let label = context.dataset.label || '';
+                                if (label) label += ': ';
+                                if (context.parsed.x !== null) {
+                                    label += context.parsed.x.toLocaleString('pt-BR');
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                },
+                indexAxis: 'y',
+                scales: {
+                    x: {
+                        grid: { color: '#f0f0f0', borderDash: [5, 5] },
+                        ticks: { font: { family: 'Inter' }, color: '#757575' }
+                    },
+                    y: {
+                        grid: { display: false },
+                        ticks: { font: { family: 'Inter' }, color: '#757575' }
+                    }
+                }
+            };
+            
+            // Helper for gradient
+            const createGradient = (ctx, colorStart, colorEnd) => {
+                const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 400, 0); // Horizontal gradient
+                gradient.addColorStop(0, colorStart);
+                gradient.addColorStop(1, colorEnd);
+                return gradient;
+            };
+            const gradientEstoque = createGradient(ctx, '#AB47BC', '#7B1FA2'); // Purple 400-800
             
             // Se o filtro atual não estiver na lista (ex: usuário digitou algo manual no filtro?), fallback para 'all'
             // Mas o filtro é um select agora.
@@ -8139,8 +8687,17 @@ InsumosApp.prototype.loadEstoqueAndRender = async function() {
                 const labels = limitedRows.map(([prod]) => prod);
                 const values = limitedRows.map(([,v]) => v);
                 
-                chartData = { labels, datasets: [{ label: 'Estoque Total (Todas as Frentes)', data: values, backgroundColor: '#9C27B0' }] };
-                chartOpts = { ...chartOpts, indexAxis: 'y' };
+                chartData = { 
+                    labels, 
+                    datasets: [{ 
+                        label: 'Estoque Total (Todas as Frentes)', 
+                        data: values, 
+                        backgroundColor: gradientEstoque,
+                        borderRadius: 6,
+                        barPercentage: 0.7,
+                        categoryPercentage: 0.8
+                    }] 
+                };
             } else {
                 const f = this.estoqueFilters.frente;
                 const byProd = estoqueMap[f] || {};
@@ -8160,8 +8717,17 @@ InsumosApp.prototype.loadEstoqueAndRender = async function() {
                 const labels = limitedRows.map(([prod]) => prod);
                 const values = limitedRows.map(([,v]) => v);
                 
-                chartData = { labels, datasets: [{ label: `Estoque - ${f}`, data: values, backgroundColor: '#9C27B0' }] };
-                chartOpts = { ...chartOpts, indexAxis: 'y' };
+                chartData = { 
+                    labels, 
+                    datasets: [{ 
+                        label: `Estoque - ${f}`, 
+                        data: values, 
+                        backgroundColor: gradientEstoque,
+                        borderRadius: 6,
+                        barPercentage: 0.7,
+                        categoryPercentage: 0.8
+                    }] 
+                };
             }
             
             // Só cria o gráfico se houver dados, senão apenas loga (ou mostra vazio se preferir, mas sem dados evita loop de render)
