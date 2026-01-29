@@ -1,3 +1,11 @@
+// Helper para gerar chave única de produto por OS
+function getKey(nome, os) {
+    if (os && String(os).trim() !== '') {
+        return `${nome.trim()}__OS__${String(os).trim()}`;
+    }
+    return nome.trim();
+}
+
 class InsumosApp {
     constructor() {
         this.api = window.apiService || (typeof ApiService !== 'undefined' ? new ApiService() : null);
@@ -3577,8 +3585,13 @@ forceReloadAllData() {
                         if (iFrente === targetFrente) {
                             const nome = i.produto;
                             const qtd = parseFloat(i.quantidadeAplicada) || 0;
+                            // Tenta pegar OS se disponível (Plantio)
+                            // Se o campo 'os' estiver vazio, tentamos 'numero_os' ou 'ordem_servico' caso existam no legacy
+                            const os = i.os || i.numero_os || i.ordem_servico || ''; 
+
+
                             if (nome && qtd > 0) {
-                                const key = nome.trim();
+                                const key = getKey(nome, os);
                                 if (!totais[key]) totais[key] = 0;
                                 totais[key] -= qtd; // SUBTRAI consumo
                                 countImport++;
@@ -3647,8 +3660,11 @@ forceReloadAllData() {
                     viagens.forEach(v => {
                         const nome = v.produto;
                         const qtd = parseFloat(v.quantidade_total) || 0;
+                        // Prioriza numero_os da viagem
+                        const os = v.numero_os || '';
+
                         if (nome && qtd > 0) {
-                            const key = nome.trim();
+                            const key = getKey(nome, os);
                             if (!totais[key]) totais[key] = 0;
                             totais[key] += qtd;
                             if (!lastOS && v.numero_os) lastOS = v.numero_os;
@@ -5535,7 +5551,7 @@ forceReloadAllData() {
 
         // Reset Fields (Using modal- prefix)
         const fields = [
-            'modal-viagem-data', 'modal-viagem-frente', 'modal-viagem-codigo-fazenda', 'modal-viagem-fazenda',
+            'modal-viagem-data', 'modal-viagem-adubo-os', 'modal-viagem-frente', 'modal-viagem-codigo-fazenda', 'modal-viagem-fazenda',
             'modal-viagem-origem', 'modal-viagem-destino', 'modal-viagem-produto', 'modal-viagem-quantidade-total',
             'modal-viagem-unidade', 'modal-viagem-caminhao', 'modal-viagem-carreta1', 'modal-viagem-carreta2',
             'modal-viagem-motorista', 'modal-viagem-documento-motorista', 'modal-viagem-transportadora',
@@ -5569,6 +5585,7 @@ forceReloadAllData() {
 
             // Fill Fields
             if (document.getElementById('modal-viagem-data')) document.getElementById('modal-viagem-data').value = item.data || '';
+            if (document.getElementById('modal-viagem-adubo-os')) document.getElementById('modal-viagem-adubo-os').value = item.numeroOS || item.numero_os || '';
             if (document.getElementById('modal-viagem-frente')) document.getElementById('modal-viagem-frente').value = item.frente || '';
             
             // Set Fazenda Select
@@ -8413,6 +8430,18 @@ InsumosApp.prototype.loadEstoqueAndRender = async function() {
             const osList = (resOS && resOS.success && Array.isArray(resOS.data)) ? resOS.data : [];
             const importList = (resImport && Array.isArray(resImport.data)) ? resImport.data : [];
 
+            // Processar nomes de produtos e OSs (extrair do formato PRODUTO__OS__NUMERO)
+            estoqueList.forEach(item => {
+                if (item.produto && item.produto.includes('__OS__')) {
+                    const parts = item.produto.split('__OS__');
+                    item.cleanProduto = parts[0];
+                    item.realOS = parts[1];
+                } else {
+                    item.cleanProduto = item.produto;
+                    item.realOS = item.os_numero || '';
+                }
+            });
+
             // Coletar frentes únicas de AMBOS (estoque, OS e importados) para popular filtros
             const frentesEstoque = estoqueList.map(e => e.frente).filter(Boolean);
             const frentesOS = osList.map(o => o.frente).filter(Boolean);
@@ -8631,13 +8660,16 @@ InsumosApp.prototype.loadEstoqueAndRender = async function() {
             } else {
                 tbody.innerHTML = filteredList.map(r => {
                     const qtd = parseFloat(r.quantidade) || 0;
+                    // Color Logic: Red if <= 0, Green if > 0
+                    const colorClass = qtd <= 0 ? 'text-danger fw-bold' : 'text-success fw-bold';
+                    
                     return `
                     <tr>
                         <td>${this.ui.formatDateBR(r.data_cadastro)}</td>
-                        <td>${r.os_numero || '-'}</td>
+                        <td>${r.realOS || r.os_numero || '-'}</td>
                         <td>${r.frente}</td>
-                        <td>${r.produto}</td>
-                        <td>${this.ui.formatNumber(qtd, 3)}</td>
+                        <td>${r.cleanProduto}</td>
+                        <td class="${colorClass}">${this.ui.formatNumber(qtd, 3)}</td>
                         <td><button class="btn btn-delete-estoque" data-frente="${r.frente}" data-produto="${r.produto}">🗑️ Excluir</button></td>
                     </tr>
                 `}).join('');

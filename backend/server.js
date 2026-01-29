@@ -27,7 +27,11 @@ app.use(bodyParser.json({ limit: '50mb' }));
 
 // ⭐⭐ SERVIR ARQUIVOS ESTÁTICOS DO FRONTEND ⭐⭐
 const frontendPath = path.join(__dirname, '../frontend');
-app.use(express.static(frontendPath));
+app.use(express.static(frontendPath, {
+    setHeaders: (res, path, stat) => {
+        res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    }
+}));
 
 // ⭐⭐ ROTA DE IMPORTAÇÃO (IMPORTANTE) ⭐⭐
 app.use('/api/importar', importRoutes);
@@ -665,6 +669,7 @@ app.post('/api/viagens-adubo', requireAuth, async (req, res) => {
             documento_motorista: payload.documentoMotorista || null,
             transportadora: payload.transportadora || null,
             observacoes: payload.observacoes || null,
+            numero_os: payload.numeroOS || null,
             bags: Array.isArray(payload.bags) ? payload.bags : []
         };
         const { data, error } = await supabase.from('viagens_adubo').insert([item]).select();
@@ -699,6 +704,7 @@ app.put('/api/viagens-adubo/:id', requireAuth, async (req, res) => {
             documento_motorista: payload.documentoMotorista,
             transportadora: payload.transportadora,
             observacoes: payload.observacoes,
+            numero_os: payload.numeroOS,
             bags: Array.isArray(payload.bags) ? payload.bags : undefined
         };
         Object.keys(updates).forEach(k => updates[k] === undefined && delete updates[k]);

@@ -800,6 +800,11 @@
                         <label for="viagem-data">Data</label>
                         <input type="date" id="viagem-data">
                     </div>
+                    <!-- Campo OS para Adubo -->
+                    <div class="form-group adubo-field">
+                        <label for="viagem-adubo-os">Número da OS</label>
+                        <input type="number" id="viagem-adubo-os" placeholder="Número da OS" step="1">
+                    </div>
                     <div class="form-group adubo-field">
                         <label for="viagem-frente">Frente</label>
                         <select id="viagem-frente">
@@ -2095,6 +2100,11 @@
                         <label for="modal-viagem-data">Data</label>
                         <input type="date" id="modal-viagem-data">
                     </div>
+                    <!-- Campo OS para Adubo Modal -->
+                    <div class="form-group adubo-field">
+                        <label for="modal-viagem-adubo-os">Número da OS</label>
+                        <input type="number" id="modal-viagem-adubo-os" placeholder="Número da OS" step="1">
+                    </div>
                     <div class="form-group adubo-field">
                         <label for="modal-viagem-frente">Frente</label>
                         <select id="modal-viagem-frente">
@@ -2328,6 +2338,7 @@
             const payload = {
                 transportType: 'adubo',
                 data: data,
+                numeroOS: getVal('viagem-adubo-os'),
                 frente: getVal('viagem-frente'),
                 fazenda: fazenda,
                 origem: getVal('viagem-origem'),
