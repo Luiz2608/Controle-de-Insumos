@@ -53,6 +53,34 @@ class InsumosApp {
         if (window.pdfjsLib) {
             window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
         }
+        
+        this.initTheme();
+    }
+
+    initTheme() {
+        const savedTheme = localStorage.getItem('theme');
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        
+        if (savedTheme === 'dark') {
+            document.body.classList.add('dark-mode');
+        } else {
+            document.body.classList.remove('dark-mode');
+        }
+
+        if (themeToggleBtn) {
+            themeToggleBtn.addEventListener('click', () => this.toggleTheme());
+        }
+    }
+
+    toggleTheme() {
+        document.body.classList.toggle('dark-mode');
+        const isDark = document.body.classList.contains('dark-mode');
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        
+        // Re-render charts to apply new theme colors
+        this.renderInsumosGlobalChart();
+        this.renderInsumosTimelineChart();
+        this.renderEstoqueGeralChart();
     }
 
     populateDashboardFilters() {
@@ -4308,6 +4336,12 @@ forceReloadAllData() {
                         if (typeof p.frentes === 'string') {
                             try { p.frentes = JSON.parse(p.frentes); } catch(e) { console.error('Erro parse frentes loadMeta:', e); }
                         }
+                        if (typeof p.insumos === 'string') {
+                            try { p.insumos = JSON.parse(p.insumos); } catch(e) { console.error('Erro parse insumos loadMeta:', e); }
+                        }
+                        if (typeof p.qualidade === 'string') {
+                            try { p.qualidade = JSON.parse(p.qualidade); } catch(e) { console.error('Erro parse qualidade loadMeta:', e); }
+                        }
                         return p;
                     });
                     sourceData = this.plantioDiarioData;
@@ -5354,6 +5388,12 @@ forceReloadAllData() {
                     if (typeof p.frentes === 'string') {
                         try { p.frentes = JSON.parse(p.frentes); } catch(e) { console.error('Erro ao parsear frentes:', e); }
                     }
+                    if (typeof p.insumos === 'string') {
+                        try { p.insumos = JSON.parse(p.insumos); } catch(e) { console.error('Erro ao parsear insumos:', e); }
+                    }
+                    if (typeof p.qualidade === 'string') {
+                        try { p.qualidade = JSON.parse(p.qualidade); } catch(e) { console.error('Erro ao parsear qualidade:', e); }
+                    }
                     return p;
                 });
                 
@@ -5407,8 +5447,8 @@ forceReloadAllData() {
         if (!r) return;
 
         const html = this.getPlantioDetailsHTML(r);
-        const modalBody = document.getElementById('modal-plantio-details-body');
-        const modal = document.getElementById('modal-plantio-details');
+        const modalBody = document.getElementById('plantio-detail-body');
+        const modal = document.getElementById('plantio-detail-modal');
         
         if (modalBody && modal) {
             modalBody.innerHTML = html;
@@ -5417,6 +5457,15 @@ forceReloadAllData() {
     }
 
     getPlantioDetailsHTML(r) {
+        const fmtDate = (d) => {
+            if (!d) return '—';
+            const parts = d.split('-');
+            return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : d;
+        };
+        const dataStr = fmtDate(r.data);
+        const resp = r.responsavel || '—';
+        const obs = r.observacoes || '—';
+
         const frentesRows = (r.frentes||[]).map(f => `
             <tr>
                 <td>${f.frente||'—'}</td>
@@ -5430,13 +5479,18 @@ forceReloadAllData() {
             </tr>
         `).join('');
         
-        const insumosRows = (r.insumos||[]).map(i => `
+        const insumosRows = (r.insumos||[]).map(i => {
+            // Tenta pegar a dose realizada, senão prevista, senão genérica
+            const dose = i.doseRealizada || i.dosePrevista || i.dose || 0;
+            const unid = i.unid || 'L/ha'; // Unidade padrão caso não tenha
+            
+            return `
             <tr>
                 <td>${i.produto}</td>
-                <td>${this.ui.formatNumber(i.dose||0, 6)}</td>
-                <td>${i.unid||''}</td>
+                <td>${this.ui.formatNumber(dose, 6)}</td>
+                <td>${unid}</td>
             </tr>
-        `).join('');
+        `}).join('');
         
         const q = r.qualidade||{};
         
@@ -5450,9 +5504,19 @@ forceReloadAllData() {
 
         return `
             <div class="plantio-details-container">
-                <!-- Seção 1: Frentes -->
+                <!-- Seção 1: Informações Gerais -->
                 <div class="details-card full-width">
-                    <h5>🚜 Frentes e Áreas</h5>
+                    <h5>📋 Informações Gerais</h5>
+                    <div class="info-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px;">
+                        <div class="info-item"><strong>Data:</strong> ${dataStr}</div>
+                        <div class="info-item"><strong>Responsável:</strong> ${resp}</div>
+                        <div class="info-item full-span" style="grid-column: 1 / -1;"><strong>Observações:</strong> ${obs}</div>
+                    </div>
+                </div>
+
+                <!-- Seção 2: Local e Área -->
+                <div class="details-card full-width">
+                    <h5>🚜 Local e Área</h5>
                     <div style="overflow-x: auto;">
                         <table class="details-inner-table">
                             <thead>
@@ -5472,47 +5536,49 @@ forceReloadAllData() {
                     </div>
                 </div>
 
-                <!-- Seção 2: Insumos -->
-                <div class="details-card flex-1">
-                    <h5>🧪 Insumos Aplicados</h5>
-                    <div style="overflow-x: auto;">
-                        <table class="details-inner-table">
-                            <thead><tr><th>Produto</th><th>Dose</th><th>Unid</th></tr></thead>
-                            <tbody>${insumosRows || '<tr><td colspan="3" style="text-align:center;">—</td></tr>'}</tbody>
-                        </table>
+                <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                    <!-- Seção 3: Insumos -->
+                    <div class="details-card flex-1" style="min-width: 300px;">
+                        <h5>🧪 Insumos Aplicados</h5>
+                        <div style="overflow-x: auto;">
+                            <table class="details-inner-table">
+                                <thead><tr><th>Produto</th><th>Dose</th><th>Unid</th></tr></thead>
+                                <tbody>${insumosRows || '<tr><td colspan="3" style="text-align:center;">Nenhum insumo registrado</td></tr>'}</tbody>
+                            </table>
+                        </div>
                     </div>
-                </div>
 
-                <!-- Seção 3: Qualidade e Condições -->
-                <div class="details-card flex-2">
-                    <h5>📊 Qualidade e Condições</h5>
-                    <div class="quality-grid">
-                        ${qualItem('Gemas Totais', this.ui.formatNumber(q.gemasTotal||0))}
-                        ${qualItem('Gemas Boas', this.ui.formatNumber(q.gemasBoas||0), `(${this.ui.formatNumber(q.gemasBoasPct||0,1)}%)`)}
-                        ${qualItem('Gemas Ruins', this.ui.formatNumber(q.gemasRuins||0), `(${this.ui.formatNumber(q.gemasRuinsPct||0,1)}%)`)}
-                        
-                        ${qualItem('Toletes Totais', this.ui.formatNumber(q.toletesTotal||0))}
-                        ${qualItem('Toletes Bons', this.ui.formatNumber(q.toletesBons||0), `(${this.ui.formatNumber(q.toletesBonsPct||0,1)}%)`)}
-                        ${qualItem('Toletes Ruins', this.ui.formatNumber(q.toletesRuins||0), `(${this.ui.formatNumber(q.toletesRuinsPct||0,1)}%)`)}
-                        
-                        ${qualItem('Mudas Totais', this.ui.formatNumber(q.mudasTotal||0))}
-                        ${qualItem('Mudas Boas', this.ui.formatNumber(q.mudasBoas||0), `(${this.ui.formatNumber(q.mudasBoasPct||0,1)}%)`)}
-                        ${qualItem('Mudas Ruins', this.ui.formatNumber(q.mudasRuins||0), `(${this.ui.formatNumber(q.mudasRuinsPct||0,1)}%)`)}
-                        
-                        ${qualItem('Muda (ton/ha)', this.ui.formatNumber(q.mudaTonHa||0))}
-                        ${qualItem('Profundidade', this.ui.formatNumber(q.profundidadeCm||0), 'cm')}
-                        ${qualItem('Cobertura', q.cobertura||'—')}
-                        ${qualItem('Alinhamento', q.alinhamento||'—')}
-                        ${qualItem('Chuva', this.ui.formatNumber(q.chuvaMm||0,1), 'mm')}
-                        ${qualItem('GPS', q.gps ? 'Sim' : 'Não')}
-                        
-                        ${qualItem('Cobrição Dia', this.ui.formatNumber(q.cobricaoDia||0,2))}
-                        ${qualItem('Cobrição Acum.', this.ui.formatNumber(q.cobricaoAcumulada||0,2))}
-                        
-                        ${qualItem('Consumo Muda Dia', this.ui.formatNumber(q.mudaConsumoDia||0,2))}
-                        ${qualItem('Consumo Muda Total', this.ui.formatNumber(q.mudaConsumoTotal||0,2))}
-                        ${qualItem('Muda Previsto', this.ui.formatNumber(q.mudaPrevisto||0,2))}
-                        ${qualItem('Variedade', q.mudaVariedade||'—')}
+                    <!-- Seção 4: Qualidade e Condições -->
+                    <div class="details-card flex-2" style="min-width: 300px;">
+                        <h5>📊 Qualidade e Condições</h5>
+                        <div class="quality-grid">
+                            ${qualItem('Gemas Totais', this.ui.formatNumber(q.gemasTotal||0))}
+                            ${qualItem('Gemas Boas', this.ui.formatNumber(q.gemasBoas||0), `(${this.ui.formatNumber(q.gemasBoasPct||0,1)}%)`)}
+                            ${qualItem('Gemas Ruins', this.ui.formatNumber(q.gemasRuins||0), `(${this.ui.formatNumber(q.gemasRuinsPct||0,1)}%)`)}
+                            
+                            ${qualItem('Toletes Totais', this.ui.formatNumber(q.toletesTotal||0))}
+                            ${qualItem('Toletes Bons', this.ui.formatNumber(q.toletesBons||0), `(${this.ui.formatNumber(q.toletesBonsPct||0,1)}%)`)}
+                            ${qualItem('Toletes Ruins', this.ui.formatNumber(q.toletesRuins||0), `(${this.ui.formatNumber(q.toletesRuinsPct||0,1)}%)`)}
+                            
+                            ${qualItem('Mudas Totais', this.ui.formatNumber(q.mudasTotal||0))}
+                            ${qualItem('Mudas Boas', this.ui.formatNumber(q.mudasBoas||0), `(${this.ui.formatNumber(q.mudasBoasPct||0,1)}%)`)}
+                            ${qualItem('Mudas Ruins', this.ui.formatNumber(q.mudasRuins||0), `(${this.ui.formatNumber(q.mudasRuinsPct||0,1)}%)`)}
+                            
+                            ${qualItem('Muda (ton/ha)', this.ui.formatNumber(q.mudaTonHa||0))}
+                            ${qualItem('Profundidade', this.ui.formatNumber(q.profundidadeCm||0), 'cm')}
+                            ${qualItem('Cobertura', q.cobertura||'—')}
+                            ${qualItem('Alinhamento', q.alinhamento||'—')}
+                            ${qualItem('Chuva', this.ui.formatNumber(q.chuvaMm||0,1), 'mm')}
+                            ${qualItem('GPS', q.gps ? 'Sim' : 'Não')}
+                            
+                            ${qualItem('Cobrição Dia', this.ui.formatNumber(q.cobricaoDia||0,2))}
+                            ${qualItem('Cobrição Acum.', this.ui.formatNumber(q.cobricaoAcumulada||0,2))}
+                            
+                            ${qualItem('Consumo Muda Dia', this.ui.formatNumber(q.mudaConsumoDia||0,2))}
+                            ${qualItem('Consumo Muda Total', this.ui.formatNumber(q.mudaConsumoTotal||0,2))}
+                            ${qualItem('Muda Previsto', this.ui.formatNumber(q.mudaPrevisto||0,2))}
+                            ${qualItem('Variedade', q.mudaVariedade||'—')}
+                        </div>
                     </div>
                 </div>
             </div>`;
@@ -10380,6 +10446,11 @@ InsumosApp.prototype.handlePrintReport = async function() {
 
     // Construir HTML do Relatório
     let html = `
+        <div class="report-controls no-print" style="position: sticky; top: 0; background: #fff; padding: 10px; border-bottom: 1px solid #ccc; display: flex; justify-content: space-between; align-items: center; z-index: 1000;">
+            <h2 style="margin:0;">Visualização de Impressão</h2>
+            <button onclick="document.getElementById('report-print-container').style.display='none'" class="btn btn-secondary" style="background-color: #e74c3c; color: white;">❌ Fechar</button>
+        </div>
+        <div class="report-content" style="padding: 20px;">
         <div class="report-header">
             <h1>Relatório Geral de Gestão Agrícola</h1>
             <p>Gerado em: ${dataHora} | Usuário: ${this.api.user?.email || 'Sistema'}</p>
@@ -10436,9 +10507,11 @@ InsumosApp.prototype.handlePrintReport = async function() {
         <div class="report-footer" style="margin-top: 50px; border-top: 1px solid #ccc; padding-top: 10px; font-size: 0.8em; text-align: center; color: #777;">
             <p>Sistema de Gestão Agrícola - Relatório Impresso</p>
         </div>
+        </div> <!-- Fim .report-content -->
     `;
 
     container.innerHTML = html;
+    container.style.display = 'block'; // Mostrar o container como modal/overlay
 
     // Pequeno delay para renderização do DOM antes de imprimir
     setTimeout(() => {

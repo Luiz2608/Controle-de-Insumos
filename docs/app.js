@@ -53,6 +53,34 @@ class InsumosApp {
         if (window.pdfjsLib) {
             window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
         }
+        
+        this.initTheme();
+    }
+
+    initTheme() {
+        const savedTheme = localStorage.getItem('theme');
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        
+        if (savedTheme === 'dark') {
+            document.body.classList.add('dark-mode');
+        } else {
+            document.body.classList.remove('dark-mode');
+        }
+
+        if (themeToggleBtn) {
+            themeToggleBtn.addEventListener('click', () => this.toggleTheme());
+        }
+    }
+
+    toggleTheme() {
+        document.body.classList.toggle('dark-mode');
+        const isDark = document.body.classList.contains('dark-mode');
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        
+        // Re-render charts to apply new theme colors
+        this.renderInsumosGlobalChart();
+        this.renderInsumosTimelineChart();
+        this.renderEstoqueGeralChart();
     }
 
     populateDashboardFilters() {
@@ -359,7 +387,14 @@ class InsumosApp {
 
     hideProgress() {
         const modal = document.getElementById('progress-modal');
-        if (modal) modal.style.display = 'none';
+        if (modal) {
+            modal.style.display = 'none';
+            // Reset bar and text
+            const bar = document.getElementById('progress-bar');
+            if (bar) bar.style.width = '0%';
+            const textEl = document.getElementById('progress-text');
+            if (textEl) textEl.textContent = '0%';
+        }
     }
 
     async handleFazendaPdfFile(file) {
@@ -410,7 +445,7 @@ class InsumosApp {
                         'O formato do JSON deve ser exatamente:',
                         '{',
                         '  "fazendas": [',
-                        '    { "codigo": "96", "nome": "FAZENDA EXEMPLO", "regiao": "OPCIONAL", "areaTotal": 123.45 }',
+                        '    { "codigo": "96", "nome": "FAZENDA EXEMPLO", "regiao": "OPCIONAL", "areaTotal": 123.45, "talhoes": [{"numero": "1", "area": 10.5}, {"numero": "2", "area": 20.0}] }',
                         '  ],',
                         '  "resumoGeral": {',
                         '    "1": { "totalFazendas": 10, "areaTotal": 1234.56 }',
@@ -422,7 +457,8 @@ class InsumosApp {
                         '- "nome" é o nome da fazenda.',
                         '- "regiao" pode ser vazio se não estiver claro.',
                         '- "areaTotal" deve ser número em hectares com ponto como separador decimal.',
-                        '- Se a mesma fazenda aparecer em mais de uma página some as áreas em uma única entrada.',
+                        '- "talhoes" deve ser uma lista de objetos com "numero" (string) e "area" (number). Se houver informações detalhadas de talhões, inclua-as.',
+                        '- Se a mesma fazenda aparecer em mais de uma página some as áreas em uma única entrada e combine a lista de talhões.',
                         '- No "resumoGeral", a chave é o número do bloco como string.',
                         '- Não inclua comentários, texto explicativo nem campos extras, apenas o JSON.'
                     ].join('\n');
@@ -492,6 +528,7 @@ class InsumosApp {
                                     nome: f && f.nome != null ? String(f.nome).trim() : '',
                                     regiao: f && f.regiao != null ? String(f.regiao).trim() : '',
                                     areaTotal: Number(f.areaTotal) || 0,
+                                    talhoes: Array.isArray(f.talhoes) ? f.talhoes : [],
                                     plantioAcumulado: 0,
                                     mudaAcumulada: 0,
                                     observacoes: 'Importado via Gemini (Client-side)'
@@ -526,10 +563,15 @@ class InsumosApp {
                 this.ui.showNotification('Nenhuma fazenda encontrada no PDF. Verifique o formato.', 'warning', 4000);
                 return;
             }
+            
+            this.hideProgress(); // Force hide before preview
             this.openFazendaImportPreview(fazendas);
         } catch (e) {
             this.ui.showNotification('Erro ao ler PDF de fazendas', 'error', 4000);
             console.error('Erro na leitura de PDF de fazendas:', e);
+        } finally {
+            this.hideProgress();
+            this.ui.hideLoading(); // Garantia extra
         }
     }
 
@@ -638,6 +680,7 @@ class InsumosApp {
                     <td>${f.nome}</td>
                     <td>${f.regiao || ''}</td>
                     <td>${(f.areaTotal || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td>${Array.isArray(f.talhoes) ? f.talhoes.length : 0}</td>
                 </tr>
             `).join('');
             container.innerHTML = `
@@ -650,6 +693,7 @@ class InsumosApp {
                                 <th>Nome</th>
                                 <th>Região</th>
                                 <th>Área total (ha)</th>
+                                <th>Talhões</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -702,7 +746,8 @@ class InsumosApp {
                 areaTotal: f.area_total,
                 plantioAcumulado: f.plantio_acumulado,
                 mudaAcumulada: f.muda_acumulada,
-                regiao: f.regiao
+                regiao: f.regiao,
+                talhoes: f.talhoes || []
             }));
             this.buildCadastroIndex(list);
             this.renderCadastroFazendas(cadResp.data);
@@ -1010,6 +1055,12 @@ forceReloadAllData() {
         if (btnNovoLancamento && novoLancamentoModal) {
             btnNovoLancamento.addEventListener('click', async () => {
                 this.resetPlantioForm();
+                // Forçar tipo plantio caso tenha sido alterado antes
+                const tipoOp = document.getElementById('tipo-operacao');
+                if (tipoOp) {
+                    tipoOp.value = 'plantio';
+                    this.toggleOperacaoSections();
+                }
                 novoLancamentoModal.style.display = 'flex';
                 // Garantir que a lista de OS e Frentes esteja carregada
                 await this.loadOSList();
@@ -1017,6 +1068,22 @@ forceReloadAllData() {
                 // Carregar lista de produtos para o datalist
                 this.loadProdutosDatalist();
             });
+
+            // Novo botão para Colheita de Muda
+            const btnNovaColheitaMuda = document.getElementById('btn-nova-colheita-muda');
+            if (btnNovaColheitaMuda) {
+                btnNovaColheitaMuda.addEventListener('click', async () => {
+                    this.resetPlantioForm();
+                    const tipoOp = document.getElementById('tipo-operacao');
+                    if (tipoOp) {
+                        tipoOp.value = 'colheita_muda';
+                        this.toggleOperacaoSections();
+                    }
+                    novoLancamentoModal.style.display = 'flex';
+                    await this.loadOSList();
+                    this.loadProdutosDatalist();
+                });
+            }
 
             const tipoOperacaoSelect = document.getElementById('tipo-operacao');
             if (tipoOperacaoSelect) {
@@ -1048,21 +1115,36 @@ forceReloadAllData() {
         const closeLiberacaoButtons = document.querySelectorAll('.close-liberacao-modal');
         const btnSaveLiberacao = document.getElementById('btn-save-liberacao');
 
+        const btnNovaLiberacao = document.getElementById('btn-nova-liberacao');
+        const btnVoltarLiberacaoList = document.getElementById('btn-voltar-liberacao-list');
+
         if (btnLiberacao && liberacaoModal) {
             btnLiberacao.addEventListener('click', async () => {
                 liberacaoModal.style.display = 'flex';
-                // Reset form and draft
+                this.toggleLiberacaoView('list');
+                await this.renderLiberacoesList();
+            });
+        }
+
+        if (btnNovaLiberacao) {
+            btnNovaLiberacao.addEventListener('click', async () => {
+                this.toggleLiberacaoView('form');
+                // Reset form
                 this.liberacaoTalhoesDraft = [];
                 this.renderLiberacaoTalhoes();
                 document.getElementById('liberacao-form').reset();
                 
-                // Pre-fill date with today
                 const dateInput = document.getElementById('liberacao-data');
-                if (dateInput && !dateInput.value) {
-                    dateInput.valueAsDate = new Date();
-                }
+                if (dateInput) dateInput.valueAsDate = new Date();
 
                 await this.populateLiberacaoOptions();
+            });
+        }
+
+        if (btnVoltarLiberacaoList) {
+            btnVoltarLiberacaoList.addEventListener('click', () => {
+                this.toggleLiberacaoView('list');
+                this.renderLiberacoesList();
             });
         }
 
@@ -1096,20 +1178,40 @@ forceReloadAllData() {
                             // Find fazenda name
                             const f = this.cadastroFazendas.find(x => String(x.codigo) === String(selectedCod));
                             if (f) {
-                                // Fetch insumos_fazendas to get talhoes
-                                const res = await this.api.getInsumosFazendas({ fazenda: f.nome });
-                                if (res && res.success && res.data) {
+                                let talhoesSource = [];
+                                
+                                // Priority 1: Talhoes from Farm Import (PDF/Gemini)
+                                if (f.talhoes && Array.isArray(f.talhoes) && f.talhoes.length > 0) {
+                                     talhoesSource = f.talhoes.map(t => ({ cod: t.numero, areaTalhao: t.area }));
+                                } 
+                                
+                                // Priority 2: Legacy (Insumos) if empty
+                                if (talhoesSource.length === 0) {
+                                     // Fetch insumos_fazendas to get talhoes
+                                     const res = await this.api.getInsumosFazendas({ fazenda: f.nome });
+                                     if (res && res.success && res.data) {
+                                         talhoesSource = res.data;
+                                     }
+                                }
+
+                                libTalhaoSelect.innerHTML = '<option value="">Selecione...</option>';
+                                
+                                if (talhoesSource.length > 0) {
                                     // Extract unique talhoes (cod) and their areas
                                     const talhoesMap = new Map();
-                                    res.data.forEach(item => {
-                                        if (item.cod && item.areaTalhao) {
-                                            talhoesMap.set(String(item.cod), item.areaTalhao);
-                                        }
+                                    talhoesSource.forEach(item => {
+                                        const cod = item.cod || item.numero;
+                                        const area = item.areaTalhao || item.area;
+                                        if (cod) talhoesMap.set(String(cod), area);
                                     });
-                                    
-                                    libTalhaoSelect.innerHTML = '<option value="">Selecione...</option>';
+
                                     if (talhoesMap.size > 0) {
-                                        const sortedTalhoes = Array.from(talhoesMap.keys()).sort((a, b) => a - b);
+                                        const sortedTalhoes = Array.from(talhoesMap.keys()).sort((a, b) => {
+                                             const na = parseFloat(a);
+                                             const nb = parseFloat(b);
+                                             if (!isNaN(na) && !isNaN(nb)) return na - nb;
+                                             return a.localeCompare(b);
+                                        });
                                         sortedTalhoes.forEach(t => {
                                             const opt = document.createElement('option');
                                             opt.value = t;
@@ -1121,7 +1223,7 @@ forceReloadAllData() {
                                         libTalhaoSelect.innerHTML = '<option value="">Nenhum talhão encontrado</option>';
                                     }
                                 } else {
-                                    libTalhaoSelect.innerHTML = '<option value="">Erro ao carregar</option>';
+                                    libTalhaoSelect.innerHTML = '<option value="">Nenhum talhão encontrado</option>';
                                 }
                             }
                         } catch (e) {
@@ -1148,16 +1250,21 @@ forceReloadAllData() {
         }
 
         if (libAddTalhaoBtn) {
-            libAddTalhaoBtn.addEventListener('click', () => {
+            libAddTalhaoBtn.onclick = (e) => {
+                if(e) e.preventDefault();
                 const tInput = document.getElementById('liberacao-talhao-add');
                 const vInput = document.getElementById('liberacao-variedade-add');
                 const aInput = document.getElementById('liberacao-area-add');
-                const tVal = tInput ? tInput.value.trim() : '';
+                
+                const tVal = tInput ? tInput.value : '';
                 const vVal = vInput ? vInput.value.trim() : '';
-                const aVal = aInput ? parseFloat(aInput.value) : 0;
+                
+                let aValRaw = aInput ? aInput.value : '';
+                if (aValRaw && typeof aValRaw === 'string') aValRaw = aValRaw.replace(',', '.');
+                const aVal = parseFloat(aValRaw);
 
-                if (!tVal || !aVal || aVal <= 0) {
-                    this.ui.showNotification('Informe talhão e área válida', 'warning');
+                if (!tVal || String(tVal).trim() === '' || isNaN(aVal) || aVal <= 0) {
+                    this.ui.showNotification('Selecione um talhão e informe uma área válida', 'warning');
                     return;
                 }
 
@@ -1167,8 +1274,8 @@ forceReloadAllData() {
                 if (tInput) tInput.value = '';
                 if (vInput) vInput.value = '';
                 if (aInput) aInput.value = '';
-                tInput.focus();
-            });
+                if (tInput) tInput.focus();
+            };
         }
 
         if (libTalhoesBody) {
@@ -1235,13 +1342,8 @@ forceReloadAllData() {
                         observacoes: obs
                     });
                     this.ui.showNotification('Registro de liberação salvo com sucesso!', 'success');
-                    if (liberacaoModal) liberacaoModal.style.display = 'none';
-                    
-                    // Clear form
-                    document.getElementById('liberacao-form').reset();
-                    this.liberacaoTalhoesDraft = [];
-                    this.renderLiberacaoTalhoes();
-
+                    this.toggleLiberacaoView('list');
+                    this.renderLiberacoesList();
                 } catch (error) {
                     console.error('Erro no saveLiberacaoColheita:', error);
                     const msg = error.message || JSON.stringify(error);
@@ -1560,6 +1662,117 @@ forceReloadAllData() {
                     fazendaSelect.appendChild(opt);
                 });
             }
+        }
+    }
+
+    toggleLiberacaoView(mode) {
+        const viewList = document.getElementById('liberacao-view-list');
+        const viewForm = document.getElementById('liberacao-view-form');
+        if (!viewList || !viewForm) return;
+
+        if (mode === 'list') {
+            viewList.style.display = 'block';
+            viewForm.style.display = 'none';
+        } else {
+            viewList.style.display = 'none';
+            viewForm.style.display = 'block';
+        }
+    }
+
+    async renderLiberacoesList() {
+        const tbody = document.getElementById('liberacao-list-body');
+        if (!tbody) return;
+
+        tbody.innerHTML = '<tr><td colspan="6" class="loading">Carregando...</td></tr>';
+
+        try {
+            const res = await this.api.getLiberacaoColheita();
+            if (res.success && res.data) {
+                this.liberacaoColheitaData = res.data; // Cache it
+                
+                if (res.data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px;">Nenhuma liberação encontrada.</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = res.data.map(item => {
+                    return `
+                        <tr>
+                            <td>${item.numero_liberacao}</td>
+                            <td>${this.ui.formatDateBR(item.data)}</td>
+                            <td>${item.frente || '-'}</td>
+                            <td>${item.fazenda || '-'}</td>
+                            <td><span class="status-badge status-${(item.status||'').toLowerCase()}">${item.status}</span></td>
+                            <td>
+                                <button class="btn btn-sm btn-secondary" onclick="window.insumosApp.editLiberacao('${item.numero_liberacao}')">✏️</button>
+                                <button class="btn btn-sm btn-danger" style="background-color:#e74c3c; color:white;" onclick="window.insumosApp.deleteLiberacao('${item.numero_liberacao}')">🗑️</button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            } else {
+                tbody.innerHTML = '<tr><td colspan="6" class="loading">Erro ao carregar dados.</td></tr>';
+            }
+        } catch (e) {
+            console.error(e);
+            tbody.innerHTML = '<tr><td colspan="6" class="loading">Erro ao carregar dados.</td></tr>';
+        }
+    }
+
+    async editLiberacao(numero) {
+        const item = (this.liberacaoColheitaData || []).find(x => String(x.numero_liberacao) === String(numero));
+        if (!item) return;
+
+        this.toggleLiberacaoView('form');
+        await this.populateLiberacaoOptions();
+
+        // Fill form
+        const numInput = document.getElementById('liberacao-numero');
+        if(numInput) numInput.value = item.numero_liberacao;
+        
+        const dateInput = document.getElementById('liberacao-data');
+        if(dateInput) dateInput.value = item.data;
+        
+        const frenteInput = document.getElementById('liberacao-frente');
+        if(frenteInput) frenteInput.value = item.frente;
+        
+        const fazendaInput = document.getElementById('liberacao-fazenda');
+        if(fazendaInput) {
+            // Try matching by code or name if code not available
+            fazendaInput.value = item.fazenda_codigo || '';
+            // If code didn't work (maybe stored by name?), try finding by name
+            if (!fazendaInput.value && item.fazenda) {
+                 const f = this.cadastroFazendas.find(x => x.nome === item.fazenda);
+                 if(f) fazendaInput.value = f.codigo;
+            }
+            // Trigger change to populate talhoes options for this farm
+            fazendaInput.dispatchEvent(new Event('change'));
+        }
+        
+        const codInput = document.getElementById('liberacao-cod-fazenda');
+        if(codInput) codInput.value = item.fazenda_codigo || '';
+        
+        const statusInput = document.getElementById('liberacao-status');
+        if(statusInput) statusInput.value = item.status || 'Aberto';
+        
+        const obsInput = document.getElementById('liberacao-obs');
+        if(obsInput) obsInput.value = item.observacoes || '';
+
+        this.liberacaoTalhoesDraft = item.talhoes || [];
+        this.renderLiberacaoTalhoes();
+    }
+    
+    async deleteLiberacao(numero) {
+        if (!confirm(`Deseja excluir a liberação ${numero}?`)) return;
+        
+        try {
+             const { error } = await this.api.supabase.from('liberacao_colheita').delete().eq('numero_liberacao', numero);
+             if (error) throw error;
+             
+             await this.api.logAction('DELETE_LIBERACAO', { numero });
+             this.renderLiberacoesList();
+        } catch(e) {
+            alert('Erro ao excluir: ' + e.message);
         }
     }
 
@@ -2027,7 +2240,8 @@ forceReloadAllData() {
             const totalArea = plantioFiltered.reduce((acc, curr) => {
                 // Ignorar registros que sejam de colheita_muda para a soma de área plantada
                 // Assumindo que 'plantio' é o padrão ou nulo
-                if (curr.tipo_operacao === 'colheita_muda') return acc;
+                const isColheita = curr.tipo_operacao === 'colheita_muda' || (curr.qualidade && curr.qualidade.tipoOperacao === 'colheita_muda');
+                if (isColheita) return acc;
 
                 let areaDia = 0;
                 
@@ -2055,7 +2269,7 @@ forceReloadAllData() {
 
             // 1.1 Área Colhida (Novo KPI)
             const colheitaFiltered = this.plantioDiarioData.filter(p => {
-                const isColheita = p.tipo_operacao === 'colheita_muda';
+                const isColheita = p.tipo_operacao === 'colheita_muda' || (p.qualidade && p.qualidade.tipoOperacao === 'colheita_muda');
                 return isColheita && filterDate(p.data);
             });
 
@@ -3560,15 +3774,27 @@ forceReloadAllData() {
             const totais = {}; // produto -> qtd
             let lastOS = null;
 
-            // 1. Buscar dados das OSs (Apenas para referência de OS, não afeta estoque físico)
+            // 1. Buscar dados das OSs (Adicionar produtos da OS como entrada de estoque)
             const res = await this.api.getOSList();
             let countOS = 0;
             if (res.success && res.data) {
                 const osList = res.data.filter(o => String(o.frente).trim().toLowerCase() === String(frente).trim().toLowerCase());
                 osList.forEach(os => {
                     if (!lastOS && os.numero) lastOS = os.numero;
-                    // NÃO somamos produtos da OS no estoque pois são planejamento.
-                    // O estoque real é alimentado por Transporte (Entrada) e Plantio (Saída).
+                    
+                    // Somar produtos da OS no estoque
+                    if (os.produtos && Array.isArray(os.produtos)) {
+                        os.produtos.forEach(p => {
+                            const nome = p.produto;
+                            const qtd = parseFloat(p.qtdTotal) || 0;
+                            if (nome && qtd > 0) {
+                                const key = getKey(nome, os.numero);
+                                if (!totais[key]) totais[key] = 0;
+                                totais[key] += qtd;
+                                countOS++;
+                            }
+                        });
+                    }
                 });
             }
 
@@ -3605,20 +3831,23 @@ forceReloadAllData() {
 
             // 3. Buscar Consumo (Insumos Oxifertil) - SAÍDAS
             try {
-                const { data: insumosOxi } = await this.api.supabase
-                    .from('insumos_oxifertil')
-                    .select('produto, quantidade_aplicada')
-                    .ilike('frente', frente);
-
-                if (insumosOxi && insumosOxi.length > 0) {
-                    insumosOxi.forEach(i => {
-                        const nome = i.produto;
-                        const qtd = parseFloat(i.quantidade_aplicada) || 0;
-                        if (nome && qtd > 0) {
-                            const key = nome.trim();
-                            if (!totais[key]) totais[key] = 0;
-                            totais[key] -= qtd; // SUBTRAI consumo
-                            countImport++;
+                const oxiRes = await this.api.getOxifertil();
+                if (oxiRes.success && oxiRes.data) {
+                    const targetFrente = String(frente).trim().toLowerCase();
+                    
+                    oxiRes.data.forEach(i => {
+                        const iFrente = String(i.frente || '').trim().toLowerCase();
+                        
+                        // Simular o comportamento do ILIKE do banco
+                        if (iFrente.includes(targetFrente) || targetFrente.includes(iFrente)) {
+                            const nome = i.produto;
+                            const qtd = parseFloat(i.quantidadeAplicada) || 0;
+                            if (nome && qtd > 0) {
+                                const key = nome.trim();
+                                if (!totais[key]) totais[key] = 0;
+                                totais[key] -= qtd; // SUBTRAI consumo
+                                countImport++;
+                            }
                         }
                     });
                 }
@@ -3626,24 +3855,44 @@ forceReloadAllData() {
                 console.error('Erro ao buscar insumos_oxifertil:', errOxi);
             }
 
-            // 4. Buscar Transporte de Composto (Entradas) - SOMAR
+            // 4. Buscar Transporte de Composto (Entradas REALIZADAS - Diários)
             try {
-                const { data: transportes } = await this.api.supabase
+                // 1. Buscar headers para obter IDs e números de OS da frente
+                const { data: headers } = await this.api.supabase
                     .from('transporte_composto')
-                    .select('quantidade, numero_os')
+                    .select('id, numero_os')
                     .ilike('frente', frente);
 
-                if (transportes && transportes.length > 0) {
-                    transportes.forEach(t => {
-                        const qtd = parseFloat(t.quantidade) || 0;
-                        if (qtd > 0) {
-                            const key = 'COMPOSTO';
-                            if (!totais[key]) totais[key] = 0;
-                            totais[key] += qtd;
-                            if (!lastOS && t.numero_os) lastOS = t.numero_os;
-                            countImport++; 
-                        }
-                    });
+                if (headers && headers.length > 0) {
+                    const ids = headers.map(h => h.id);
+                    
+                    // 2. Buscar itens diários (quantidade real transportada)
+                    const { data: diarios } = await this.api.supabase
+                        .from('os_transporte_diario')
+                        .select('os_id, quantidade')
+                        .in('os_id', ids);
+
+                    if (diarios && diarios.length > 0) {
+                        diarios.forEach(d => {
+                            const qtd = parseFloat(d.quantidade) || 0;
+                            if (qtd > 0) {
+                                // Encontrar header para pegar numero_os
+                                const header = headers.find(h => h.id === d.os_id);
+                                const osNum = header ? header.numero_os : '';
+                                
+                                // Usar chave composta para separar por OS se necessário, 
+                                // ou somar tudo em COMPOSTO se preferir agrupar. 
+                                // O padrão getKey separa por OS.
+                                const key = getKey('COMPOSTO', osNum);
+                                
+                                if (!totais[key]) totais[key] = 0;
+                                totais[key] += qtd;
+                                
+                                if (!lastOS && osNum) lastOS = osNum;
+                                countImport++; 
+                            }
+                        });
+                    }
                 }
             } catch (errTrans) {
                 console.error('Erro ao buscar transporte_composto:', errTrans);
@@ -3677,12 +3926,24 @@ forceReloadAllData() {
             }
 
             // Salvar no Estoque
-            const promises = Object.entries(totais).map(([prod, qtd]) => {
+            const promises = Object.entries(totais).map(([key, qtd]) => {
+                let prodToSave = key;
+                let osNum = lastOS || '';
+
+                // Recuperar OS para o campo os_numero, mas MANTER a chave completa no produto
+                // para garantir unicidade no banco (frente, produto)
+                if (key.includes('__OS__')) {
+                    const parts = key.split('__OS__');
+                    // prodName = parts[0]; // Não usamos apenas o nome, senão sobrescreve
+                    osNum = parts[1];
+                    prodToSave = key; // Salva "COMPOSTO__OS__123"
+                }
+
                 return this.api.setEstoque(
                     frente, 
-                    prod, 
+                    prodToSave, 
                     qtd, 
-                    String(lastOS || ''), 
+                    String(osNum), 
                     new Date().toISOString()
                 );
             });
@@ -3727,8 +3988,11 @@ forceReloadAllData() {
             const { data: fazFrentes } = await this.api.supabase.from('insumos_fazendas').select('frente');
             if (fazFrentes) fazFrentes.forEach(f => { if(f.frente) frentes.add(f.frente); });
 
-            const { data: oxiFrentes } = await this.api.supabase.from('insumos_oxifertil').select('frente');
-            if (oxiFrentes) oxiFrentes.forEach(f => { if(f.frente) frentes.add(f.frente); });
+            // Adicionar frentes do Oxifertil (via função API, não tabela direta)
+            const oxiRes = await this.api.getOxifertil();
+            if (oxiRes.success && oxiRes.data) {
+                oxiRes.data.forEach(i => { if(i.frente) frentes.add(i.frente); });
+            }
 
             // Adicionar frentes de Transporte e Viagens
             const { data: transFrentes } = await this.api.supabase.from('transporte_composto').select('frente');
@@ -4071,6 +4335,12 @@ forceReloadAllData() {
                     this.plantioDiarioData = res.data.map(p => {
                         if (typeof p.frentes === 'string') {
                             try { p.frentes = JSON.parse(p.frentes); } catch(e) { console.error('Erro parse frentes loadMeta:', e); }
+                        }
+                        if (typeof p.insumos === 'string') {
+                            try { p.insumos = JSON.parse(p.insumos); } catch(e) { console.error('Erro parse insumos loadMeta:', e); }
+                        }
+                        if (typeof p.qualidade === 'string') {
+                            try { p.qualidade = JSON.parse(p.qualidade); } catch(e) { console.error('Erro parse qualidade loadMeta:', e); }
                         }
                         return p;
                     });
@@ -5118,6 +5388,12 @@ forceReloadAllData() {
                     if (typeof p.frentes === 'string') {
                         try { p.frentes = JSON.parse(p.frentes); } catch(e) { console.error('Erro ao parsear frentes:', e); }
                     }
+                    if (typeof p.insumos === 'string') {
+                        try { p.insumos = JSON.parse(p.insumos); } catch(e) { console.error('Erro ao parsear insumos:', e); }
+                    }
+                    if (typeof p.qualidade === 'string') {
+                        try { p.qualidade = JSON.parse(p.qualidade); } catch(e) { console.error('Erro ao parsear qualidade:', e); }
+                    }
                     return p;
                 });
                 
@@ -5171,8 +5447,8 @@ forceReloadAllData() {
         if (!r) return;
 
         const html = this.getPlantioDetailsHTML(r);
-        const modalBody = document.getElementById('modal-plantio-details-body');
-        const modal = document.getElementById('modal-plantio-details');
+        const modalBody = document.getElementById('plantio-detail-body');
+        const modal = document.getElementById('plantio-detail-modal');
         
         if (modalBody && modal) {
             modalBody.innerHTML = html;
@@ -5181,6 +5457,15 @@ forceReloadAllData() {
     }
 
     getPlantioDetailsHTML(r) {
+        const fmtDate = (d) => {
+            if (!d) return '—';
+            const parts = d.split('-');
+            return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : d;
+        };
+        const dataStr = fmtDate(r.data);
+        const resp = r.responsavel || '—';
+        const obs = r.observacoes || '—';
+
         const frentesRows = (r.frentes||[]).map(f => `
             <tr>
                 <td>${f.frente||'—'}</td>
@@ -5194,13 +5479,18 @@ forceReloadAllData() {
             </tr>
         `).join('');
         
-        const insumosRows = (r.insumos||[]).map(i => `
+        const insumosRows = (r.insumos||[]).map(i => {
+            // Tenta pegar a dose realizada, senão prevista, senão genérica
+            const dose = i.doseRealizada || i.dosePrevista || i.dose || 0;
+            const unid = i.unid || 'L/ha'; // Unidade padrão caso não tenha
+            
+            return `
             <tr>
                 <td>${i.produto}</td>
-                <td>${this.ui.formatNumber(i.dose||0, 6)}</td>
-                <td>${i.unid||''}</td>
+                <td>${this.ui.formatNumber(dose, 6)}</td>
+                <td>${unid}</td>
             </tr>
-        `).join('');
+        `}).join('');
         
         const q = r.qualidade||{};
         
@@ -5214,9 +5504,19 @@ forceReloadAllData() {
 
         return `
             <div class="plantio-details-container">
-                <!-- Seção 1: Frentes -->
+                <!-- Seção 1: Informações Gerais -->
                 <div class="details-card full-width">
-                    <h5>🚜 Frentes e Áreas</h5>
+                    <h5>📋 Informações Gerais</h5>
+                    <div class="info-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px;">
+                        <div class="info-item"><strong>Data:</strong> ${dataStr}</div>
+                        <div class="info-item"><strong>Responsável:</strong> ${resp}</div>
+                        <div class="info-item full-span" style="grid-column: 1 / -1;"><strong>Observações:</strong> ${obs}</div>
+                    </div>
+                </div>
+
+                <!-- Seção 2: Local e Área -->
+                <div class="details-card full-width">
+                    <h5>🚜 Local e Área</h5>
                     <div style="overflow-x: auto;">
                         <table class="details-inner-table">
                             <thead>
@@ -5236,47 +5536,49 @@ forceReloadAllData() {
                     </div>
                 </div>
 
-                <!-- Seção 2: Insumos -->
-                <div class="details-card flex-1">
-                    <h5>🧪 Insumos Aplicados</h5>
-                    <div style="overflow-x: auto;">
-                        <table class="details-inner-table">
-                            <thead><tr><th>Produto</th><th>Dose</th><th>Unid</th></tr></thead>
-                            <tbody>${insumosRows || '<tr><td colspan="3" style="text-align:center;">—</td></tr>'}</tbody>
-                        </table>
+                <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                    <!-- Seção 3: Insumos -->
+                    <div class="details-card flex-1" style="min-width: 300px;">
+                        <h5>🧪 Insumos Aplicados</h5>
+                        <div style="overflow-x: auto;">
+                            <table class="details-inner-table">
+                                <thead><tr><th>Produto</th><th>Dose</th><th>Unid</th></tr></thead>
+                                <tbody>${insumosRows || '<tr><td colspan="3" style="text-align:center;">Nenhum insumo registrado</td></tr>'}</tbody>
+                            </table>
+                        </div>
                     </div>
-                </div>
 
-                <!-- Seção 3: Qualidade e Condições -->
-                <div class="details-card flex-2">
-                    <h5>📊 Qualidade e Condições</h5>
-                    <div class="quality-grid">
-                        ${qualItem('Gemas Totais', this.ui.formatNumber(q.gemasTotal||0))}
-                        ${qualItem('Gemas Boas', this.ui.formatNumber(q.gemasBoas||0), `(${this.ui.formatNumber(q.gemasBoasPct||0,1)}%)`)}
-                        ${qualItem('Gemas Ruins', this.ui.formatNumber(q.gemasRuins||0), `(${this.ui.formatNumber(q.gemasRuinsPct||0,1)}%)`)}
-                        
-                        ${qualItem('Toletes Totais', this.ui.formatNumber(q.toletesTotal||0))}
-                        ${qualItem('Toletes Bons', this.ui.formatNumber(q.toletesBons||0), `(${this.ui.formatNumber(q.toletesBonsPct||0,1)}%)`)}
-                        ${qualItem('Toletes Ruins', this.ui.formatNumber(q.toletesRuins||0), `(${this.ui.formatNumber(q.toletesRuinsPct||0,1)}%)`)}
-                        
-                        ${qualItem('Mudas Totais', this.ui.formatNumber(q.mudasTotal||0))}
-                        ${qualItem('Mudas Boas', this.ui.formatNumber(q.mudasBoas||0), `(${this.ui.formatNumber(q.mudasBoasPct||0,1)}%)`)}
-                        ${qualItem('Mudas Ruins', this.ui.formatNumber(q.mudasRuins||0), `(${this.ui.formatNumber(q.mudasRuinsPct||0,1)}%)`)}
-                        
-                        ${qualItem('Muda (ton/ha)', this.ui.formatNumber(q.mudaTonHa||0))}
-                        ${qualItem('Profundidade', this.ui.formatNumber(q.profundidadeCm||0), 'cm')}
-                        ${qualItem('Cobertura', q.cobertura||'—')}
-                        ${qualItem('Alinhamento', q.alinhamento||'—')}
-                        ${qualItem('Chuva', this.ui.formatNumber(q.chuvaMm||0,1), 'mm')}
-                        ${qualItem('GPS', q.gps ? 'Sim' : 'Não')}
-                        
-                        ${qualItem('Cobrição Dia', this.ui.formatNumber(q.cobricaoDia||0,2))}
-                        ${qualItem('Cobrição Acum.', this.ui.formatNumber(q.cobricaoAcumulada||0,2))}
-                        
-                        ${qualItem('Consumo Muda Dia', this.ui.formatNumber(q.mudaConsumoDia||0,2))}
-                        ${qualItem('Consumo Muda Total', this.ui.formatNumber(q.mudaConsumoTotal||0,2))}
-                        ${qualItem('Muda Previsto', this.ui.formatNumber(q.mudaPrevisto||0,2))}
-                        ${qualItem('Variedade', q.mudaVariedade||'—')}
+                    <!-- Seção 4: Qualidade e Condições -->
+                    <div class="details-card flex-2" style="min-width: 300px;">
+                        <h5>📊 Qualidade e Condições</h5>
+                        <div class="quality-grid">
+                            ${qualItem('Gemas Totais', this.ui.formatNumber(q.gemasTotal||0))}
+                            ${qualItem('Gemas Boas', this.ui.formatNumber(q.gemasBoas||0), `(${this.ui.formatNumber(q.gemasBoasPct||0,1)}%)`)}
+                            ${qualItem('Gemas Ruins', this.ui.formatNumber(q.gemasRuins||0), `(${this.ui.formatNumber(q.gemasRuinsPct||0,1)}%)`)}
+                            
+                            ${qualItem('Toletes Totais', this.ui.formatNumber(q.toletesTotal||0))}
+                            ${qualItem('Toletes Bons', this.ui.formatNumber(q.toletesBons||0), `(${this.ui.formatNumber(q.toletesBonsPct||0,1)}%)`)}
+                            ${qualItem('Toletes Ruins', this.ui.formatNumber(q.toletesRuins||0), `(${this.ui.formatNumber(q.toletesRuinsPct||0,1)}%)`)}
+                            
+                            ${qualItem('Mudas Totais', this.ui.formatNumber(q.mudasTotal||0))}
+                            ${qualItem('Mudas Boas', this.ui.formatNumber(q.mudasBoas||0), `(${this.ui.formatNumber(q.mudasBoasPct||0,1)}%)`)}
+                            ${qualItem('Mudas Ruins', this.ui.formatNumber(q.mudasRuins||0), `(${this.ui.formatNumber(q.mudasRuinsPct||0,1)}%)`)}
+                            
+                            ${qualItem('Muda (ton/ha)', this.ui.formatNumber(q.mudaTonHa||0))}
+                            ${qualItem('Profundidade', this.ui.formatNumber(q.profundidadeCm||0), 'cm')}
+                            ${qualItem('Cobertura', q.cobertura||'—')}
+                            ${qualItem('Alinhamento', q.alinhamento||'—')}
+                            ${qualItem('Chuva', this.ui.formatNumber(q.chuvaMm||0,1), 'mm')}
+                            ${qualItem('GPS', q.gps ? 'Sim' : 'Não')}
+                            
+                            ${qualItem('Cobrição Dia', this.ui.formatNumber(q.cobricaoDia||0,2))}
+                            ${qualItem('Cobrição Acum.', this.ui.formatNumber(q.cobricaoAcumulada||0,2))}
+                            
+                            ${qualItem('Consumo Muda Dia', this.ui.formatNumber(q.mudaConsumoDia||0,2))}
+                            ${qualItem('Consumo Muda Total', this.ui.formatNumber(q.mudaConsumoTotal||0,2))}
+                            ${qualItem('Muda Previsto', this.ui.formatNumber(q.mudaPrevisto||0,2))}
+                            ${qualItem('Variedade', q.mudaVariedade||'—')}
+                        </div>
                     </div>
                 </div>
             </div>`;
@@ -10144,6 +10446,11 @@ InsumosApp.prototype.handlePrintReport = async function() {
 
     // Construir HTML do Relatório
     let html = `
+        <div class="report-controls no-print" style="position: sticky; top: 0; background: #fff; padding: 10px; border-bottom: 1px solid #ccc; display: flex; justify-content: space-between; align-items: center; z-index: 1000;">
+            <h2 style="margin:0;">Visualização de Impressão</h2>
+            <button onclick="document.getElementById('report-print-container').style.display='none'" class="btn btn-secondary" style="background-color: #e74c3c; color: white;">❌ Fechar</button>
+        </div>
+        <div class="report-content" style="padding: 20px;">
         <div class="report-header">
             <h1>Relatório Geral de Gestão Agrícola</h1>
             <p>Gerado em: ${dataHora} | Usuário: ${this.api.user?.email || 'Sistema'}</p>
@@ -10200,9 +10507,11 @@ InsumosApp.prototype.handlePrintReport = async function() {
         <div class="report-footer" style="margin-top: 50px; border-top: 1px solid #ccc; padding-top: 10px; font-size: 0.8em; text-align: center; color: #777;">
             <p>Sistema de Gestão Agrícola - Relatório Impresso</p>
         </div>
+        </div> <!-- Fim .report-content -->
     `;
 
     container.innerHTML = html;
+    container.style.display = 'block'; // Mostrar o container como modal/overlay
 
     // Pequeno delay para renderização do DOM antes de imprimir
     setTimeout(() => {
