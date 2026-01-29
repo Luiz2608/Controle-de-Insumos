@@ -5142,10 +5142,6 @@ forceReloadAllData() {
         tbody.innerHTML = rows.map(r => {
             const sumArea = (r.frentes||[]).reduce((s,x)=> s + (Number(x.area)||0), 0);
             const resumoFrentes = (r.frentes||[]).map(f => `${f.frente}: ${f.fazenda||'—'}${f.regiao?(' / '+f.regiao):''}`).join(' | ');
-            const expanded = this.plantioExpanded.has(String(r.id));
-            const details = expanded ? this.getPlantioDetailsHTML(r) : '';
-            const toggleIcon = expanded ? '🔼' : '🔽';
-            const toggleText = expanded ? 'Ocultar' : 'Detalhes';
             
             return `
             <tr>
@@ -5155,8 +5151,8 @@ forceReloadAllData() {
                 
                 <td>
                     <div style="display: flex; gap: 5px;">
-                        <button class="btn btn-sm btn-secondary btn-toggle-plantio-details" data-plantio-id="${r.id}">
-                            ${toggleIcon} ${toggleText}
+                        <button class="btn btn-sm btn-secondary" onclick="window.insumosApp.showPlantioDetails('${r.id}')">
+                            📋 Detalhes
                         </button>
                         <button class="btn btn-sm btn-secondary btn-edit-plantio" data-plantio-id="${r.id}" title="Editar Registro">
                             ✏️
@@ -5166,9 +5162,22 @@ forceReloadAllData() {
                         </button>
                     </div>
                 </td>
-            </tr>
-            ${details}`;
+            </tr>`;
         }).join('');
+    }
+
+    showPlantioDetails(id) {
+        const r = (this.plantioDia || []).find(p => String(p.id) === String(id));
+        if (!r) return;
+
+        const html = this.getPlantioDetailsHTML(r);
+        const modalBody = document.getElementById('modal-plantio-details-body');
+        const modal = document.getElementById('modal-plantio-details');
+        
+        if (modalBody && modal) {
+            modalBody.innerHTML = html;
+            modal.style.display = 'block';
+        }
     }
 
     getPlantioDetailsHTML(r) {
@@ -5204,7 +5213,6 @@ forceReloadAllData() {
         `;
 
         return `
-        <tr class="plantio-details-row"><td colspan="4">
             <div class="plantio-details-container">
                 <!-- Seção 1: Frentes -->
                 <div class="details-card full-width">
@@ -5271,8 +5279,7 @@ forceReloadAllData() {
                         ${qualItem('Variedade', q.mudaVariedade||'—')}
                     </div>
                 </div>
-            </div>
-        </td></tr>`;
+            </div>`;
     }
 
     async loadOxifertilData(filters = {}) {
@@ -7938,7 +7945,6 @@ forceReloadAllData() {
                     <tr>
                         <td>${item.numero_os || '-'}</td>
                         <td>${this.ui.formatDateBR(item.data_abertura)}</td>
-                        <td>${item.fazenda_codigo || '-'}</td>
                         <td>${item.fazenda || '-'} / ${item.frente || '-'}</td>
                         <td>${item.produto || '-'}</td>
                         <td>${this.ui.formatNumber(meta, 3)}</td>

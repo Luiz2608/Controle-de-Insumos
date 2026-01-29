@@ -169,6 +169,18 @@
             </div>
 
             <!-- Admin Modal -->
+            <div id="modal-plantio-details" class="modal" style="display: none; z-index: 10001;">
+                <div class="modal-content" style="max-width: 900px;">
+                    <div class="modal-header">
+                        <h3>📋 Detalhes do Plantio</h3>
+                        <button class="close-modal close-plantio-details-modal" onclick="document.getElementById('modal-plantio-details').style.display='none'">&times;</button>
+                    </div>
+                    <div class="modal-body" id="modal-plantio-details-body">
+                        <!-- Conteúdo será injetado via JS -->
+                    </div>
+                </div>
+            </div>
+
             <div id="admin-modal" class="modal" style="display: none; z-index: 10000;">
                 <div class="modal-content" style="max-width: 900px;">
                     <div class="modal-header">
