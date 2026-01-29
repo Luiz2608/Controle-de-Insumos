@@ -5267,7 +5267,7 @@ forceReloadAllData() {
         });
 
         // Hide/Show Buttons based on mode
-        const btnSave = document.getElementById('modal-viagem-save-btn');
+        const btnSave = document.getElementById('btn-save-viagem-fix');
         if (btnSave) btnSave.style.display = isView ? 'none' : 'inline-block';
 
         const btnAddBag = document.getElementById('modal-bag-add-btn');
@@ -5448,7 +5448,7 @@ forceReloadAllData() {
         let btnSaveModal = null;
         let originalText = '';
         if (isModal) {
-            btnSaveModal = document.getElementById('modal-viagem-save-btn');
+            btnSaveModal = document.getElementById('btn-save-viagem-fix');
             if (btnSaveModal) {
                 originalText = btnSaveModal.innerText;
                 btnSaveModal.innerText = 'Processando...';
