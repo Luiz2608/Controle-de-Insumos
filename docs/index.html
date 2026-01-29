@@ -2244,6 +2244,18 @@
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.28/dist/jspdf.plugin.autotable.min.js"></script>
     
+    <script>
+        // Global Error Handler for "Scenario C" (Script loading failures)
+        window.onerror = function(msg, url, line, col, error) {
+            alert("Erro Crítico do Sistema:\n" + msg + "\n\nSe o problema persistir, recarregue a página com Ctrl+F5.");
+            console.error("Global Error:", {msg, url, line, col, error});
+            return false;
+        };
+        window.addEventListener('unhandledrejection', function(event) {
+            console.error("Unhandled Rejection:", event.reason);
+            // alert("Erro de comunicação com servidor ou lógica assíncrona:\n" + event.reason);
+        });
+    </script>
     <!-- Supabase & Config -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.js"></script>
     <script src="config.js?v=FIX-BUTTON-22"></script>
