@@ -9300,6 +9300,8 @@ InsumosApp.prototype.savePlantioDia = async function() {
     const mudasBoasPctVal = mudasTotalVal > 0 ? (mudasBoasVal / mudasTotalVal) * 100 : 0;
     const mudasRuinsPctVal = mudasTotalVal > 0 ? (mudasRuinsVal / mudasTotalVal) * 100 : 0;
 
+    const tipoOperacao = document.getElementById('tipo-operacao')?.value || 'plantio';
+
     const qualidade = {
         gemasTotal: gemasTotalVal,
         gemasBoas: gemasBoasVal,
