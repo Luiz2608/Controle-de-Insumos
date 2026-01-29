@@ -1027,6 +1027,12 @@ forceReloadAllData() {
         if (btnNovoLancamento && novoLancamentoModal) {
             btnNovoLancamento.addEventListener('click', async () => {
                 this.resetPlantioForm();
+                // Forçar tipo plantio caso tenha sido alterado antes
+                const tipoOp = document.getElementById('tipo-operacao');
+                if (tipoOp) {
+                    tipoOp.value = 'plantio';
+                    this.toggleOperacaoSections();
+                }
                 novoLancamentoModal.style.display = 'flex';
                 // Garantir que a lista de OS e Frentes esteja carregada
                 await this.loadOSList();
@@ -1034,6 +1040,22 @@ forceReloadAllData() {
                 // Carregar lista de produtos para o datalist
                 this.loadProdutosDatalist();
             });
+
+            // Novo botão para Colheita de Muda
+            const btnNovaColheitaMuda = document.getElementById('btn-nova-colheita-muda');
+            if (btnNovaColheitaMuda) {
+                btnNovaColheitaMuda.addEventListener('click', async () => {
+                    this.resetPlantioForm();
+                    const tipoOp = document.getElementById('tipo-operacao');
+                    if (tipoOp) {
+                        tipoOp.value = 'colheita_muda';
+                        this.toggleOperacaoSections();
+                    }
+                    novoLancamentoModal.style.display = 'flex';
+                    await this.loadOSList();
+                    this.loadProdutosDatalist();
+                });
+            }
 
             const tipoOperacaoSelect = document.getElementById('tipo-operacao');
             if (tipoOperacaoSelect) {
@@ -2190,7 +2212,8 @@ forceReloadAllData() {
             const totalArea = plantioFiltered.reduce((acc, curr) => {
                 // Ignorar registros que sejam de colheita_muda para a soma de área plantada
                 // Assumindo que 'plantio' é o padrão ou nulo
-                if (curr.tipo_operacao === 'colheita_muda') return acc;
+                const isColheita = curr.tipo_operacao === 'colheita_muda' || (curr.qualidade && curr.qualidade.tipoOperacao === 'colheita_muda');
+                if (isColheita) return acc;
 
                 let areaDia = 0;
                 
@@ -2218,7 +2241,7 @@ forceReloadAllData() {
 
             // 1.1 Área Colhida (Novo KPI)
             const colheitaFiltered = this.plantioDiarioData.filter(p => {
-                const isColheita = p.tipo_operacao === 'colheita_muda';
+                const isColheita = p.tipo_operacao === 'colheita_muda' || (p.qualidade && p.qualidade.tipoOperacao === 'colheita_muda');
                 return isColheita && filterDate(p.data);
             });
 
@@ -3723,15 +3746,27 @@ forceReloadAllData() {
             const totais = {}; // produto -> qtd
             let lastOS = null;
 
-            // 1. Buscar dados das OSs (Apenas para referência de OS, não afeta estoque físico)
+            // 1. Buscar dados das OSs (Adicionar produtos da OS como entrada de estoque)
             const res = await this.api.getOSList();
             let countOS = 0;
             if (res.success && res.data) {
                 const osList = res.data.filter(o => String(o.frente).trim().toLowerCase() === String(frente).trim().toLowerCase());
                 osList.forEach(os => {
                     if (!lastOS && os.numero) lastOS = os.numero;
-                    // NÃO somamos produtos da OS no estoque pois são planejamento.
-                    // O estoque real é alimentado por Transporte (Entrada) e Plantio (Saída).
+                    
+                    // Somar produtos da OS no estoque
+                    if (os.produtos && Array.isArray(os.produtos)) {
+                        os.produtos.forEach(p => {
+                            const nome = p.produto;
+                            const qtd = parseFloat(p.qtdTotal) || 0;
+                            if (nome && qtd > 0) {
+                                const key = getKey(nome, os.numero);
+                                if (!totais[key]) totais[key] = 0;
+                                totais[key] += qtd;
+                                countOS++;
+                            }
+                        });
+                    }
                 });
             }
 
@@ -3768,20 +3803,23 @@ forceReloadAllData() {
 
             // 3. Buscar Consumo (Insumos Oxifertil) - SAÍDAS
             try {
-                const { data: insumosOxi } = await this.api.supabase
-                    .from('insumos_oxifertil')
-                    .select('produto, quantidade_aplicada')
-                    .ilike('frente', frente);
-
-                if (insumosOxi && insumosOxi.length > 0) {
-                    insumosOxi.forEach(i => {
-                        const nome = i.produto;
-                        const qtd = parseFloat(i.quantidade_aplicada) || 0;
-                        if (nome && qtd > 0) {
-                            const key = nome.trim();
-                            if (!totais[key]) totais[key] = 0;
-                            totais[key] -= qtd; // SUBTRAI consumo
-                            countImport++;
+                const oxiRes = await this.api.getOxifertil();
+                if (oxiRes.success && oxiRes.data) {
+                    const targetFrente = String(frente).trim().toLowerCase();
+                    
+                    oxiRes.data.forEach(i => {
+                        const iFrente = String(i.frente || '').trim().toLowerCase();
+                        
+                        // Simular o comportamento do ILIKE do banco
+                        if (iFrente.includes(targetFrente) || targetFrente.includes(iFrente)) {
+                            const nome = i.produto;
+                            const qtd = parseFloat(i.quantidadeAplicada) || 0;
+                            if (nome && qtd > 0) {
+                                const key = nome.trim();
+                                if (!totais[key]) totais[key] = 0;
+                                totais[key] -= qtd; // SUBTRAI consumo
+                                countImport++;
+                            }
                         }
                     });
                 }
@@ -3789,24 +3827,44 @@ forceReloadAllData() {
                 console.error('Erro ao buscar insumos_oxifertil:', errOxi);
             }
 
-            // 4. Buscar Transporte de Composto (Entradas) - SOMAR
+            // 4. Buscar Transporte de Composto (Entradas REALIZADAS - Diários)
             try {
-                const { data: transportes } = await this.api.supabase
+                // 1. Buscar headers para obter IDs e números de OS da frente
+                const { data: headers } = await this.api.supabase
                     .from('transporte_composto')
-                    .select('quantidade, numero_os')
+                    .select('id, numero_os')
                     .ilike('frente', frente);
 
-                if (transportes && transportes.length > 0) {
-                    transportes.forEach(t => {
-                        const qtd = parseFloat(t.quantidade) || 0;
-                        if (qtd > 0) {
-                            const key = 'COMPOSTO';
-                            if (!totais[key]) totais[key] = 0;
-                            totais[key] += qtd;
-                            if (!lastOS && t.numero_os) lastOS = t.numero_os;
-                            countImport++; 
-                        }
-                    });
+                if (headers && headers.length > 0) {
+                    const ids = headers.map(h => h.id);
+                    
+                    // 2. Buscar itens diários (quantidade real transportada)
+                    const { data: diarios } = await this.api.supabase
+                        .from('os_transporte_diario')
+                        .select('os_id, quantidade')
+                        .in('os_id', ids);
+
+                    if (diarios && diarios.length > 0) {
+                        diarios.forEach(d => {
+                            const qtd = parseFloat(d.quantidade) || 0;
+                            if (qtd > 0) {
+                                // Encontrar header para pegar numero_os
+                                const header = headers.find(h => h.id === d.os_id);
+                                const osNum = header ? header.numero_os : '';
+                                
+                                // Usar chave composta para separar por OS se necessário, 
+                                // ou somar tudo em COMPOSTO se preferir agrupar. 
+                                // O padrão getKey separa por OS.
+                                const key = getKey('COMPOSTO', osNum);
+                                
+                                if (!totais[key]) totais[key] = 0;
+                                totais[key] += qtd;
+                                
+                                if (!lastOS && osNum) lastOS = osNum;
+                                countImport++; 
+                            }
+                        });
+                    }
                 }
             } catch (errTrans) {
                 console.error('Erro ao buscar transporte_composto:', errTrans);
@@ -3840,12 +3898,24 @@ forceReloadAllData() {
             }
 
             // Salvar no Estoque
-            const promises = Object.entries(totais).map(([prod, qtd]) => {
+            const promises = Object.entries(totais).map(([key, qtd]) => {
+                let prodToSave = key;
+                let osNum = lastOS || '';
+
+                // Recuperar OS para o campo os_numero, mas MANTER a chave completa no produto
+                // para garantir unicidade no banco (frente, produto)
+                if (key.includes('__OS__')) {
+                    const parts = key.split('__OS__');
+                    // prodName = parts[0]; // Não usamos apenas o nome, senão sobrescreve
+                    osNum = parts[1];
+                    prodToSave = key; // Salva "COMPOSTO__OS__123"
+                }
+
                 return this.api.setEstoque(
                     frente, 
-                    prod, 
+                    prodToSave, 
                     qtd, 
-                    String(lastOS || ''), 
+                    String(osNum), 
                     new Date().toISOString()
                 );
             });
@@ -3890,8 +3960,11 @@ forceReloadAllData() {
             const { data: fazFrentes } = await this.api.supabase.from('insumos_fazendas').select('frente');
             if (fazFrentes) fazFrentes.forEach(f => { if(f.frente) frentes.add(f.frente); });
 
-            const { data: oxiFrentes } = await this.api.supabase.from('insumos_oxifertil').select('frente');
-            if (oxiFrentes) oxiFrentes.forEach(f => { if(f.frente) frentes.add(f.frente); });
+            // Adicionar frentes do Oxifertil (via função API, não tabela direta)
+            const oxiRes = await this.api.getOxifertil();
+            if (oxiRes.success && oxiRes.data) {
+                oxiRes.data.forEach(i => { if(i.frente) frentes.add(i.frente); });
+            }
 
             // Adicionar frentes de Transporte e Viagens
             const { data: transFrentes } = await this.api.supabase.from('transporte_composto').select('frente');
