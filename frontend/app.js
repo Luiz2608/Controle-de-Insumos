@@ -5166,11 +5166,22 @@ forceReloadAllData() {
         // Save Button (Modal)
         const btnModalSave = document.getElementById('modal-viagem-save-btn');
         if (btnModalSave) {
-            btnModalSave.onclick = null;
-            btnModalSave.addEventListener('click', (e) => {
+            const newBtn = btnModalSave.cloneNode(true);
+            btnModalSave.parentNode.replaceChild(newBtn, btnModalSave);
+            
+            newBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 console.log('Modal Save button clicked!');
-                this.saveViagemAdubo('modal-');
+                
+                // Visual feedback immediate
+                const originalText = newBtn.innerText;
+                newBtn.innerText = 'Processando...';
+                newBtn.disabled = true;
+
+                this.saveViagemAdubo('modal-').finally(() => {
+                    newBtn.innerText = originalText;
+                    newBtn.disabled = false;
+                });
             });
         }
 
@@ -5463,52 +5474,71 @@ forceReloadAllData() {
         }
     }
 
-    async saveViagemAdubo(prefix = 'modal-') {
-        console.log('Attempting to save Viagem Adubo...', prefix);
-        const data = document.getElementById(prefix + 'viagem-data').value;
-        const fazenda = document.getElementById(prefix + 'viagem-fazenda').value;
-        const produto = document.getElementById(prefix + 'viagem-produto').value;
-        const qtdStr = document.getElementById(prefix + 'viagem-quantidade-total').value;
-        const quantidadeTotalNum = parseFloat((qtdStr || '').toString().replace(',', '.'));
+    async saveViagemAdubo(isModal = false) {
+        // console.warn('!!! saveViagemAdubo CALLED !!!', { isModal });
         
-        if (!data || !fazenda || !produto || isNaN(quantidadeTotalNum)) {
-            let missing = [];
-            if (!data) missing.push('Data');
-            if (!fazenda) missing.push('Fazenda');
-            if (!produto) missing.push('Produto');
-            if (isNaN(quantidadeTotalNum)) missing.push('Quantidade');
-            
-            console.warn('Campos obrigatórios ausentes:', missing);
-            if (this.ui && this.ui.showNotification) {
-                this.ui.showNotification(`Preencha os campos obrigatórios: ${missing.join(', ')}`, 'warning');
+        // UI Feedback for Modal Button
+        let btnSaveModal = null;
+        let originalText = '';
+        if (isModal) {
+            btnSaveModal = document.getElementById('modal-viagem-save-btn');
+            if (btnSaveModal) {
+                originalText = btnSaveModal.innerText;
+                btnSaveModal.innerText = 'Processando...';
+                btnSaveModal.disabled = true;
             }
-            return;
         }
- 
-        const payload = {
-            transportType: 'adubo',
-            data: data,
-            frente: document.getElementById(prefix + 'viagem-frente').value,
-            fazenda: fazenda,
-            origem: document.getElementById(prefix + 'viagem-origem').value,
-            destino: document.getElementById(prefix + 'viagem-destino').value,
-            produto: produto,
-            quantidadeTotal: quantidadeTotalNum,
-            unidade: document.getElementById(prefix + 'viagem-unidade').value,
-            caminhao: document.getElementById(prefix + 'viagem-caminhao').value,
-            carreta1: document.getElementById(prefix + 'viagem-carreta1').value,
-            carreta2: document.getElementById(prefix + 'viagem-carreta2').value,
-            motorista: document.getElementById(prefix + 'viagem-motorista').value,
-            documentoMotorista: document.getElementById(prefix + 'viagem-documento-motorista').value,
-            transportadora: document.getElementById(prefix + 'viagem-transportadora').value,
-            observacoes: document.getElementById(prefix + 'viagem-observacoes').value,
-            bags: this.viagensAduboBagsDraft
-        };
-        
-        console.log('Transport Type:', payload.transportType);
-        console.log('Raw Data:', { data, produto, transportType: payload.transportType, quantidadeTotal: quantidadeTotalNum, fazenda });
 
         try {
+            const prefix = isModal ? 'modal-' : '';
+            const getVal = (id) => {
+                const el = document.getElementById(prefix + id);
+                return el ? el.value : '';
+            };
+
+            const data = getVal('viagem-data');
+            const fazenda = getVal('viagem-fazenda');
+            const produto = getVal('viagem-produto');
+            const qtdStr = getVal('viagem-quantidade-total');
+            const quantidadeTotalNum = parseFloat((qtdStr || '').toString().replace(',', '.'));
+            
+            if (!data || !fazenda || !produto || isNaN(quantidadeTotalNum)) {
+                let missing = [];
+                if (!data) missing.push('Data');
+                if (!fazenda) missing.push('Fazenda');
+                if (!produto) missing.push('Produto');
+                if (isNaN(quantidadeTotalNum)) missing.push('Quantidade');
+                
+                console.warn('Campos obrigatórios ausentes:', missing);
+                if (this.ui && this.ui.showNotification) {
+                    this.ui.showNotification(`Preencha os campos obrigatórios: ${missing.join(', ')}`, 'warning');
+                }
+                return; // Will go to finally
+            }
+     
+            const payload = {
+                transportType: 'adubo',
+                data: data,
+                frente: getVal('viagem-frente'),
+                fazenda: fazenda,
+                origem: getVal('viagem-origem'),
+                destino: getVal('viagem-destino'),
+                produto: produto,
+                quantidadeTotal: quantidadeTotalNum,
+                unidade: getVal('viagem-unidade'),
+                caminhao: getVal('viagem-caminhao'),
+                carreta1: getVal('viagem-carreta1'),
+                carreta2: getVal('viagem-carreta2'),
+                motorista: getVal('viagem-motorista'),
+                documentoMotorista: getVal('viagem-documento-motorista'),
+                transportadora: getVal('viagem-transportadora'),
+                observacoes: getVal('viagem-observacoes'),
+                bags: this.viagensAduboBagsDraft
+            };
+            
+            console.log('Transport Type:', payload.transportType);
+            console.log('Raw Data:', { data, produto, transportType: payload.transportType, quantidadeTotal: quantidadeTotalNum, fazenda });
+
             let res;
             if (this.currentViagemAduboId) {
                 res = await this.api.updateViagemAdubo(this.currentViagemAduboId, payload);
@@ -5518,21 +5548,39 @@ forceReloadAllData() {
 
             if (res.success) {
                 if (this.ui) this.ui.showNotification('Viagem salva com sucesso!', 'success');
-                
                 // Update Stock
                 if (payload.frente) {
-                    await this.updateEstoqueFromOS(payload.frente);
-                    await this.loadEstoqueAndRender();
+                    try {
+                        if (typeof this.updateEstoqueFromOS === 'function') {
+                            await this.updateEstoqueFromOS(payload.frente);
+                        }
+                        if (typeof this.loadEstoqueAndRender === 'function') {
+                            await this.loadEstoqueAndRender();
+                        }
+                    } catch (stockErr) {
+                        console.error('Erro ao atualizar estoque:', stockErr);
+                    }
                 }
 
-                document.getElementById('modal-viagem-adubo').style.display = 'none';
+                const modal = document.getElementById('modal-viagem-adubo');
+                if (modal) modal.style.display = 'none';
                 this.loadViagensAdubo();
+                
+                // Clear main form if saved from main form
+                if (!isModal) {
+                    // Logic to clear main form fields could go here if needed
+                }
             } else {
                 throw new Error(res.message);
             }
         } catch (error) {
             console.error('Error saving Viagem Adubo:', error);
             if (this.ui) this.ui.showNotification('Erro ao salvar: ' + error.message, 'error');
+        } finally {
+            if (btnSaveModal) {
+                btnSaveModal.innerText = originalText;
+                btnSaveModal.disabled = false;
+            }
         }
     }
 

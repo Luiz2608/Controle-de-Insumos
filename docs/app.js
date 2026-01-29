@@ -5168,27 +5168,18 @@ forceReloadAllData() {
         }
 
         // Save Button (Modal)
+        // Handled via inline onclick in HTML to ensure reliability
+        /*
         const btnSaveModal = document.getElementById('modal-viagem-save-btn');
         if (btnSaveModal) {
-            btnSaveModal.onclick = (e) => {
-                e.preventDefault();
-                console.log('Save button clicked (Modal)! Calling saveViagemAdubo(true)...');
-                if (typeof this.saveViagemAdubo === 'function') {
-                    try {
-                        this.saveViagemAdubo(true).catch(err => {
-                            console.error('Error in saveViagemAdubo promise:', err);
-                            alert('Erro interno ao processar salvamento: ' + err.message);
-                        });
-                    } catch (syncErr) {
-                         console.error('Error calling saveViagemAdubo:', syncErr);
-                         alert('Erro ao chamar função de salvar: ' + syncErr.message);
-                    }
-                } else {
-                    console.error('this.saveViagemAdubo is not a function!', this);
-                    alert('Erro crítico: Função de salvar não encontrada.');
-                }
-            };
+            const newBtn = btnSaveModal.cloneNode(true);
+            btnSaveModal.parentNode.replaceChild(newBtn, btnSaveModal);
+            newBtn.addEventListener('click', (e) => {
+                 e.preventDefault();
+                 this.saveViagemAdubo(true);
+            });
         }
+        */
 
         // Print Button
         const btnPrint = document.getElementById('modal-btn-print-viagem-adubo');
@@ -5451,59 +5442,70 @@ forceReloadAllData() {
     }
 
     async saveViagemAdubo(isModal = false) {
-        alert('Entrou na função saveViagemAdubo! isModal: ' + isModal);
-        console.log('Attempting to save Viagem Adubo...', { isModal });
+        // console.warn('!!! saveViagemAdubo CALLED !!!', { isModal });
         
-        const prefix = isModal ? 'modal-' : '';
-        const getVal = (id) => {
-            const el = document.getElementById(prefix + id);
-            return el ? el.value : '';
-        };
-
-        const data = getVal('viagem-data');
-        const fazenda = getVal('viagem-fazenda');
-        const produto = getVal('viagem-produto');
-        const qtdStr = getVal('viagem-quantidade-total');
-        const quantidadeTotalNum = parseFloat((qtdStr || '').toString().replace(',', '.'));
-        
-        if (!data || !fazenda || !produto || isNaN(quantidadeTotalNum)) {
-            let missing = [];
-            if (!data) missing.push('Data');
-            if (!fazenda) missing.push('Fazenda');
-            if (!produto) missing.push('Produto');
-            if (isNaN(quantidadeTotalNum)) missing.push('Quantidade');
-            
-            console.warn('Campos obrigatórios ausentes:', missing);
-            if (this.ui && this.ui.showNotification) {
-                this.ui.showNotification(`Preencha os campos obrigatórios: ${missing.join(', ')}`, 'warning');
+        // UI Feedback for Modal Button
+        let btnSaveModal = null;
+        let originalText = '';
+        if (isModal) {
+            btnSaveModal = document.getElementById('modal-viagem-save-btn');
+            if (btnSaveModal) {
+                originalText = btnSaveModal.innerText;
+                btnSaveModal.innerText = 'Processando...';
+                btnSaveModal.disabled = true;
             }
-            return;
         }
- 
-        const payload = {
-            transportType: 'adubo',
-            data: data,
-            frente: getVal('viagem-frente'),
-            fazenda: fazenda,
-            origem: getVal('viagem-origem'),
-            destino: getVal('viagem-destino'),
-            produto: produto,
-            quantidadeTotal: quantidadeTotalNum,
-            unidade: getVal('viagem-unidade'),
-            caminhao: getVal('viagem-caminhao'),
-            carreta1: getVal('viagem-carreta1'),
-            carreta2: getVal('viagem-carreta2'),
-            motorista: getVal('viagem-motorista'),
-            documentoMotorista: getVal('viagem-documento-motorista'),
-            transportadora: getVal('viagem-transportadora'),
-            observacoes: getVal('viagem-observacoes'),
-            bags: this.viagensAduboBagsDraft
-        };
-        
-        console.log('Transport Type:', payload.transportType);
-        console.log('Raw Data:', { data, produto, transportType: payload.transportType, quantidadeTotal: quantidadeTotalNum, fazenda });
 
         try {
+            const prefix = isModal ? 'modal-' : '';
+            const getVal = (id) => {
+                const el = document.getElementById(prefix + id);
+                return el ? el.value : '';
+            };
+
+            const data = getVal('viagem-data');
+            const fazenda = getVal('viagem-fazenda');
+            const produto = getVal('viagem-produto');
+            const qtdStr = getVal('viagem-quantidade-total');
+            const quantidadeTotalNum = parseFloat((qtdStr || '').toString().replace(',', '.'));
+            
+            if (!data || !fazenda || !produto || isNaN(quantidadeTotalNum)) {
+                let missing = [];
+                if (!data) missing.push('Data');
+                if (!fazenda) missing.push('Fazenda');
+                if (!produto) missing.push('Produto');
+                if (isNaN(quantidadeTotalNum)) missing.push('Quantidade');
+                
+                console.warn('Campos obrigatórios ausentes:', missing);
+                if (this.ui && this.ui.showNotification) {
+                    this.ui.showNotification(`Preencha os campos obrigatórios: ${missing.join(', ')}`, 'warning');
+                }
+                return; // Will go to finally
+            }
+     
+            const payload = {
+                transportType: 'adubo',
+                data: data,
+                frente: getVal('viagem-frente'),
+                fazenda: fazenda,
+                origem: getVal('viagem-origem'),
+                destino: getVal('viagem-destino'),
+                produto: produto,
+                quantidadeTotal: quantidadeTotalNum,
+                unidade: getVal('viagem-unidade'),
+                caminhao: getVal('viagem-caminhao'),
+                carreta1: getVal('viagem-carreta1'),
+                carreta2: getVal('viagem-carreta2'),
+                motorista: getVal('viagem-motorista'),
+                documentoMotorista: getVal('viagem-documento-motorista'),
+                transportadora: getVal('viagem-transportadora'),
+                observacoes: getVal('viagem-observacoes'),
+                bags: this.viagensAduboBagsDraft
+            };
+            
+            console.log('Transport Type:', payload.transportType);
+            console.log('Raw Data:', { data, produto, transportType: payload.transportType, quantidadeTotal: quantidadeTotalNum, fazenda });
+
             let res;
             if (this.currentViagemAduboId) {
                 res = await this.api.updateViagemAdubo(this.currentViagemAduboId, payload);
@@ -5541,6 +5543,11 @@ forceReloadAllData() {
         } catch (error) {
             console.error('Error saving Viagem Adubo:', error);
             if (this.ui) this.ui.showNotification('Erro ao salvar: ' + error.message, 'error');
+        } finally {
+            if (btnSaveModal) {
+                btnSaveModal.innerText = originalText;
+                btnSaveModal.disabled = false;
+            }
         }
     }
 

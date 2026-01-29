@@ -2224,7 +2224,7 @@
             <div class="modal-footer" style="margin-top: 15px; display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid #eee; padding-top: 15px;">
                  <button type="button" class="btn btn-secondary" id="modal-btn-print-viagem-adubo" title="Imprimir Detalhes">🖨️ Imprimir</button>
                  <button type="button" class="btn btn-secondary close-viagem-adubo-modal">Cancelar</button>
-                 <button type="button" id="modal-viagem-save-btn" class="btn btn-primary">💾 Registrar Viagem</button>
+                 <button type="button" id="modal-viagem-save-btn" class="btn btn-primary" onclick="if(window.insumosApp) window.insumosApp.saveViagemAdubo(true); else alert('Sistema carregando...');">💾 Registrar Viagem</button>
             </div>
         </div>
     </div>
@@ -2245,13 +2245,13 @@
     <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.28/dist/jspdf.plugin.autotable.min.js"></script>
     
     <!-- Supabase & Config -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="config.js?v=FIX-LAYOUT-21"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.js"></script>
+    <script src="config.js?v=FIX-BUTTON-22"></script>
     
-    <script src="api.js?v=FIX-LAYOUT-21"></script>
-    <script src="ui.js?v=FIX-LAYOUT-21"></script>
-    <script src="import.js?v=FIX-LAYOUT-21"></script>
-    <script src="app.js?v=FIX-LAYOUT-21"></script>
-    <link rel="stylesheet" href="main.css?v=FIX-LAYOUT-21">
+    <script src="api.js?v=FIX-BUTTON-22"></script>
+    <script src="ui.js?v=FIX-BUTTON-22"></script>
+    <script src="import.js?v=FIX-BUTTON-22"></script>
+    <script src="app.js?v=FIX-BUTTON-22"></script>
+    <link rel="stylesheet" href="main.css?v=FIX-BUTTON-22">
 </body>
 </html>

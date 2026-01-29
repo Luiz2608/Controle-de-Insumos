@@ -7,12 +7,34 @@ class ApiService {
             const storedUrl = localStorage.getItem('supabaseUrl');
             const storedKey = localStorage.getItem('supabaseKey');
             if (storedUrl && storedKey) {
-                this.supabase = window.supabase.createClient(storedUrl, storedKey);
+                this.supabase = window.supabase.createClient(storedUrl, storedKey, {
+                    auth: {
+                        persistSession: true,
+                        autoRefreshToken: true,
+                    },
+                    db: {
+                        schema: 'public',
+                    },
+                    global: {
+                        headers: { 'x-application-name': 'controle-insumos' },
+                    },
+                });
             } else {
                 this.supabase = null;
             }
         } else {
-            this.supabase = window.supabase.createClient(window.SUPABASE_CONFIG.url, window.SUPABASE_CONFIG.key);
+            this.supabase = window.supabase.createClient(window.SUPABASE_CONFIG.url, window.SUPABASE_CONFIG.key, {
+                auth: {
+                    persistSession: true,
+                    autoRefreshToken: true,
+                },
+                db: {
+                    schema: 'public',
+                },
+                global: {
+                    headers: { 'x-application-name': 'controle-insumos' },
+                },
+            });
         }
 
         // URL base da API (backend)
