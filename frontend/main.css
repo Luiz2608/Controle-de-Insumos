@@ -768,3 +768,29 @@ body.dark-mode input.readonly-input, body.dark-mode select.readonly-input {
     color: #ffffff !important; /* Texto branco puro */
     border-color: #555 !important;
 }
+
+/* Input Error Highlighting */
+.input-error {
+    border: 2px solid var(--error) !important;
+    background-color: rgba(211, 47, 47, 0.05) !important;
+}
+
+/* Dark Mode Fixes for Modal and Inputs */
+body.dark-mode .modal-content {
+    background-color: #1e1e1e;
+    border: 1px solid #333;
+}
+
+body.dark-mode .form-group label {
+    color: #e0e0e0;
+}
+
+body.dark-mode select option {
+    background-color: #1e1e1e;
+    color: #fff;
+}
+
+body.dark-mode .chart-card {
+    background-color: #1e1e1e;
+    border-color: #333;
+}

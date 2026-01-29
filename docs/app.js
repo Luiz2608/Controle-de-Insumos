@@ -5319,8 +5319,13 @@ forceReloadAllData() {
         } else {
             // New Mode
             document.querySelector('#modal-viagem-adubo h3').textContent = 'Nova Viagem (Adubo)';
-            // Set today's date default
-            const today = new Date().toISOString().split('T')[0];
+            // Set today's date default (Local Time)
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const today = `${year}-${month}-${day}`;
+            
             if (document.getElementById('modal-viagem-data')) document.getElementById('modal-viagem-data').value = today;
         }
 
@@ -5410,35 +5415,42 @@ forceReloadAllData() {
 
     async populateFazendaSelect() {
         const ids = ['viagem-fazenda', 'modal-viagem-fazenda'];
+        const codeIds = ['viagem-codigo-fazenda', 'modal-viagem-codigo-fazenda'];
+        
         const targets = ids.map(id => document.getElementById(id)).filter(el => el);
+        const codeTargets = codeIds.map(id => document.getElementById(id)).filter(el => el);
         
-        if (targets.length === 0) return;
+        if (targets.length === 0 && codeTargets.length === 0) return;
         
-        // Check if we need to populate (at least one is empty/default)
-        const needsPopulating = targets.some(el => el.options.length <= 1);
-        
-        if (needsPopulating) { 
-             try {
-                 const res = await this.api.getFazendas();
-                 if (res.success) {
-                     const fazendas = res.data || [];
-                     // Sort alphabetically
-                     fazendas.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
+        try {
+             const res = await this.api.getFazendas();
+             if (res.success) {
+                 const fazendas = res.data || [];
+                 // Sort alphabetically
+                 fazendas.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
+                 
+                 const html = '<option value="">Selecione a Fazenda</option>' + 
+                     fazendas.map(f => `<option value="${f.nome}" data-codigo="${f.codigo}">${f.nome}</option>`).join('');
                      
-                     const html = '<option value="">Selecione a Fazenda</option>' + 
-                         fazendas.map(f => `<option value="${f.nome}" data-codigo="${f.codigo}">${f.nome}</option>`).join('');
-                         
-                     targets.forEach(el => {
-                         const current = el.value;
-                         el.innerHTML = html;
-                         if (current) el.value = current;
-                     });
-                 }
-             } catch (e) {
-                 console.error('Erro ao carregar fazendas para select', e);
-                 if (this.ui) this.ui.showNotification('Erro ao carregar lista de fazendas. Verifique a conexão.', 'error');
+                 const codeHtml = '<option value="">Cód</option>' + 
+                     fazendas.map(f => `<option value="${f.codigo}" data-fazenda="${f.nome}">${f.codigo}</option>`).join('');
+
+                 targets.forEach(el => {
+                     const current = el.value;
+                     el.innerHTML = html;
+                     if (current) el.value = current;
+                 });
+                 
+                 codeTargets.forEach(el => {
+                     const current = el.value;
+                     el.innerHTML = codeHtml;
+                     if (current) el.value = current;
+                 });
              }
-        }
+         } catch (e) {
+             console.error('Erro ao carregar fazendas para select', e);
+             if (this.ui) this.ui.showNotification('Erro ao carregar lista de fazendas. Verifique a conexão.', 'error');
+         }
     }
 
     async saveViagemAdubo(isModal = false) {
@@ -5472,12 +5484,18 @@ forceReloadAllData() {
             
             alert(`DEBUG VALORES:\nData: ${data}\nFazenda: ${fazenda}\nProduto: ${produto}\nQtd: ${qtdStr} -> ${quantidadeTotalNum}`);
 
+            // Reset errors
+            ['viagem-data', 'viagem-fazenda', 'viagem-produto', 'viagem-quantidade-total'].forEach(id => {
+                const el = document.getElementById(prefix + id);
+                if (el) el.classList.remove('input-error');
+            });
+
             if (!data || !fazenda || !produto || isNaN(quantidadeTotalNum)) {
                 let missing = [];
-                if (!data) missing.push('Data');
-                if (!fazenda) missing.push('Fazenda');
-                if (!produto) missing.push('Produto');
-                if (isNaN(quantidadeTotalNum)) missing.push('Quantidade');
+                if (!data) { missing.push('Data'); document.getElementById(prefix + 'viagem-data')?.classList.add('input-error'); }
+                if (!fazenda) { missing.push('Fazenda'); document.getElementById(prefix + 'viagem-fazenda')?.classList.add('input-error'); }
+                if (!produto) { missing.push('Produto'); document.getElementById(prefix + 'viagem-produto')?.classList.add('input-error'); }
+                if (isNaN(quantidadeTotalNum)) { missing.push('Quantidade'); document.getElementById(prefix + 'viagem-quantidade-total')?.classList.add('input-error'); }
                 
                 alert('DEBUG: Falta campos: ' + missing.join(', '));
                 console.warn('Campos obrigatórios ausentes:', missing);
@@ -5643,6 +5661,78 @@ forceReloadAllData() {
 
         y += 55;
 
+        // === 2. DETALHES DO TRANSPORTE ===
+        doc.setFontSize(14);
+        doc.setFont(undefined, 'bold');
+        doc.text("2. Detalhes do Transporte", 14, y);
+        y += 10;
+
+        doc.setFontSize(10);
+        
+        const details = [
+            ['Origem', getVal('viagem-origem')],
+            ['Destino', getVal('viagem-destino')],
+            ['Caminhão', getVal('viagem-caminhao')],
+            ['Carreta 1', getVal('viagem-carreta1')],
+            ['Carreta 2', getVal('viagem-carreta2')],
+            ['Doc. Motorista', getVal('viagem-documento-motorista')],
+            ['Transportadora', getVal('viagem-transportadora')],
+            ['Observações', getVal('viagem-observacoes')]
+        ];
+
+        details.forEach((item, i) => {
+            const label = item[0] + ':';
+            const value = item[1];
+            
+            // Check page break
+            if (y > 270) {
+                doc.addPage();
+                y = 20;
+            }
+
+            // Left col
+            if (i % 2 === 0) {
+                 doc.setFont(undefined, 'bold');
+                 doc.text(label, 14, y);
+                 doc.setFont(undefined, 'normal');
+                 doc.text(value, 50, y);
+            } else {
+                 // Right col
+                 doc.setFont(undefined, 'bold');
+                 doc.text(label, 105, y);
+                 doc.setFont(undefined, 'normal');
+                 doc.text(value, 145, y);
+                 y += 8;
+            }
+        });
+        if (details.length % 2 !== 0) y += 8;
+
+        // === 3. BAGS ===
+        if (this.viagensAduboBagsDraft && this.viagensAduboBagsDraft.length > 0) {
+            y += 10;
+            if (y > 250) {
+                doc.addPage();
+                y = 20;
+            }
+            
+            doc.setFontSize(14);
+            doc.setFont(undefined, 'bold');
+            doc.text("3. Bags", 14, y);
+            y += 5;
+            
+            const bagsData = this.viagensAduboBagsDraft.map(b => [b.identificacao, b.lacre, b.observacoes]);
+            doc.autoTable({
+                startY: y,
+                head: [['Identificação', 'Lacre', 'Observações']],
+                body: bagsData,
+                theme: 'grid',
+                headStyles: { fillColor: [46, 125, 50], textColor: 255 },
+                styles: { fontSize: 10, cellPadding: 3 }
+            });
+        }
+
+        doc.save(`viagem_adubo_${data}.pdf`);
+    }
         // === 2. DETALHAMENTO ===
         doc.setFontSize(14);
         doc.setFont(undefined, 'bold');

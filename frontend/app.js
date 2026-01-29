@@ -5351,7 +5351,13 @@ forceReloadAllData() {
         } else {
             // New Mode (should not happen for modal in current logic, but kept for safety)
             document.querySelector('#modal-viagem-adubo h3').textContent = 'Nova Viagem (Adubo)';
-            const today = new Date().toISOString().split('T')[0];
+            // Set today's date default (Local Time)
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const today = `${year}-${month}-${day}`;
+
             if (document.getElementById('modal-viagem-data')) document.getElementById('modal-viagem-data').value = today;
         }
 
@@ -5443,35 +5449,42 @@ forceReloadAllData() {
 
     async populateFazendaSelect() {
         const ids = ['viagem-fazenda', 'modal-viagem-fazenda'];
+        const codeIds = ['viagem-codigo-fazenda', 'modal-viagem-codigo-fazenda'];
+        
         const targets = ids.map(id => document.getElementById(id)).filter(el => el);
+        const codeTargets = codeIds.map(id => document.getElementById(id)).filter(el => el);
         
-        if (targets.length === 0) return;
+        if (targets.length === 0 && codeTargets.length === 0) return;
         
-        // Check if we need to populate (at least one is empty/default)
-        const needsPopulating = targets.some(el => el.options.length <= 1);
-        
-        if (needsPopulating) { 
-             try {
-                 const res = await this.api.getFazendas();
-                 if (res.success) {
-                     const fazendas = res.data || [];
-                     // Sort alphabetically
-                     fazendas.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
-                     
-                     const html = '<option value="">Selecione a Fazenda</option>' + 
-                         fazendas.map(f => `<option value="${f.nome}" data-codigo="${f.codigo}">${f.nome}</option>`).join('');
-                         
-                     targets.forEach(el => {
-                         const current = el.value;
-                         el.innerHTML = html;
-                         if (current) el.value = current;
-                     });
-                 }
-             } catch (e) {
-                 console.error('Erro ao carregar fazendas para select', e);
-                 if (this.ui) this.ui.showNotification('Erro ao carregar lista de fazendas. Verifique a conexão.', 'error');
+        try {
+             const res = await this.api.getFazendas();
+             if (res.success) {
+                 const fazendas = res.data || [];
+                 // Sort alphabetically
+                 fazendas.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
+                 
+                 const html = '<option value="">Selecione a Fazenda</option>' + 
+                     fazendas.map(f => `<option value="${f.nome}" data-codigo="${f.codigo}">${f.nome}</option>`).join('');
+                 
+                 const codeHtml = '<option value="">Cód</option>' + 
+                     fazendas.map(f => `<option value="${f.codigo}" data-fazenda="${f.nome}">${f.codigo}</option>`).join('');
+
+                 targets.forEach(el => {
+                     const current = el.value;
+                     el.innerHTML = html;
+                     if (current) el.value = current;
+                 });
+                 
+                 codeTargets.forEach(el => {
+                     const current = el.value;
+                     el.innerHTML = codeHtml;
+                     if (current) el.value = current;
+                 });
              }
-        }
+         } catch (e) {
+             console.error('Erro ao carregar fazendas para select', e);
+             if (this.ui) this.ui.showNotification('Erro ao carregar lista de fazendas. Verifique a conexão.', 'error');
+         }
     }
 
     async saveViagemAdubo(isModal = false) {
@@ -5505,12 +5518,18 @@ forceReloadAllData() {
             
             alert(`DEBUG VALORES:\nData: ${data}\nFazenda: ${fazenda}\nProduto: ${produto}\nQtd: ${qtdStr} -> ${quantidadeTotalNum}`);
 
+            // Reset errors
+            ['viagem-data', 'viagem-fazenda', 'viagem-produto', 'viagem-quantidade-total'].forEach(id => {
+                const el = document.getElementById(prefix + id);
+                if (el) el.classList.remove('input-error');
+            });
+
             if (!data || !fazenda || !produto || isNaN(quantidadeTotalNum)) {
                 let missing = [];
-                if (!data) missing.push('Data');
-                if (!fazenda) missing.push('Fazenda');
-                if (!produto) missing.push('Produto');
-                if (isNaN(quantidadeTotalNum)) missing.push('Quantidade');
+                if (!data) { missing.push('Data'); document.getElementById(prefix + 'viagem-data')?.classList.add('input-error'); }
+                if (!fazenda) { missing.push('Fazenda'); document.getElementById(prefix + 'viagem-fazenda')?.classList.add('input-error'); }
+                if (!produto) { missing.push('Produto'); document.getElementById(prefix + 'viagem-produto')?.classList.add('input-error'); }
+                if (isNaN(quantidadeTotalNum)) { missing.push('Quantidade'); document.getElementById(prefix + 'viagem-quantidade-total')?.classList.add('input-error'); }
                 
                 alert('DEBUG: Falta campos: ' + missing.join(', '));
                 console.warn('Campos obrigatórios ausentes:', missing);
@@ -5605,9 +5624,7 @@ forceReloadAllData() {
 
     printViagemAdubo() {
         if (!this.currentViagemAduboId && this.viagensAduboBagsDraft.length === 0) {
-            // Se for novo e não tiver dados, alertar
             if (this.ui) this.ui.showNotification('Salve a viagem antes de imprimir ou preencha os dados.', 'warning');
-            // Allow printing drafts? Yes.
         }
 
         const { jsPDF } = window.jspdf;
@@ -5653,7 +5670,7 @@ forceReloadAllData() {
         doc.text("1. Visão Geral", 14, y);
         y += 10;
 
-        // Box background (Gray Box)
+        // Box background
         doc.setDrawColor(200);
         doc.setFillColor(245, 247, 250);
         doc.rect(14, y, pageWidth - 28, 45, 'FD');
@@ -5679,10 +5696,12 @@ forceReloadAllData() {
         // === 2. DETALHAMENTO ===
         doc.setFontSize(14);
         doc.setFont(undefined, 'bold');
-        doc.text("2. Detalhamento Técnico", 14, y);
-        y += 8;
+        doc.text("2. Detalhes do Transporte", 14, y);
+        y += 10;
+        
+        doc.setFontSize(10);
 
-        const body = [
+        const details = [
             ['Origem', getVal('viagem-origem')],
             ['Destino', getVal('viagem-destino')],
             ['Caminhão', getVal('viagem-caminhao')],
@@ -5693,57 +5712,54 @@ forceReloadAllData() {
             ['Observações', getVal('viagem-observacoes')]
         ];
 
-        doc.autoTable({
-            startY: y,
-            showHead: 'never',
-            body: body,
-            theme: 'grid',
-            styles: { 
-                fontSize: 10, 
-                cellPadding: 4,
-                lineColor: [200, 200, 200],
-                lineWidth: 0.1,
-                textColor: [0, 0, 0]
-            },
-            columnStyles: {
-                0: { fontStyle: 'bold', width: 40, fillColor: [250, 250, 250], textColor: [0, 0, 0] },
-                1: { textColor: [0, 0, 0] }
+        details.forEach((item, i) => {
+            const label = item[0] + ':';
+            const value = item[1];
+            
+            // Check page break
+            if (y > 270) {
+                doc.addPage();
+                y = 20;
+            }
+
+            // Left col
+            if (i % 2 === 0) {
+                 doc.setFont(undefined, 'bold');
+                 doc.text(label, 14, y);
+                 doc.setFont(undefined, 'normal');
+                 doc.text(value, 50, y);
+            } else {
+                 // Right col
+                 doc.setFont(undefined, 'bold');
+                 doc.text(label, 105, y);
+                 doc.setFont(undefined, 'normal');
+                 doc.text(value, 145, y);
+                 y += 8;
             }
         });
+        if (details.length % 2 !== 0) y += 8;
 
         // === 3. BAGS ===
         if (this.viagensAduboBagsDraft && this.viagensAduboBagsDraft.length > 0) {
-            y = doc.lastAutoTable.finalY + 15;
+            y += 10;
+            if (y > 250) {
+                doc.addPage();
+                y = 20;
+            }
             
             doc.setFontSize(14);
             doc.setFont(undefined, 'bold');
             doc.text("3. Bags", 14, y);
-
-            const bagsBody = this.viagensAduboBagsDraft.map(b => [
-                b.identificacao || '-',
-                b.lacre || '-',
-                b.observacoes || '-'
-            ]);
-
+            y += 5;
+            
+            const bagsData = this.viagensAduboBagsDraft.map(b => [b.identificacao, b.lacre, b.observacoes]);
             doc.autoTable({
-                startY: y + 5,
-                head: [['Identificação', 'Lacre', 'Obs']],
-                body: bagsBody,
+                startY: y,
+                head: [['Identificação', 'Lacre', 'Observações']],
+                body: bagsData,
                 theme: 'grid',
-                styles: { 
-                    fontSize: 10, 
-                    cellPadding: 4,
-                    lineColor: [200, 200, 200],
-                    lineWidth: 0.1,
-                    textColor: [0, 0, 0]
-                },
-                headStyles: {
-                    fillColor: [245, 247, 250],
-                    textColor: [0, 0, 0],
-                    fontStyle: 'bold',
-                    lineColor: [200, 200, 200],
-                    lineWidth: 0.1
-                }
+                headStyles: { fillColor: [46, 125, 50], textColor: 255 },
+                styles: { fontSize: 10, cellPadding: 3 }
             });
         }
 

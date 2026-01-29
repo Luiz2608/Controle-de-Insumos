@@ -2262,9 +2262,9 @@
     
     <script src="api.js?v=FIX-BUTTON-22"></script>
     <script src="ui.js?v=FIX-BUTTON-22"></script>
-    <script src="import.js?v=CACHE-BUST-9999"></script>
-    <script src="app.js?v=CACHE-BUST-9999"></script>
-    <link rel="stylesheet" href="main.css?v=CACHE-BUST-9999">
+    <script src="import.js?v=CACHE-BUST-10000"></script>
+    <script src="app.js?v=CACHE-BUST-10000"></script>
+    <link rel="stylesheet" href="main.css?v=CACHE-BUST-10000">
     
     <script>
     // FIX DE EMERGÊNCIA - BYPASS DE CACHE PARA SAVE VIAGEM
@@ -2304,12 +2304,18 @@
             
             // alert(`DEBUG VALORES:\nData: ${data}\nFazenda: ${fazenda}\nProduto: ${produto}\nQtd: ${qtdStr} -> ${quantidadeTotalNum}`);
 
+            // Reset errors
+            ['viagem-data', 'viagem-fazenda', 'viagem-produto', 'viagem-quantidade-total'].forEach(id => {
+                const el = document.getElementById(prefix + id);
+                if (el) el.classList.remove('input-error');
+            });
+
             if (!data || !fazenda || !produto || isNaN(quantidadeTotalNum)) {
                 let missing = [];
-                if (!data) missing.push('Data');
-                if (!fazenda) missing.push('Fazenda');
-                if (!produto) missing.push('Produto');
-                if (isNaN(quantidadeTotalNum)) missing.push('Quantidade');
+                if (!data) { missing.push('Data'); document.getElementById(prefix + 'viagem-data')?.classList.add('input-error'); }
+                if (!fazenda) { missing.push('Fazenda'); document.getElementById(prefix + 'viagem-fazenda')?.classList.add('input-error'); }
+                if (!produto) { missing.push('Produto'); document.getElementById(prefix + 'viagem-produto')?.classList.add('input-error'); }
+                if (isNaN(quantidadeTotalNum)) { missing.push('Quantidade'); document.getElementById(prefix + 'viagem-quantidade-total')?.classList.add('input-error'); }
                 
                 // alert('DEBUG: Falta campos: ' + missing.join(', '));
                 console.warn('Campos obrigatórios ausentes:', missing);
