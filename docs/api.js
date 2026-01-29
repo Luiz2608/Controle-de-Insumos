@@ -691,6 +691,20 @@ class ApiService {
         return { success: true };
     }
 
+    async deleteInsumosByOS(osNumero) {
+        this.checkConfig();
+        // Deleta insumos associados à OS (pelo campo 'os' ou 'numero_os')
+        // O campo 'os' é o padrão usado no import
+        const { error } = await this.supabase
+            .from('insumos_fazendas')
+            .delete()
+            .or(`os.eq.${osNumero},numero_os.eq.${osNumero}`);
+        
+        if (error) throw error;
+        await this.logAction('DELETE_INSUMOS_BY_OS', { osNumero });
+        return { success: true };
+    }
+
     async addInsumoFazenda(payload) {
         this.checkConfig();
         const item = {
@@ -976,6 +990,17 @@ class ApiService {
     async getEstoque() {
         this.checkConfig();
         const { data, error } = await this.supabase.from('estoque').select('*');
+        if (error) throw error;
+        return { success: true, data };
+    }
+
+    async getEstoqueByFrente(frente) {
+        this.checkConfig();
+        const { data, error } = await this.supabase
+            .from('estoque')
+            .select('*')
+            .eq('frente', frente);
+            
         if (error) throw error;
         return { success: true, data };
     }

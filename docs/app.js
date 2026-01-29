@@ -3969,6 +3969,28 @@ forceReloadAllData() {
                 console.error('Erro ao buscar viagens_adubo:', errViagem);
             }
 
+            // 4. Limpeza de registros obsoletos (Produtos que não existem mais nas OSs/Imports)
+            try {
+                // Busca apenas estoque desta frente para verificar o que deve ser removido
+                const estoqueAtual = await this.api.getEstoqueByFrente(frente);
+                if (estoqueAtual.success && estoqueAtual.data) {
+                    // Identifica produtos que estão no banco mas não estão no novo cálculo (totais)
+                    const itemsToDelete = estoqueAtual.data.filter(item => 
+                        !totais.hasOwnProperty(item.produto)
+                    );
+
+                    if (itemsToDelete.length > 0) {
+                        console.log(`🗑️ Removendo ${itemsToDelete.length} itens obsoletos do estoque da frente ${frente}...`);
+                        const deletePromises = itemsToDelete.map(item => 
+                            this.api.deleteEstoque(item.frente, item.produto)
+                        );
+                        await Promise.all(deletePromises);
+                    }
+                }
+            } catch (errCleanup) {
+                console.error('Erro na limpeza de estoque:', errCleanup);
+            }
+
             // Salvar no Estoque
             const promises = Object.entries(totais).map(([key, qtd]) => {
                 let prodToSave = key;
@@ -8980,6 +9002,8 @@ InsumosApp.prototype.loadEstoqueAndRender = async function() {
             const twoDaysAgo = new Date(); // Janela para alertas de overdose recentes
             twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
 
+            let earliestDateInWindow = new Date(); // Para calcular divisor dinâmico
+
             importList.forEach(item => {
                 if (!item.produto) return;
                 
@@ -9012,12 +9036,22 @@ InsumosApp.prototype.loadEstoqueAndRender = async function() {
                     const pName = item.produto.trim();
                     if (!consumptionStats[pName]) consumptionStats[pName] = 0;
                     consumptionStats[pName] += qtd;
+
+                    // Rastrear a data mais antiga com consumo para ajustar a média
+                    if (date < earliestDateInWindow) earliestDateInWindow = date;
                 }
             });
             
-            // Média diária
+            // Calcular divisor dinâmico (se começou a usar há 5 dias, divide por 5, não 30)
+            const now = new Date();
+            let daysDivisor = Math.ceil((now - earliestDateInWindow) / (1000 * 60 * 60 * 24));
+            if (daysDivisor < 1) daysDivisor = 1;
+            if (daysDivisor > 30) daysDivisor = 30;
+            // console.log(`Divisor de dias calculado: ${daysDivisor} (Baseado em ${earliestDateInWindow.toLocaleDateString()})`);
+
+            // Média diária ajustada
             Object.keys(consumptionStats).forEach(key => {
-                consumptionStats[key] = consumptionStats[key] / 30;
+                consumptionStats[key] = consumptionStats[key] / daysDivisor;
             });
 
             // === PREPARAÇÃO DOS GRÁFICOS ===
