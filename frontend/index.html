@@ -2224,7 +2224,7 @@
             <div class="modal-footer" style="margin-top: 15px; display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid #eee; padding-top: 15px;">
                      <button type="button" class="btn btn-secondary" id="modal-btn-print-viagem-adubo" title="Imprimir Detalhes">🖨️ Imprimir</button>
                      <button type="button" class="btn btn-secondary close-viagem-adubo-modal">Cancelar</button>
-                     <button type="button" id="btn-save-viagem-fix" class="btn btn-primary" style="position: relative; z-index: 10000; cursor: pointer;" onclick="alert('DEBUG: Click OK!'); if(window.insumosApp) window.insumosApp.saveViagemAdubo(true); else alert('App loading...');">💾 Registrar Viagem</button>
+                     <button type="button" id="btn-save-viagem-fix" class="btn btn-primary" style="position: relative; z-index: 10000; cursor: pointer;" onclick="window.forceSaveViagemAdubo(true)">💾 Registrar Viagem</button>
                 </div>
         </div>
     </div>
@@ -2262,8 +2262,123 @@
     
     <script src="api.js?v=FIX-BUTTON-22"></script>
     <script src="ui.js?v=FIX-BUTTON-22"></script>
-    <script src="import.js?v=FIX-BUTTON-22"></script>
-    <script src="app.js?v=FIX-BUTTON-22"></script>
-    <link rel="stylesheet" href="main.css?v=FIX-BUTTON-22">
+    <script src="import.js?v=CACHE-BUST-9999"></script>
+    <script src="app.js?v=CACHE-BUST-9999"></script>
+    <link rel="stylesheet" href="main.css?v=CACHE-BUST-9999">
+    
+    <script>
+    // FIX DE EMERGÊNCIA - BYPASS DE CACHE PARA SAVE VIAGEM
+    window.forceSaveViagemAdubo = async function(isModal = false) {
+        //alert('DEBUG: forceSaveViagemAdubo INICIADO!');
+        
+        // UI Feedback for Modal Button
+        let btnSaveModal = null;
+        let originalText = '';
+        if (isModal) {
+            btnSaveModal = document.getElementById('btn-save-viagem-fix');
+            if (btnSaveModal) {
+                originalText = btnSaveModal.innerText;
+                btnSaveModal.innerText = 'Salvando...';
+                btnSaveModal.disabled = true;
+            }
+        }
+
+        try {
+            // Verificar dependências
+            if (!window.insumosApp || !window.insumosApp.api) {
+                 throw new Error('Sistema não inicializado corretamente. Recarregue a página.');
+            }
+            
+            const app = window.insumosApp;
+            const prefix = isModal ? 'modal-' : '';
+            const getVal = (id) => {
+                const el = document.getElementById(prefix + id);
+                return el ? el.value : '';
+            };
+
+            const data = getVal('viagem-data');
+            const fazenda = getVal('viagem-fazenda');
+            const produto = getVal('viagem-produto');
+            const qtdStr = getVal('viagem-quantidade-total');
+            const quantidadeTotalNum = parseFloat((qtdStr || '').toString().replace(',', '.'));
+            
+            // alert(`DEBUG VALORES:\nData: ${data}\nFazenda: ${fazenda}\nProduto: ${produto}\nQtd: ${qtdStr} -> ${quantidadeTotalNum}`);
+
+            if (!data || !fazenda || !produto || isNaN(quantidadeTotalNum)) {
+                let missing = [];
+                if (!data) missing.push('Data');
+                if (!fazenda) missing.push('Fazenda');
+                if (!produto) missing.push('Produto');
+                if (isNaN(quantidadeTotalNum)) missing.push('Quantidade');
+                
+                // alert('DEBUG: Falta campos: ' + missing.join(', '));
+                console.warn('Campos obrigatórios ausentes:', missing);
+                if (app.ui && app.ui.showNotification) {
+                    app.ui.showNotification(`Preencha os campos obrigatórios: ${missing.join(', ')}`, 'warning');
+                }
+                return; 
+            }
+     
+            const payload = {
+                transportType: 'adubo',
+                data: data,
+                frente: getVal('viagem-frente'),
+                fazenda: fazenda,
+                origem: getVal('viagem-origem'),
+                destino: getVal('viagem-destino'),
+                produto: produto,
+                quantidadeTotal: quantidadeTotalNum,
+                unidade: getVal('viagem-unidade'),
+                caminhao: getVal('viagem-caminhao'),
+                carreta1: getVal('viagem-carreta1'),
+                carreta2: getVal('viagem-carreta2'),
+                motorista: getVal('viagem-motorista'),
+                documentoMotorista: getVal('viagem-documento-motorista'),
+                transportadora: getVal('viagem-transportadora'),
+                observacoes: getVal('viagem-observacoes'),
+                bags: app.viagensAduboBagsDraft || []
+            };
+            
+            let res;
+            if (app.currentViagemAduboId) {
+                res = await app.api.updateViagemAdubo(app.currentViagemAduboId, payload);
+            } else {
+                res = await app.api.addViagemAdubo(payload);
+            }
+
+            if (res.success) {
+                if (app.ui) app.ui.showNotification('Viagem salva com sucesso!', 'success');
+                
+                // Update Stock logic
+                if (payload.frente) {
+                    try {
+                        if (typeof app.updateEstoqueFromOS === 'function') {
+                            await app.updateEstoqueFromOS(payload.frente);
+                        }
+                        if (typeof app.loadEstoqueAndRender === 'function') {
+                            await app.loadEstoqueAndRender();
+                        }
+                    } catch (stockErr) {
+                        console.error('Erro ao atualizar estoque:', stockErr);
+                    }
+                }
+
+                const modal = document.getElementById('modal-viagem-adubo');
+                if (modal) modal.style.display = 'none';
+                app.loadViagensAdubo();
+            } else {
+                throw new Error(res.message);
+            }
+        } catch (error) {
+            console.error('Error saving Viagem Adubo:', error);
+            alert('Erro ao salvar: ' + error.message);
+        } finally {
+            if (btnSaveModal) {
+                btnSaveModal.innerText = originalText;
+                btnSaveModal.disabled = false;
+            }
+        }
+    };
+    </script>
 </body>
 </html>
