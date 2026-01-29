@@ -7,67 +7,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
-    <link rel="stylesheet" href="main.css?v=FIX-LAYOUT-5">
-    <style>
-        /* Theme specific style */
-        body.dark-mode .header-container-theme {
-            background-color: #2c2c2c !important;
-            color: #fff;
-            border: 1px solid #444;
-        }
-        body:not(.dark-mode) .header-container-theme {
-            background-color: #fff !important;
-        }
-
-        /* Summary block theme */
-        body.dark-mode .summary-block-theme {
-            background-color: #333 !important;
-            color: #eee;
-            border-color: #555 !important;
-        }
-        body:not(.dark-mode) .summary-block-theme {
-            background-color: #f8f9fa !important;
-            color: #333;
-        }
-
-        /* Sticky Table Header for Composto Modal */
-        #modal-transporte-composto .table-container {
-            overflow-y: auto;
-            max-height: 250px; /* Increased slightly */
-        }
-        #modal-transporte-composto .table-container thead th {
-            position: sticky;
-            top: 0;
-            z-index: 10;
-            /* Ensure background is opaque so content doesn't show through */
-            background-color: var(--bg-card, #fff); 
-            box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.4);
-        }
-        body.dark-mode #modal-transporte-composto .table-container thead th {
-            background-color: #2c2c2c; /* Match dark card bg */
-            color: #eee;
-        }
-        body:not(.dark-mode) #modal-transporte-composto .table-container thead th {
-            background-color: #f8f9fa;
-            color: #333;
-        }
-
-        /* Sticky Modal Header for Composto */
-        #modal-transporte-composto .modal-header {
-            position: sticky;
-            top: 0;
-            z-index: 20; /* Higher than table header (10) */
-            background-color: #fff;
-            border-bottom: 1px solid #eee;
-            /* Compensate for modal-content padding (25px) */
-            margin: -25px -25px 20px -25px;
-            padding: 20px 25px;
-        }
-        body.dark-mode #modal-transporte-composto .modal-header {
-            background-color: #2c2c2c;
-            border-bottom-color: #444;
-        }
-    </style>
+    <link rel="stylesheet" href="main.css?v=PLANTIO-DETAILS-20">
 </head>
 <body>
     <div class="app-container">
@@ -1105,6 +1045,20 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" id="viagem-detail-cancel">Fechar</button>
                 <button type="button" class="btn btn-primary" id="viagem-detail-print">🖨️ Imprimir</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Detalhes do Plantio -->
+    <div id="plantio-detail-modal" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h3 id="plantio-detail-title">Detalhes do Plantio</h3>
+                <button class="close-modal" onclick="document.getElementById('plantio-detail-modal').style.display='none'">&times;</button>
+            </div>
+            <div class="modal-body" id="plantio-detail-body"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="document.getElementById('plantio-detail-modal').style.display='none'">Fechar</button>
             </div>
         </div>
     </div>
@@ -2322,7 +2276,7 @@
     <script src="api.js?v=FIX-BUTTON-22"></script>
     <script src="ui.js?v=FIX-BUTTON-22"></script>
     <script src="import.js?v=CACHE-BUST-10000"></script>
-    <script src="app.js?v=CACHE-BUST-10000"></script>
+    <script src="app.js?v=PLANTIO-DETAILS-19"></script>
     <link rel="stylesheet" href="main.css?v=CACHE-BUST-10000">
     
     <script>

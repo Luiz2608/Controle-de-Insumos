@@ -7,67 +7,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
-    <link rel="stylesheet" href="main.css?v=FIX-LAYOUT-5">
-    <style>
-        /* Theme specific style */
-        body.dark-mode .header-container-theme {
-            background-color: #2c2c2c !important;
-            color: #fff;
-            border: 1px solid #444;
-        }
-        body:not(.dark-mode) .header-container-theme {
-            background-color: #fff !important;
-        }
-
-        /* Summary block theme */
-        body.dark-mode .summary-block-theme {
-            background-color: #333 !important;
-            color: #eee;
-            border-color: #555 !important;
-        }
-        body:not(.dark-mode) .summary-block-theme {
-            background-color: #f8f9fa !important;
-            color: #333;
-        }
-
-        /* Sticky Table Header for Composto Modal */
-        #modal-transporte-composto .table-container {
-            overflow-y: auto;
-            max-height: 250px; /* Increased slightly */
-        }
-        #modal-transporte-composto .table-container thead th {
-            position: sticky;
-            top: 0;
-            z-index: 10;
-            /* Ensure background is opaque so content doesn't show through */
-            background-color: var(--bg-card, #fff); 
-            box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.4);
-        }
-        body.dark-mode #modal-transporte-composto .table-container thead th {
-            background-color: #2c2c2c; /* Match dark card bg */
-            color: #eee;
-        }
-        body:not(.dark-mode) #modal-transporte-composto .table-container thead th {
-            background-color: #f8f9fa;
-            color: #333;
-        }
-
-        /* Sticky Modal Header for Composto */
-        #modal-transporte-composto .modal-header {
-            position: sticky;
-            top: 0;
-            z-index: 20; /* Higher than table header (10) */
-            background-color: #fff;
-            border-bottom: 1px solid #eee;
-            /* Compensate for modal-content padding (25px) */
-            margin: -25px -25px 20px -25px;
-            padding: 20px 25px;
-        }
-        body.dark-mode #modal-transporte-composto .modal-header {
-            background-color: #2c2c2c;
-            border-bottom-color: #444;
-        }
-    </style>
+    <link rel="stylesheet" href="main.css?v=PLANTIO-DETAILS-20">
 </head>
 <body>
     <div class="app-container">
@@ -1059,6 +999,7 @@
                         <button class="btn btn-secondary" id="btn-open-fazendas-modal">🚜 Fazendas</button>
                         <button class="btn btn-secondary" id="btn-liberacao-colheita">🌾 Liberação Colheita</button>
                         <button class="btn btn-primary" id="btn-novo-lancamento">➕ Novo Plantio</button>
+                        <button class="btn btn-primary" id="btn-nova-colheita-muda" style="background-color: #d63384; border-color: #d63384;">🌾 Nova Colheita de Muda</button>
                     </div>
                 </div>
                 <div class="table-container" style="flex: 1; overflow-y: auto;">
@@ -1104,6 +1045,20 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" id="viagem-detail-cancel">Fechar</button>
                 <button type="button" class="btn btn-primary" id="viagem-detail-print">🖨️ Imprimir</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Detalhes do Plantio -->
+    <div id="plantio-detail-modal" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h3 id="plantio-detail-title">Detalhes do Plantio</h3>
+                <button class="close-modal" onclick="document.getElementById('plantio-detail-modal').style.display='none'">&times;</button>
+            </div>
+            <div class="modal-body" id="plantio-detail-body"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="document.getElementById('plantio-detail-modal').style.display='none'">Fechar</button>
             </div>
         </div>
     </div>
@@ -1477,99 +1432,133 @@
 
     <!-- Modal Liberação de Colheita -->
     <div id="liberacao-modal" class="modal" style="display: none;">
-        <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-content" style="max-width: 90%;">
             <div class="modal-header">
                 <h3>🌾 Liberação de Colheita de Muda</h3>
                 <button class="close-modal close-liberacao-modal">&times;</button>
             </div>
-            <div class="modal-body">
-                <form id="liberacao-form">
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label for="liberacao-numero">Número Liberação</label>
-                            <input type="text" id="liberacao-numero" placeholder="Nº Liberação" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="liberacao-data">Data</label>
-                            <input type="date" id="liberacao-data" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="liberacao-frente">Frente (OS)</label>
-                            <select id="liberacao-frente" required>
-                                <option value="">Selecione...</option>
-                                <!-- Populated via JS -->
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="liberacao-fazenda">Fazenda</label>
-                            <select id="liberacao-fazenda" required>
-                                <option value="">Selecione a Fazenda...</option>
-                                <!-- Populated via JS -->
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="liberacao-cod-fazenda">Cód. Fazenda</label>
-                            <input type="text" id="liberacao-cod-fazenda" readonly style="background: #f0f0f0;">
-                        </div>
-                        <div class="form-group">
-                            <label for="liberacao-status">Status</label>
-                            <select id="liberacao-status">
-                                <option value="Aberto">Aberto</option>
-                                <option value="Fechado">Fechado</option>
-                            </select>
-                        </div>
+            <div class="modal-body" style="overflow-y: auto; max-height: 80vh;">
+                
+                <!-- LIST VIEW -->
+                <div id="liberacao-view-list">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h4 style="margin:0;">Liberações Cadastradas</h4>
+                        <button class="btn btn-primary" id="btn-nova-liberacao">➕ Nova Liberação</button>
                     </div>
-
-                    <h5 style="margin: 15px 0 5px 0;">Talhões</h5>
-                    <div class="form-grid" style="grid-template-columns: 1fr 1fr 1fr auto; align-items: end; margin-bottom: 10px;">
-                        <div class="form-group">
-                            <label for="liberacao-talhao-add">Talhão</label>
-                            <select id="liberacao-talhao-add">
-                                <option value="">Selecione...</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="liberacao-variedade-add">Variedade</label>
-                            <input type="text" id="liberacao-variedade-add" placeholder="Variedade">
-                        </div>
-                        <div class="form-group">
-                            <label for="liberacao-area-add">Área (ha)</label>
-                            <input type="number" id="liberacao-area-add" step="0.01" placeholder="0.00">
-                        </div>
-                        <button type="button" class="btn btn-secondary" id="btn-add-liberacao-talhao">Adicionar</button>
-                    </div>
-
-                    <div class="table-container" style="max-height: 150px; overflow-y: auto;">
+                    <div class="table-container">
                         <table class="data-table">
                             <thead>
                                 <tr>
-                                    <th>Talhão</th>
-                                    <th>Variedade</th>
-                                    <th>Área (ha)</th>
-                                    <th>Ação</th>
+                                    <th>Número</th>
+                                    <th>Data</th>
+                                    <th>Frente</th>
+                                    <th>Fazenda</th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
                                 </tr>
                             </thead>
-                            <tbody id="liberacao-talhoes-body">
-                                <!-- JS -->
+                            <tbody id="liberacao-list-body">
+                                <tr><td colspan="6" class="loading">Carregando...</td></tr>
                             </tbody>
-                            <tfoot>
-                                <tr>
-                                    <td colspan="2" style="text-align: right; font-weight: bold;">Total:</td>
-                                    <td colspan="2" id="liberacao-total-ha" style="font-weight: bold;">0.00 ha</td>
-                                </tr>
-                            </tfoot>
                         </table>
                     </div>
+                </div>
 
-                    <div class="form-group full-width" style="margin-top: 15px;">
-                        <label for="liberacao-obs">Observações</label>
-                        <textarea id="liberacao-obs" rows="3" style="width: 100%; border: 1px solid var(--border); border-radius: 8px; padding: 8px; font-family: inherit;"></textarea>
-                    </div>
-                </form>
+                <!-- FORM VIEW -->
+                <div id="liberacao-view-form" style="display:none;">
+                    <button class="btn btn-secondary" id="btn-voltar-liberacao-list" style="margin-bottom: 15px;">⬅ Voltar para Lista</button>
+
+                    <form id="liberacao-form">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="liberacao-numero">Número Liberação</label>
+                                <input type="text" id="liberacao-numero" placeholder="Nº Liberação" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="liberacao-data">Data</label>
+                                <input type="date" id="liberacao-data" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="liberacao-frente">Frente (OS)</label>
+                                <select id="liberacao-frente" required>
+                                    <option value="">Selecione...</option>
+                                    <!-- Populated via JS -->
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="liberacao-fazenda">Fazenda</label>
+                                <select id="liberacao-fazenda" required>
+                                    <option value="">Selecione a Fazenda...</option>
+                                    <!-- Populated via JS -->
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="liberacao-cod-fazenda">Cód. Fazenda</label>
+                                <input type="text" id="liberacao-cod-fazenda" readonly style="background: #f0f0f0;">
+                            </div>
+                            <div class="form-group">
+                                <label for="liberacao-status">Status</label>
+                                <select id="liberacao-status">
+                                    <option value="Aberto">Aberto</option>
+                                    <option value="Fechado">Fechado</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <h5 style="margin: 15px 0 5px 0;">Talhões</h5>
+                        <div class="form-grid" style="grid-template-columns: 1fr 1fr 1fr auto; align-items: end; margin-bottom: 10px;">
+                            <div class="form-group">
+                                <label for="liberacao-talhao-add">Talhão</label>
+                                <select id="liberacao-talhao-add">
+                                    <option value="">Selecione...</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="liberacao-variedade-add">Variedade</label>
+                                <input type="text" id="liberacao-variedade-add" placeholder="Variedade">
+                            </div>
+                            <div class="form-group">
+                                <label for="liberacao-area-add">Área (ha)</label>
+                                <input type="number" id="liberacao-area-add" step="0.01" placeholder="0.00">
+                            </div>
+                            <button type="button" class="btn btn-secondary" id="btn-add-liberacao-talhao">Adicionar</button>
+                        </div>
+
+                        <div class="table-container" style="max-height: 150px; overflow-y: auto;">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Talhão</th>
+                                        <th>Variedade</th>
+                                        <th>Área (ha)</th>
+                                        <th>Ação</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="liberacao-talhoes-body">
+                                    <!-- JS -->
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td colspan="2" style="text-align: right; font-weight: bold;">Total:</td>
+                                        <td colspan="2" id="liberacao-total-ha" style="font-weight: bold;">0.00 ha</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+
+                        <div class="form-group full-width" style="margin-top: 15px;">
+                            <label for="liberacao-obs">Observações</label>
+                            <textarea id="liberacao-obs" rows="3" style="width: 100%; border: 1px solid var(--border); border-radius: 8px; padding: 8px; font-family: inherit;"></textarea>
+                        </div>
+                        
+                        <div style="margin-top:20px;display:flex;gap:10px;justify-content:flex-end;">
+                            <button type="button" class="btn btn-primary" id="btn-save-liberacao">💾 Salvar Liberação</button>
+                        </div>
+                    </form>
+                </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary close-liberacao-modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" id="btn-save-liberacao">💾 Salvar Liberação</button>
+                <button type="button" class="btn btn-secondary close-liberacao-modal">Fechar</button>
             </div>
         </div>
     </div>
@@ -2285,7 +2274,7 @@
     <script src="api.js?v=FIX-BUTTON-22"></script>
     <script src="ui.js?v=FIX-BUTTON-22"></script>
     <script src="import.js?v=CACHE-BUST-10000"></script>
-    <script src="app.js?v=CACHE-BUST-10000"></script>
+    <script src="app.js?v=PLANTIO-DETAILS-19"></script>
     <link rel="stylesheet" href="main.css?v=CACHE-BUST-10000">
     
     <script>

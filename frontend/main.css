@@ -2,8 +2,8 @@
     --primary: #2E7D32; /* Green 800 */
     --primary-dark: #1B5E20; /* Green 900 */
     --primary-light: #4CAF50; /* Green 500 */
-    --secondary: #FF6F00; /* Amber 900 */
-    --accent: #2196F3; /* Blue 500 */
+    --secondary: #6c757d; /* Gray 600 - Standard Bootstrap Secondary */
+    --accent: #00796b; /* Teal 700 */
     --background: #f8f9fa; /* Light Gray */
     --surface: #ffffff;
     --text: #2c3e50;
@@ -39,7 +39,6 @@ body {
     flex-direction: column;
     overflow-x: hidden;
     overflow-y: auto;
-    background-image: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
 }
 
 /* Scrollbar */
@@ -416,8 +415,8 @@ body {
 .manual-entry-group input:focus, .manual-entry-group select:focus,
 .filters input:focus, .filters select:focus {
     outline: none;
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.1);
 }
 
 /* Buttons */
@@ -451,6 +450,7 @@ body {
 }
 .btn-secondary:hover {
     background: rgba(46, 125, 50, 0.05);
+    color: var(--primary-dark);
 }
 
 .btn-danger {
@@ -477,7 +477,7 @@ body {
     width: 60px;
     height: 60px;
     border-radius: 30px;
-    background: var(--secondary);
+    background: var(--accent);
     color: white;
     font-size: 24px;
     display: flex;
@@ -685,6 +685,8 @@ body.dark-mode {
     --primary: #4CAF50;
     --primary-dark: #81C784;
     --primary-light: #2E7D32;
+    --secondary: #adb5bd; /* Gray 500 */
+    --accent: #26a69a; /* Teal 400 */
     --background: #121212;
     --surface: #1e1e1e;
     --text: #e0e0e0;
@@ -692,7 +694,6 @@ body.dark-mode {
     --border: #333;
     --shadow: 0 4px 6px -1px rgba(0,0,0,0.3);
     --table-header-bg: #2d2d2d;
-    background-image: linear-gradient(to bottom right, #121212, #0d1b10);
 }
 
 /* Comprehensive Dark Mode Fixes */
@@ -784,12 +785,10 @@ body.dark-mode ::-webkit-scrollbar-thumb:hover {
     align-items: center;
     justify-content: center;
     background: #f0f2f5;
-    background-image: linear-gradient(to bottom right, #f0f2f5, #e3f2fd);
 }
 
 body.dark-mode .login-screen {
     background: #121212;
-    background-image: linear-gradient(to bottom right, #121212, #0d1b10);
 }
 
 .login-box {
@@ -897,3 +896,153 @@ body.dark-mode .text-danger {
 body.dark-mode .text-success {
     color: #66bb6a !important; /* Lighter Green */
 }
+
+/* Print Container - Modal Style for Preview */
+#report-print-container {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: white;
+    z-index: 9999;
+    overflow: auto;
+    color: black;
+}
+
+/* Print Specific Styles */
+@media print {
+    body * {
+        visibility: hidden;
+    }
+    #report-print-container, #report-print-container * {
+        visibility: visible;
+    }
+    #report-print-container {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        background: white;
+        display: block !important;
+    }
+    .no-print {
+        display: none !important;
+    }
+}
+/* --- Plantio Details Modal Styles --- */
+.plantio-details-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 10px;
+}
+
+.details-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.details-card h5 {
+    margin: 0 0 15px 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    color: var(--primary);
+    font-size: 1.1em;
+    font-weight: 600;
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+}
+
+.info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.info-item strong {
+    color: var(--text-light);
+    font-size: 0.9em;
+}
+
+.details-inner-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9em;
+}
+
+.details-inner-table th {
+    text-align: left;
+    padding: 10px;
+    background-color: rgba(0,0,0,0.02);
+    color: var(--text-light);
+    font-weight: 600;
+    border-bottom: 2px solid var(--border);
+}
+
+.details-inner-table td {
+    padding: 10px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+}
+
+.details-inner-table tr:last-child td {
+    border-bottom: none;
+}
+
+.quality-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 15px;
+}
+
+.quality-item {
+    background: rgba(0,0,0,0.02);
+    padding: 10px;
+    border-radius: 8px;
+    text-align: center;
+    border: 1px solid transparent;
+    transition: border-color 0.2s;
+}
+
+.quality-item:hover {
+    border-color: var(--border);
+}
+
+.quality-item .label {
+    font-size: 0.8em;
+    color: var(--text-light);
+    margin-bottom: 5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.quality-item .value {
+    font-size: 1.1em;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.quality-item .sub-value {
+    font-size: 0.8em;
+    color: var(--text-light);
+    margin-left: 5px;
+    font-weight: normal;
+}
+
+/* Flex utilities for card layout */
+.flex-1 { flex: 1; }
+.flex-2 { flex: 2; }
+.full-width { width: 100%; }
+

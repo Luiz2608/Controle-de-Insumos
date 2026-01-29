@@ -715,7 +715,39 @@ class ApiService {
         this.checkConfig();
         const { data, error } = await this.supabase.from('fazendas').select('*');
         if (error) throw error;
-        return { success: true, data };
+        
+        const parsedData = data.map(f => {
+            let talhoes = [];
+            let obs = f.observacoes || '';
+            
+            const markerStart = '__SYSTEM_TALHOES__';
+            const markerEnd = '__END_TALHOES__';
+            
+            if (obs.includes(markerStart)) {
+                try {
+                    const start = obs.indexOf(markerStart);
+                    const end = obs.indexOf(markerEnd);
+                    if (end > start) {
+                        const jsonStr = obs.substring(start + markerStart.length, end);
+                        talhoes = JSON.parse(jsonStr);
+                        // Clean observacoes for display
+                        obs = obs.substring(0, start) + obs.substring(end + markerEnd.length);
+                        obs = obs.trim();
+                    }
+                } catch (e) {
+                    console.error('Error parsing hidden talhoes', e);
+                }
+            }
+            
+            return {
+                ...f,
+                talhoes: talhoes.length > 0 ? talhoes : (f.talhoes || []),
+                observacoes: obs,
+                _raw_observacoes: f.observacoes
+            };
+        });
+
+        return { success: true, data: parsedData };
     }
 
     async getProdutos() {
@@ -725,6 +757,14 @@ class ApiService {
 
     async createFazenda(payload) {
         this.checkConfig();
+        
+        // Handle talhoes storage in observacoes (hack for missing column)
+        let obs = payload.observacoes || '';
+        if (payload.talhoes && Array.isArray(payload.talhoes) && payload.talhoes.length > 0) {
+            const talhoesStr = JSON.stringify(payload.talhoes);
+            obs += `\n__SYSTEM_TALHOES__${talhoesStr}__END_TALHOES__`;
+        }
+
         // Mapeamento camelCase -> snake_case se necessário
         const item = {
             codigo: payload.codigo,
@@ -734,7 +774,7 @@ class ApiService {
             plantio_acumulado: payload.plantioAcumulado || payload.plantio_acumulado,
             muda_acumulada: payload.mudaAcumulada || payload.muda_acumulada,
             cobricao_acumulada: payload.cobricaoAcumulada || payload.cobricao_acumulada,
-            observacoes: payload.observacoes
+            observacoes: obs
         };
 
         // Usar upsert para evitar erro 409 (Conflict) se o código já existir
@@ -758,7 +798,37 @@ class ApiService {
         if (payload.plantioAcumulado !== undefined) updates.plantio_acumulado = payload.plantioAcumulado;
         if (payload.mudaAcumulada !== undefined) updates.muda_acumulada = payload.mudaAcumulada;
         if (payload.cobricaoAcumulada !== undefined) updates.cobricao_acumulada = payload.cobricaoAcumulada;
-        if (payload.observacoes) updates.observacoes = payload.observacoes;
+        
+        // Handle talhoes preservation in observacoes
+        if (payload.observacoes !== undefined || payload.talhoes !== undefined) {
+             let newObs = payload.observacoes;
+             let newTalhoes = payload.talhoes;
+             
+             // If we are updating observations but NOT providing talhoes, we must preserve existing talhoes
+             if (newObs !== undefined && newTalhoes === undefined) {
+                 // Fetch current to get hidden talhoes
+                 const { data: current } = await this.supabase.from('fazendas').select('observacoes').eq('codigo', codigo).single();
+                 if (current && current.observacoes) {
+                     const markerStart = '__SYSTEM_TALHOES__';
+                     const markerEnd = '__END_TALHOES__';
+                     if (current.observacoes.includes(markerStart)) {
+                         const start = current.observacoes.indexOf(markerStart);
+                         const end = current.observacoes.indexOf(markerEnd);
+                         if (end > start) {
+                             const hiddenStr = current.observacoes.substring(start, end + markerEnd.length);
+                             // Append hidden string to new observations
+                             newObs = (newObs || '') + '\n' + hiddenStr;
+                         }
+                     }
+                 }
+             } else if (newTalhoes && Array.isArray(newTalhoes)) {
+                 // We have new talhoes, encode them
+                 const talhoesStr = JSON.stringify(newTalhoes);
+                 newObs = (newObs || '') + `\n__SYSTEM_TALHOES__${talhoesStr}__END_TALHOES__`;
+             }
+             
+             if (newObs !== undefined) updates.observacoes = newObs;
+        }
 
         const { data, error } = await this.supabase.from('fazendas').update(updates).eq('codigo', codigo).select();
         if (error) throw error;
