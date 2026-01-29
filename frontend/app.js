@@ -8882,18 +8882,17 @@ InsumosApp.prototype.loadEstoqueAndRender = async function() {
         try {
             const [resEstoque, resOS, resImport] = await Promise.all([
                 this.api.getEstoque(),
-                this.api.getOSList(), // Busca OSs para saber todas as frentes possíveis
-                this.api.supabase.from('insumos_fazendas').select('os, frente, produto').not('os', 'is', null)
+                this.api.getOSList(), 
+                this.api.getInsumosFazendas()
             ]);
 
             if (!resEstoque || !resEstoque.success) { this.isLoadingEstoque = false; return; }
             
-            // Dados vêm como array de objetos do Supabase: [{frente, produto, quantidade, os_numero, data_cadastro}, ...]
             const estoqueList = Array.isArray(resEstoque.data) ? resEstoque.data : [];
             const osList = (resOS && resOS.success && Array.isArray(resOS.data)) ? resOS.data : [];
-            const importList = (resImport && Array.isArray(resImport.data)) ? resImport.data : [];
+            const importList = (resImport && resImport.success && Array.isArray(resImport.data)) ? resImport.data : [];
 
-            // Processar nomes de produtos e OSs (extrair do formato PRODUTO__OS__NUMERO)
+            // Processar nomes de produtos e OSs
             estoqueList.forEach(item => {
                 if (item.produto && item.produto.includes('__OS__')) {
                     const parts = item.produto.split('__OS__');
@@ -8905,7 +8904,7 @@ InsumosApp.prototype.loadEstoqueAndRender = async function() {
                 }
             });
 
-            // Coletar frentes únicas de AMBOS (estoque, OS e importados) para popular filtros
+            // Coletar frentes únicas
             const frentesEstoque = estoqueList.map(e => e.frente).filter(Boolean);
             const frentesOS = osList.map(o => o.frente).filter(Boolean);
             const frentesImport = importList.map(i => i.frente).filter(Boolean);
@@ -8913,8 +8912,7 @@ InsumosApp.prototype.loadEstoqueAndRender = async function() {
                 a.localeCompare(b, undefined, {numeric: true, sensitivity: 'base'})
             );
 
-            // === DROPDOWNS POPULATION ===
-            // Popular filtro de Frente
+            // Helper para atualizar dropdowns
             const updateSelect = (id, options, includeAllOption = false) => {
                 const sel = document.getElementById(id);
                 if (!sel) return;
@@ -8928,7 +8926,6 @@ InsumosApp.prototype.loadEstoqueAndRender = async function() {
                     html += `<option value="${opt}">${opt}</option>`;
                 });
                 
-                // Só atualiza se mudou significativamente
                 if (sel.innerHTML.length < 50 || sel.options.length !== (options.length + (includeAllOption?1:1))) {
                      sel.innerHTML = html;
                      if (currentVal && (options.includes(currentVal) || currentVal === 'all')) {
@@ -8942,208 +8939,276 @@ InsumosApp.prototype.loadEstoqueAndRender = async function() {
             updateSelect('estoque-frente-filter', todasFrentes, true);
             updateSelect('estoque-frente', todasFrentes, false);
 
-        // Popular Dropdown de O.S. (Manual) - Incluindo OSs importadas
-        const osNumbersOS = osList.map(o => o.numero).filter(Boolean);
-        const osNumbersImport = importList.map(i => i.os).filter(Boolean);
-        const osNumbers = [...new Set([...osNumbersOS, ...osNumbersImport])].sort((a,b) => {
-             // Tenta ordenar numericamente se possível
-             const na = parseInt(a);
-             const nb = parseInt(b);
-             if (!isNaN(na) && !isNaN(nb)) return na - nb;
-             return String(a).localeCompare(String(b));
-        });
-        updateSelect('estoque-os-manual', osNumbers, false);
+            // Popular Dropdown de O.S. (Manual e Modal Adubo)
+            const osNumbersOS = osList.map(o => o.numero).filter(Boolean);
+            const osNumbersImport = importList.map(i => i.os).filter(Boolean);
+            const osNumbers = [...new Set([...osNumbersOS, ...osNumbersImport])].sort((a,b) => {
+                 const na = parseInt(a);
+                 const nb = parseInt(b);
+                 if (!isNaN(na) && !isNaN(nb)) return na - nb;
+                 return String(a).localeCompare(String(b));
+            });
+            updateSelect('estoque-os-manual', osNumbers, false);
+            // updateSelect('modal-viagem-adubo-os', osNumbers, false); // Removed: Handled by populateViagemAduboSelects with better formatting
 
-        // Popular Dropdown de PRODUTOS (novo)
-        // Coletar produtos únicos de AMBOS (estoque, OS e importados)
-        const prodsEstoque = estoqueList.map(e => e.produto).filter(Boolean);
-        const prodsImport = importList.map(i => i.produto).filter(Boolean);
-        const prodsOS = [];
-        osList.forEach(os => {
-            if (os.produtos && Array.isArray(os.produtos)) {
-                os.produtos.forEach(p => {
-                    if (p.produto) prodsOS.push(p.produto);
-                });
-            }
-        });
-
-        const todosProdutos = [...new Set([...prodsEstoque, ...prodsOS, ...prodsImport])].sort();
-        
-        // Atualizar dropdown de produtos manual
-        updateSelect('estoque-produto', todosProdutos, false);
-        
-        // Se a lista de produtos estiver vazia, adicionar alguns padrão
-        if (todosProdutos.length === 0) {
-            const padrao = ['BIOZYME', '04-30-10', 'QUALITY', 'AZOKOP', 'SURVEY (FIPRONIL)', 'OXIFERTIL', 'LANEX 800 WG (REGENTE)', 'COMET', 'COMPOSTO', '10-49-00', 'PEREGRINO', 'NO-NEMA'];
-             updateSelect('estoque-produto', padrao.sort(), false);
-        }
-
-        // === CHART PREPARATION ===
-        // Precisamos agrupar por frente para o gráfico
-        // Estrutura para gráfico: { 'Frente 1': { 'Produto A': 10 }, ... }
-        const estoqueMap = {};
-        estoqueList.forEach(item => {
-            if (!estoqueMap[item.frente]) estoqueMap[item.frente] = {};
-            // Se houver múltiplos registros do mesmo produto na mesma frente (não deveria pelo upsert key), somamos
-            // Mas o upsert key é (frente, produto), então deve ser único.
-            estoqueMap[item.frente][item.produto] = (estoqueMap[item.frente][item.produto] || 0) + (parseFloat(item.quantidade) || 0);
-        });
-
-        const ctx = document.getElementById('chart-estoque-frente');
-        if (ctx) {
-            // Destruir gráfico anterior para evitar sobreposição infinita
-            this.destroyChart('chart-estoque-frente', 'estoqueFrente');
-
-            if (!this._charts) this._charts = {};
-            let chartData;
-            
-            // Gradient
-            const gradientEstoque = this.createGradient(ctx, '#a855f7', '#7e22ce'); // Purple 500-700
-            
-            // Se o filtro atual não estiver na lista (ex: usuário digitou algo manual no filtro?), fallback para 'all'
-            // Mas o filtro é um select agora.
-            const currentFilter = document.getElementById('estoque-frente-filter')?.value || 'all';
-            this.estoqueFilters.frente = currentFilter;
-
-            if (this.estoqueFilters.frente === 'all') {
-                const aggregated = {};
-                Object.values(estoqueMap).forEach(prodMap => {
-                    Object.entries(prodMap).forEach(([prod, qtd]) => {
-                        aggregated[prod] = (aggregated[prod] || 0) + qtd;
+            // Popular Dropdown de PRODUTOS
+            const prodsEstoque = estoqueList.map(e => e.produto).filter(Boolean);
+            const prodsImport = importList.map(i => i.produto).filter(Boolean);
+            const prodsOS = [];
+            osList.forEach(os => {
+                if (os.produtos && Array.isArray(os.produtos)) {
+                    os.produtos.forEach(p => {
+                        if (p.produto) prodsOS.push(p.produto);
                     });
-                });
-                const rows = Object.entries(aggregated);
-                const filteredRows = this.estoqueFilters.produto ? rows.filter(([prod]) => prod.toLowerCase().includes(this.estoqueFilters.produto.toLowerCase())) : rows;
-                
-                // Sort by quantity desc
-                filteredRows.sort((a,b) => b[1] - a[1]);
-
-                // Limit to top 30 items to prevent "infinite" chart
-                const limitedRows = filteredRows.slice(0, 30);
-                if (filteredRows.length > 30) {
-                     const othersCount = filteredRows.slice(30).reduce((acc, [,v]) => acc + v, 0);
-                     limitedRows.push(['Outros...', othersCount]);
                 }
+            });
 
-                const labels = limitedRows.map(([prod]) => prod);
-                const values = limitedRows.map(([,v]) => v);
-                
-                chartData = { 
-                    labels, 
-                    datasets: [{ 
-                        label: 'Estoque Total (Todas as Frentes)', 
-                        data: values, 
-                        backgroundColor: gradientEstoque,
-                        borderRadius: 8,
-                        barPercentage: 0.7,
-                        categoryPercentage: 0.8
-                    }] 
-                };
-            } else {
-                const f = this.estoqueFilters.frente;
-                const byProd = estoqueMap[f] || {};
-                const rows = Object.entries(byProd);
-                const filteredRows = this.estoqueFilters.produto ? rows.filter(([prod]) => prod.toLowerCase().includes(this.estoqueFilters.produto.toLowerCase())) : rows;
-                
-                // Sort by quantity desc
-                filteredRows.sort((a,b) => b[1] - a[1]);
-
-                // Limit to top 30 items
-                const limitedRows = filteredRows.slice(0, 30);
-                if (filteredRows.length > 30) {
-                     const othersCount = filteredRows.slice(30).reduce((acc, [,v]) => acc + v, 0);
-                     limitedRows.push(['Outros...', othersCount]);
-                }
-
-                const labels = limitedRows.map(([prod]) => prod);
-                const values = limitedRows.map(([,v]) => v);
-                
-                chartData = { 
-                    labels, 
-                    datasets: [{ 
-                        label: `Estoque - ${f}`, 
-                        data: values, 
-                        backgroundColor: gradientEstoque,
-                        borderRadius: 8,
-                        barPercentage: 0.7,
-                        categoryPercentage: 0.8
-                    }] 
-                };
-            }
+            const todosProdutos = [...new Set([...prodsEstoque, ...prodsOS, ...prodsImport])].sort();
+            updateSelect('estoque-produto', todosProdutos, false);
             
-            // Só cria o gráfico se houver dados, senão apenas loga (ou mostra vazio se preferir, mas sem dados evita loop de render)
-            if (chartData && chartData.labels && chartData.labels.length > 0) {
-                this._charts.estoqueFrente = new Chart(ctx, { 
-                    type: 'bar', 
-                    data: chartData, 
-                    options: this.getCommonChartOptions({
-                        indexAxis: 'y',
-                        scales: { x: { grid: { display: false } } },
-                        plugins: {
-                            tooltip: {
-                                callbacks: {
-                                    label: (context) => {
-                                        let label = context.dataset.label || '';
-                                        if (label) label += ': ';
-                                        if (context.parsed.x !== null) label += context.parsed.x.toLocaleString('pt-BR');
-                                        return label;
-                                    }
-                                }
+            if (todosProdutos.length === 0) {
+                const padrao = ['BIOZYME', '04-30-10', 'QUALITY', 'AZOKOP', 'SURVEY (FIPRONIL)', 'OXIFERTIL', 'LANEX 800 WG (REGENTE)', 'COMET', 'COMPOSTO', '10-49-00', 'PEREGRINO', 'NO-NEMA'];
+                 updateSelect('estoque-produto', padrao.sort(), false);
+            }
+
+            // === CÁLCULO DE CONSUMO DIÁRIO (Últimos 30 dias) & DETECÇÃO DE OVERDOSE ===
+            const consumptionStats = {};
+            const overdoseList = []; // Lista para alertas de dose excedida
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+            
+            const twoDaysAgo = new Date(); // Janela para alertas de overdose recentes
+            twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+
+            importList.forEach(item => {
+                if (!item.produto) return;
+                
+                const dateStr = item.dataInicio || item.data_inicio || item.inicio;
+                const date = dateStr ? new Date(dateStr) : null;
+
+                // Verificação de Overdose (Dose Aplicada > Dose Recomendada)
+                const doseRec = parseFloat(item.doseRecomendada || item.dose_recomendada || 0);
+                const doseApp = parseFloat(item.doseAplicada || item.dose_aplicada || 0);
+                
+                if (date && date >= twoDaysAgo && doseRec > 0 && doseApp > doseRec) {
+                     const excessPct = ((doseApp / doseRec) - 1) * 100;
+                     // Apenas alertar se exceder 2% (margem de erro/arredondamento)
+                     if (excessPct > 2) { 
+                         overdoseList.push({
+                             produto: item.produto,
+                             fazenda: item.fazenda || 'N/A',
+                             talhao: item.talhao || item.frente || 'N/A',
+                             doseRec: doseRec,
+                             doseApp: doseApp,
+                             pct: excessPct.toFixed(1)
+                         });
+                     }
+                }
+
+                const qtd = parseFloat(item.quantidadeAplicada || item.quantidade_aplicada || 0);
+                if (qtd <= 0) return;
+
+                if (date && date >= thirtyDaysAgo) {
+                    const pName = item.produto.trim();
+                    if (!consumptionStats[pName]) consumptionStats[pName] = 0;
+                    consumptionStats[pName] += qtd;
+                }
+            });
+            
+            // Média diária
+            Object.keys(consumptionStats).forEach(key => {
+                consumptionStats[key] = consumptionStats[key] / 30;
+            });
+
+            // === PREPARAÇÃO DOS GRÁFICOS ===
+            const estoqueMap = {};
+            estoqueList.forEach(item => {
+                if (!estoqueMap[item.frente]) estoqueMap[item.frente] = {};
+                estoqueMap[item.frente][item.produto] = (estoqueMap[item.frente][item.produto] || 0) + (parseFloat(item.quantidade) || 0);
+            });
+
+            const ctx = document.getElementById('chart-estoque-frente');
+            if (ctx) {
+                this.destroyChart('chart-estoque-frente', 'estoqueFrente');
+                if (!this._charts) this._charts = {};
+                let chartData;
+                const gradientEstoque = this.createGradient(ctx, '#a855f7', '#7e22ce');
+                
+                const currentFilter = document.getElementById('estoque-frente-filter')?.value || 'all';
+                this.estoqueFilters.frente = currentFilter;
+
+                if (this.estoqueFilters.frente === 'all') {
+                    const aggregated = {};
+                    Object.values(estoqueMap).forEach(prodMap => {
+                        Object.entries(prodMap).forEach(([prod, qtd]) => {
+                            aggregated[prod] = (aggregated[prod] || 0) + qtd;
+                        });
+                    });
+                    const rows = Object.entries(aggregated);
+                    const filteredRows = this.estoqueFilters.produto ? rows.filter(([prod]) => prod.toLowerCase().includes(this.estoqueFilters.produto.toLowerCase())) : rows;
+                    filteredRows.sort((a,b) => b[1] - a[1]);
+                    const limitedRows = filteredRows.slice(0, 30);
+                    if (filteredRows.length > 30) {
+                         const othersCount = filteredRows.slice(30).reduce((acc, [,v]) => acc + v, 0);
+                         limitedRows.push(['Outros...', othersCount]);
+                    }
+                    const labels = limitedRows.map(([prod]) => prod);
+                    const values = limitedRows.map(([,v]) => v);
+                    chartData = { labels, datasets: [{ label: 'Estoque Total (Todas as Frentes)', data: values, backgroundColor: gradientEstoque, borderRadius: 8, barPercentage: 0.7, categoryPercentage: 0.8 }] };
+                } else {
+                    const f = this.estoqueFilters.frente;
+                    const byProd = estoqueMap[f] || {};
+                    const rows = Object.entries(byProd);
+                    const filteredRows = this.estoqueFilters.produto ? rows.filter(([prod]) => prod.toLowerCase().includes(this.estoqueFilters.produto.toLowerCase())) : rows;
+                    filteredRows.sort((a,b) => b[1] - a[1]);
+                    const limitedRows = filteredRows.slice(0, 30);
+                    if (filteredRows.length > 30) {
+                         const othersCount = filteredRows.slice(30).reduce((acc, [,v]) => acc + v, 0);
+                         limitedRows.push(['Outros...', othersCount]);
+                    }
+                    const labels = limitedRows.map(([prod]) => prod);
+                    const values = limitedRows.map(([,v]) => v);
+                    chartData = { labels, datasets: [{ label: `Estoque - ${f}`, data: values, backgroundColor: gradientEstoque, borderRadius: 8, barPercentage: 0.7, categoryPercentage: 0.8 }] };
+                }
+                
+                if (chartData && chartData.labels && chartData.labels.length > 0) {
+                    this._charts.estoqueFrente = new Chart(ctx, { type: 'bar', data: chartData, options: this.getCommonChartOptions({ indexAxis: 'y', scales: { x: { grid: { display: false } } }, plugins: { tooltip: { callbacks: { label: (context) => { let label = context.dataset.label || ''; if (label) label += ': '; if (context.parsed.x !== null) label += context.parsed.x.toLocaleString('pt-BR'); return label; } } } } }) });
+                }
+            }
+
+            // === RENDERIZAÇÃO DA TABELA COM ALERTAS ===
+            const tbody = document.getElementById('estoque-table-body');
+            const alertList = []; 
+
+            if (tbody) {
+                const currentFilter = document.getElementById('estoque-frente-filter')?.value || 'all';
+                let filteredList = estoqueList.filter(item => {
+                    const matchFrente = currentFilter === 'all' || item.frente === currentFilter;
+                    const matchProd = !this.estoqueFilters.produto || item.produto.toLowerCase().includes(this.estoqueFilters.produto.toLowerCase());
+                    return matchFrente && matchProd;
+                });
+                
+                filteredList.sort((a,b) => {
+                    const dateA = a.data_cadastro ? new Date(a.data_cadastro) : new Date(0);
+                    const dateB = b.data_cadastro ? new Date(b.data_cadastro) : new Date(0);
+                    return (dateB - dateA) || a.frente.localeCompare(b.frente) || a.produto.localeCompare(b.produto);
+                });
+
+                // Atualizar cabeçalho da tabela se necessário
+                const thead = document.querySelector('#estoque-table thead tr');
+                if (thead && !thead.innerHTML.includes('Duração Est.')) {
+                    const actionTh = thead.lastElementChild;
+                    const durationTh = document.createElement('th');
+                    durationTh.textContent = 'Duração Est.';
+                    thead.insertBefore(durationTh, actionTh);
+                }
+
+                if (filteredList.length === 0) {
+                     tbody.innerHTML = '<tr><td colspan="7" class="text-center">Nenhum registro de estoque encontrado.</td></tr>';
+                } else {
+                    tbody.innerHTML = filteredList.map(r => {
+                        const qtd = parseFloat(r.quantidade) || 0;
+                        const colorClass = qtd <= 0 ? 'text-danger fw-bold' : 'text-success fw-bold';
+                        
+                        // Lógica de Consumo
+                        const dailyAvg = consumptionStats[r.cleanProduto] || 0;
+                        let durationStr = '-';
+                        let daysLeft = Infinity;
+
+                        if (qtd > 0 && dailyAvg > 0) {
+                            daysLeft = qtd / dailyAvg;
+                            if (daysLeft < 1) durationStr = '< 1 dia';
+                            else durationStr = `${Math.floor(daysLeft)} dias`;
+                            
+                            // Verificar Alerta (Abaixo de 5 dias)
+                            if (daysLeft < 5) {
+                                alertList.push({
+                                    produto: r.cleanProduto,
+                                    frente: r.frente,
+                                    dias: Math.floor(daysLeft)
+                                });
                             }
+                        } else if (qtd > 0 && dailyAvg === 0) {
+                            durationStr = '∞';
+                        } else {
+                            durationStr = '-';
                         }
-                    }) 
-                });
-            } else {
-                // Se não houver dados, podemos mostrar uma mensagem ou deixar em branco, mas garantindo que o chart anterior foi destruído (já feito acima)
-            }
-        }
 
-        // === TABLE RENDER ===
-        const tbody = document.getElementById('estoque-table-body');
-        if (tbody) {
-            // Filtrar lista
-            const currentFilter = document.getElementById('estoque-frente-filter')?.value || 'all';
-            
-            let filteredList = estoqueList.filter(item => {
-                const matchFrente = currentFilter === 'all' || item.frente === currentFilter;
-                const matchProd = !this.estoqueFilters.produto || item.produto.toLowerCase().includes(this.estoqueFilters.produto.toLowerCase());
-                return matchFrente && matchProd;
-            });
-            
-            // Ordenar
-            filteredList.sort((a,b) => {
-                // Ordenar por data (mais recente primeiro), depois frente, depois produto
-                const dateA = a.data_cadastro ? new Date(a.data_cadastro) : new Date(0);
-                const dateB = b.data_cadastro ? new Date(b.data_cadastro) : new Date(0);
-                return (dateB - dateA) || a.frente.localeCompare(b.frente) || a.produto.localeCompare(b.produto);
-            });
-
-            if (filteredList.length === 0) {
-                 tbody.innerHTML = '<tr><td colspan="6" class="text-center">Nenhum registro de estoque encontrado.</td></tr>';
-            } else {
-                tbody.innerHTML = filteredList.map(r => {
-                    const qtd = parseFloat(r.quantidade) || 0;
-                    // Color Logic: Red if <= 0, Green if > 0
-                    const colorClass = qtd <= 0 ? 'text-danger fw-bold' : 'text-success fw-bold';
-                    
-                    return `
-                    <tr>
-                        <td>${this.ui.formatDateBR(r.data_cadastro)}</td>
-                        <td>${r.realOS || r.os_numero || '-'}</td>
-                        <td>${r.frente}</td>
-                        <td>${r.cleanProduto}</td>
-                        <td class="${colorClass}">${this.ui.formatNumber(qtd, 3)}</td>
-                        <td><button class="btn btn-delete-estoque" data-frente="${r.frente}" data-produto="${r.produto}">🗑️ Excluir</button></td>
-                    </tr>
-                `}).join('');
+                        return `
+                        <tr>
+                            <td>${this.ui.formatDateBR(r.data_cadastro)}</td>
+                            <td>${r.realOS || r.os_numero || '-'}</td>
+                            <td>${r.frente}</td>
+                            <td>${r.cleanProduto}</td>
+                            <td class="${colorClass}">${this.ui.formatNumber(qtd, 3)}</td>
+                            <td style="font-weight:bold; color: ${daysLeft < 5 ? '#ef4444' : '#10b981'}">${durationStr}</td>
+                            <td><button class="btn btn-delete-estoque" data-frente="${r.frente}" data-produto="${r.produto}">🗑️ Excluir</button></td>
+                        </tr>
+                    `}).join('');
+                }
             }
+            
+            // === DISPARAR MODAL DE ALERTA ===
+            if (alertList.length > 0 || overdoseList.length > 0) {
+                // Verificar Snooze (1 hora)
+                const snoozeUntil = localStorage.getItem('alert_snooze_until');
+                if (snoozeUntil && Date.now() < parseInt(snoozeUntil)) {
+                    // Alerta silenciado
+                    return;
+                }
+
+                let msgHtml = '';
+
+                // Alertas de Estoque Baixo
+                if (alertList.length > 0) {
+                    const groupedAlerts = {};
+                    alertList.forEach(a => {
+                        if (!groupedAlerts[a.produto]) groupedAlerts[a.produto] = [];
+                        groupedAlerts[a.produto].push(`${a.frente} (${a.dias} dias)`);
+                    });
+
+                    msgHtml += '<div style="margin-bottom: 15px;"><strong>⚠️ Estoque Crítico (Menos de 5 dias):</strong><br/><ul style="text-align:left; margin-top:5px; margin-bottom: 0;">';
+                    Object.entries(groupedAlerts).forEach(([prod, details]) => {
+                        msgHtml += `<li><strong>${prod}</strong>: ${details.join(', ')}</li>`;
+                    });
+                    msgHtml += '</ul></div>';
+                }
+
+                // Alertas de Overdose
+                if (overdoseList.length > 0) {
+                    const groupedOverdoses = {};
+                    overdoseList.forEach(o => {
+                        if (!groupedOverdoses[o.produto]) groupedOverdoses[o.produto] = [];
+                        groupedOverdoses[o.produto].push(`${o.fazenda}/${o.talhao} (+${o.pct}%)`);
+                    });
+
+                    msgHtml += '<div style="color: #b91c1c;"><strong>🛑 Dose Excedida (Últimos 2 dias):</strong><br/><ul style="text-align:left; margin-top:5px; margin-bottom: 0;">';
+                    Object.entries(groupedOverdoses).forEach(([prod, details]) => {
+                         const showDetails = details.length > 5 ? details.slice(0, 5).concat([`...e mais ${details.length - 5}`]) : details;
+                         msgHtml += `<li><strong>${prod}</strong>: ${showDetails.join(', ')}</li>`;
+                    });
+                    msgHtml += '</ul></div>';
+                }
+
+                const alertModal = document.getElementById('alert-modal');
+                const alertMsg = document.getElementById('alert-modal-message');
+                if (alertModal && alertMsg) {
+                     alertMsg.innerHTML = msgHtml;
+                     
+                     // Reset checkbox state
+                     const snoozeCheck = document.getElementById('alert-snooze-check');
+                     if (snoozeCheck) snoozeCheck.checked = false;
+
+                     alertModal.style.display = 'flex';
+                }
+            }
+
+        } catch(e) {
+            console.error('Error loading estoque:', e);
+        } finally {
+            this.isLoadingEstoque = false;
         }
-    } catch(e) {
-        console.error('Error loading estoque:', e);
-    } finally {
-        this.isLoadingEstoque = false;
-    }
-};
+    };
 
 InsumosApp.prototype.getExportRows = function() {
     const rows = this.insumosFazendasData.map(i => ({

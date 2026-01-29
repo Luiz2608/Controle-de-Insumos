@@ -2242,6 +2242,24 @@
         </div>
     </div>
 
+    <!-- Generic Alert Modal (Center Screen) -->
+    <div id="alert-modal" class="modal" style="display: none; z-index: 99999;">
+        <div class="modal-content" style="max-width: 500px; text-align: center; border-left: 5px solid #ef4444;">
+            <div style="margin-bottom: 20px;">
+                <span style="font-size: 3em;">⚠️</span>
+            </div>
+            <h3 id="alert-modal-title" style="color: #ef4444; margin-bottom: 15px;">Alerta de Estoque</h3>
+            <div id="alert-modal-message" style="margin-bottom: 20px; font-size: 1.1em; text-align: left; background: #fef2f2; padding: 15px; border-radius: 8px;"></div>
+            <div class="modal-footer" style="flex-direction: column; align-items: center; border-top: none; gap: 10px;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
+                    <input type="checkbox" id="alert-snooze-check" style="width: 16px; height: 16px; cursor: pointer;">
+                    <label for="alert-snooze-check" style="font-size: 0.9em; cursor: pointer; user-select: none; color: #555;">Não mostrar novamente por 1 hora</label>
+                </div>
+                <button type="button" class="btn btn-primary" onclick="const snooze = document.getElementById('alert-snooze-check').checked; if(snooze) localStorage.setItem('alert_snooze_until', Date.now() + 3600000); document.getElementById('alert-modal').style.display='none'">Entendido</button>
+            </div>
+        </div>
+    </div>
+
  
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
