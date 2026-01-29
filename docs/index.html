@@ -744,8 +744,16 @@
 
         <!-- View ADUBO -->
         <div id="view-adubo-mode">
-            <button id="btn-toggle-viagens-filters" class="btn btn-secondary" style="margin-bottom: 10px; width: auto; padding: 6px 16px; font-size: 14px;">🔍 Filtrar</button>
-        <div id="viagens-filters-container" class="filters" style="display: none;">
+            <!-- Header e Botões (Novo Layout Padronizado) -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" class="header-container-theme">
+                <h4 style="margin:0;">Gerenciamento de Transporte de Adubo</h4>
+                <div style="display:flex; gap:10px;">
+                     <button id="btn-nova-viagem-adubo" class="btn btn-primary">➕ Nova Viagem</button>
+                     <button id="btn-toggle-viagens-filters" class="btn btn-secondary">🔍 Filtrar</button>
+                </div>
+            </div>
+
+            <div id="viagens-filters-container" class="filters" style="display: none;">
             <div class="filter-group">
                 <label for="viagens-tipo-filter">Tipo</label>
                 <select id="viagens-tipo-filter">
@@ -784,7 +792,7 @@
             <button id="reset-viagens-filters" class="btn btn-secondary">🔄 Limpar</button>
         </div>
 
-        <div class="dashboard-wrapper">
+        <div class="dashboard-wrapper" id="form-container-viagem-adubo" style="display: none;">
             <div class="chart-card form-card">
                 <h4 style="margin: 0 0 10px 0;">Cadastro de Viagem</h4>
                 <div class="form-grid boletim-grid">
@@ -2084,12 +2092,12 @@
             <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
                 <div class="form-grid boletim-grid">
                     <div class="form-group">
-                        <label for="viagem-data">Data</label>
-                        <input type="date" id="viagem-data">
+                        <label for="modal-viagem-data">Data</label>
+                        <input type="date" id="modal-viagem-data">
                     </div>
                     <div class="form-group adubo-field">
-                        <label for="viagem-frente">Frente</label>
-                        <select id="viagem-frente">
+                        <label for="modal-viagem-frente">Frente</label>
+                        <select id="modal-viagem-frente">
                             <option value="">Selecione</option>
                             <option value="4001">4001</option>
                             <option value="4002">4002</option>
@@ -2097,28 +2105,28 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="viagem-codigo-fazenda">Código</label>
-                        <select id="viagem-codigo-fazenda">
+                        <label for="modal-viagem-codigo-fazenda">Código</label>
+                        <select id="modal-viagem-codigo-fazenda">
                             <option value="">Selecione</option>
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="viagem-fazenda">Fazenda</label>
-                        <select id="viagem-fazenda">
+                        <label for="modal-viagem-fazenda">Fazenda</label>
+                        <select id="modal-viagem-fazenda">
                             <option value="">Selecione a Fazenda</option>
                         </select>
                     </div>
                     <div class="form-group adubo-field">
-                        <label for="viagem-origem">Origem</label>
-                        <input type="text" id="viagem-origem" placeholder="Ex.: Armazém A">
+                        <label for="modal-viagem-origem">Origem</label>
+                        <input type="text" id="modal-viagem-origem" placeholder="Ex.: Armazém A">
                     </div>
                     <div class="form-group adubo-field">
-                        <label for="viagem-destino">Destino</label>
-                        <input type="text" id="viagem-destino" placeholder="Ex.: Talhão 1">
+                        <label for="modal-viagem-destino">Destino</label>
+                        <input type="text" id="modal-viagem-destino" placeholder="Ex.: Talhão 1">
                     </div>
                     <div class="form-group">
-                        <label for="viagem-produto">Produto</label>
-                        <select id="viagem-produto">
+                        <label for="modal-viagem-produto">Produto</label>
+                        <select id="modal-viagem-produto">
                             <option value="">Selecione</option>
                             <option>BIOZYME</option>
                             <option>04-30-10</option>
@@ -2135,12 +2143,12 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="viagem-quantidade-total">Quantidade (t)</label>
-                        <input type="number" id="viagem-quantidade-total" step="0.001">
+                        <label for="modal-viagem-quantidade-total">Quantidade (t)</label>
+                        <input type="number" id="modal-viagem-quantidade-total" step="0.001">
                     </div>
                     <div class="form-group adubo-field">
-                        <label for="viagem-unidade">Unidade</label>
-                        <select id="viagem-unidade">
+                        <label for="modal-viagem-unidade">Unidade</label>
+                        <select id="modal-viagem-unidade">
                             <option value="">Selecione</option>
                             <option value="t">t</option>
                             <option value="kg">kg</option>
@@ -2150,53 +2158,53 @@
                         </select>
                     </div>
                     <div class="form-group adubo-field">
-                        <label for="viagem-caminhao">Caminhão</label>
-                        <input type="text" id="viagem-caminhao" placeholder="Placa / identificação">
+                        <label for="modal-viagem-caminhao">Caminhão</label>
+                        <input type="text" id="modal-viagem-caminhao" placeholder="Placa / identificação">
                     </div>
                     <div class="form-group adubo-field">
-                        <label for="viagem-carreta1">Carreta 1</label>
-                        <input type="text" id="viagem-carreta1" placeholder="Opcional">
+                        <label for="modal-viagem-carreta1">Carreta 1</label>
+                        <input type="text" id="modal-viagem-carreta1" placeholder="Opcional">
                     </div>
                     <div class="form-group adubo-field">
-                        <label for="viagem-carreta2">Carreta 2</label>
-                        <input type="text" id="viagem-carreta2" placeholder="Opcional">
+                        <label for="modal-viagem-carreta2">Carreta 2</label>
+                        <input type="text" id="modal-viagem-carreta2" placeholder="Opcional">
                     </div>
                     <div class="form-group adubo-field">
-                        <label for="viagem-motorista">Motorista</label>
-                        <input type="text" id="viagem-motorista">
+                        <label for="modal-viagem-motorista">Motorista</label>
+                        <input type="text" id="modal-viagem-motorista">
                     </div>
                     <div class="form-group adubo-field">
-                        <label for="viagem-documento-motorista">Doc. Motorista</label>
-                        <input type="text" id="viagem-documento-motorista" placeholder="CPF / CNH">
+                        <label for="modal-viagem-documento-motorista">Doc. Motorista</label>
+                        <input type="text" id="modal-viagem-documento-motorista" placeholder="CPF / CNH">
                     </div>
                     <div class="form-group adubo-field">
-                        <label for="viagem-transportadora">Transportadora</label>
-                        <input type="text" id="viagem-transportadora">
+                        <label for="modal-viagem-transportadora">Transportadora</label>
+                        <input type="text" id="modal-viagem-transportadora">
                     </div>
                     <div class="form-group">
-                        <label for="viagem-observacoes">Observações</label>
-                        <input type="text" id="viagem-observacoes" placeholder="Opcional">
+                        <label for="modal-viagem-observacoes">Observações</label>
+                        <input type="text" id="modal-viagem-observacoes" placeholder="Opcional">
                     </div>
                 </div>
 
-                <div class="chart-card form-card" id="viagem-bags-section" style="margin-top: 15px;">
+                <div class="chart-card form-card" id="modal-viagem-bags-section" style="margin-top: 15px;">
                     <h4 style="margin: 0 0 10px 0;">Bags da Viagem</h4>
                     <div class="form-grid boletim-grid">
                         <div class="form-group">
-                            <label for="bag-identificacao">Identificação</label>
-                            <input type="text" id="bag-identificacao" placeholder="Ex.: BAG 001">
+                            <label for="modal-bag-identificacao">Identificação</label>
+                            <input type="text" id="modal-bag-identificacao" placeholder="Ex.: BAG 001">
                         </div>
                         <div class="form-group">
-                            <label for="bag-lacre">Lacre</label>
-                            <input type="text" id="bag-lacre" placeholder="Lacre / selo">
+                            <label for="modal-bag-lacre">Lacre</label>
+                            <input type="text" id="modal-bag-lacre" placeholder="Lacre / selo">
                         </div>
                         <div class="form-group">
-                            <label for="bag-observacoes">Observações</label>
-                            <input type="text" id="bag-observacoes" placeholder="Opcional">
+                            <label for="modal-bag-observacoes">Observações</label>
+                            <input type="text" id="modal-bag-observacoes" placeholder="Opcional">
                         </div>
                     </div>
                     <div style="margin-top:10px; display:flex; gap:10px;">
-                        <button id="bag-add-btn" class="btn btn-secondary">➕ Adicionar Bag</button>
+                        <button id="modal-bag-add-btn" class="btn btn-secondary">➕ Adicionar Bag</button>
                     </div>
                     <div class="table-container" style="margin-top:10px;">
                         <table class="data-table">
@@ -2208,16 +2216,16 @@
                                     <th>Ações</th>
                                 </tr>
                             </thead>
-                            <tbody id="bags-table-body"></tbody>
+                            <tbody id="modal-bags-table-body"></tbody>
                         </table>
                     </div>
                 </div>
             </div>
             <div class="modal-footer" style="margin-top: 15px; display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid #eee; padding-top: 15px;">
-                 <button type="button" class="btn btn-secondary" id="btn-print-viagem-adubo" title="Imprimir Detalhes">🖨️ Imprimir</button>
-                 <button type="button" class="btn btn-secondary close-viagem-adubo-modal">Cancelar</button>
-                 <button type="button" id="viagem-save-btn" class="btn btn-primary">💾 Registrar Viagem</button>
-            </div>
+                     <button type="button" class="btn btn-secondary" id="modal-btn-print-viagem-adubo" title="Imprimir Detalhes">🖨️ Imprimir</button>
+                     <button type="button" class="btn btn-secondary close-viagem-adubo-modal">Cancelar</button>
+                     <button type="button" id="btn-save-viagem-fix" class="btn btn-primary" style="position: relative; z-index: 10000; cursor: pointer;" onclick="window.forceSaveViagemAdubo(true)">💾 Registrar Viagem</button>
+                </div>
         </div>
     </div>
 
@@ -2236,14 +2244,147 @@
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.28/dist/jspdf.plugin.autotable.min.js"></script>
     
+    <script>
+        // Global Error Handler for "Scenario C" (Script loading failures)
+        window.onerror = function(msg, url, line, col, error) {
+            alert("Erro Crítico do Sistema:\n" + msg + "\n\nSe o problema persistir, recarregue a página com Ctrl+F5.");
+            console.error("Global Error:", {msg, url, line, col, error});
+            return false;
+        };
+        window.addEventListener('unhandledrejection', function(event) {
+            console.error("Unhandled Rejection:", event.reason);
+            // alert("Erro de comunicação com servidor ou lógica assíncrona:\n" + event.reason);
+        });
+    </script>
     <!-- Supabase & Config -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="config.js?v=FIX-LAYOUT-21"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.js"></script>
+    <script src="config.js?v=FIX-BUTTON-22"></script>
     
-    <script src="api.js?v=FIX-LAYOUT-21"></script>
-    <script src="ui.js?v=FIX-LAYOUT-21"></script>
-    <script src="import.js?v=FIX-LAYOUT-21"></script>
-    <script src="app.js?v=FIX-LAYOUT-21"></script>
-    <link rel="stylesheet" href="main.css?v=FIX-LAYOUT-21">
+    <script src="api.js?v=FIX-BUTTON-22"></script>
+    <script src="ui.js?v=FIX-BUTTON-22"></script>
+    <script src="import.js?v=CACHE-BUST-10000"></script>
+    <script src="app.js?v=CACHE-BUST-10000"></script>
+    <link rel="stylesheet" href="main.css?v=CACHE-BUST-10000">
+    
+    <script>
+    // FIX DE EMERGÊNCIA - BYPASS DE CACHE PARA SAVE VIAGEM
+    window.forceSaveViagemAdubo = async function(isModal = false) {
+        //alert('DEBUG: forceSaveViagemAdubo INICIADO!');
+        
+        // UI Feedback for Modal Button
+        let btnSaveModal = null;
+        let originalText = '';
+        if (isModal) {
+            btnSaveModal = document.getElementById('btn-save-viagem-fix');
+            if (btnSaveModal) {
+                originalText = btnSaveModal.innerText;
+                btnSaveModal.innerText = 'Salvando...';
+                btnSaveModal.disabled = true;
+            }
+        }
+
+        try {
+            // Verificar dependências
+            if (!window.insumosApp || !window.insumosApp.api) {
+                 throw new Error('Sistema não inicializado corretamente. Recarregue a página.');
+            }
+            
+            const app = window.insumosApp;
+            const prefix = isModal ? 'modal-' : '';
+            const getVal = (id) => {
+                const el = document.getElementById(prefix + id);
+                return el ? el.value : '';
+            };
+
+            const data = getVal('viagem-data');
+            const fazenda = getVal('viagem-fazenda');
+            const produto = getVal('viagem-produto');
+            const qtdStr = getVal('viagem-quantidade-total');
+            const quantidadeTotalNum = parseFloat((qtdStr || '').toString().replace(',', '.'));
+            
+            // alert(`DEBUG VALORES:\nData: ${data}\nFazenda: ${fazenda}\nProduto: ${produto}\nQtd: ${qtdStr} -> ${quantidadeTotalNum}`);
+
+            // Reset errors
+            ['viagem-data', 'viagem-fazenda', 'viagem-produto', 'viagem-quantidade-total'].forEach(id => {
+                const el = document.getElementById(prefix + id);
+                if (el) el.classList.remove('input-error');
+            });
+
+            if (!data || !fazenda || !produto || isNaN(quantidadeTotalNum)) {
+                let missing = [];
+                if (!data) { missing.push('Data'); document.getElementById(prefix + 'viagem-data')?.classList.add('input-error'); }
+                if (!fazenda) { missing.push('Fazenda'); document.getElementById(prefix + 'viagem-fazenda')?.classList.add('input-error'); }
+                if (!produto) { missing.push('Produto'); document.getElementById(prefix + 'viagem-produto')?.classList.add('input-error'); }
+                if (isNaN(quantidadeTotalNum)) { missing.push('Quantidade'); document.getElementById(prefix + 'viagem-quantidade-total')?.classList.add('input-error'); }
+                
+                // alert('DEBUG: Falta campos: ' + missing.join(', '));
+                console.warn('Campos obrigatórios ausentes:', missing);
+                if (app.ui && app.ui.showNotification) {
+                    app.ui.showNotification(`Preencha os campos obrigatórios: ${missing.join(', ')}`, 'warning');
+                }
+                return; 
+            }
+     
+            const payload = {
+                transportType: 'adubo',
+                data: data,
+                frente: getVal('viagem-frente'),
+                fazenda: fazenda,
+                origem: getVal('viagem-origem'),
+                destino: getVal('viagem-destino'),
+                produto: produto,
+                quantidadeTotal: quantidadeTotalNum,
+                unidade: getVal('viagem-unidade'),
+                caminhao: getVal('viagem-caminhao'),
+                carreta1: getVal('viagem-carreta1'),
+                carreta2: getVal('viagem-carreta2'),
+                motorista: getVal('viagem-motorista'),
+                documentoMotorista: getVal('viagem-documento-motorista'),
+                transportadora: getVal('viagem-transportadora'),
+                observacoes: getVal('viagem-observacoes'),
+                bags: app.viagensAduboBagsDraft || []
+            };
+            
+            let res;
+            if (app.currentViagemAduboId) {
+                res = await app.api.updateViagemAdubo(app.currentViagemAduboId, payload);
+            } else {
+                res = await app.api.addViagemAdubo(payload);
+            }
+
+            if (res.success) {
+                if (app.ui) app.ui.showNotification('Viagem salva com sucesso!', 'success');
+                
+                // Update Stock logic
+                if (payload.frente) {
+                    try {
+                        if (typeof app.updateEstoqueFromOS === 'function') {
+                            await app.updateEstoqueFromOS(payload.frente);
+                        }
+                        if (typeof app.loadEstoqueAndRender === 'function') {
+                            await app.loadEstoqueAndRender();
+                        }
+                    } catch (stockErr) {
+                        console.error('Erro ao atualizar estoque:', stockErr);
+                    }
+                }
+
+                const modal = document.getElementById('modal-viagem-adubo');
+                if (modal) modal.style.display = 'none';
+                app.loadViagensAdubo();
+            } else {
+                throw new Error(res.message);
+            }
+        } catch (error) {
+            console.error('Error saving Viagem Adubo:', error);
+            alert('Erro ao salvar: ' + error.message);
+        } finally {
+            if (btnSaveModal) {
+                btnSaveModal.innerText = originalText;
+                btnSaveModal.disabled = false;
+            }
+        }
+    };
+    </script>
 </body>
 </html>

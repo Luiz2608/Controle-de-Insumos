@@ -2797,17 +2797,19 @@ forceReloadAllData() {
         const osFazendaInput = document.getElementById('os-fazenda');
 
         if (osCodFazendaInput && osFazendaInput) {
-            const bindSplit = () => {
-                const val = osFazendaInput.value;
-                const match = val.match(/^(\d+)[\W_]+(.+)$/);
-                if (match) {
-                    // Se encontrar padrão "1387 - Nome", separa
-                    osCodFazendaInput.value = match[1];
-                    osFazendaInput.value = match[2].trim();
-                    // Dispara verificação de existência
-                    checkFazendaExists();
-                }
-            };
+                    const bindSplit = () => {
+                        const val = osFazendaInput.value;
+                        // Regex ajustado para não consumir caracteres acentuados como separadores
+                        // Captura: (Digitos) + (Espaços/Hifens/Pontos opcionais) + (Resto do texto)
+                        const match = val.match(/^(\d+)\s*[-–—.]?\s*(.+)$/);
+                        if (match) {
+                            // Se encontrar padrão "1387 - Nome", separa
+                            osCodFazendaInput.value = match[1];
+                            osFazendaInput.value = match[2].trim();
+                            // Dispara verificação de existência
+                            checkFazendaExists();
+                        }
+                    };
 
             const checkFazendaExists = () => {
                 const codigo = osCodFazendaInput.value ? parseInt(osCodFazendaInput.value) : null;
@@ -3035,7 +3037,7 @@ forceReloadAllData() {
                     "frente": "string",
                     "processo": "string",
                     "subprocesso": "string",
-                    "fazenda": "string",
+                    "fazenda": "string (IMPORTANTE: Se possível, use formato 'CÓDIGO - NOME'. Ex: '1387 - FAZENDA X'. Se não houver código, use apenas o nome)",
                     "setor": "string",
                     "areaTotal": number,
                     "talhoes": [
@@ -3176,6 +3178,10 @@ forceReloadAllData() {
         const fazendaEl = document.getElementById('os-fazenda');
         if (fazendaEl && data.fazenda) {
             fazendaEl.dispatchEvent(new Event('input', { bubbles: true }));
+            // Forçar blur para garantir que a verificação de existência ocorra mesmo se o split falhar
+            setTimeout(() => {
+                fazendaEl.dispatchEvent(new Event('blur', { bubbles: true }));
+            }, 100);
         }
 
         set('os-setor', data.setor);
@@ -5107,10 +5113,23 @@ forceReloadAllData() {
 
  
     setupViagemAduboListeners() {
-        // Button Nova Viagem
-        const btnNew = document.getElementById('btn-novo-viagem-adubo');
-        if (btnNew) {
-            btnNew.onclick = () => this.openViagemAduboModal();
+        // Button Nova Viagem (Open Modal)
+        const btnNovaViagem = document.getElementById('btn-nova-viagem-adubo');
+        
+        if (btnNovaViagem) {
+            btnNovaViagem.onclick = () => {
+                this.openViagemAduboModal(null, 'create');
+            };
+        }
+
+        // Toggle Filters Button
+        const btnToggleFilters = document.getElementById('btn-toggle-viagens-filters');
+        const filtersContainer = document.getElementById('viagens-filters-container');
+        if (btnToggleFilters && filtersContainer) {
+            btnToggleFilters.onclick = () => {
+                 const isHidden = filtersContainer.style.display === 'none';
+                 filtersContainer.style.display = isHidden ? 'flex' : 'none';
+            };
         }
 
         // Close Modal Buttons
@@ -5122,52 +5141,48 @@ forceReloadAllData() {
             };
         });
 
-        // Add Bag Row
+        // Add Bag Row (Main Form)
         const btnAddBag = document.getElementById('bag-add-btn');
         if (btnAddBag) {
-            btnAddBag.onclick = () => this.addBagRow();
+            btnAddBag.onclick = () => this.addBagRow('');
+        }
+        
+        // Add Bag Row (Modal)
+        const btnAddBagModal = document.getElementById('modal-bag-add-btn');
+        if (btnAddBagModal) {
+            btnAddBagModal.onclick = () => this.addBagRow('modal-');
         }
 
-        // Save Button
+        // Save Button (Main Form)
         const btnSave = document.getElementById('viagem-save-btn');
         if (btnSave) {
-            // Remove previous listeners to avoid duplicates if called multiple times (though flag prevents it)
-            btnSave.onclick = null; 
-            btnSave.addEventListener('click', (e) => {
-                e.preventDefault(); // Prevent form submission if any
-                console.log('Save button clicked!');
-                this.saveViagemAdubo();
+            // Remove previous listeners
+            const newBtn = btnSave.cloneNode(true);
+            btnSave.parentNode.replaceChild(newBtn, btnSave);
+            
+            newBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                console.log('Save button clicked (Main)!');
+                this.saveViagemAdubo(false);
             });
-        } else {
-            console.error('Save button "viagem-save-btn" not found in DOM during setup!');
         }
 
-        // Auto-select Fazenda by Code
-        const codeInput = document.getElementById('viagem-codigo-fazenda');
-        if (codeInput) {
-            codeInput.addEventListener('blur', () => {
-                const code = codeInput.value;
-                if (!code) return;
-                const select = document.getElementById('viagem-fazenda');
-                if (!select) return;
-                
-                let found = false;
-                for (let i = 0; i < select.options.length; i++) {
-                    const opt = select.options[i];
-                    if (opt.getAttribute('data-codigo') === code) {
-                        select.value = opt.value;
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found && this.ui) {
-                    this.ui.showNotification('Fazenda não encontrada com este código.', 'warning');
-                }
+        // Save Button (Modal)
+        // Handled via inline onclick in HTML to ensure reliability
+        /*
+        const btnSaveModal = document.getElementById('modal-viagem-save-btn');
+        if (btnSaveModal) {
+            const newBtn = btnSaveModal.cloneNode(true);
+            btnSaveModal.parentNode.replaceChild(newBtn, btnSaveModal);
+            newBtn.addEventListener('click', (e) => {
+                 e.preventDefault();
+                 this.saveViagemAdubo(true);
             });
         }
+        */
 
         // Print Button
-        const btnPrint = document.getElementById('btn-print-viagem-adubo');
+        const btnPrint = document.getElementById('modal-btn-print-viagem-adubo');
         if (btnPrint) {
             btnPrint.onclick = () => this.printViagemAdubo();
         }
@@ -5210,6 +5225,22 @@ forceReloadAllData() {
                 }
             };
         }
+
+        // Modal Bags Table Delegated Events (Delete Row)
+        const modalBagsBody = document.getElementById('modal-bags-table-body');
+        if (modalBagsBody) {
+            modalBagsBody.onclick = (e) => {
+                const target = e.target;
+                if (target.classList.contains('btn-delete-bag-row') || target.closest('.btn-delete-bag-row')) {
+                    const btn = target.classList.contains('btn-delete-bag-row') ? target : target.closest('.btn-delete-bag-row');
+                    const idx = parseInt(btn.getAttribute('data-idx'));
+                    if (!isNaN(idx)) {
+                        this.viagensAduboBagsDraft.splice(idx, 1);
+                        this.renderBagsDraft();
+                    }
+                }
+            };
+        }
     }
 
     async openViagemAduboModal(id = null, mode = 'edit') {
@@ -5219,13 +5250,13 @@ forceReloadAllData() {
         this.viagemAduboMode = mode;
         const isView = mode === 'view';
 
-        // Reset Fields
+        // Reset Fields (Using modal- prefix)
         const fields = [
-            'viagem-data', 'viagem-frente', 'viagem-codigo-fazenda', 'viagem-fazenda',
-            'viagem-origem', 'viagem-destino', 'viagem-produto', 'viagem-quantidade-total',
-            'viagem-unidade', 'viagem-caminhao', 'viagem-carreta1', 'viagem-carreta2',
-            'viagem-motorista', 'viagem-documento-motorista', 'viagem-transportadora',
-            'viagem-observacoes', 'bag-identificacao', 'bag-lacre', 'bag-observacoes'
+            'modal-viagem-data', 'modal-viagem-frente', 'modal-viagem-codigo-fazenda', 'modal-viagem-fazenda',
+            'modal-viagem-origem', 'modal-viagem-destino', 'modal-viagem-produto', 'modal-viagem-quantidade-total',
+            'modal-viagem-unidade', 'modal-viagem-caminhao', 'modal-viagem-carreta1', 'modal-viagem-carreta2',
+            'modal-viagem-motorista', 'modal-viagem-documento-motorista', 'modal-viagem-transportadora',
+            'modal-viagem-observacoes', 'modal-bag-identificacao', 'modal-bag-lacre', 'modal-bag-observacoes'
         ];
         fields.forEach(fid => {
             const el = document.getElementById(fid);
@@ -5236,10 +5267,10 @@ forceReloadAllData() {
         });
 
         // Hide/Show Buttons based on mode
-        const btnSave = document.getElementById('btn-save-viagem-adubo');
+        const btnSave = document.getElementById('btn-save-viagem-fix');
         if (btnSave) btnSave.style.display = isView ? 'none' : 'inline-block';
 
-        const btnAddBag = document.getElementById('btn-add-bag');
+        const btnAddBag = document.getElementById('modal-bag-add-btn');
         if (btnAddBag) btnAddBag.style.display = isView ? 'none' : 'inline-block';
 
         // Reset Fazenda Select (repopulate if needed)
@@ -5254,11 +5285,11 @@ forceReloadAllData() {
             if (!item) return;
 
             // Fill Fields
-            if (document.getElementById('viagem-data')) document.getElementById('viagem-data').value = item.data || '';
-            if (document.getElementById('viagem-frente')) document.getElementById('viagem-frente').value = item.frente || '';
+            if (document.getElementById('modal-viagem-data')) document.getElementById('modal-viagem-data').value = item.data || '';
+            if (document.getElementById('modal-viagem-frente')) document.getElementById('modal-viagem-frente').value = item.frente || '';
             
             // Set Fazenda Select
-            const fazendaSelect = document.getElementById('viagem-fazenda');
+            const fazendaSelect = document.getElementById('modal-viagem-fazenda');
             if (fazendaSelect && item.fazenda) {
                 fazendaSelect.value = item.fazenda;
                 // Trigger change to sync code
@@ -5268,18 +5299,18 @@ forceReloadAllData() {
             // If we have code but name didn't match (or vice versa), ensure consistency if possible
             // But syncing via onchange above should handle it if 'item.fazenda' matches an option.
 
-            if (document.getElementById('viagem-origem')) document.getElementById('viagem-origem').value = item.origem || '';
-            if (document.getElementById('viagem-destino')) document.getElementById('viagem-destino').value = item.destino || '';
-            if (document.getElementById('viagem-produto')) document.getElementById('viagem-produto').value = item.produto || '';
-            if (document.getElementById('viagem-quantidade-total')) document.getElementById('viagem-quantidade-total').value = item.quantidadeTotal || item.quantidade_total || '';
-            if (document.getElementById('viagem-unidade')) document.getElementById('viagem-unidade').value = item.unidade || '';
-            if (document.getElementById('viagem-caminhao')) document.getElementById('viagem-caminhao').value = item.caminhao || '';
-            if (document.getElementById('viagem-carreta1')) document.getElementById('viagem-carreta1').value = item.carreta1 || '';
-            if (document.getElementById('viagem-carreta2')) document.getElementById('viagem-carreta2').value = item.carreta2 || '';
-            if (document.getElementById('viagem-motorista')) document.getElementById('viagem-motorista').value = item.motorista || '';
-            if (document.getElementById('viagem-documento-motorista')) document.getElementById('viagem-documento-motorista').value = item.documentoMotorista || item.documento_motorista || '';
-            if (document.getElementById('viagem-transportadora')) document.getElementById('viagem-transportadora').value = item.transportadora || '';
-            if (document.getElementById('viagem-observacoes')) document.getElementById('viagem-observacoes').value = item.observacoes || '';
+            if (document.getElementById('modal-viagem-origem')) document.getElementById('modal-viagem-origem').value = item.origem || '';
+            if (document.getElementById('modal-viagem-destino')) document.getElementById('modal-viagem-destino').value = item.destino || '';
+            if (document.getElementById('modal-viagem-produto')) document.getElementById('modal-viagem-produto').value = item.produto || '';
+            if (document.getElementById('modal-viagem-quantidade-total')) document.getElementById('modal-viagem-quantidade-total').value = item.quantidadeTotal || item.quantidade_total || '';
+            if (document.getElementById('modal-viagem-unidade')) document.getElementById('modal-viagem-unidade').value = item.unidade || '';
+            if (document.getElementById('modal-viagem-caminhao')) document.getElementById('modal-viagem-caminhao').value = item.caminhao || '';
+            if (document.getElementById('modal-viagem-carreta1')) document.getElementById('modal-viagem-carreta1').value = item.carreta1 || '';
+            if (document.getElementById('modal-viagem-carreta2')) document.getElementById('modal-viagem-carreta2').value = item.carreta2 || '';
+            if (document.getElementById('modal-viagem-motorista')) document.getElementById('modal-viagem-motorista').value = item.motorista || '';
+            if (document.getElementById('modal-viagem-documento-motorista')) document.getElementById('modal-viagem-documento-motorista').value = item.documentoMotorista || item.documento_motorista || '';
+            if (document.getElementById('modal-viagem-transportadora')) document.getElementById('modal-viagem-transportadora').value = item.transportadora || '';
+            if (document.getElementById('modal-viagem-observacoes')) document.getElementById('modal-viagem-observacoes').value = item.observacoes || '';
 
             // Bags
             this.viagensAduboBagsDraft = Array.isArray(item.bags) ? [...item.bags] : [];
@@ -5288,15 +5319,20 @@ forceReloadAllData() {
         } else {
             // New Mode
             document.querySelector('#modal-viagem-adubo h3').textContent = 'Nova Viagem (Adubo)';
-            // Set today's date default
-            const today = new Date().toISOString().split('T')[0];
-            if (document.getElementById('viagem-data')) document.getElementById('viagem-data').value = today;
+            // Set today's date default (Local Time)
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const today = `${year}-${month}-${day}`;
+            
+            if (document.getElementById('modal-viagem-data')) document.getElementById('modal-viagem-data').value = today;
         }
 
         this.renderBagsDraft();
 
         // Control Print Button Visibility
-        const btnPrint = document.getElementById('btn-print-viagem-adubo');
+        const btnPrint = document.getElementById('modal-btn-print-viagem-adubo');
         if (btnPrint) {
             btnPrint.style.display = id ? 'inline-block' : 'none';
         }
@@ -5306,7 +5342,10 @@ forceReloadAllData() {
 
     async populateViagemAduboSelects() {
         try {
-            // Fetch Plantio Data
+            // 1. Populate Fazendas (Always all fazendas)
+            await this.populateFazendaSelect();
+
+            // 2. Populate Frentes (From Plantio Data)
             let plantioData = [];
             if (this.plantioDiarioData && this.plantioDiarioData.length > 0) {
                 plantioData = this.plantioDiarioData;
@@ -5315,75 +5354,32 @@ forceReloadAllData() {
                 if (res.success) plantioData = res.data;
             }
 
-            if (!plantioData || plantioData.length === 0) {
-                // Fallback: populate standard fazenda list if no plantio data
-                this.populateFazendaSelect();
-                return;
-            }
-
-            const frentes = new Set();
-            const fazendasMap = new Map(); // Name -> Code
-            const codigosMap = new Map(); // Code -> Name
-
-            plantioData.forEach(p => {
-                const fs = p.frentes || [];
-                // Handle legacy or array structure
-                const list = Array.isArray(fs) ? fs : (fs ? [fs] : []);
-                
-                list.forEach(f => {
-                    // Frente (Talhão)
-                    if (f.frente) frentes.add(f.frente);
-                    
-                    const fazenda = f.fazenda;
-                    if (fazenda) {
-                        const normalizedName = fazenda.trim();
-                        let code = null;
-                        
-                        // Find in cadastro to get code
-                        const cadastrado = (this.cadastroFazendas || []).find(cf => cf.nome === normalizedName);
-                        if (cadastrado) code = cadastrado.codigo;
-                        
-                        if (code) {
-                            fazendasMap.set(normalizedName, code);
-                            codigosMap.set(code, normalizedName);
-                        } else {
-                            if (!fazendasMap.has(normalizedName)) fazendasMap.set(normalizedName, '');
-                        }
-                    }
+            if (plantioData && plantioData.length > 0) {
+                const frentes = new Set();
+                plantioData.forEach(p => {
+                    const fs = p.frentes || [];
+                    const list = Array.isArray(fs) ? fs : (fs ? [fs] : []);
+                    list.forEach(f => {
+                        if (f.frente) frentes.add(f.frente);
+                    });
                 });
-            });
 
-            // Populate Frente Select
-            const selFrente = document.getElementById('viagem-frente');
-            if (selFrente) {
-                 const current = selFrente.value;
-                 const sortedFrentes = Array.from(frentes).sort();
-                 selFrente.innerHTML = '<option value="">Selecione</option>' + 
-                     sortedFrentes.map(f => `<option value="${f}">${f}</option>`).join('');
-                 if (current) selFrente.value = current;
+                const frentesHtml = '<option value="">Selecione</option>' + 
+                    Array.from(frentes).sort().map(f => `<option value="${f}">${f}</option>`).join('');
+                
+                const populateSelect = (id, html, current) => {
+                    const el = document.getElementById(id);
+                    if (el) {
+                        el.innerHTML = html;
+                        if (current) el.value = current;
+                    }
+                };
+
+                populateSelect('viagem-frente', frentesHtml, document.getElementById('viagem-frente')?.value);
+                populateSelect('modal-viagem-frente', frentesHtml, document.getElementById('modal-viagem-frente')?.value);
             }
-
-            // Populate Fazenda Select
-            const selFazenda = document.getElementById('viagem-fazenda');
-            if (selFazenda) {
-                 const current = selFazenda.value;
-                 const sortedFazendas = Array.from(fazendasMap.keys()).sort();
-                 selFazenda.innerHTML = '<option value="">Selecione a Fazenda</option>' + 
-                     sortedFazendas.map(f => `<option value="${f}" data-codigo="${fazendasMap.get(f)}">${f}</option>`).join('');
-                 if (current) selFazenda.value = current;
-            }
-
-            // Populate Codigo Select
-            const selCodigo = document.getElementById('viagem-codigo-fazenda');
-            if (selCodigo) {
-                 const current = selCodigo.value;
-                 const sortedCodigos = Array.from(codigosMap.keys()).sort((a,b) => a - b);
-                 selCodigo.innerHTML = '<option value="">Selecione</option>' + 
-                     sortedCodigos.map(c => `<option value="${c}" data-fazenda="${codigosMap.get(c)}">${c}</option>`).join('');
-                 if (current) selCodigo.value = current;
-            }
-
-            // Add Listeners for Sync
+            
+            // 3. Setup Sync Listeners
             this.setupViagemAduboSelectListeners();
 
         } catch (e) {
@@ -5394,93 +5390,144 @@ forceReloadAllData() {
     }
 
     setupViagemAduboSelectListeners() {
-        const selFazenda = document.getElementById('viagem-fazenda');
-        const selCodigo = document.getElementById('viagem-codigo-fazenda');
-        
-        if (selFazenda && selCodigo) {
-            selFazenda.onchange = () => {
-                const opt = selFazenda.options[selFazenda.selectedIndex];
-                const codigo = opt ? opt.getAttribute('data-codigo') : '';
-                if (codigo) selCodigo.value = codigo;
-            };
+        const setupSync = (fazendaId, codigoId) => {
+            const selFazenda = document.getElementById(fazendaId);
+            const selCodigo = document.getElementById(codigoId);
+            
+            if (selFazenda && selCodigo) {
+                selFazenda.onchange = () => {
+                    const opt = selFazenda.options[selFazenda.selectedIndex];
+                    const codigo = opt ? opt.getAttribute('data-codigo') : '';
+                    if (codigo) selCodigo.value = codigo;
+                };
+                
+                selCodigo.onchange = () => {
+                    const opt = selCodigo.options[selCodigo.selectedIndex];
+                    const fazenda = opt ? opt.getAttribute('data-fazenda') : '';
+                    if (fazenda) selFazenda.value = fazenda;
+                };
+            }
+        };
 
-            selCodigo.onchange = () => {
-                const opt = selCodigo.options[selCodigo.selectedIndex];
-                const fazenda = opt ? opt.getAttribute('data-fazenda') : '';
-                if (fazenda) selFazenda.value = fazenda;
-            };
-        }
+        setupSync('viagem-fazenda', 'viagem-codigo-fazenda');
+        setupSync('modal-viagem-fazenda', 'modal-viagem-codigo-fazenda');
     }
 
     async populateFazendaSelect() {
-        const select = document.getElementById('viagem-fazenda');
-        if (!select) return;
+        const ids = ['viagem-fazenda', 'modal-viagem-fazenda'];
+        const codeIds = ['viagem-codigo-fazenda', 'modal-viagem-codigo-fazenda'];
         
-        // Always try to populate if empty or just default
-        if (select.options.length <= 1) { 
-             try {
-                 const res = await this.api.getFazendas();
-                 if (res.success) {
-                     const fazendas = res.data || [];
-                     // Sort alphabetically
-                     fazendas.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
+        const targets = ids.map(id => document.getElementById(id)).filter(el => el);
+        const codeTargets = codeIds.map(id => document.getElementById(id)).filter(el => el);
+        
+        if (targets.length === 0 && codeTargets.length === 0) return;
+        
+        try {
+             const res = await this.api.getFazendas();
+             if (res.success) {
+                 const fazendas = res.data || [];
+                 // Sort alphabetically
+                 fazendas.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
+                 
+                 const html = '<option value="">Selecione a Fazenda</option>' + 
+                     fazendas.map(f => `<option value="${f.nome}" data-codigo="${f.codigo}">${f.nome}</option>`).join('');
                      
-                     select.innerHTML = '<option value="">Selecione a Fazenda</option>' + 
-                         fazendas.map(f => `<option value="${f.nome}" data-codigo="${f.codigo}">${f.nome}</option>`).join('');
-                 }
-             } catch (e) {
-                 console.error('Erro ao carregar fazendas para select', e);
-                 if (this.ui) this.ui.showNotification('Erro ao carregar lista de fazendas. Verifique a conexão.', 'error');
+                 const codeHtml = '<option value="">Cód</option>' + 
+                     fazendas.map(f => `<option value="${f.codigo}" data-fazenda="${f.nome}">${f.codigo}</option>`).join('');
+
+                 targets.forEach(el => {
+                     const current = el.value;
+                     el.innerHTML = html;
+                     if (current) el.value = current;
+                 });
+                 
+                 codeTargets.forEach(el => {
+                     const current = el.value;
+                     el.innerHTML = codeHtml;
+                     if (current) el.value = current;
+                 });
              }
-        }
+         } catch (e) {
+             console.error('Erro ao carregar fazendas para select', e);
+             if (this.ui) this.ui.showNotification('Erro ao carregar lista de fazendas. Verifique a conexão.', 'error');
+         }
     }
 
-    async saveViagemAdubo() {
-        console.log('Attempting to save Viagem Adubo...');
-        const data = document.getElementById('viagem-data').value;
-        const fazenda = document.getElementById('viagem-fazenda').value;
-        const produto = document.getElementById('viagem-produto').value;
-        const qtdStr = document.getElementById('viagem-quantidade-total').value;
-        const quantidadeTotalNum = parseFloat((qtdStr || '').toString().replace(',', '.'));
+    async saveViagemAdubo(isModal = false) {
+        // console.warn('!!! saveViagemAdubo CALLED !!!', { isModal });
+        alert('DEBUG: Entrou no saveViagemAdubo. isModal: ' + isModal);
         
-        if (!data || !fazenda || !produto || isNaN(quantidadeTotalNum)) {
-            let missing = [];
-            if (!data) missing.push('Data');
-            if (!fazenda) missing.push('Fazenda');
-            if (!produto) missing.push('Produto');
-            if (isNaN(quantidadeTotalNum)) missing.push('Quantidade');
-            
-            console.warn('Campos obrigatórios ausentes:', missing);
-            if (this.ui && this.ui.showNotification) {
-                this.ui.showNotification(`Preencha os campos obrigatórios: ${missing.join(', ')}`, 'warning');
+        // UI Feedback for Modal Button
+        let btnSaveModal = null;
+        let originalText = '';
+        if (isModal) {
+            btnSaveModal = document.getElementById('btn-save-viagem-fix');
+            if (btnSaveModal) {
+                originalText = btnSaveModal.innerText;
+                btnSaveModal.innerText = 'Processando...';
+                btnSaveModal.disabled = true;
             }
-            return;
         }
- 
-        const payload = {
-            transportType: 'adubo',
-            data: data,
-            frente: document.getElementById('viagem-frente').value,
-            fazenda: fazenda,
-            origem: document.getElementById('viagem-origem').value,
-            destino: document.getElementById('viagem-destino').value,
-            produto: produto,
-            quantidadeTotal: quantidadeTotalNum,
-            unidade: document.getElementById('viagem-unidade').value,
-            caminhao: document.getElementById('viagem-caminhao').value,
-            carreta1: document.getElementById('viagem-carreta1').value,
-            carreta2: document.getElementById('viagem-carreta2').value,
-            motorista: document.getElementById('viagem-motorista').value,
-            documentoMotorista: document.getElementById('viagem-documento-motorista').value,
-            transportadora: document.getElementById('viagem-transportadora').value,
-            observacoes: document.getElementById('viagem-observacoes').value,
-            bags: this.viagensAduboBagsDraft
-        };
-        
-        console.log('Transport Type:', payload.transportType);
-        console.log('Raw Data:', { data, produto, transportType: payload.transportType, quantidadeTotal: quantidadeTotalNum, fazenda });
 
         try {
+            const prefix = isModal ? 'modal-' : '';
+            const getVal = (id) => {
+                const el = document.getElementById(prefix + id);
+                return el ? el.value : '';
+            };
+
+            const data = getVal('viagem-data');
+            const fazenda = getVal('viagem-fazenda');
+            const produto = getVal('viagem-produto');
+            const qtdStr = getVal('viagem-quantidade-total');
+            const quantidadeTotalNum = parseFloat((qtdStr || '').toString().replace(',', '.'));
+            
+            alert(`DEBUG VALORES:\nData: ${data}\nFazenda: ${fazenda}\nProduto: ${produto}\nQtd: ${qtdStr} -> ${quantidadeTotalNum}`);
+
+            // Reset errors
+            ['viagem-data', 'viagem-fazenda', 'viagem-produto', 'viagem-quantidade-total'].forEach(id => {
+                const el = document.getElementById(prefix + id);
+                if (el) el.classList.remove('input-error');
+            });
+
+            if (!data || !fazenda || !produto || isNaN(quantidadeTotalNum)) {
+                let missing = [];
+                if (!data) { missing.push('Data'); document.getElementById(prefix + 'viagem-data')?.classList.add('input-error'); }
+                if (!fazenda) { missing.push('Fazenda'); document.getElementById(prefix + 'viagem-fazenda')?.classList.add('input-error'); }
+                if (!produto) { missing.push('Produto'); document.getElementById(prefix + 'viagem-produto')?.classList.add('input-error'); }
+                if (isNaN(quantidadeTotalNum)) { missing.push('Quantidade'); document.getElementById(prefix + 'viagem-quantidade-total')?.classList.add('input-error'); }
+                
+                alert('DEBUG: Falta campos: ' + missing.join(', '));
+                console.warn('Campos obrigatórios ausentes:', missing);
+                if (this.ui && this.ui.showNotification) {
+                    this.ui.showNotification(`Preencha os campos obrigatórios: ${missing.join(', ')}`, 'warning');
+                }
+                return; // Will go to finally
+            }
+     
+            const payload = {
+                transportType: 'adubo',
+                data: data,
+                frente: getVal('viagem-frente'),
+                fazenda: fazenda,
+                origem: getVal('viagem-origem'),
+                destino: getVal('viagem-destino'),
+                produto: produto,
+                quantidadeTotal: quantidadeTotalNum,
+                unidade: getVal('viagem-unidade'),
+                caminhao: getVal('viagem-caminhao'),
+                carreta1: getVal('viagem-carreta1'),
+                carreta2: getVal('viagem-carreta2'),
+                motorista: getVal('viagem-motorista'),
+                documentoMotorista: getVal('viagem-documento-motorista'),
+                transportadora: getVal('viagem-transportadora'),
+                observacoes: getVal('viagem-observacoes'),
+                bags: this.viagensAduboBagsDraft
+            };
+            
+            console.log('Transport Type:', payload.transportType);
+            console.log('Raw Data:', { data, produto, transportType: payload.transportType, quantidadeTotal: quantidadeTotalNum, fazenda });
+
             let res;
             if (this.currentViagemAduboId) {
                 res = await this.api.updateViagemAdubo(this.currentViagemAduboId, payload);
@@ -5490,21 +5537,39 @@ forceReloadAllData() {
 
             if (res.success) {
                 if (this.ui) this.ui.showNotification('Viagem salva com sucesso!', 'success');
-                
                 // Update Stock
                 if (payload.frente) {
-                    await this.updateEstoqueFromOS(payload.frente);
-                    await this.loadEstoqueAndRender();
+                    try {
+                        if (typeof this.updateEstoqueFromOS === 'function') {
+                            await this.updateEstoqueFromOS(payload.frente);
+                        }
+                        if (typeof this.loadEstoqueAndRender === 'function') {
+                            await this.loadEstoqueAndRender();
+                        }
+                    } catch (stockErr) {
+                        console.error('Erro ao atualizar estoque:', stockErr);
+                    }
                 }
 
-                document.getElementById('modal-viagem-adubo').style.display = 'none';
+                const modal = document.getElementById('modal-viagem-adubo');
+                if (modal) modal.style.display = 'none';
                 this.loadViagensAdubo();
+                
+                // Clear main form if saved from main form
+                if (!isModal) {
+                    // Logic to clear main form fields could go here if needed
+                }
             } else {
                 throw new Error(res.message);
             }
         } catch (error) {
             console.error('Error saving Viagem Adubo:', error);
             if (this.ui) this.ui.showNotification('Erro ao salvar: ' + error.message, 'error');
+        } finally {
+            if (btnSaveModal) {
+                btnSaveModal.innerText = originalText;
+                btnSaveModal.disabled = false;
+            }
         }
     }
 
@@ -5534,9 +5599,9 @@ forceReloadAllData() {
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.getWidth();
 
-        // Helper to get value
+        // Helper to get value (Always from modal since print is only in modal)
         const getVal = (id) => {
-            const el = document.getElementById(id);
+            const el = document.getElementById('modal-' + id);
             return el ? (el.value || '-') : '-';
         };
 
@@ -5547,7 +5612,16 @@ forceReloadAllData() {
             doc.text(text, x, y);
         };
 
-        const data = getVal('viagem-data');
+        // Helper to format date to BR
+        const formatDateBR = (d) => {
+            if (!d) return '';
+            if (d.includes('/')) return d;
+            const parts = d.split('-');
+            if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+            return d;
+        };
+
+        const data = formatDateBR(getVal('viagem-data'));
         const fazenda = getVal('viagem-fazenda');
 
         // === HEADER / CAPA ===
@@ -5596,13 +5670,15 @@ forceReloadAllData() {
 
         y += 55;
 
-        // === 2. DETALHAMENTO ===
+        // === 2. DETALHES DO TRANSPORTE ===
         doc.setFontSize(14);
         doc.setFont(undefined, 'bold');
-        doc.text("2. Detalhamento Técnico", 14, y);
-        y += 8;
+        doc.text("2. Detalhes do Transporte", 14, y);
+        y += 10;
 
-        const body = [
+        doc.setFontSize(10);
+        
+        const details = [
             ['Origem', getVal('viagem-origem')],
             ['Destino', getVal('viagem-destino')],
             ['Caminhão', getVal('viagem-caminhao')],
@@ -5613,65 +5689,60 @@ forceReloadAllData() {
             ['Observações', getVal('viagem-observacoes')]
         ];
 
-        doc.autoTable({
-            startY: y,
-            showHead: 'never',
-            body: body,
-            theme: 'grid',
-            styles: { 
-                fontSize: 10, 
-                cellPadding: 4,
-                lineColor: [200, 200, 200],
-                lineWidth: 0.1,
-                textColor: [0, 0, 0]
-            },
-            columnStyles: {
-                0: { fontStyle: 'bold', width: 40, fillColor: [250, 250, 250], textColor: [0, 0, 0] },
-                1: { textColor: [0, 0, 0] }
+        details.forEach((item, i) => {
+            const label = item[0] + ':';
+            const value = item[1];
+            
+            // Check page break
+            if (y > 270) {
+                doc.addPage();
+                y = 20;
+            }
+
+            // Left col
+            if (i % 2 === 0) {
+                 doc.setFont(undefined, 'bold');
+                 doc.text(label, 14, y);
+                 doc.setFont(undefined, 'normal');
+                 doc.text(value, 50, y);
+            } else {
+                 // Right col
+                 doc.setFont(undefined, 'bold');
+                 doc.text(label, 105, y);
+                 doc.setFont(undefined, 'normal');
+                 doc.text(value, 145, y);
+                 y += 8;
             }
         });
+        if (details.length % 2 !== 0) y += 8;
 
         // === 3. BAGS ===
         if (this.viagensAduboBagsDraft && this.viagensAduboBagsDraft.length > 0) {
-            y = doc.lastAutoTable.finalY + 15;
+            y += 10;
+            if (y > 250) {
+                doc.addPage();
+                y = 20;
+            }
             
             doc.setFontSize(14);
             doc.setFont(undefined, 'bold');
             doc.text("3. Bags", 14, y);
-
-            const bagsBody = this.viagensAduboBagsDraft.map(b => [
-                b.identificacao || '-',
-                b.lacre || '-',
-                b.observacoes || '-'
-            ]);
-
+            y += 5;
+            
+            const bagsData = this.viagensAduboBagsDraft.map(b => [b.identificacao, b.lacre, b.observacoes]);
             doc.autoTable({
-                startY: y + 5,
-                head: [['Identificação', 'Lacre', 'Obs']],
-                body: bagsBody,
+                startY: y,
+                head: [['Identificação', 'Lacre', 'Observações']],
+                body: bagsData,
                 theme: 'grid',
-                styles: { 
-                    fontSize: 10, 
-                    cellPadding: 4,
-                    lineColor: [200, 200, 200],
-                    lineWidth: 0.1,
-                    textColor: [0, 0, 0]
-                },
-                headStyles: {
-                    fillColor: [245, 247, 250],
-                    textColor: [0, 0, 0],
-                    fontStyle: 'bold',
-                    lineColor: [200, 200, 200],
-                    lineWidth: 0.1
-                }
+                headStyles: { fillColor: [46, 125, 50], textColor: 255 },
+                styles: { fontSize: 10, cellPadding: 3 }
             });
         }
 
-        // Save
-        const dateStr = data.replace(/[^0-9]/g, '');
-        const fazendaStr = (fazenda || 'Viagem').replace(/[^a-zA-Z0-9]/g, '_');
-        doc.save(`Viagem_Adubo_${fazendaStr}_${dateStr}.pdf`);
+        doc.save(`viagem_adubo_${data}.pdf`);
     }
+
 
 
  
@@ -5767,7 +5838,7 @@ forceReloadAllData() {
 
                  return `
                     <tr>
-                        <td>${v.data || ''}</td>
+                        <td>${v.data}</td>
                         <td>${v.fazenda || ''}</td>
                         <td>${v.numeroOS || v.numero_os || ''}</td>
                         <td>${this.ui.formatNumber(previsto, 3)}</td>
@@ -5783,7 +5854,7 @@ forceReloadAllData() {
             } else {
                 return `
                     <tr>
-                        <td>${v.data || ''}</td>
+                        <td>${v.data}</td>
                         <td>${v.frente || ''}</td>
                         <td>${v.fazenda || ''}</td>
                         <td>${v.produto || ''}</td>
@@ -5846,10 +5917,10 @@ forceReloadAllData() {
         this.renderViagensAdubo();
     }
 
-    addBagRow() {
-        const identEl = document.getElementById('bag-identificacao');
-        const lacreEl = document.getElementById('bag-lacre');
-        const obsEl = document.getElementById('bag-observacoes');
+    addBagRow(prefix = '') {
+        const identEl = document.getElementById(prefix + 'bag-identificacao');
+        const lacreEl = document.getElementById(prefix + 'bag-lacre');
+        const obsEl = document.getElementById(prefix + 'bag-observacoes');
         const identificacao = identEl && identEl.value ? identEl.value.trim() : '';
         const lacre = lacreEl && lacreEl.value ? lacreEl.value.trim() : '';
         const observacoes = obsEl && obsEl.value ? obsEl.value.trim() : '';
@@ -5866,27 +5937,27 @@ forceReloadAllData() {
     }
 
     renderBagsDraft() {
-        const tbody = document.getElementById('bags-table-body');
-        if (!tbody) return;
-        if (!Array.isArray(this.viagensAduboBagsDraft) || !this.viagensAduboBagsDraft.length) {
-            tbody.innerHTML = '';
-            return;
-        }
-
-        const isView = this.viagemAduboMode === 'view';
-
-        tbody.innerHTML = this.viagensAduboBagsDraft.map((b, idx) => {
-            const actionTd = isView ? '<td></td>' : `<td><button class="btn btn-delete-bag-row" data-idx="${idx}">🗑️</button></td>`;
-
-            return `
-                <tr>
-                    <td>${b.identificacao || ''}</td>
-                    <td>${b.lacre || ''}</td>
-                    <td>${b.observacoes || ''}</td>
-                    ${actionTd}
-                </tr>
-            `;
-        }).join('');
+        const renderTo = (tbodyId, isViewMode) => {
+            const tbody = document.getElementById(tbodyId);
+            if (!tbody) return;
+            if (!Array.isArray(this.viagensAduboBagsDraft) || !this.viagensAduboBagsDraft.length) {
+                tbody.innerHTML = '';
+                return;
+            }
+            tbody.innerHTML = this.viagensAduboBagsDraft.map((b, idx) => {
+                const actionTd = isViewMode ? '<td></td>' : `<td><button class="btn btn-delete-bag-row" data-idx="${idx}">🗑️</button></td>`;
+                return `
+                    <tr>
+                        <td>${b.identificacao || ''}</td>
+                        <td>${b.lacre || ''}</td>
+                        <td>${b.observacoes || ''}</td>
+                        ${actionTd}
+                    </tr>
+                `;
+            }).join('');
+        };
+        renderTo('bags-table-body', false);
+        renderTo('modal-bags-table-body', this.viagemAduboMode === 'view');
     }
 
     openViagemDetail(id) {

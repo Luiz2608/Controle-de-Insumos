@@ -7,12 +7,34 @@ class ApiService {
             const storedUrl = localStorage.getItem('supabaseUrl');
             const storedKey = localStorage.getItem('supabaseKey');
             if (storedUrl && storedKey) {
-                this.supabase = window.supabase.createClient(storedUrl, storedKey);
+                this.supabase = window.supabase.createClient(storedUrl, storedKey, {
+                    auth: {
+                        persistSession: true,
+                        autoRefreshToken: true,
+                    },
+                    db: {
+                        schema: 'public',
+                    },
+                    global: {
+                        headers: { 'x-application-name': 'controle-insumos' },
+                    },
+                });
             } else {
                 this.supabase = null;
             }
         } else {
-            this.supabase = window.supabase.createClient(window.SUPABASE_CONFIG.url, window.SUPABASE_CONFIG.key);
+            this.supabase = window.supabase.createClient(window.SUPABASE_CONFIG.url, window.SUPABASE_CONFIG.key, {
+                auth: {
+                    persistSession: true,
+                    autoRefreshToken: true,
+                },
+                db: {
+                    schema: 'public',
+                },
+                global: {
+                    headers: { 'x-application-name': 'controle-insumos' },
+                },
+            });
         }
 
         // URL base da API (backend)
@@ -1176,8 +1198,11 @@ class ApiService {
 
         if (error) {
             console.error('Erro ao buscar liberacao_colheita:', error);
-            if (error.code === '42P01') return { success: true, data: [] };
-            throw error;
+            // Return empty array instead of throwing to prevent dashboard crash
+            // 42P01 is table missing in Postgres
+            // PGRST205 is table missing in PostgREST schema cache
+            if (error.code === '42P01' || error.code === 'PGRST205') return { success: true, data: [] };
+            return { success: true, data: [] }; // Fallback safe for dashboard
         }
         return { success: true, data };
     }
@@ -1193,8 +1218,8 @@ class ApiService {
 
         if (error) {
             console.error('Erro ao buscar transporte de composto:', error);
-            if (error.code === '42P01') return { success: true, data: [] }; 
-            throw error;
+            if (error.code === '42P01' || error.code === 'PGRST205') return { success: true, data: [] }; 
+            return { success: true, data: [] }; // Fallback safe
         }
         return { success: true, data };
     }
