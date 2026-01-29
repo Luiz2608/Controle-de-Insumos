@@ -663,6 +663,19 @@ body {
     to { transform: translateX(0); opacity: 1; }
 }
 
+/* Utility Classes */
+.text-danger {
+    color: var(--error) !important;
+}
+
+.text-success {
+    color: var(--success) !important;
+}
+
+.fw-bold {
+    font-weight: 700 !important;
+}
+
 /* Dark Mode Overrides */
 body.dark-mode {
     --primary: #4CAF50;
@@ -870,4 +883,13 @@ body.dark-mode textarea.input-error {
     border: 2px solid var(--error) !important;
     background-color: rgba(211, 47, 47, 0.05) !important;
     box-shadow: 0 0 4px rgba(211, 47, 47, 0.3) !important;
+}
+
+/* Dark Mode Utility Overrides */
+body.dark-mode .text-danger {
+    color: #ef5350 !important; /* Lighter Red */
+}
+
+body.dark-mode .text-success {
+    color: #66bb6a !important; /* Lighter Green */
 }
