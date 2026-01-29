@@ -4,11 +4,26 @@ class UIManager {
     }
 
     showLoading() {
-        document.getElementById('loading').style.display = 'flex';
+        const el = document.getElementById('loading');
+        if (el) {
+            el.style.display = 'flex';
+            // Força reflow para garantir transição
+            void el.offsetWidth; 
+            el.classList.add('visible');
+        }
     }
 
     hideLoading() {
-        document.getElementById('loading').style.display = 'none';
+        const el = document.getElementById('loading');
+        if (el) {
+            el.classList.remove('visible');
+            // Aguarda transição se possível, ou esconde direto
+            setTimeout(() => {
+                if (!el.classList.contains('visible')) {
+                    el.style.display = 'none';
+                }
+            }, 300);
+        }
     }
 
     showNotification(message, type = 'info', duration = 5000) {

@@ -359,7 +359,14 @@ class InsumosApp {
 
     hideProgress() {
         const modal = document.getElementById('progress-modal');
-        if (modal) modal.style.display = 'none';
+        if (modal) {
+            modal.style.display = 'none';
+            // Reset bar and text
+            const bar = document.getElementById('progress-bar');
+            if (bar) bar.style.width = '0%';
+            const textEl = document.getElementById('progress-text');
+            if (textEl) textEl.textContent = '0%';
+        }
     }
 
     async handleFazendaPdfFile(file) {
@@ -410,7 +417,7 @@ class InsumosApp {
                         'O formato do JSON deve ser exatamente:',
                         '{',
                         '  "fazendas": [',
-                        '    { "codigo": "96", "nome": "FAZENDA EXEMPLO", "regiao": "OPCIONAL", "areaTotal": 123.45 }',
+                        '    { "codigo": "96", "nome": "FAZENDA EXEMPLO", "regiao": "OPCIONAL", "areaTotal": 123.45, "talhoes": [{"numero": "1", "area": 10.5}, {"numero": "2", "area": 20.0}] }',
                         '  ],',
                         '  "resumoGeral": {',
                         '    "1": { "totalFazendas": 10, "areaTotal": 1234.56 }',
@@ -422,7 +429,8 @@ class InsumosApp {
                         '- "nome" é o nome da fazenda.',
                         '- "regiao" pode ser vazio se não estiver claro.',
                         '- "areaTotal" deve ser número em hectares com ponto como separador decimal.',
-                        '- Se a mesma fazenda aparecer em mais de uma página some as áreas em uma única entrada.',
+                        '- "talhoes" deve ser uma lista de objetos com "numero" (string) e "area" (number). Se houver informações detalhadas de talhões, inclua-as.',
+                        '- Se a mesma fazenda aparecer em mais de uma página some as áreas em uma única entrada e combine a lista de talhões.',
                         '- No "resumoGeral", a chave é o número do bloco como string.',
                         '- Não inclua comentários, texto explicativo nem campos extras, apenas o JSON.'
                     ].join('\n');
@@ -492,6 +500,7 @@ class InsumosApp {
                                     nome: f && f.nome != null ? String(f.nome).trim() : '',
                                     regiao: f && f.regiao != null ? String(f.regiao).trim() : '',
                                     areaTotal: Number(f.areaTotal) || 0,
+                                    talhoes: Array.isArray(f.talhoes) ? f.talhoes : [],
                                     plantioAcumulado: 0,
                                     mudaAcumulada: 0,
                                     observacoes: 'Importado via Gemini (Client-side)'
@@ -526,10 +535,15 @@ class InsumosApp {
                 this.ui.showNotification('Nenhuma fazenda encontrada no PDF. Verifique o formato.', 'warning', 4000);
                 return;
             }
+            
+            this.hideProgress(); // Force hide before preview
             this.openFazendaImportPreview(fazendas);
         } catch (e) {
             this.ui.showNotification('Erro ao ler PDF de fazendas', 'error', 4000);
             console.error('Erro na leitura de PDF de fazendas:', e);
+        } finally {
+            this.hideProgress();
+            this.ui.hideLoading(); // Garantia extra
         }
     }
 
@@ -638,6 +652,7 @@ class InsumosApp {
                     <td>${f.nome}</td>
                     <td>${f.regiao || ''}</td>
                     <td>${(f.areaTotal || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td>${Array.isArray(f.talhoes) ? f.talhoes.length : 0}</td>
                 </tr>
             `).join('');
             container.innerHTML = `
@@ -650,6 +665,7 @@ class InsumosApp {
                                 <th>Nome</th>
                                 <th>Região</th>
                                 <th>Área total (ha)</th>
+                                <th>Talhões</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -702,7 +718,8 @@ class InsumosApp {
                 areaTotal: f.area_total,
                 plantioAcumulado: f.plantio_acumulado,
                 mudaAcumulada: f.muda_acumulada,
-                regiao: f.regiao
+                regiao: f.regiao,
+                talhoes: f.talhoes || []
             }));
             this.buildCadastroIndex(list);
             this.renderCadastroFazendas(cadResp.data);
@@ -1048,21 +1065,36 @@ forceReloadAllData() {
         const closeLiberacaoButtons = document.querySelectorAll('.close-liberacao-modal');
         const btnSaveLiberacao = document.getElementById('btn-save-liberacao');
 
+        const btnNovaLiberacao = document.getElementById('btn-nova-liberacao');
+        const btnVoltarLiberacaoList = document.getElementById('btn-voltar-liberacao-list');
+
         if (btnLiberacao && liberacaoModal) {
             btnLiberacao.addEventListener('click', async () => {
                 liberacaoModal.style.display = 'flex';
-                // Reset form and draft
+                this.toggleLiberacaoView('list');
+                await this.renderLiberacoesList();
+            });
+        }
+
+        if (btnNovaLiberacao) {
+            btnNovaLiberacao.addEventListener('click', async () => {
+                this.toggleLiberacaoView('form');
+                // Reset form
                 this.liberacaoTalhoesDraft = [];
                 this.renderLiberacaoTalhoes();
                 document.getElementById('liberacao-form').reset();
                 
-                // Pre-fill date with today
                 const dateInput = document.getElementById('liberacao-data');
-                if (dateInput && !dateInput.value) {
-                    dateInput.valueAsDate = new Date();
-                }
+                if (dateInput) dateInput.valueAsDate = new Date();
 
                 await this.populateLiberacaoOptions();
+            });
+        }
+
+        if (btnVoltarLiberacaoList) {
+            btnVoltarLiberacaoList.addEventListener('click', () => {
+                this.toggleLiberacaoView('list');
+                this.renderLiberacoesList();
             });
         }
 
@@ -1096,20 +1128,40 @@ forceReloadAllData() {
                             // Find fazenda name
                             const f = this.cadastroFazendas.find(x => String(x.codigo) === String(selectedCod));
                             if (f) {
-                                // Fetch insumos_fazendas to get talhoes
-                                const res = await this.api.getInsumosFazendas({ fazenda: f.nome });
-                                if (res && res.success && res.data) {
+                                let talhoesSource = [];
+                                
+                                // Priority 1: Talhoes from Farm Import (PDF/Gemini)
+                                if (f.talhoes && Array.isArray(f.talhoes) && f.talhoes.length > 0) {
+                                     talhoesSource = f.talhoes.map(t => ({ cod: t.numero, areaTalhao: t.area }));
+                                } 
+                                
+                                // Priority 2: Legacy (Insumos) if empty
+                                if (talhoesSource.length === 0) {
+                                     // Fetch insumos_fazendas to get talhoes
+                                     const res = await this.api.getInsumosFazendas({ fazenda: f.nome });
+                                     if (res && res.success && res.data) {
+                                         talhoesSource = res.data;
+                                     }
+                                }
+
+                                libTalhaoSelect.innerHTML = '<option value="">Selecione...</option>';
+                                
+                                if (talhoesSource.length > 0) {
                                     // Extract unique talhoes (cod) and their areas
                                     const talhoesMap = new Map();
-                                    res.data.forEach(item => {
-                                        if (item.cod && item.areaTalhao) {
-                                            talhoesMap.set(String(item.cod), item.areaTalhao);
-                                        }
+                                    talhoesSource.forEach(item => {
+                                        const cod = item.cod || item.numero;
+                                        const area = item.areaTalhao || item.area;
+                                        if (cod) talhoesMap.set(String(cod), area);
                                     });
-                                    
-                                    libTalhaoSelect.innerHTML = '<option value="">Selecione...</option>';
+
                                     if (talhoesMap.size > 0) {
-                                        const sortedTalhoes = Array.from(talhoesMap.keys()).sort((a, b) => a - b);
+                                        const sortedTalhoes = Array.from(talhoesMap.keys()).sort((a, b) => {
+                                             const na = parseFloat(a);
+                                             const nb = parseFloat(b);
+                                             if (!isNaN(na) && !isNaN(nb)) return na - nb;
+                                             return a.localeCompare(b);
+                                        });
                                         sortedTalhoes.forEach(t => {
                                             const opt = document.createElement('option');
                                             opt.value = t;
@@ -1121,7 +1173,7 @@ forceReloadAllData() {
                                         libTalhaoSelect.innerHTML = '<option value="">Nenhum talhão encontrado</option>';
                                     }
                                 } else {
-                                    libTalhaoSelect.innerHTML = '<option value="">Erro ao carregar</option>';
+                                    libTalhaoSelect.innerHTML = '<option value="">Nenhum talhão encontrado</option>';
                                 }
                             }
                         } catch (e) {
@@ -1148,16 +1200,21 @@ forceReloadAllData() {
         }
 
         if (libAddTalhaoBtn) {
-            libAddTalhaoBtn.addEventListener('click', () => {
+            libAddTalhaoBtn.onclick = (e) => {
+                if(e) e.preventDefault();
                 const tInput = document.getElementById('liberacao-talhao-add');
                 const vInput = document.getElementById('liberacao-variedade-add');
                 const aInput = document.getElementById('liberacao-area-add');
-                const tVal = tInput ? tInput.value.trim() : '';
+                
+                const tVal = tInput ? tInput.value : '';
                 const vVal = vInput ? vInput.value.trim() : '';
-                const aVal = aInput ? parseFloat(aInput.value) : 0;
+                
+                let aValRaw = aInput ? aInput.value : '';
+                if (aValRaw && typeof aValRaw === 'string') aValRaw = aValRaw.replace(',', '.');
+                const aVal = parseFloat(aValRaw);
 
-                if (!tVal || !aVal || aVal <= 0) {
-                    this.ui.showNotification('Informe talhão e área válida', 'warning');
+                if (!tVal || String(tVal).trim() === '' || isNaN(aVal) || aVal <= 0) {
+                    this.ui.showNotification('Selecione um talhão e informe uma área válida', 'warning');
                     return;
                 }
 
@@ -1167,8 +1224,8 @@ forceReloadAllData() {
                 if (tInput) tInput.value = '';
                 if (vInput) vInput.value = '';
                 if (aInput) aInput.value = '';
-                tInput.focus();
-            });
+                if (tInput) tInput.focus();
+            };
         }
 
         if (libTalhoesBody) {
@@ -1235,13 +1292,8 @@ forceReloadAllData() {
                         observacoes: obs
                     });
                     this.ui.showNotification('Registro de liberação salvo com sucesso!', 'success');
-                    if (liberacaoModal) liberacaoModal.style.display = 'none';
-                    
-                    // Clear form
-                    document.getElementById('liberacao-form').reset();
-                    this.liberacaoTalhoesDraft = [];
-                    this.renderLiberacaoTalhoes();
-
+                    this.toggleLiberacaoView('list');
+                    this.renderLiberacoesList();
                 } catch (error) {
                     console.error('Erro no saveLiberacaoColheita:', error);
                     const msg = error.message || JSON.stringify(error);
@@ -1560,6 +1612,117 @@ forceReloadAllData() {
                     fazendaSelect.appendChild(opt);
                 });
             }
+        }
+    }
+
+    toggleLiberacaoView(mode) {
+        const viewList = document.getElementById('liberacao-view-list');
+        const viewForm = document.getElementById('liberacao-view-form');
+        if (!viewList || !viewForm) return;
+
+        if (mode === 'list') {
+            viewList.style.display = 'block';
+            viewForm.style.display = 'none';
+        } else {
+            viewList.style.display = 'none';
+            viewForm.style.display = 'block';
+        }
+    }
+
+    async renderLiberacoesList() {
+        const tbody = document.getElementById('liberacao-list-body');
+        if (!tbody) return;
+
+        tbody.innerHTML = '<tr><td colspan="6" class="loading">Carregando...</td></tr>';
+
+        try {
+            const res = await this.api.getLiberacaoColheita();
+            if (res.success && res.data) {
+                this.liberacaoColheitaData = res.data; // Cache it
+                
+                if (res.data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px;">Nenhuma liberação encontrada.</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = res.data.map(item => {
+                    return `
+                        <tr>
+                            <td>${item.numero_liberacao}</td>
+                            <td>${this.ui.formatDateBR(item.data)}</td>
+                            <td>${item.frente || '-'}</td>
+                            <td>${item.fazenda || '-'}</td>
+                            <td><span class="status-badge status-${(item.status||'').toLowerCase()}">${item.status}</span></td>
+                            <td>
+                                <button class="btn btn-sm btn-secondary" onclick="window.insumosApp.editLiberacao('${item.numero_liberacao}')">✏️</button>
+                                <button class="btn btn-sm btn-danger" style="background-color:#e74c3c; color:white;" onclick="window.insumosApp.deleteLiberacao('${item.numero_liberacao}')">🗑️</button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            } else {
+                tbody.innerHTML = '<tr><td colspan="6" class="loading">Erro ao carregar dados.</td></tr>';
+            }
+        } catch (e) {
+            console.error(e);
+            tbody.innerHTML = '<tr><td colspan="6" class="loading">Erro ao carregar dados.</td></tr>';
+        }
+    }
+
+    async editLiberacao(numero) {
+        const item = (this.liberacaoColheitaData || []).find(x => String(x.numero_liberacao) === String(numero));
+        if (!item) return;
+
+        this.toggleLiberacaoView('form');
+        await this.populateLiberacaoOptions();
+
+        // Fill form
+        const numInput = document.getElementById('liberacao-numero');
+        if(numInput) numInput.value = item.numero_liberacao;
+        
+        const dateInput = document.getElementById('liberacao-data');
+        if(dateInput) dateInput.value = item.data;
+        
+        const frenteInput = document.getElementById('liberacao-frente');
+        if(frenteInput) frenteInput.value = item.frente;
+        
+        const fazendaInput = document.getElementById('liberacao-fazenda');
+        if(fazendaInput) {
+            // Try matching by code or name if code not available
+            fazendaInput.value = item.fazenda_codigo || '';
+            // If code didn't work (maybe stored by name?), try finding by name
+            if (!fazendaInput.value && item.fazenda) {
+                 const f = this.cadastroFazendas.find(x => x.nome === item.fazenda);
+                 if(f) fazendaInput.value = f.codigo;
+            }
+            // Trigger change to populate talhoes options for this farm
+            fazendaInput.dispatchEvent(new Event('change'));
+        }
+        
+        const codInput = document.getElementById('liberacao-cod-fazenda');
+        if(codInput) codInput.value = item.fazenda_codigo || '';
+        
+        const statusInput = document.getElementById('liberacao-status');
+        if(statusInput) statusInput.value = item.status || 'Aberto';
+        
+        const obsInput = document.getElementById('liberacao-obs');
+        if(obsInput) obsInput.value = item.observacoes || '';
+
+        this.liberacaoTalhoesDraft = item.talhoes || [];
+        this.renderLiberacaoTalhoes();
+    }
+    
+    async deleteLiberacao(numero) {
+        if (!confirm(`Deseja excluir a liberação ${numero}?`)) return;
+        
+        try {
+             const { error } = await this.api.supabase.from('liberacao_colheita').delete().eq('numero_liberacao', numero);
+             if (error) throw error;
+             
+             await this.api.logAction('DELETE_LIBERACAO', { numero });
+             this.renderLiberacoesList();
+        } catch(e) {
+            alert('Erro ao excluir: ' + e.message);
         }
     }
 

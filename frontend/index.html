@@ -1477,99 +1477,133 @@
 
     <!-- Modal Liberação de Colheita -->
     <div id="liberacao-modal" class="modal" style="display: none;">
-        <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-content" style="max-width: 90%;">
             <div class="modal-header">
                 <h3>🌾 Liberação de Colheita de Muda</h3>
                 <button class="close-modal close-liberacao-modal">&times;</button>
             </div>
-            <div class="modal-body">
-                <form id="liberacao-form">
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label for="liberacao-numero">Número Liberação</label>
-                            <input type="text" id="liberacao-numero" placeholder="Nº Liberação" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="liberacao-data">Data</label>
-                            <input type="date" id="liberacao-data" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="liberacao-frente">Frente (OS)</label>
-                            <select id="liberacao-frente" required>
-                                <option value="">Selecione...</option>
-                                <!-- Populated via JS -->
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="liberacao-fazenda">Fazenda</label>
-                            <select id="liberacao-fazenda" required>
-                                <option value="">Selecione a Fazenda...</option>
-                                <!-- Populated via JS -->
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="liberacao-cod-fazenda">Cód. Fazenda</label>
-                            <input type="text" id="liberacao-cod-fazenda" readonly style="background: #f0f0f0;">
-                        </div>
-                        <div class="form-group">
-                            <label for="liberacao-status">Status</label>
-                            <select id="liberacao-status">
-                                <option value="Aberto">Aberto</option>
-                                <option value="Fechado">Fechado</option>
-                            </select>
-                        </div>
+            <div class="modal-body" style="overflow-y: auto; max-height: 80vh;">
+                
+                <!-- LIST VIEW -->
+                <div id="liberacao-view-list">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h4 style="margin:0;">Liberações Cadastradas</h4>
+                        <button class="btn btn-primary" id="btn-nova-liberacao">➕ Nova Liberação</button>
                     </div>
-
-                    <h5 style="margin: 15px 0 5px 0;">Talhões</h5>
-                    <div class="form-grid" style="grid-template-columns: 1fr 1fr 1fr auto; align-items: end; margin-bottom: 10px;">
-                        <div class="form-group">
-                            <label for="liberacao-talhao-add">Talhão</label>
-                            <select id="liberacao-talhao-add">
-                                <option value="">Selecione...</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="liberacao-variedade-add">Variedade</label>
-                            <input type="text" id="liberacao-variedade-add" placeholder="Variedade">
-                        </div>
-                        <div class="form-group">
-                            <label for="liberacao-area-add">Área (ha)</label>
-                            <input type="number" id="liberacao-area-add" step="0.01" placeholder="0.00">
-                        </div>
-                        <button type="button" class="btn btn-secondary" id="btn-add-liberacao-talhao">Adicionar</button>
-                    </div>
-
-                    <div class="table-container" style="max-height: 150px; overflow-y: auto;">
+                    <div class="table-container">
                         <table class="data-table">
                             <thead>
                                 <tr>
-                                    <th>Talhão</th>
-                                    <th>Variedade</th>
-                                    <th>Área (ha)</th>
-                                    <th>Ação</th>
+                                    <th>Número</th>
+                                    <th>Data</th>
+                                    <th>Frente</th>
+                                    <th>Fazenda</th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
                                 </tr>
                             </thead>
-                            <tbody id="liberacao-talhoes-body">
-                                <!-- JS -->
+                            <tbody id="liberacao-list-body">
+                                <tr><td colspan="6" class="loading">Carregando...</td></tr>
                             </tbody>
-                            <tfoot>
-                                <tr>
-                                    <td colspan="2" style="text-align: right; font-weight: bold;">Total:</td>
-                                    <td colspan="2" id="liberacao-total-ha" style="font-weight: bold;">0.00 ha</td>
-                                </tr>
-                            </tfoot>
                         </table>
                     </div>
+                </div>
 
-                    <div class="form-group full-width" style="margin-top: 15px;">
-                        <label for="liberacao-obs">Observações</label>
-                        <textarea id="liberacao-obs" rows="3" style="width: 100%; border: 1px solid var(--border); border-radius: 8px; padding: 8px; font-family: inherit;"></textarea>
-                    </div>
-                </form>
+                <!-- FORM VIEW -->
+                <div id="liberacao-view-form" style="display:none;">
+                    <button class="btn btn-secondary" id="btn-voltar-liberacao-list" style="margin-bottom: 15px;">⬅ Voltar para Lista</button>
+
+                    <form id="liberacao-form">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="liberacao-numero">Número Liberação</label>
+                                <input type="text" id="liberacao-numero" placeholder="Nº Liberação" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="liberacao-data">Data</label>
+                                <input type="date" id="liberacao-data" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="liberacao-frente">Frente (OS)</label>
+                                <select id="liberacao-frente" required>
+                                    <option value="">Selecione...</option>
+                                    <!-- Populated via JS -->
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="liberacao-fazenda">Fazenda</label>
+                                <select id="liberacao-fazenda" required>
+                                    <option value="">Selecione a Fazenda...</option>
+                                    <!-- Populated via JS -->
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="liberacao-cod-fazenda">Cód. Fazenda</label>
+                                <input type="text" id="liberacao-cod-fazenda" readonly style="background: #f0f0f0;">
+                            </div>
+                            <div class="form-group">
+                                <label for="liberacao-status">Status</label>
+                                <select id="liberacao-status">
+                                    <option value="Aberto">Aberto</option>
+                                    <option value="Fechado">Fechado</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <h5 style="margin: 15px 0 5px 0;">Talhões</h5>
+                        <div class="form-grid" style="grid-template-columns: 1fr 1fr 1fr auto; align-items: end; margin-bottom: 10px;">
+                            <div class="form-group">
+                                <label for="liberacao-talhao-add">Talhão</label>
+                                <select id="liberacao-talhao-add">
+                                    <option value="">Selecione...</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="liberacao-variedade-add">Variedade</label>
+                                <input type="text" id="liberacao-variedade-add" placeholder="Variedade">
+                            </div>
+                            <div class="form-group">
+                                <label for="liberacao-area-add">Área (ha)</label>
+                                <input type="number" id="liberacao-area-add" step="0.01" placeholder="0.00">
+                            </div>
+                            <button type="button" class="btn btn-secondary" id="btn-add-liberacao-talhao">Adicionar</button>
+                        </div>
+
+                        <div class="table-container" style="max-height: 150px; overflow-y: auto;">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Talhão</th>
+                                        <th>Variedade</th>
+                                        <th>Área (ha)</th>
+                                        <th>Ação</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="liberacao-talhoes-body">
+                                    <!-- JS -->
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td colspan="2" style="text-align: right; font-weight: bold;">Total:</td>
+                                        <td colspan="2" id="liberacao-total-ha" style="font-weight: bold;">0.00 ha</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+
+                        <div class="form-group full-width" style="margin-top: 15px;">
+                            <label for="liberacao-obs">Observações</label>
+                            <textarea id="liberacao-obs" rows="3" style="width: 100%; border: 1px solid var(--border); border-radius: 8px; padding: 8px; font-family: inherit;"></textarea>
+                        </div>
+                        
+                        <div style="margin-top:20px;display:flex;gap:10px;justify-content:flex-end;">
+                            <button type="button" class="btn btn-primary" id="btn-save-liberacao">💾 Salvar Liberação</button>
+                        </div>
+                    </form>
+                </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary close-liberacao-modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" id="btn-save-liberacao">💾 Salvar Liberação</button>
+                <button type="button" class="btn btn-secondary close-liberacao-modal">Fechar</button>
             </div>
         </div>
     </div>
