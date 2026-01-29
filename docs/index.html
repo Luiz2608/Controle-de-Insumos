@@ -2222,10 +2222,10 @@
                 </div>
             </div>
             <div class="modal-footer" style="margin-top: 15px; display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid #eee; padding-top: 15px;">
-                 <button type="button" class="btn btn-secondary" id="modal-btn-print-viagem-adubo" title="Imprimir Detalhes">🖨️ Imprimir</button>
-                 <button type="button" class="btn btn-secondary close-viagem-adubo-modal">Cancelar</button>
-                 <button type="button" id="modal-viagem-save-btn" class="btn btn-primary" onclick="if(window.insumosApp) window.insumosApp.saveViagemAdubo(true); else alert('Sistema carregando...');">💾 Registrar Viagem</button>
-            </div>
+                     <button type="button" class="btn btn-secondary" id="modal-btn-print-viagem-adubo" title="Imprimir Detalhes">🖨️ Imprimir</button>
+                     <button type="button" class="btn btn-secondary close-viagem-adubo-modal">Cancelar</button>
+                     <button type="button" id="modal-viagem-save-btn" class="btn btn-primary" onclick="alert('DEBUG: Click recebido!'); console.log('DEBUG: Click start'); if(window.insumosApp) { console.log('App found'); window.insumosApp.saveViagemAdubo(true); } else { alert('Sistema carregando... (window.insumosApp undefined)'); }">💾 Registrar Viagem</button>
+                </div>
         </div>
     </div>
 
