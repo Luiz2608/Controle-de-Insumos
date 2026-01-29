@@ -3772,6 +3772,8 @@ forceReloadAllData() {
         try {
             console.log(`🔄 Recalculando estoque para frente ${frente}...`);
             const totais = {}; // produto -> qtd
+            const productOSMap = {}; // Mapeamento Produto -> [OSs] para inferência
+            const consumptionMap = {}; // [FIX] Rastrear consumo para manter saldo correto ao sobrescrever entradas
             let lastOS = null;
 
             // 1. Buscar dados das OSs (Adicionar produtos da OS como entrada de estoque)
@@ -3788,10 +3790,20 @@ forceReloadAllData() {
                             const nome = p.produto;
                             const qtd = parseFloat(p.qtdTotal) || 0;
                             if (nome && qtd > 0) {
+                                // Mapear produto para OS para ajudar na baixa
+                                if (!productOSMap[nome]) productOSMap[nome] = [];
+                                if (!productOSMap[nome].includes(os.numero)) productOSMap[nome].push(os.numero);
+
+                                // [ALTERADO] NÃO adicionar o planejado ao estoque.
+                                // O estoque deve refletir APENAS o que foi transportado (Real).
+                                // O loop abaixo (Transporte) irá popular o estoque positivo.
+                                // O loop de consumo irá subtrair.
+                                /*
                                 const key = getKey(nome, os.numero);
                                 if (!totais[key]) totais[key] = 0;
                                 totais[key] += qtd;
                                 countOS++;
+                                */
                             }
                         });
                     }
@@ -3813,13 +3825,22 @@ forceReloadAllData() {
                             const qtd = parseFloat(i.quantidadeAplicada) || 0;
                             // Tenta pegar OS se disponível (Plantio)
                             // Se o campo 'os' estiver vazio, tentamos 'numero_os' ou 'ordem_servico' caso existam no legacy
-                            const os = i.os || i.numero_os || i.ordem_servico || ''; 
+                            let os = i.os || i.numero_os || i.ordem_servico || ''; 
 
+                            // [FIX] Tentar inferir a OS se não estiver explícita
+                            if (!os && nome && productOSMap[nome] && productOSMap[nome].length === 1) {
+                                os = productOSMap[nome][0];
+                            }
 
                             if (nome && qtd > 0) {
                                 const key = getKey(nome, os);
                                 if (!totais[key]) totais[key] = 0;
                                 totais[key] -= qtd; // SUBTRAI consumo
+
+                                // [FIX] Rastrear consumo separado
+                                if (!consumptionMap[key]) consumptionMap[key] = 0;
+                                consumptionMap[key] += qtd;
+
                                 countImport++;
                             }
                         }
@@ -3846,6 +3867,11 @@ forceReloadAllData() {
                                 const key = nome.trim();
                                 if (!totais[key]) totais[key] = 0;
                                 totais[key] -= qtd; // SUBTRAI consumo
+
+                                // [FIX] Rastrear consumo separado
+                                if (!consumptionMap[key]) consumptionMap[key] = 0;
+                                consumptionMap[key] += qtd;
+                                
                                 countImport++;
                             }
                         }
@@ -3854,6 +3880,9 @@ forceReloadAllData() {
             } catch (errOxi) {
                 console.error('Erro ao buscar insumos_oxifertil:', errOxi);
             }
+
+            // [FIX] Rastrear chaves atualizadas por transporte para sobrescrever o planejado (Estoque Real)
+            const transportKeys = new Set();
 
             // 4. Buscar Transporte de Composto (Entradas REALIZADAS - Diários)
             try {
@@ -3885,6 +3914,13 @@ forceReloadAllData() {
                                 // O padrão getKey separa por OS.
                                 const key = getKey('COMPOSTO', osNum);
                                 
+                                // Sobrescrever valor planejado na primeira vez que encontramos transporte
+                                if (!transportKeys.has(key)) {
+                                    // [FIX] Resetar para (0 - Consumo) para preservar o consumo já processado
+                                    totais[key] = -(consumptionMap[key] || 0);
+                                    transportKeys.add(key);
+                                }
+
                                 if (!totais[key]) totais[key] = 0;
                                 totais[key] += qtd;
                                 
@@ -3914,6 +3950,14 @@ forceReloadAllData() {
 
                         if (nome && qtd > 0) {
                             const key = getKey(nome, os);
+
+                            // Sobrescrever valor planejado na primeira vez que encontramos transporte
+                            if (!transportKeys.has(key)) {
+                                // [FIX] Resetar para (0 - Consumo) para preservar o consumo já processado
+                                totais[key] = -(consumptionMap[key] || 0);
+                                transportKeys.add(key);
+                            }
+
                             if (!totais[key]) totais[key] = 0;
                             totais[key] += qtd;
                             if (!lastOS && v.numero_os) lastOS = v.numero_os;
@@ -5954,6 +5998,24 @@ forceReloadAllData() {
             // 1. Populate Fazendas (Always all fazendas)
             await this.populateFazendaSelect();
 
+            // [NEW] Populate OS Select
+            const osRes = await this.api.getOSList();
+            if (osRes.success) {
+                this.osListCache = osRes.data || [];
+                const osSelect = document.getElementById('modal-viagem-adubo-os');
+                if (osSelect) {
+                    const currentOS = osSelect.getAttribute('data-value') || osSelect.value;
+                    const activeOS = this.osListCache.filter(os => os.status !== 'Cancelada');
+                    // Sort desc by number
+                    activeOS.sort((a, b) => parseInt(b.numero || 0) - parseInt(a.numero || 0));
+                    
+                    osSelect.innerHTML = '<option value="">Selecione a OS</option>' + 
+                        activeOS.map(os => `<option value="${os.numero}">${os.numero} - ${os.fazenda || 'Sem Fazenda'}</option>`).join('');
+                    
+                    if (currentOS) osSelect.value = currentOS;
+                }
+            }
+
             // 2. Populate Frentes (From Plantio Data)
             let plantioData = [];
             if (this.plantioDiarioData && this.plantioDiarioData.length > 0) {
@@ -5999,6 +6061,99 @@ forceReloadAllData() {
     }
 
     setupViagemAduboSelectListeners() {
+        // [NEW] OS Listener
+        const osSelect = document.getElementById('modal-viagem-adubo-os');
+        if (osSelect) {
+            osSelect.onchange = () => {
+                const osNum = osSelect.value;
+                if (!osNum || !this.osListCache) return;
+                
+                const os = this.osListCache.find(o => String(o.numero) === String(osNum));
+                if (os) {
+                    // Auto-fill fields
+                    if (os.frente) {
+                        const elFrente = document.getElementById('modal-viagem-frente');
+                        if (elFrente) elFrente.value = os.frente;
+                    }
+                    if (os.fazenda) {
+                         const elFazenda = document.getElementById('modal-viagem-fazenda');
+                         const elCodigo = document.getElementById('modal-viagem-codigo-fazenda');
+                         
+                         if (elFazenda) {
+                             const target = String(os.fazenda).trim().toUpperCase();
+                             let bestMatchIndex = -1;
+                             
+                             // 1. Try Exact/Trimmed Match
+                             for (let i = 0; i < elFazenda.options.length; i++) {
+                                 const optVal = String(elFazenda.options[i].value || '').trim().toUpperCase();
+                                 if (optVal === target) {
+                                     bestMatchIndex = i;
+                                     break;
+                                 }
+                             }
+                             
+                             // 2. If not found, try contains (fuzzy)
+                             if (bestMatchIndex === -1) {
+                                 for (let i = 0; i < elFazenda.options.length; i++) {
+                                     const optVal = String(elFazenda.options[i].value || '').trim().toUpperCase();
+                                     if (optVal && (optVal.includes(target) || target.includes(optVal))) {
+                                         bestMatchIndex = i;
+                                         break; // Take first match
+                                     }
+                                     const optText = String(elFazenda.options[i].text || '').trim().toUpperCase();
+                                     if (optText && (optText.includes(target) || target.includes(optText))) {
+                                         bestMatchIndex = i;
+                                         break;
+                                     }
+                                 }
+                             }
+
+                             if (bestMatchIndex > 0) {
+                                 elFazenda.selectedIndex = bestMatchIndex;
+                                 
+                                 // Manually sync code
+                                 if (elCodigo) {
+                                     const opt = elFazenda.options[bestMatchIndex];
+                                     const codigo = opt.getAttribute('data-codigo');
+                                     if (codigo) elCodigo.value = codigo;
+                                 }
+                                 
+                                 // Dispatch change
+                                 const event = new Event('change');
+                                 elFazenda.dispatchEvent(event);
+                             } else {
+                                 // Fallback: Try to find by Code using Farm Name in data-fazenda
+                                 if (elCodigo) {
+                                      for (let i = 0; i < elCodigo.options.length; i++) {
+                                         const optFazendaName = String(elCodigo.options[i].getAttribute('data-fazenda') || '').trim().toUpperCase();
+                                         if (optFazendaName && (optFazendaName === target || optFazendaName.includes(target) || target.includes(optFazendaName))) {
+                                              elCodigo.selectedIndex = i;
+                                              
+                                              // Now sync back to Fazenda
+                                              const correctFazendaName = elCodigo.options[i].getAttribute('data-fazenda');
+                                              if (correctFazendaName) {
+                                                  elFazenda.value = correctFazendaName;
+                                              }
+                                              break;
+                                         }
+                                     }
+                                 }
+                             }
+                         }
+                    }
+                    
+                    // Populate Products from OS
+                    if (os.produtos && Array.isArray(os.produtos) && os.produtos.length > 0) {
+                        const prodSelect = document.getElementById('modal-viagem-produto');
+                        if (prodSelect) {
+                            prodSelect.innerHTML = '<option value="">Selecione</option>' + 
+                                os.produtos.map(p => `<option value="${p.produto}">${p.produto}</option>`).join('');
+                        }
+                    }
+                }
+            };
+        }
+
         const setupSync = (fazendaId, codigoId) => {
             const selFazenda = document.getElementById(fazendaId);
             const selCodigo = document.getElementById(codigoId);
