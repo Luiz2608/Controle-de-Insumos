@@ -2359,6 +2359,41 @@
                 bags: app.viagensAduboBagsDraft || []
             };
             
+            // --- Verificação de Limite da OS (Alerta Inteligente) ---
+            if (payload.numeroOS && app.osListCache) {
+                const os = app.osListCache.find(o => String(o.numero) === String(payload.numeroOS));
+                if (os) {
+                    let predicted = parseFloat(os.quantidade || 0);
+                    // Fallback para cálculo Area * Dose se quantidade não definida
+                    if (!predicted && os.area_total && os.dose_recomendada) {
+                        predicted = parseFloat(os.area_total) * parseFloat(os.dose_recomendada);
+                    }
+                    
+                    if (predicted > 0) {
+                        const trips = app.viagensAdubo || [];
+                        const currentId = app.currentViagemAduboId;
+                        
+                        const existingTotal = trips
+                            .filter(t => String(t.numero_os) === String(payload.numeroOS) && t.id !== currentId)
+                            .reduce((sum, t) => sum + (parseFloat(t.quantidade_total) || 0), 0);
+                            
+                        const newTotal = existingTotal + payload.quantidadeTotal;
+                        
+                        if (newTotal > predicted) {
+                            const msg = `ATENÇÃO: A quantidade total acumulada (${app.ui.formatNumber(newTotal, 3)}) excederá o valor previsto na OS (${app.ui.formatNumber(predicted, 3)}).\n\nPrevisto: ${app.ui.formatNumber(predicted, 3)}\nAcumulado Anterior: ${app.ui.formatNumber(existingTotal, 3)}\nNovo Lançamento: ${app.ui.formatNumber(payload.quantidadeTotal, 3)}\n\nDeseja continuar?`;
+                            if (!confirm(msg)) {
+                                if (btnSaveModal) {
+                                   btnSaveModal.innerText = originalText;
+                                   btnSaveModal.disabled = false;
+                                }
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+            // --------------------------------------------------------
+
             let res;
             if (app.currentViagemAduboId) {
                 res = await app.api.updateViagemAdubo(app.currentViagemAduboId, payload);
