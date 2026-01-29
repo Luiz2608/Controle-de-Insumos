@@ -9184,7 +9184,7 @@ InsumosApp.prototype.handleEditPlantio = function(id) {
     set('plantio-obs', record.observacoes);
 
     // Tipo de Operação
-    const tipoOp = record.tipo_operacao || 'plantio';
+    const tipoOp = record.tipo_operacao || (record.qualidade && record.qualidade.tipoOperacao) || 'plantio';
     set('tipo-operacao', tipoOp);
     // Disparar evento para ajustar visibilidade das seções
     const tipoOpEl = document.getElementById('tipo-operacao');
@@ -9347,7 +9347,8 @@ InsumosApp.prototype.savePlantioDia = async function() {
         mudasReboulos: parseFloat(document.getElementById('qual-mudas-reboulos')?.value || '0'),
         colheitaHectares: parseFloat(document.getElementById('colheita-hectares')?.value || '0'),
         colheitaTchEstimado: parseFloat(document.getElementById('colheita-tch-estimado')?.value || '0'),
-        colheitaTchReal: parseFloat(document.getElementById('colheita-tch-real')?.value || '0')
+        colheitaTchReal: parseFloat(document.getElementById('colheita-tch-real')?.value || '0'),
+        tipoOperacao: tipoOperacao // Persist in JSONB to avoid schema issues
     };
     let fazendaNome = document.getElementById('single-fazenda')?.value || '';
     const matchCod = fazendaNome.match(/^(\d+)\s*[-–]\s*(.+)$/);
@@ -9380,14 +9381,14 @@ InsumosApp.prototype.savePlantioDia = async function() {
     };
     
     // Capturar tipo de operação e colheita
-    const tipoOperacao = document.getElementById('tipo-operacao')?.value || 'plantio';
+    // const tipoOperacao = document.getElementById('tipo-operacao')?.value || 'plantio';
     // Se for colheita_muda, pegar do input específico, senão 0
     const colheitaHa = parseFloat(document.getElementById('colheita-hectares')?.value || '0');
 
     const payload = {
         data, responsavel, observacoes,
-        tipo_operacao: tipoOperacao,
-        colheita_hectares: colheitaHa,
+        // tipo_operacao: tipoOperacao, // Removed to avoid 400 error if column missing
+        // colheita_hectares: colheitaHa, // Removed to avoid 400 error if column missing
         frentes: [frente],
         insumos: this.plantioInsumosDraft.slice(),
         qualidade
