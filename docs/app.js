@@ -5612,7 +5612,16 @@ forceReloadAllData() {
             doc.text(text, x, y);
         };
 
-        const data = getVal('viagem-data');
+        // Helper to format date to BR
+        const formatDateBR = (d) => {
+            if (!d) return '';
+            if (d.includes('/')) return d;
+            const parts = d.split('-');
+            if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+            return d;
+        };
+
+        const data = formatDateBR(getVal('viagem-data'));
         const fazenda = getVal('viagem-fazenda');
 
         // === HEADER / CAPA ===
@@ -5829,7 +5838,7 @@ forceReloadAllData() {
 
                  return `
                     <tr>
-                        <td>${v.data || ''}</td>
+                        <td>${v.data}</td>
                         <td>${v.fazenda || ''}</td>
                         <td>${v.numeroOS || v.numero_os || ''}</td>
                         <td>${this.ui.formatNumber(previsto, 3)}</td>
@@ -5845,7 +5854,7 @@ forceReloadAllData() {
             } else {
                 return `
                     <tr>
-                        <td>${v.data || ''}</td>
+                        <td>${v.data}</td>
                         <td>${v.frente || ''}</td>
                         <td>${v.fazenda || ''}</td>
                         <td>${v.produto || ''}</td>

@@ -647,7 +647,85 @@ body.dark-mode {
     --text-light: #aaa;
     --border: #333;
     --shadow: 0 4px 6px -1px rgba(0,0,0,0.3);
+    --table-header-bg: #2d2d2d;
     background-image: linear-gradient(to bottom right, #121212, #0d1b10);
+}
+
+/* Comprehensive Dark Mode Fixes */
+body.dark-mode .app-container,
+body.dark-mode .header,
+body.dark-mode .tabs,
+body.dark-mode .kpi-card,
+body.dark-mode .chart-card,
+body.dark-mode .modal-content,
+body.dark-mode .login-box,
+body.dark-mode .dropdown-menu {
+    background-color: var(--surface);
+    border-color: var(--border);
+    color: var(--text);
+}
+
+body.dark-mode .tab:hover {
+    background: rgba(255,255,255,0.05);
+}
+
+body.dark-mode input, 
+body.dark-mode select, 
+body.dark-mode textarea {
+    background-color: #2d2d2d !important;
+    color: #e0e0e0 !important;
+    border-color: #444 !important;
+}
+
+body.dark-mode input:focus, 
+body.dark-mode select:focus, 
+body.dark-mode textarea:focus {
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.2);
+}
+
+body.dark-mode .data-table th {
+    background-color: var(--table-header-bg);
+    color: var(--text);
+    border-bottom-color: var(--border);
+}
+
+body.dark-mode .data-table td {
+    border-bottom-color: var(--border);
+    color: var(--text);
+}
+
+body.dark-mode .data-table tbody tr:hover {
+    background-color: rgba(255,255,255,0.05);
+}
+
+body.dark-mode .form-group label,
+body.dark-mode .filter-group label,
+body.dark-mode .kpi-value,
+body.dark-mode .chart-card h4,
+body.dark-mode .modal-header h3 {
+    color: var(--text);
+}
+
+body.dark-mode .kpi-label,
+body.dark-mode .close-modal {
+    color: var(--text-light);
+}
+
+/* Dark Mode Readonly Inputs */
+body.dark-mode input.readonly-input, 
+body.dark-mode select.readonly-input {
+    background-color: #383838 !important;
+    color: #ffffff !important;
+    border-color: #555 !important;
+}
+
+/* Scrollbar for Dark Mode */
+body.dark-mode ::-webkit-scrollbar-thumb {
+    background: #555;
+}
+body.dark-mode ::-webkit-scrollbar-thumb:hover {
+    background: #777;
 }
 
 /* Tela de Login Fullscreen */
@@ -689,11 +767,6 @@ body.dark-mode .login-screen {
 
 .login-box p {
     text-align: center;
-}
-body.dark-mode input, body.dark-mode select {
-    background: #2d2d2d;
-    color: #fff;
-    border-color: #444;
 }
 
 /* JSON Preview */
@@ -762,35 +835,13 @@ input.readonly-input, select.readonly-input {
     font-weight: 500;
 }
 
-/* Dark Mode Overrides */
-body.dark-mode input.readonly-input, body.dark-mode select.readonly-input {
-    background-color: #383838 !important; /* Distinto do fundo #1e1e1e e input normal #2d2d2d */
-    color: #ffffff !important; /* Texto branco puro */
-    border-color: #555 !important;
-}
-
 /* Input Error Highlighting */
-.input-error {
+.input-error,
+body.dark-mode input.input-error,
+body.dark-mode select.input-error,
+body.dark-mode textarea.input-error {
     border: 2px solid var(--error) !important;
     background-color: rgba(211, 47, 47, 0.05) !important;
+    box-shadow: 0 0 4px rgba(211, 47, 47, 0.3) !important;
 }
 
-/* Dark Mode Fixes for Modal and Inputs */
-body.dark-mode .modal-content {
-    background-color: #1e1e1e;
-    border: 1px solid #333;
-}
-
-body.dark-mode .form-group label {
-    color: #e0e0e0;
-}
-
-body.dark-mode select option {
-    background-color: #1e1e1e;
-    color: #fff;
-}
-
-body.dark-mode .chart-card {
-    background-color: #1e1e1e;
-    border-color: #333;
-}

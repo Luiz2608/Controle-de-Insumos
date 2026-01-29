@@ -5115,6 +5115,7 @@ forceReloadAllData() {
     setupViagemAduboListeners() {
         // Button Nova Viagem (Open Modal)
         const btnNovaViagem = document.getElementById('btn-nova-viagem-adubo');
+        
         if (btnNovaViagem) {
             btnNovaViagem.onclick = () => {
                 this.openViagemAduboModal(null, 'create');
@@ -5140,66 +5141,50 @@ forceReloadAllData() {
             };
         });
 
-        // Add Bag Row (Inline)
+        // Add Bag Row (Main Form)
         const btnAddBag = document.getElementById('bag-add-btn');
         if (btnAddBag) {
-            btnAddBag.onclick = () => this.addBagRow();
+            btnAddBag.onclick = () => this.addBagRow('');
         }
-
+        
         // Add Bag Row (Modal)
-        const btnModalAddBag = document.getElementById('modal-bag-add-btn');
-        if (btnModalAddBag) {
-            btnModalAddBag.onclick = () => this.addBagRow('modal-');
+        const btnAddBagModal = document.getElementById('modal-bag-add-btn');
+        if (btnAddBagModal) {
+            btnAddBagModal.onclick = () => this.addBagRow('modal-');
         }
 
-        // Save Button (Inline)
+        // Save Button (Main Form)
         const btnSave = document.getElementById('viagem-save-btn');
         if (btnSave) {
-            btnSave.onclick = null; 
-            btnSave.addEventListener('click', (e) => {
+            // Remove previous listeners
+            const newBtn = btnSave.cloneNode(true);
+            btnSave.parentNode.replaceChild(newBtn, btnSave);
+            
+            newBtn.addEventListener('click', (e) => {
                 e.preventDefault();
-                console.log('Inline Save button clicked!');
-                this.saveViagemAdubo('');
+                console.log('Save button clicked (Main)!');
+                this.saveViagemAdubo(false);
             });
         }
 
         // Save Button (Modal)
-        const btnModalSave = document.getElementById('modal-viagem-save-btn');
-        if (btnModalSave) {
-            const newBtn = btnModalSave.cloneNode(true);
-            btnModalSave.parentNode.replaceChild(newBtn, btnModalSave);
-            
+        // Handled via inline onclick in HTML to ensure reliability
+        /*
+        const btnSaveModal = document.getElementById('modal-viagem-save-btn');
+        if (btnSaveModal) {
+            const newBtn = btnSaveModal.cloneNode(true);
+            btnSaveModal.parentNode.replaceChild(newBtn, btnSaveModal);
             newBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                console.log('Modal Save button clicked!');
-                
-                // Visual feedback immediate
-                const originalText = newBtn.innerText;
-                newBtn.innerText = 'Processando...';
-                newBtn.disabled = true;
-
-                this.saveViagemAdubo('modal-').finally(() => {
-                    newBtn.innerText = originalText;
-                    newBtn.disabled = false;
-                });
+                 e.preventDefault();
+                 this.saveViagemAdubo(true);
             });
         }
+        */
 
-        // Auto-select Fazenda by Code (Inline)
-        this.setupAutoSelectFazenda('viagem-codigo-fazenda', 'viagem-fazenda');
-        // Auto-select Fazenda by Code (Modal)
-        this.setupAutoSelectFazenda('modal-viagem-codigo-fazenda', 'modal-viagem-fazenda');
-
-        // Print Button (Inline - if exists? No, mostly in modal)
-        const btnPrint = document.getElementById('btn-print-viagem-adubo'); // This might be inline or modal?
+        // Print Button
+        const btnPrint = document.getElementById('modal-btn-print-viagem-adubo');
         if (btnPrint) {
             btnPrint.onclick = () => this.printViagemAdubo();
-        }
-        
-        // Print Button (Modal)
-        const btnModalPrint = document.getElementById('modal-btn-print-viagem-adubo');
-        if (btnModalPrint) {
-            btnModalPrint.onclick = () => this.printViagemAdubo();
         }
 
         // Table Delegated Events (View/Edit/Delete)
@@ -5225,41 +5210,26 @@ forceReloadAllData() {
             };
         }
 
-        // Bags Table Delegated Events (Delete Row - Inline)
-        this.setupBagDeleteListener('bags-table-body');
-        // Bags Table Delegated Events (Delete Row - Modal)
-        this.setupBagDeleteListener('modal-bags-table-body');
-    }
-
-    setupAutoSelectFazenda(codeId, selectId) {
-        const codeInput = document.getElementById(codeId);
-        if (codeInput) {
-            codeInput.addEventListener('blur', () => {
-                const code = codeInput.value;
-                if (!code) return;
-                const select = document.getElementById(selectId);
-                if (!select) return;
-                
-                let found = false;
-                for (let i = 0; i < select.options.length; i++) {
-                    const opt = select.options[i];
-                    if (opt.getAttribute('data-codigo') === code) {
-                        select.value = opt.value;
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found && this.ui) {
-                    this.ui.showNotification('Fazenda não encontrada com este código.', 'warning');
-                }
-            });
-        }
-    }
-
-    setupBagDeleteListener(tbodyId) {
-        const bagsBody = document.getElementById(tbodyId);
+        // Bags Table Delegated Events (Delete Row)
+        const bagsBody = document.getElementById('bags-table-body');
         if (bagsBody) {
             bagsBody.onclick = (e) => {
+                const target = e.target;
+                if (target.classList.contains('btn-delete-bag-row') || target.closest('.btn-delete-bag-row')) {
+                    const btn = target.classList.contains('btn-delete-bag-row') ? target : target.closest('.btn-delete-bag-row');
+                    const idx = parseInt(btn.getAttribute('data-idx'));
+                    if (!isNaN(idx)) {
+                        this.viagensAduboBagsDraft.splice(idx, 1);
+                        this.renderBagsDraft();
+                    }
+                }
+            };
+        }
+
+        // Modal Bags Table Delegated Events (Delete Row)
+        const modalBagsBody = document.getElementById('modal-bags-table-body');
+        if (modalBagsBody) {
+            modalBagsBody.onclick = (e) => {
                 const target = e.target;
                 if (target.classList.contains('btn-delete-bag-row') || target.closest('.btn-delete-bag-row')) {
                     const btn = target.classList.contains('btn-delete-bag-row') ? target : target.closest('.btn-delete-bag-row');
@@ -5280,7 +5250,7 @@ forceReloadAllData() {
         this.viagemAduboMode = mode;
         const isView = mode === 'view';
 
-        // Reset Fields (Modal IDs)
+        // Reset Fields (Using modal- prefix)
         const fields = [
             'modal-viagem-data', 'modal-viagem-frente', 'modal-viagem-codigo-fazenda', 'modal-viagem-fazenda',
             'modal-viagem-origem', 'modal-viagem-destino', 'modal-viagem-produto', 'modal-viagem-quantidade-total',
@@ -5314,14 +5284,9 @@ forceReloadAllData() {
             const item = this.viagensAdubo.find(v => String(v.id) === String(id));
             if (!item) return;
 
-            // Fill Fields (Modal IDs)
-            const setVal = (id, val) => {
-                const el = document.getElementById('modal-' + id);
-                if (el) el.value = val || '';
-            };
-
-            setVal('viagem-data', item.data);
-            setVal('viagem-frente', item.frente);
+            // Fill Fields
+            if (document.getElementById('modal-viagem-data')) document.getElementById('modal-viagem-data').value = item.data || '';
+            if (document.getElementById('modal-viagem-frente')) document.getElementById('modal-viagem-frente').value = item.frente || '';
             
             // Set Fazenda Select
             const fazendaSelect = document.getElementById('modal-viagem-fazenda');
@@ -5331,25 +5296,28 @@ forceReloadAllData() {
                 if (fazendaSelect.onchange) fazendaSelect.onchange();
             }
 
-            setVal('viagem-origem', item.origem);
-            setVal('viagem-destino', item.destino);
-            setVal('viagem-produto', item.produto);
-            setVal('viagem-quantidade-total', item.quantidadeTotal || item.quantidade_total);
-            setVal('viagem-unidade', item.unidade);
-            setVal('viagem-caminhao', item.caminhao);
-            setVal('viagem-carreta1', item.carreta1);
-            setVal('viagem-carreta2', item.carreta2);
-            setVal('viagem-motorista', item.motorista);
-            setVal('viagem-documento-motorista', item.documentoMotorista || item.documento_motorista);
-            setVal('viagem-transportadora', item.transportadora);
-            setVal('viagem-observacoes', item.observacoes);
+            // If we have code but name didn't match (or vice versa), ensure consistency if possible
+            // But syncing via onchange above should handle it if 'item.fazenda' matches an option.
+
+            if (document.getElementById('modal-viagem-origem')) document.getElementById('modal-viagem-origem').value = item.origem || '';
+            if (document.getElementById('modal-viagem-destino')) document.getElementById('modal-viagem-destino').value = item.destino || '';
+            if (document.getElementById('modal-viagem-produto')) document.getElementById('modal-viagem-produto').value = item.produto || '';
+            if (document.getElementById('modal-viagem-quantidade-total')) document.getElementById('modal-viagem-quantidade-total').value = item.quantidadeTotal || item.quantidade_total || '';
+            if (document.getElementById('modal-viagem-unidade')) document.getElementById('modal-viagem-unidade').value = item.unidade || '';
+            if (document.getElementById('modal-viagem-caminhao')) document.getElementById('modal-viagem-caminhao').value = item.caminhao || '';
+            if (document.getElementById('modal-viagem-carreta1')) document.getElementById('modal-viagem-carreta1').value = item.carreta1 || '';
+            if (document.getElementById('modal-viagem-carreta2')) document.getElementById('modal-viagem-carreta2').value = item.carreta2 || '';
+            if (document.getElementById('modal-viagem-motorista')) document.getElementById('modal-viagem-motorista').value = item.motorista || '';
+            if (document.getElementById('modal-viagem-documento-motorista')) document.getElementById('modal-viagem-documento-motorista').value = item.documentoMotorista || item.documento_motorista || '';
+            if (document.getElementById('modal-viagem-transportadora')) document.getElementById('modal-viagem-transportadora').value = item.transportadora || '';
+            if (document.getElementById('modal-viagem-observacoes')) document.getElementById('modal-viagem-observacoes').value = item.observacoes || '';
 
             // Bags
             this.viagensAduboBagsDraft = Array.isArray(item.bags) ? [...item.bags] : [];
 
             document.querySelector('#modal-viagem-adubo h3').textContent = isView ? 'Detalhes da Viagem' : 'Editar Viagem';
         } else {
-            // New Mode (should not happen for modal in current logic, but kept for safety)
+            // New Mode
             document.querySelector('#modal-viagem-adubo h3').textContent = 'Nova Viagem (Adubo)';
             // Set today's date default (Local Time)
             const now = new Date();
@@ -5357,7 +5325,7 @@ forceReloadAllData() {
             const month = String(now.getMonth() + 1).padStart(2, '0');
             const day = String(now.getDate()).padStart(2, '0');
             const today = `${year}-${month}-${day}`;
-
+            
             if (document.getElementById('modal-viagem-data')) document.getElementById('modal-viagem-data').value = today;
         }
 
@@ -5397,20 +5365,18 @@ forceReloadAllData() {
                 });
 
                 const frentesHtml = '<option value="">Selecione</option>' + 
-                         Array.from(frentes).sort().map(f => `<option value="${f}">${f}</option>`).join('');
+                    Array.from(frentes).sort().map(f => `<option value="${f}">${f}</option>`).join('');
                 
-                const populate = (ids, html) => {
-                    ids.forEach(id => {
-                        const el = document.getElementById(id);
-                        if (el) {
-                            const current = el.value;
-                            el.innerHTML = html;
-                            if (current) el.value = current;
-                        }
-                    });
+                const populateSelect = (id, html, current) => {
+                    const el = document.getElementById(id);
+                    if (el) {
+                        el.innerHTML = html;
+                        if (current) el.value = current;
+                    }
                 };
-                
-                populate(['viagem-frente', 'modal-viagem-frente'], frentesHtml);
+
+                populateSelect('viagem-frente', frentesHtml, document.getElementById('viagem-frente')?.value);
+                populateSelect('modal-viagem-frente', frentesHtml, document.getElementById('modal-viagem-frente')?.value);
             }
             
             // 3. Setup Sync Listeners
@@ -5424,9 +5390,9 @@ forceReloadAllData() {
     }
 
     setupViagemAduboSelectListeners() {
-        const setupSync = (prefix) => {
-            const selFazenda = document.getElementById(prefix + 'viagem-fazenda');
-            const selCodigo = document.getElementById(prefix + 'viagem-codigo-fazenda');
+        const setupSync = (fazendaId, codigoId) => {
+            const selFazenda = document.getElementById(fazendaId);
+            const selCodigo = document.getElementById(codigoId);
             
             if (selFazenda && selCodigo) {
                 selFazenda.onchange = () => {
@@ -5434,7 +5400,7 @@ forceReloadAllData() {
                     const codigo = opt ? opt.getAttribute('data-codigo') : '';
                     if (codigo) selCodigo.value = codigo;
                 };
-
+                
                 selCodigo.onchange = () => {
                     const opt = selCodigo.options[selCodigo.selectedIndex];
                     const fazenda = opt ? opt.getAttribute('data-fazenda') : '';
@@ -5443,8 +5409,8 @@ forceReloadAllData() {
             }
         };
 
-        setupSync('');
-        setupSync('modal-');
+        setupSync('viagem-fazenda', 'viagem-codigo-fazenda');
+        setupSync('modal-viagem-fazenda', 'modal-viagem-codigo-fazenda');
     }
 
     async populateFazendaSelect() {
@@ -5465,7 +5431,7 @@ forceReloadAllData() {
                  
                  const html = '<option value="">Selecione a Fazenda</option>' + 
                      fazendas.map(f => `<option value="${f.nome}" data-codigo="${f.codigo}">${f.nome}</option>`).join('');
-                 
+                     
                  const codeHtml = '<option value="">Cód</option>' + 
                      fazendas.map(f => `<option value="${f.codigo}" data-fazenda="${f.nome}">${f.codigo}</option>`).join('');
 
@@ -5624,14 +5590,16 @@ forceReloadAllData() {
 
     printViagemAdubo() {
         if (!this.currentViagemAduboId && this.viagensAduboBagsDraft.length === 0) {
+            // Se for novo e não tiver dados, alertar
             if (this.ui) this.ui.showNotification('Salve a viagem antes de imprimir ou preencha os dados.', 'warning');
+            // Allow printing drafts? Yes.
         }
 
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.getWidth();
 
-        // Helper to get value
+        // Helper to get value (Always from modal since print is only in modal)
         const getVal = (id) => {
             const el = document.getElementById('modal-' + id);
             return el ? (el.value || '-') : '-';
@@ -5644,7 +5612,16 @@ forceReloadAllData() {
             doc.text(text, x, y);
         };
 
-        const data = getVal('viagem-data');
+        // Helper to format date to BR
+        const formatDateBR = (d) => {
+            if (!d) return '';
+            if (d.includes('/')) return d;
+            const parts = d.split('-');
+            if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+            return d;
+        };
+
+        const data = formatDateBR(getVal('viagem-data'));
         const fazenda = getVal('viagem-fazenda');
 
         // === HEADER / CAPA ===
@@ -5670,7 +5647,7 @@ forceReloadAllData() {
         doc.text("1. Visão Geral", 14, y);
         y += 10;
 
-        // Box background
+        // Box background (Gray Box)
         doc.setDrawColor(200);
         doc.setFillColor(245, 247, 250);
         doc.rect(14, y, pageWidth - 28, 45, 'FD');
@@ -5693,14 +5670,14 @@ forceReloadAllData() {
 
         y += 55;
 
-        // === 2. DETALHAMENTO ===
+        // === 2. DETALHES DO TRANSPORTE ===
         doc.setFontSize(14);
         doc.setFont(undefined, 'bold');
         doc.text("2. Detalhes do Transporte", 14, y);
         y += 10;
-        
-        doc.setFontSize(10);
 
+        doc.setFontSize(10);
+        
         const details = [
             ['Origem', getVal('viagem-origem')],
             ['Destino', getVal('viagem-destino')],
@@ -5763,11 +5740,9 @@ forceReloadAllData() {
             });
         }
 
-        // Save
-        const dateStr = data.replace(/[^0-9]/g, '');
-        const fazendaStr = (fazenda || 'Viagem').replace(/[^a-zA-Z0-9]/g, '_');
-        doc.save(`Viagem_Adubo_${fazendaStr}_${dateStr}.pdf`);
+        doc.save(`viagem_adubo_${data}.pdf`);
     }
+
 
 
  
@@ -5863,7 +5838,7 @@ forceReloadAllData() {
 
                  return `
                     <tr>
-                        <td>${v.data || ''}</td>
+                        <td>${v.data}</td>
                         <td>${v.fazenda || ''}</td>
                         <td>${v.numeroOS || v.numero_os || ''}</td>
                         <td>${this.ui.formatNumber(previsto, 3)}</td>
@@ -5879,7 +5854,7 @@ forceReloadAllData() {
             } else {
                 return `
                     <tr>
-                        <td>${v.data || ''}</td>
+                        <td>${v.data}</td>
                         <td>${v.frente || ''}</td>
                         <td>${v.fazenda || ''}</td>
                         <td>${v.produto || ''}</td>
@@ -5981,11 +5956,7 @@ forceReloadAllData() {
                 `;
             }).join('');
         };
-
-        // Render to Inline Table (Create Mode)
         renderTo('bags-table-body', false);
-        
-        // Render to Modal Table (Edit/View Mode)
         renderTo('modal-bags-table-body', this.viagemAduboMode === 'view');
     }
 
