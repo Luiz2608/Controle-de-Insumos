@@ -691,6 +691,20 @@ class ApiService {
         return { success: true };
     }
 
+    async deleteInsumosByOS(osNumero) {
+        this.checkConfig();
+        // Deleta insumos associados à OS (pelo campo 'os' ou 'numero_os')
+        // O campo 'os' é o padrão usado no import
+        const { error } = await this.supabase
+            .from('insumos_fazendas')
+            .delete()
+            .or(`os.eq.${osNumero},numero_os.eq.${osNumero}`);
+        
+        if (error) throw error;
+        await this.logAction('DELETE_INSUMOS_BY_OS', { osNumero });
+        return { success: true };
+    }
+
     async addInsumoFazenda(payload) {
         this.checkConfig();
         const item = {
@@ -976,6 +990,17 @@ class ApiService {
     async getEstoque() {
         this.checkConfig();
         const { data, error } = await this.supabase.from('estoque').select('*');
+        if (error) throw error;
+        return { success: true, data };
+    }
+
+    async getEstoqueByFrente(frente) {
+        this.checkConfig();
+        const { data, error } = await this.supabase
+            .from('estoque')
+            .select('*')
+            .eq('frente', frente);
+            
         if (error) throw error;
         return { success: true, data };
     }
@@ -1343,9 +1368,18 @@ class ApiService {
         }
 
         // Sanitize Empty Strings to Null for other optional fields
-        ['responsavel_aplicacao', 'empresa', 'frente', 'atividade_agricola', 'fazenda', 'fazenda_codigo'].forEach(field => {
+        ['responsavel_aplicacao', 'empresa', 'frente', 'atividade_agricola', 'fazenda', 'fazenda_codigo', 'codigo_fundo_agricola'].forEach(field => {
             if (item[field] === '') item[field] = null;
         });
+
+        // Remove frontend-only fields that don't exist in the database table
+        // CORREÇÃO: Mapear fazenda_codigo para codigo_fundo_agricola antes de deletar
+        if (item.fazenda_codigo !== undefined && item.fazenda_codigo !== null) {
+            item.codigo_fundo_agricola = String(item.fazenda_codigo);
+        }
+        
+        if (item.fazenda_codigo !== undefined) delete item.fazenda_codigo;
+        // if (item.codigo_fundo_agricola !== undefined) delete item.codigo_fundo_agricola; // REMOVIDO: Este campo existe no banco
         
         // 1. Save Main OS
         const { data, error } = await this.supabase
@@ -1463,6 +1497,41 @@ class ApiService {
         if (error) throw error;
         await this.logAction('DELETE_OS_TRANSPORTE_DIARIO', { id });
         return { success: true };
+    }
+
+    // === SYSTEM SETTINGS ===
+
+    async getSystemSettings(key) {
+        this.checkConfig();
+        const { data, error } = await this.supabase
+            .from('system_settings')
+            .select('*')
+            .eq('key', key)
+            .maybeSingle();
+        
+        if (error) {
+            if (error.code === '42P01') return { success: true, data: null }; // Table not exists
+            return { success: false, message: error.message };
+        }
+        return { success: true, data };
+    }
+
+    async updateSystemSettings(key, value) {
+        this.checkConfig();
+        const payload = {
+            key,
+            value,
+            updated_at: new Date()
+        };
+        
+        const { data, error } = await this.supabase
+            .from('system_settings')
+            .upsert(payload)
+            .select();
+            
+        if (error) throw error;
+        await this.logAction('UPDATE_SYSTEM_SETTINGS', { key, value });
+        return { success: true, data: data[0] };
     }
 }
 

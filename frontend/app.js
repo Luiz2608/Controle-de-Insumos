@@ -948,6 +948,7 @@ class InsumosApp {
             this.initTheme();
             await this.setupEventListeners();
             this.setupAdminPanel();
+            this.setupVersionCheck();
             await this.ensureApiReady();
             await this.loadStaticData();
             
@@ -3967,6 +3968,28 @@ forceReloadAllData() {
                 }
             } catch (errViagem) {
                 console.error('Erro ao buscar viagens_adubo:', errViagem);
+            }
+
+            // 4. Limpeza de registros obsoletos (Produtos que não existem mais nas OSs/Imports)
+            try {
+                // Busca apenas estoque desta frente para verificar o que deve ser removido
+                const estoqueAtual = await this.api.getEstoqueByFrente(frente);
+                if (estoqueAtual.success && estoqueAtual.data) {
+                    // Identifica produtos que estão no banco mas não estão no novo cálculo (totais)
+                    const itemsToDelete = estoqueAtual.data.filter(item => 
+                        !totais.hasOwnProperty(item.produto)
+                    );
+
+                    if (itemsToDelete.length > 0) {
+                        console.log(`🗑️ Removendo ${itemsToDelete.length} itens obsoletos do estoque da frente ${frente}...`);
+                        const deletePromises = itemsToDelete.map(item => 
+                            this.api.deleteEstoque(item.frente, item.produto)
+                        );
+                        await Promise.all(deletePromises);
+                    }
+                }
+            } catch (errCleanup) {
+                console.error('Erro na limpeza de estoque:', errCleanup);
             }
 
             // Salvar no Estoque
@@ -9048,10 +9071,10 @@ InsumosApp.prototype.loadEstoqueAndRender = async function() {
             estoqueList.forEach(item => {
                 if (item.produto && item.produto.includes('__OS__')) {
                     const parts = item.produto.split('__OS__');
-                    item.cleanProduto = parts[0];
+                    item.cleanProduto = parts[0].trim().toUpperCase();
                     item.realOS = parts[1];
                 } else {
-                    item.cleanProduto = item.produto;
+                    item.cleanProduto = item.produto ? item.produto.trim().toUpperCase() : '';
                     item.realOS = item.os_numero || '';
                 }
             });
@@ -9124,10 +9147,11 @@ InsumosApp.prototype.loadEstoqueAndRender = async function() {
             }
 
             // === CÁLCULO DE CONSUMO DIÁRIO (Últimos 30 dias) & DETECÇÃO DE OVERDOSE ===
+            // === CÁLCULO DE CONSUMO DIÁRIO (Média Histórica) & DETECÇÃO DE OVERDOSE ===
             const consumptionStats = {};
             const overdoseList = []; // Lista para alertas de dose excedida
-            const thirtyDaysAgo = new Date();
-            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+            // const thirtyDaysAgo = new Date();
+            // thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
             
             const twoDaysAgo = new Date(); // Janela para alertas de overdose recentes
             twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
@@ -9160,23 +9184,52 @@ InsumosApp.prototype.loadEstoqueAndRender = async function() {
                 const qtd = parseFloat(item.quantidadeAplicada || item.quantidade_aplicada || 0);
                 if (qtd <= 0) return;
 
-                if (date && date >= thirtyDaysAgo) {
-                    const pName = item.produto.trim();
-                    if (!consumptionStats[pName]) consumptionStats[pName] = 0;
-                    consumptionStats[pName] += qtd;
+                // Cálculo de Consumo (Usar TODO o histórico para média estável)
+                if (date) {
+                    const pName = item.produto.trim().toUpperCase(); // Normalização UpperCase
+                    if (!consumptionStats[pName]) {
+                        consumptionStats[pName] = { 
+                            total: 0, 
+                            earliestDate: new Date() 
+                        };
+                    }
+                    consumptionStats[pName].total += qtd;
+
+                    // Rastrear a data mais antiga com consumo
+                    if (date < consumptionStats[pName].earliestDate) {
+                        consumptionStats[pName].earliestDate = date;
+                    }
                 }
             });
             
-            // Média diária
-            Object.keys(consumptionStats).forEach(key => {
-                consumptionStats[key] = consumptionStats[key] / 30;
+            const now = new Date();
+            // Média diária ajustada POR PRODUTO
+            const finalConsumptionStats = {}; // Objeto final mapeando Produto -> Média Diária
+
+            Object.keys(consumptionStats).forEach(pName => {
+                const stats = consumptionStats[pName];
+                
+                // Calcular divisor dinâmico para ESTE produto (dias desde o início do uso)
+                let daysDivisor = Math.ceil((now - stats.earliestDate) / (1000 * 60 * 60 * 24));
+                
+                // Garantir limites lógicos
+                if (daysDivisor < 1) daysDivisor = 1;
+                // if (daysDivisor > 30) daysDivisor = 30; // REMOVIDO limite de 30 dias para usar histórico real
+
+                finalConsumptionStats[pName] = stats.total / daysDivisor;
             });
+            
+            // Substituir a variável antiga pela nova estrutura
+            Object.keys(consumptionStats).forEach(key => delete consumptionStats[key]);
+            Object.assign(consumptionStats, finalConsumptionStats);
 
             // === PREPARAÇÃO DOS GRÁFICOS ===
             const estoqueMap = {};
             estoqueList.forEach(item => {
                 if (!estoqueMap[item.frente]) estoqueMap[item.frente] = {};
-                estoqueMap[item.frente][item.produto] = (estoqueMap[item.frente][item.produto] || 0) + (parseFloat(item.quantidade) || 0);
+                // Usar cleanProduto para agrupar no gráfico também
+                const prodName = item.cleanProduto || item.produto; 
+                estoqueMap[item.frente][prodName] = (estoqueMap[item.frente][prodName] || 0) + (parseFloat(item.quantidade) || 0);
             });
 
             const ctx = document.getElementById('chart-estoque-frente');
@@ -10517,8 +10570,30 @@ InsumosApp.prototype.setupAdminPanel = function() {
                 
                 if (target === 'admin-users') this.loadAdminUsers();
                 if (target === 'admin-logs') this.loadAuditLogs();
+                if (target === 'admin-system') this.loadSystemSettings();
             });
         });
+
+        // Force Update Button
+        const forceUpdateBtn = document.getElementById('admin-force-update-btn');
+        if (forceUpdateBtn) {
+            const newBtn = forceUpdateBtn.cloneNode(true);
+            forceUpdateBtn.parentNode.replaceChild(newBtn, forceUpdateBtn);
+            
+            newBtn.addEventListener('click', async () => {
+                if (confirm('Tem certeza que deseja forçar uma atualização para TODOS os usuários? Isso recarregará a página deles.')) {
+                    try {
+                        const now = new Date().toISOString();
+                        await this.api.updateSystemSettings('force_update_timestamp', now);
+                        alert('Atualização forçada enviada com sucesso!');
+                        this.loadSystemSettings();
+                    } catch (error) {
+                        console.error('Erro ao forçar atualização:', error);
+                        alert('Erro ao forçar atualização: ' + error.message);
+                    }
+                }
+            });
+        }
     }
 
     // Permissions Modal Handlers
@@ -10535,6 +10610,53 @@ InsumosApp.prototype.setupAdminPanel = function() {
             this.savePermissions();
         });
     }
+};
+
+InsumosApp.prototype.loadSystemSettings = async function() {
+    const infoEl = document.getElementById('admin-last-update-info');
+    
+    if (infoEl) infoEl.textContent = 'Carregando...';
+    
+    try {
+        const { success, data } = await this.api.getSystemSettings('force_update_timestamp');
+        
+        if (success && data && data.value) {
+            const date = new Date(data.value);
+            if (infoEl) infoEl.textContent = `Última atualização forçada: ${date.toLocaleString('pt-BR')}`;
+        } else {
+            if (infoEl) infoEl.textContent = 'Nenhuma atualização forçada registrada.';
+        }
+    } catch (error) {
+        console.error('Erro ao carregar configurações:', error);
+        if (infoEl) infoEl.textContent = 'Erro ao carregar informações.';
+    }
+};
+
+InsumosApp.prototype.setupVersionCheck = async function() {
+    let lastKnownUpdate = null;
+    
+    const checkUpdate = async () => {
+        if (!this.api) return;
+        try {
+            const { success, data } = await this.api.getSystemSettings('force_update_timestamp');
+            if (success && data && data.value) {
+                const serverUpdate = new Date(data.value).getTime();
+                
+                if (lastKnownUpdate === null) {
+                    lastKnownUpdate = serverUpdate;
+                } else if (serverUpdate > lastKnownUpdate) {
+                    console.log('Nova versão detectada. Atualizando...');
+                    alert('Uma nova versão do sistema está disponível. A página será recarregada.');
+                    window.location.reload();
+                }
+            }
+        } catch (error) {
+            console.warn('Falha ao verificar atualizações:', error);
+        }
+    };
+    
+    setTimeout(checkUpdate, 2000);
+    setInterval(checkUpdate, 60000);
 };
 
 InsumosApp.prototype.loadAuditLogs = async function() {
