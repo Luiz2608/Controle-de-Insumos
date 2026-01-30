@@ -5430,13 +5430,25 @@ forceReloadAllData() {
     }
 
     async loadTabData(tabName) {
+        // Verificar permissões antes de carregar
+        const userPerms = (this.api && this.api.user && this.api.user.permissions) ? this.api.user.permissions : {};
+        const role = (this.api && this.api.user && this.api.user.role) ? this.api.user.role : 'user';
+        const canSeeAll = role === 'admin' || userPerms.all === true;
+        
+        // Se não for admin e não tiver permissão específica, não carrega
+        if (!canSeeAll && !userPerms[tabName]) {
+            console.warn(`Acesso negado à aba: ${tabName}`);
+            this.ui.showNotification('Acesso não autorizado', 'error');
+            return;
+        }
+
         if (tabName === 'insumos-fazendas') {
             await this.loadInsumosData();
         } else if (tabName === 'graficos') {
             // Carregamento automático com circuit breaker (implementado em loadDashboard)
             await this.loadDashboard();
         } else if (tabName === 'estoque') {
-            await this.loadEstoqueAndRender();
+            await this.loadEstoqueAndRender(true);
         } else if (tabName === 'plantio-dia') {
             await this.loadPlantioDia();
         } else if (tabName === 'viagens-adubo') {
@@ -8899,7 +8911,7 @@ InsumosApp.prototype.updateCharts = function(data) {
     }
 };
 
-InsumosApp.prototype.loadEstoqueAndRender = async function() {
+InsumosApp.prototype.loadEstoqueAndRender = async function(showAlerts = false) {
         if (this.isLoadingEstoque) return;
         this.isLoadingEstoque = true;
         try {
@@ -9202,7 +9214,7 @@ InsumosApp.prototype.loadEstoqueAndRender = async function() {
             }
             
             // === DISPARAR MODAL DE ALERTA ===
-            if (alertList.length > 0 || overdoseList.length > 0) {
+            if (showAlerts && (alertList.length > 0 || overdoseList.length > 0)) {
                 // Verificar Snooze (1 hora)
                 const snoozeUntil = localStorage.getItem('alert_snooze_until');
                 if (snoozeUntil && Date.now() < parseInt(snoozeUntil)) {
