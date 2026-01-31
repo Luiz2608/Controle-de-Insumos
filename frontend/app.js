@@ -6262,6 +6262,63 @@ forceReloadAllData() {
         }
     }
 
+    // --- Helper for Confirmation Modal ---
+    showConfirmationModal(title, message) {
+        return new Promise((resolve) => {
+            const modal = document.getElementById('confirmation-modal');
+            const titleEl = document.getElementById('confirmation-modal-title');
+            const msgEl = document.getElementById('confirmation-modal-message');
+            const btnYes = document.getElementById('btn-confirm-yes');
+            const btnNo = document.getElementById('btn-confirm-no');
+
+            if (!modal || !titleEl || !msgEl || !btnYes || !btnNo) {
+                console.error('Confirmation modal elements not found');
+                // Fallback to native confirm if custom modal fails
+                resolve(confirm(`${title}\n\n${message}`));
+                return;
+            }
+
+            titleEl.textContent = title;
+            msgEl.textContent = message;
+            modal.style.display = 'block';
+
+            // Clone buttons to remove old listeners
+            const newBtnYes = btnYes.cloneNode(true);
+            const newBtnNo = btnNo.cloneNode(true);
+            btnYes.parentNode.replaceChild(newBtnYes, btnYes);
+            btnNo.parentNode.replaceChild(newBtnNo, btnNo);
+
+            newBtnYes.addEventListener('click', () => {
+                modal.style.display = 'none';
+                resolve(true);
+            });
+
+            newBtnNo.addEventListener('click', () => {
+                modal.style.display = 'none';
+                resolve(false);
+            });
+            
+            // Optional: Close on outside click (treat as cancel)
+            const clickOutside = (e) => {
+                if (e.target === modal) {
+                    modal.style.display = 'none';
+                    modal.removeEventListener('click', clickOutside);
+                    resolve(false);
+                }
+            };
+            // Remove previous outside click listener if any (hard to track without reference, 
+            // but cloning buttons handles the buttons. The modal itself might accumulate listeners 
+            // if we don't be careful. A simple way is to use a one-time listener or named function.
+            // For now, let's keep it simple.
+            modal.onclick = (e) => {
+                 if (e.target === modal) {
+                     modal.style.display = 'none';
+                     resolve(false);
+                 }
+            };
+        });
+    }
+
     checkTransporteCompostoLimit() {
         const targetInput = document.getElementById('composto-quantidade');
         if (!targetInput) return;
@@ -8000,7 +8057,8 @@ forceReloadAllData() {
         }
         
         if (meta > 0 && totalRealizado > meta) {
-             if (!confirm(`ATENÇÃO: O total realizado (${this.ui.formatNumber(totalRealizado, 3)}) excede a quantidade prevista na OS (${this.ui.formatNumber(meta, 3)}). Deseja continuar mesmo assim?`)) {
+             const confirmed = await this.showConfirmationModal('Alerta de Limite da OS', `ATENÇÃO: O total realizado (${this.ui.formatNumber(totalRealizado, 3)}) excede a quantidade prevista na OS (${this.ui.formatNumber(meta, 3)}).\n\nDeseja continuar mesmo assim?`);
+             if (!confirmed) {
                  return;
              }
         }

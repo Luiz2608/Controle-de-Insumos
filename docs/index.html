@@ -2277,6 +2277,21 @@
         </div>
     </div>
 
+    <!-- Confirmation Alert Modal (Cloned from Stock Alert) -->
+    <div id="confirmation-modal" class="modal" style="display: none; z-index: 100000;">
+        <div class="modal-content" style="max-width: 500px; text-align: center; border-left: 5px solid #ef4444;">
+            <div style="margin-bottom: 20px;">
+                <span style="font-size: 3em;">⚠️</span>
+            </div>
+            <h3 id="confirmation-modal-title" style="color: #ef4444; margin-bottom: 15px;">Confirmação Necessária</h3>
+            <div id="confirmation-modal-message" style="margin-bottom: 20px; font-size: 1.1em; text-align: left; background: #fef2f2; padding: 15px; border-radius: 8px; white-space: pre-line;"></div>
+            <div class="modal-footer" style="display: flex; justify-content: center; gap: 15px; border-top: none;">
+                <button type="button" class="btn btn-secondary" id="btn-confirm-no" style="min-width: 100px;">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btn-confirm-yes" style="min-width: 100px; background-color: #ef4444; border-color: #ef4444;">Continuar</button>
+            </div>
+        </div>
+    </div>
+
  
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -2416,7 +2431,9 @@
                         
                         if (newTotal > predicted) {
                             const msg = `ATENÇÃO: A quantidade total acumulada (${app.ui.formatNumber(newTotal, 3)}) excederá o valor previsto na OS (${app.ui.formatNumber(predicted, 3)}).\n\nPrevisto: ${app.ui.formatNumber(predicted, 3)}\nAcumulado Anterior: ${app.ui.formatNumber(existingTotal, 3)}\nNovo Lançamento: ${app.ui.formatNumber(payload.quantidadeTotal, 3)}\n\nDeseja continuar?`;
-                            if (!confirm(msg)) {
+                            
+                            const confirmed = await app.showConfirmationModal('Alerta de Limite da OS', msg);
+                            if (!confirmed) {
                                 if (btnSaveModal) {
                                    btnSaveModal.innerText = originalText;
                                    btnSaveModal.disabled = false;
