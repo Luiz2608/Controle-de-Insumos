@@ -188,6 +188,30 @@ class ApiService {
             // Sincroniza com tabela pública
             await this.syncUserToPublicTable(this.user);
 
+            // Buscar dados atualizados (role e permissions) da tabela pública
+            try {
+                const { data: publicUser } = await this.supabase
+                    .from('users')
+                    .select('role, permissions')
+                    .eq('id', this.user.id)
+                    .single();
+                
+                if (publicUser) {
+                    if (publicUser.role) {
+                        this.user.role = publicUser.role;
+                        if (!this.user.user_metadata) this.user.user_metadata = {};
+                        this.user.user_metadata.role = publicUser.role;
+                    }
+                    if (publicUser.permissions) {
+                        this.user.permissions = publicUser.permissions;
+                        if (!this.user.user_metadata) this.user.user_metadata = {};
+                        this.user.user_metadata.permissions = publicUser.permissions;
+                    }
+                }
+            } catch (e) {
+                console.warn('Erro ao buscar permissões no login:', e);
+            }
+
             localStorage.setItem('authUser', JSON.stringify(this.user));
             localStorage.setItem('authToken', data.session.access_token);
             
@@ -297,14 +321,21 @@ class ApiService {
                 try {
                     const { data: publicUser } = await this.supabase
                         .from('users')
-                        .select('role')
+                        .select('role, permissions')
                         .eq('id', this.user.id)
                         .single();
                     
-                    if (publicUser && publicUser.role) {
-                        this.user.role = publicUser.role;
-                        if (!this.user.user_metadata) this.user.user_metadata = {};
-                        this.user.user_metadata.role = publicUser.role;
+                    if (publicUser) {
+                        if (publicUser.role) {
+                            this.user.role = publicUser.role;
+                            if (!this.user.user_metadata) this.user.user_metadata = {};
+                            this.user.user_metadata.role = publicUser.role;
+                        }
+                        if (publicUser.permissions) {
+                            this.user.permissions = publicUser.permissions;
+                            if (!this.user.user_metadata) this.user.user_metadata = {};
+                            this.user.user_metadata.permissions = publicUser.permissions;
+                        }
                     }
                 } catch (e) {
                     // Silently fail
