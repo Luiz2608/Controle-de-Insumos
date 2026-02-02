@@ -1,5 +1,5 @@
 $ErrorActionPreference = "Stop"
-$baseDir = "C:\Users\gutem\OneDrive\Desktop\Insumos"
+$baseDir = "C:\Users\Luiz Eduardo\Documents\trae_projects\Controle-de-Insumos"
 $toolsDir = "$baseDir\tools"
 # Java Config
 $jdkZip = "$toolsDir\jdk21.zip"
@@ -39,7 +39,7 @@ if (!(Test-Path $jdkFinalPath)) {
 
 $env:JAVA_HOME = $jdkFinalPath
 $env:PATH = "$jdkFinalPath\bin;$env:PATH"
-Write-Host "Java configurado: $(java -version 2>&1 | Select-Object -First 1)"
+Write-Host "Java configurado."
 
 # -------------------------------------------------------------------------
 # 3. Configurar Android Command Line Tools

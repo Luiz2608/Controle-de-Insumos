@@ -940,6 +940,36 @@ class InsumosApp {
                 }
             });
         }
+
+        // 8. Table Delegated Events (View/Edit/Delete)
+        const tbody = document.getElementById('transporte-composto-body');
+        if (tbody) {
+            // Replace with clone to ensure clean slate and no duplicates
+            const newTbody = tbody.cloneNode(true);
+            tbody.parentNode.replaceChild(newTbody, tbody);
+
+            newTbody.addEventListener('click', (e) => {
+                const target = e.target;
+                console.log('Composto Tbody click target:', target);
+                
+                if (target.classList.contains('btn-view-composto') || target.closest('.btn-view-composto')) {
+                    const btn = target.classList.contains('btn-view-composto') ? target : target.closest('.btn-view-composto');
+                    const id = btn.getAttribute('data-id');
+                    console.log('Composto View button clicked, id:', id);
+                    this.editComposto(id);
+                } else if (target.classList.contains('btn-edit-composto') || target.closest('.btn-edit-composto')) {
+                    const btn = target.classList.contains('btn-edit-composto') ? target : target.closest('.btn-edit-composto');
+                    const id = btn.getAttribute('data-id');
+                    console.log('Composto Edit button clicked, id:', id);
+                    this.editComposto(id);
+                } else if (target.classList.contains('btn-delete-composto') || target.closest('.btn-delete-composto')) {
+                    const btn = target.classList.contains('btn-delete-composto') ? target : target.closest('.btn-delete-composto');
+                    const id = btn.getAttribute('data-id');
+                    console.log('Composto Delete button clicked, id:', id);
+                    this.deleteComposto(id);
+                }
+            });
+        }
     }
     async init() {
         try {
@@ -5935,24 +5965,33 @@ forceReloadAllData() {
         // Table Delegated Events (View/Edit/Delete)
         const tbody = document.getElementById('viagens-adubo-table-body');
         if (tbody) {
-            tbody.onclick = (e) => {
+            // Replace with clone to ensure clean slate and no duplicates
+            const newTbody = tbody.cloneNode(true);
+            tbody.parentNode.replaceChild(newTbody, tbody);
+
+            newTbody.addEventListener('click', (e) => {
                 const target = e.target;
+                console.log('Tbody click target:', target);
+                
                 if (target.classList.contains('btn-view-viagem-adubo') || target.closest('.btn-view-viagem-adubo')) {
                     const btn = target.classList.contains('btn-view-viagem-adubo') ? target : target.closest('.btn-view-viagem-adubo');
                     const id = btn.getAttribute('data-viagem-id');
+                    console.log('View button clicked, id:', id);
                     this.openViagemAduboModal(id, 'view');
                 } else if (target.classList.contains('btn-edit-viagem-adubo') || target.closest('.btn-edit-viagem-adubo')) {
                     const btn = target.classList.contains('btn-edit-viagem-adubo') ? target : target.closest('.btn-edit-viagem-adubo');
                     const id = btn.getAttribute('data-viagem-id');
+                    console.log('Edit button clicked, id:', id);
                     this.openViagemAduboModal(id, 'edit');
                 } else if (target.classList.contains('btn-delete-viagem-adubo') || target.closest('.btn-delete-viagem-adubo')) {
                     const btn = target.classList.contains('btn-delete-viagem-adubo') ? target : target.closest('.btn-delete-viagem-adubo');
                     const id = btn.getAttribute('data-viagem-id');
+                    console.log('Delete button clicked, id:', id);
                     if (confirm('Tem certeza que deseja excluir esta viagem?')) {
                         this.deleteViagemAdubo(id);
                     }
                 }
-            };
+            });
         }
 
         // Bags Table Delegated Events (Delete Row)
@@ -8892,9 +8931,9 @@ forceReloadAllData() {
                         <td><span class="badge ${item.status === 'ABERTO' ? 'badge-warning' : 'badge-success'}">${item.status}</span></td>
                         <td style="white-space: nowrap;">
                             <div style="display: flex; gap: 8px;">
-                                <button class="btn btn-sm btn-secondary" onclick="window.insumosApp.editComposto('${item.id}')" title="Ver Detalhes">Detalhes</button>
-                                <button class="btn btn-sm btn-secondary" onclick="window.insumosApp.editComposto('${item.id}')" title="Editar">✏️</button>
-                                <button class="btn btn-sm btn-danger" onclick="window.insumosApp.deleteComposto('${item.id}')" title="Excluir">🗑️</button>
+                                <button class="btn btn-sm btn-secondary btn-view-composto" data-id="${item.id}" title="Ver Detalhes">Detalhes</button>
+                                <button class="btn btn-sm btn-secondary btn-edit-composto" data-id="${item.id}" title="Editar">✏️</button>
+                                <button class="btn btn-sm btn-danger btn-delete-composto" data-id="${item.id}" title="Excluir">🗑️</button>
                             </div>
                         </td>
                     </tr>
