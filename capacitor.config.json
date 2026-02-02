@@ -1,0 +1,6 @@
+{
+  "appId": "com.insumos.app",
+  "appName": "Controle Insumos",
+  "webDir": "frontend",
+  "bundledWebRuntime": false
+}

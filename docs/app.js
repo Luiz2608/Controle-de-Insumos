@@ -6098,9 +6098,17 @@ forceReloadAllData() {
     setupViagemAduboSelectListeners() {
         // [NEW] OS Listener
         const osSelect = document.getElementById('modal-viagem-adubo-os');
+        const qtdInput = document.getElementById('modal-viagem-quantidade-total');
+
+        if (qtdInput) {
+            qtdInput.addEventListener('input', () => this.checkViagemAduboLimit());
+        }
+
         if (osSelect) {
             osSelect.onchange = () => {
                 const osNum = osSelect.value;
+                this.checkViagemAduboLimit();
+                
                 if (!osNum || !this.osListCache) return;
                 
                 const os = this.osListCache.find(o => String(o.numero) === String(osNum));
@@ -6212,6 +6220,142 @@ forceReloadAllData() {
         setupSync('modal-viagem-fazenda', 'modal-viagem-codigo-fazenda');
     }
 
+    checkViagemAduboLimit() {
+        const osNum = document.getElementById('modal-viagem-adubo-os')?.value;
+        const qtdInput = document.getElementById('modal-viagem-quantidade-total');
+        
+        if (!osNum || !qtdInput) return;
+        
+        const currentQtd = parseFloat(qtdInput.value) || 0;
+        
+        // Find OS
+        const os = this.osListCache ? this.osListCache.find(o => String(o.numero) === String(osNum)) : null;
+        if (!os) return;
+        
+        // Determine Target Quantity
+        // Priority: quantidade > (dose * area)
+        let target = 0;
+        if (os.quantidade != null) {
+            target = parseFloat(os.quantidade);
+        } else if (os.doseRecomendada != null && os.areaTotal != null) {
+            target = parseFloat(os.doseRecomendada) * parseFloat(os.areaTotal);
+        } else if (os.dose != null && os.areaTotal != null) {
+             target = parseFloat(os.dose) * parseFloat(os.areaTotal);
+        }
+        
+        // Se não tiver target, não valida
+        if (target <= 0) {
+            qtdInput.classList.remove('input-warning');
+            qtdInput.title = "";
+            return;
+        }
+        
+        const editingId = document.getElementById('modal-viagem-adubo').dataset.editingId;
+        
+        const existingSum = (this.viagensAdubo || [])
+            .filter(v => String(v.numero_os) === String(osNum) && String(v.id) !== String(editingId))
+            .reduce((sum, v) => sum + (parseFloat(v.quantidade_total) || 0), 0);
+            
+        const total = existingSum + currentQtd;
+        
+        if (total > target) {
+            // Check if notification already shown to avoid spam
+            if (!this._lastAlertOS || this._lastAlertOS !== osNum || this._lastAlertTotal !== total) {
+                 this.ui.showNotification(`Atenção: Quantidade total (${this.ui.formatNumber(total)}) excede o previsto na OS (${this.ui.formatNumber(target)})!`, 'warning');
+                 this._lastAlertOS = osNum;
+                 this._lastAlertTotal = total;
+            }
+            qtdInput.classList.add('input-warning');
+            qtdInput.title = `Total Previsto: ${this.ui.formatNumber(target)} | Total Acumulado: ${this.ui.formatNumber(total)}`;
+        } else {
+            qtdInput.classList.remove('input-warning');
+            qtdInput.title = "";
+            this._lastAlertOS = null;
+        }
+    }
+
+    // --- Helper for Confirmation Modal ---
+    showConfirmationModal(title, message) {
+        return new Promise((resolve) => {
+            const modal = document.getElementById('confirmation-modal');
+            const titleEl = document.getElementById('confirmation-modal-title');
+            const msgEl = document.getElementById('confirmation-modal-message');
+            const btnYes = document.getElementById('btn-confirm-yes');
+            const btnNo = document.getElementById('btn-confirm-no');
+
+            if (!modal || !titleEl || !msgEl || !btnYes || !btnNo) {
+                console.error('Confirmation modal elements not found');
+                // Fallback to native confirm if custom modal fails
+                resolve(confirm(`${title}\n\n${message}`));
+                return;
+            }
+
+            titleEl.textContent = title;
+            msgEl.textContent = message;
+            modal.style.display = 'block';
+
+            // Clone buttons to remove old listeners
+            const newBtnYes = btnYes.cloneNode(true);
+            const newBtnNo = btnNo.cloneNode(true);
+            btnYes.parentNode.replaceChild(newBtnYes, btnYes);
+            btnNo.parentNode.replaceChild(newBtnNo, btnNo);
+
+            newBtnYes.addEventListener('click', () => {
+                modal.style.display = 'none';
+                resolve(true);
+            });
+
+            newBtnNo.addEventListener('click', () => {
+                modal.style.display = 'none';
+                resolve(false);
+            });
+            
+            // Optional: Close on outside click (treat as cancel)
+            const clickOutside = (e) => {
+                if (e.target === modal) {
+                    modal.style.display = 'none';
+                    modal.removeEventListener('click', clickOutside);
+                    resolve(false);
+                }
+            };
+            // Remove previous outside click listener if any (hard to track without reference, 
+            // but cloning buttons handles the buttons. The modal itself might accumulate listeners 
+            // if we don't be careful. A simple way is to use a one-time listener or named function.
+            // For now, let's keep it simple.
+            modal.onclick = (e) => {
+                 if (e.target === modal) {
+                     modal.style.display = 'none';
+                     resolve(false);
+                 }
+            };
+        });
+    }
+
+    checkTransporteCompostoLimit() {
+        const targetInput = document.getElementById('composto-quantidade');
+        if (!targetInput) return;
+        
+        const target = parseFloat(targetInput.value) || 0;
+        if (target <= 0) return;
+        
+        const currentSum = (this.compostoDiarioDraft || []).reduce((sum, d) => sum + (parseFloat(d.quantidade || d.qtd) || 0), 0);
+        
+        // Create or find feedback element (or just use notification)
+        // Using notification is safer as I don't know the exact HTML structure to inject feedback
+        
+        if (currentSum > target) {
+             // Avoid spamming if already showing
+             if (!this._lastAlertCompostoTotal || this._lastAlertCompostoTotal !== currentSum) {
+                 this.ui.showNotification(`Atenção: Quantidade lançada (${this.ui.formatNumber(currentSum)}) excede o previsto (${this.ui.formatNumber(target)})!`, 'warning');
+                 this._lastAlertCompostoTotal = currentSum;
+             }
+             targetInput.classList.add('input-warning');
+        } else {
+             targetInput.classList.remove('input-warning');
+             this._lastAlertCompostoTotal = null;
+        }
+    }
+
     async populateFazendaSelect() {
         const ids = ['viagem-fazenda', 'modal-viagem-fazenda'];
         const codeIds = ['viagem-codigo-fazenda', 'modal-viagem-codigo-fazenda'];
@@ -6307,6 +6451,7 @@ forceReloadAllData() {
             const payload = {
                 transportType: 'adubo',
                 data: data,
+                numeroOS: getVal('viagem-adubo-os'),
                 frente: getVal('viagem-frente'),
                 fazenda: fazenda,
                 origem: getVal('viagem-origem'),
@@ -6323,6 +6468,40 @@ forceReloadAllData() {
                 observacoes: getVal('viagem-observacoes'),
                 bags: this.viagensAduboBagsDraft
             };
+
+            // --- Verificação de Limite da OS (Alerta Inteligente) ---
+            if (payload.numeroOS && this.osListCache) {
+                const os = this.osListCache.find(o => String(o.numero) === String(payload.numeroOS));
+                if (os) {
+                    let predicted = parseFloat(os.quantidade || 0);
+                    if (!predicted && os.area_total && os.dose_recomendada) {
+                        predicted = parseFloat(os.area_total) * parseFloat(os.dose_recomendada);
+                    }
+                    
+                    if (predicted > 0) {
+                        const trips = this.viagensAdubo || [];
+                        const currentId = this.currentViagemAduboId;
+                        
+                        const existingTotal = trips
+                            .filter(t => String(t.numero_os) === String(payload.numeroOS) && t.id !== currentId)
+                            .reduce((sum, t) => sum + (parseFloat(t.quantidade_total) || 0), 0);
+                            
+                        const newTotal = existingTotal + payload.quantidadeTotal;
+                        
+                        if (newTotal > predicted) {
+                            const msg = `ATENÇÃO: A quantidade total acumulada (${this.ui.formatNumber(newTotal, 3)}) excederá o valor previsto na OS (${this.ui.formatNumber(predicted, 3)}).\n\nPrevisto: ${this.ui.formatNumber(predicted, 3)}\nAcumulado Anterior: ${this.ui.formatNumber(existingTotal, 3)}\nNovo Lançamento: ${this.ui.formatNumber(payload.quantidadeTotal, 3)}\n\nDeseja continuar?`;
+                            if (!confirm(msg)) {
+                                if (btnSaveModal) {
+                                   btnSaveModal.innerText = originalText;
+                                   btnSaveModal.disabled = false;
+                                }
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+            // --------------------------------------------------------
             
             console.log('Transport Type:', payload.transportType);
             console.log('Raw Data:', { data, produto, transportType: payload.transportType, quantidadeTotal: quantidadeTotalNum, fazenda });
@@ -7736,6 +7915,14 @@ forceReloadAllData() {
                 summaryRestante.style.color = '#d35400'; // orange-ish
             }
         }
+        
+        this.checkTransporteCompostoLimit();
+    }
+
+    checkTransporteCompostoLimit() {
+        // Method to check limits, primarily used during validation or UI updates
+        // The visual feedback is already handled in renderCompostoDiarioDraft
+        // This method can be expanded for real-time alerts if needed
     }
 
     async populateCompostoFazendas() {
@@ -7863,6 +8050,29 @@ forceReloadAllData() {
         if (!data.numero_os) {
             this.ui.showNotification('Número da OS é obrigatório', 'warning');
             return;
+        }
+
+        // Verificação de Limite (Alerta Inteligente)
+        const totalRealizado = this.compostoDiarioDraft.reduce((sum, item) => sum + (item.quantidade || 0), 0);
+        let meta = parseFloat(data.quantidade) || 0;
+        
+        // Busca valor oficial da OS para validação mais segura
+        if (this.osListCache) {
+            const osObj = this.osListCache.find(o => String(o.numero) === String(data.numero_os));
+            if (osObj) {
+                 let predicted = parseFloat(osObj.quantidade || 0);
+                 if (!predicted && osObj.area_total && osObj.dose_recomendada) {
+                     predicted = parseFloat(osObj.area_total) * parseFloat(osObj.dose_recomendada);
+                 }
+                 if (predicted > 0) meta = predicted;
+            }
+        }
+        
+        if (meta > 0 && totalRealizado > meta) {
+             const confirmed = await this.showConfirmationModal('Alerta de Limite da OS', `ATENÇÃO: O total realizado (${this.ui.formatNumber(totalRealizado, 3)}) excede a quantidade prevista na OS (${this.ui.formatNumber(meta, 3)}).\n\nDeseja continuar mesmo assim?`);
+             if (!confirmed) {
+                 return;
+             }
         }
 
         // Add daily items

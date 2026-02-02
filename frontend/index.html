@@ -2277,6 +2277,21 @@
         </div>
     </div>
 
+    <!-- Confirmation Alert Modal (Cloned from Stock Alert) -->
+    <div id="confirmation-modal" class="modal" style="display: none; z-index: 100000;">
+        <div class="modal-content" style="max-width: 500px; text-align: center; border-left: 5px solid #ef4444;">
+            <div style="margin-bottom: 20px;">
+                <span style="font-size: 3em;">⚠️</span>
+            </div>
+            <h3 id="confirmation-modal-title" style="color: #ef4444; margin-bottom: 15px;">Confirmação Necessária</h3>
+            <div id="confirmation-modal-message" style="margin-bottom: 20px; font-size: 1.1em; text-align: left; background: #fef2f2; padding: 15px; border-radius: 8px; white-space: pre-line;"></div>
+            <div class="modal-footer" style="display: flex; justify-content: center; gap: 15px; border-top: none;">
+                <button type="button" class="btn btn-secondary" id="btn-confirm-no" style="min-width: 100px;">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btn-confirm-yes" style="min-width: 100px; background-color: #ef4444; border-color: #ef4444;">Continuar</button>
+            </div>
+        </div>
+    </div>
+
  
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -2394,6 +2409,43 @@
                 bags: app.viagensAduboBagsDraft || []
             };
             
+            // --- Verificação de Limite da OS (Alerta Inteligente) ---
+            if (payload.numeroOS && app.osListCache) {
+                const os = app.osListCache.find(o => String(o.numero) === String(payload.numeroOS));
+                if (os) {
+                    let predicted = parseFloat(os.quantidade || 0);
+                    // Fallback para cálculo Area * Dose se quantidade não definida
+                    if (!predicted && os.area_total && os.dose_recomendada) {
+                        predicted = parseFloat(os.area_total) * parseFloat(os.dose_recomendada);
+                    }
+                    
+                    if (predicted > 0) {
+                        const trips = app.viagensAdubo || [];
+                        const currentId = app.currentViagemAduboId;
+                        
+                        const existingTotal = trips
+                            .filter(t => String(t.numero_os) === String(payload.numeroOS) && t.id !== currentId)
+                            .reduce((sum, t) => sum + (parseFloat(t.quantidade_total) || 0), 0);
+                            
+                        const newTotal = existingTotal + payload.quantidadeTotal;
+                        
+                        if (newTotal > predicted) {
+                            const msg = `ATENÇÃO: A quantidade total acumulada (${app.ui.formatNumber(newTotal, 3)}) excederá o valor previsto na OS (${app.ui.formatNumber(predicted, 3)}).\n\nPrevisto: ${app.ui.formatNumber(predicted, 3)}\nAcumulado Anterior: ${app.ui.formatNumber(existingTotal, 3)}\nNovo Lançamento: ${app.ui.formatNumber(payload.quantidadeTotal, 3)}\n\nDeseja continuar?`;
+                            
+                            const confirmed = await app.showConfirmationModal('Alerta de Limite da OS', msg);
+                            if (!confirmed) {
+                                if (btnSaveModal) {
+                                   btnSaveModal.innerText = originalText;
+                                   btnSaveModal.disabled = false;
+                                }
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+            // --------------------------------------------------------
+
             let res;
             if (app.currentViagemAduboId) {
                 res = await app.api.updateViagemAdubo(app.currentViagemAduboId, payload);
