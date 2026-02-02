@@ -1590,202 +1590,176 @@
                 <button class="close-modal close-novo-lancamento-modal">&times;</button>
             </div>
             <div class="modal-body" style="overflow-y: auto; max-height: 80vh;">
-                <style>
-                    .modal-form-grid {
-                        display: grid;
-                        grid-template-columns: repeat(2, 1fr);
-                        gap: 15px;
-                    }
-                    @media (max-width: 600px) {
-                        .modal-form-grid {
-                            grid-template-columns: 1fr;
-                        }
-                        .modal-form-grid .form-group[style*="span 2"] {
-                            grid-column: span 1 !important;
-                        }
-                    }
-                    .modal-subsection {
-                        border: 1px solid var(--border);
-                        border-radius: var(--radius);
-                        padding: 15px;
-                        margin-bottom: 15px;
-                        background: rgba(0,0,0,0.02);
-                    }
-                    .form-group label {
-                        white-space: normal;
-                        line-height: 1.2;
-                        margin-bottom: 5px;
-                        display: block;
-                    }
-                    .form-group input, .form-group select {
-                        width: 100%;
-                        box-sizing: border-box;
-                    }
-                    .readonly-field {
-                        background-color: #e9ecef;
-                        cursor: not-allowed;
-                        font-weight: 600;
-                        color: var(--text);
-                    }
-                    .theme-dark .readonly-field {
-                        background-color: #2c2c2c;
-                        color: #ccc;
-                    }
-                    .section-title {
-                        margin: 0 0 10px 0;
-                        padding-bottom: 5px;
-                        border-bottom: 2px solid var(--primary-light);
-                        color: var(--primary-dark);
-                        font-size: 1.1em;
-                    }
-                    .theme-dark .section-title {
-                        color: var(--primary-light);
-                    }
-                </style>
 
-                <div class="charts">
-                    <!-- 1. Informações Gerais -->
+
+                <!-- Summary Panel -->
+                <div class="modal-summary-panel">
+                    <div><strong>Data:</strong> <span id="summary-data">-</span></div>
+                    <div><strong>Frente:</strong> <span id="summary-frente">-</span></div>
+                    <div><strong>Plantio:</strong> <span id="summary-area">0.00</span> ha</div>
+                    <div><strong>Total:</strong> R$ <span id="summary-custo">0.00</span></div>
+                </div>
+
+                <!-- Steps Navigation -->
+                <div class="modal-steps">
+                    <button class="step-btn active" data-step="1">1. Dados Operacionais</button>
+                    <button class="step-btn" data-step="2">2. Insumos</button>
+                    <button class="step-btn" data-step="3">3. Qualidade & Muda</button>
+                </div>
+
+                <!-- Step 1 Content -->
+                <div class="step-content active" data-step="1">
                     <div class="chart-card form-card">
-                        <h4 class="section-title">1. Informações Gerais</h4>
+                        <h4 class="section-title">Identificação & Local</h4>
                         <div class="modal-form-grid">
-                            <div class="form-group" style="grid-column: span 2;">
+                            <div class="form-group">
                                 <label for="tipo-operacao">Tipo de Operação *</label>
                                 <select id="tipo-operacao" style="font-weight:bold; border-color: var(--primary);">
                                     <option value="plantio">Plantio de Cana</option>
                                     <option value="colheita_muda">Colheita de Muda</option>
                                 </select>
                             </div>
-                            <div class="form-group" style="grid-column: span 2;">
-                                <label for="single-frente">Frente *</label>
-                                <select id="single-frente" style="font-weight:bold;">
-                                    <option value="">Selecione</option>
-                                </select>
-                            </div>
-                            <div class="form-group" style="grid-column: span 2;">
-                                <label for="single-os">OS do Plantio (Auto-preenchimento)</label>
-                                <select id="single-os" style="border-color: var(--secondary);">
-                                    <option value="">Selecione a Frente primeiro</option>
-                                </select>
-                            </div>
                             <div class="form-group">
                                 <label for="plantio-data">Data *</label>
-                                <input type="date" id="plantio-data">
+                                <input type="date" id="plantio-data" class="highlight-input">
+                                <div class="validation-msg" id="msg-plantio-data">Data é obrigatória</div>
                             </div>
                             <div class="form-group">
                                 <label for="chuva-mm">Chuva (mm)</label>
                                 <input type="number" id="chuva-mm" step="0.1" placeholder="0.0">
                             </div>
-                            <div class="form-group" style="grid-column: span 2;">
+                             <div class="form-group">
                                 <label for="plantio-responsavel">Responsável</label>
-                                <input type="text" id="plantio-responsavel" placeholder="Nome do responsável">
+                                <input type="text" id="plantio-responsavel" placeholder="Nome">
+                            </div>
+                            
+                            <div class="form-group" style="grid-column: span 2;">
+                                <label for="single-frente">Frente *</label>
+                                <select id="single-frente" class="highlight-input" style="font-weight:bold;">
+                                    <option value="">Selecione</option>
+                                </select>
+                                <div class="validation-msg" id="msg-single-frente">Selecione uma frente</div>
+                            </div>
+                            <div class="form-group" style="grid-column: span 2;">
+                                <label for="single-os">OS do Plantio (Auto)</label>
+                                <select id="single-os" style="border-color: var(--secondary);">
+                                    <option value="">Selecione a Frente primeiro</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="chart-card form-card">
+                        <h4 class="section-title">Produção & Área</h4>
+                        <div class="modal-form-grid">
+                             <div class="form-group">
+                                <label for="single-fazenda">Fazenda</label>
+                                <select id="single-fazenda" class="readonly-field" disabled title="Auto OS">
+                                    <option value="">Selecione a Fazenda</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="single-cod">Código</label>
+                                <input type="text" id="single-cod" class="readonly-field" readonly title="Auto OS">
+                            </div>
+                             <div class="form-group">
+                                <label for="single-regiao">Região</label>
+                                <input type="text" id="single-regiao" class="readonly-field" readonly title="Auto OS">
+                            </div>
+                            <div class="form-group">
+                                 <label for="single-area-total">Área Fazenda (ha)</label>
+                                 <input type="number" id="single-area-total" class="readonly-field" readonly>
+                            </div>
+                            
+                            <div class="form-group" style="grid-column: span 2; background: rgba(46, 125, 50, 0.1); padding: 10px; border-radius: 8px; border: 1px solid var(--primary);">
+                                <label for="single-plantio-dia" style="color: var(--primary-dark); font-size: 1.1em; font-weight: bold;">🌿 Plantio dia (ha) *</label>
+                                <input type="number" id="single-plantio-dia" class="highlight-input" step="0.01" placeholder="0.00" style="font-size: 1.2em;">
+                                <div class="validation-msg" id="msg-single-plantio-dia">Informe a área plantada</div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="single-area">Área Planejada OS</label>
+                                <input type="number" id="single-area" class="readonly-field" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label for="single-area-acumulada">Acumulado</label>
+                                <input type="number" id="single-area-acumulada" step="0.01" class="readonly-field" readonly>
+                            </div>
+                             <div class="form-group">
+                                <label for="cobricao-dia">Cobrição Dia</label>
+                                <input type="number" id="cobricao-dia" step="0.01" placeholder="0.00">
+                            </div>
+                            <div class="form-group">
+                                <label for="cobricao-acumulada">Cobrição Acum.</label>
+                                <input type="number" id="cobricao-acumulada" step="0.01" class="readonly-field" readonly>
                             </div>
                             <div class="form-group" style="grid-column: span 2;">
                                 <label for="plantio-obs">Observações</label>
                                 <input type="text" id="plantio-obs" placeholder="Opcional">
                             </div>
                         </div>
-                        
-                        <!-- Insumos Section -->
-                        <div class="modal-subsection" id="sec-insumos" style="margin-top: 15px; border-top: 1px solid var(--border); padding-top: 10px;">
-                            <h4 style="margin-bottom: 10px;">Insumos Utilizados</h4>
-                            <div class="modal-form-grid">
-                                <div class="form-group" style="grid-column: span 2;">
-                                    <label for="insumo-produto">Produto</label>
-                                    <select id="insumo-produto" style="width: 100%;">
-                                        <option value="">Selecione o produto...</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label for="insumo-dose-prevista">Dose Prev. (L/kg ha)</label>
-                                    <input type="number" id="insumo-dose-prevista" step="0.001" placeholder="0.000" readonly style="background-color: #e9ecef; cursor: not-allowed;" title="Preenchido automaticamente pela OS">
-                                </div>
-                                <div class="form-group">
-                                    <label for="insumo-qtd-total">Qtd. Total Usada</label>
-                                    <input type="number" id="insumo-qtd-total" step="0.001" placeholder="Total (L ou kg)">
-                                </div>
-                                <div class="form-group" style="grid-column: span 2;">
-                                    <button id="btn-add-insumo-row" class="btn btn-secondary" style="width: 100%;">➕ Adicionar Insumo</button>
-                                </div>
-                            </div>
-                            <div class="table-container" style="max-height: 150px; overflow-y: auto; margin-top: 10px;">
-                                <table class="data-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Produto</th>
-                                            <th>Dose Prev.</th>
-                                            <th>Dose Real.</th>
-                                            <th>Total Prev.</th>
-                                            <th>Total Real.</th>
-                                            <th style="width: 50px;">Ação</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="insumos-plantio-tbody">
-                                        <!-- Insumos adicionados aparecem aqui -->
-                                    </tbody>
-                                </table>
-                            </div>
-                            <div id="insumos-total-gasto" style="text-align: right; font-weight: bold; margin-top: 10px; font-size: 1.1em; color: var(--primary-dark);">
-                                Total Gasto no Dia: 0.000
-                            </div>
-                        </div>
                     </div>
+                </div>
 
-                    <!-- 2. Relatório Diário - Frente -->
+                <!-- Step 2 Content -->
+                <div class="step-content" data-step="2">
                     <div class="chart-card form-card">
-                        <h4 class="section-title">2. Relatório Diário - Frente</h4>
+                        <h4 class="section-title">Gestão de Insumos</h4>
                         <div class="modal-form-grid">
-                            <div class="form-group">
-                                <label for="single-cod">Código</label>
-                                <input type="text" id="single-cod" class="readonly-field" readonly title="Preenchido automaticamente pela OS">
-                            </div>
-                            <div class="form-group">
-                                <label for="single-fazenda">Fazenda</label>
-                                <select id="single-fazenda" class="readonly-field" disabled title="Preenchido automaticamente pela OS">
-                                    <option value="">Selecione a Fazenda</option>
+                             <div class="form-group" style="grid-column: span 2;">
+                                <label for="insumo-produto">Produto</label>
+                                <select id="insumo-produto" style="width: 100%;">
+                                    <option value="">Selecione o produto...</option>
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label for="single-regiao">Região</label>
-                                <input type="text" id="single-regiao" class="readonly-field" readonly title="Preenchido automaticamente pela OS">
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="single-area-total">Área Total Fazenda (ha)</label>
-                                <input type="number" id="single-area-total" class="readonly-field" readonly>
+                                <label for="insumo-dose-prevista">Dose Prev. (L/kg ha)</label>
+                                <input type="number" id="insumo-dose-prevista" step="0.001" placeholder="0.000" readonly style="background-color: #e9ecef; cursor: not-allowed;">
                             </div>
                             <div class="form-group">
-                                <label for="single-area">Área Planejada OS (ha)</label>
-                                <input type="number" id="single-area" class="readonly-field" readonly>
+                                <label for="insumo-qtd-total">Qtd. Total Usada</label>
+                                <input type="number" id="insumo-qtd-total" step="0.001" placeholder="Total">
                             </div>
-
                             <div class="form-group" style="grid-column: span 2;">
-                                <label for="single-plantio-dia" style="color: var(--primary); font-size: 1.1em;">🌿 Plantio dia (ha) *</label>
-                                <input type="number" id="single-plantio-dia" class="highlight-input" step="0.01" placeholder="0.00">
-                            </div>
-                            <div class="form-group">
-                                <label for="single-area-acumulada">Acumulado plantio (ha)</label>
-                                <input type="number" id="single-area-acumulada" step="0.01" class="readonly-field" readonly>
-                            </div>
-                            <div class="form-group">
-                                <label for="cobricao-dia">Cobrição Dia (ha)</label>
-                                <input type="number" id="cobricao-dia" step="0.01" placeholder="0.00">
-                            </div>
-                            <div class="form-group">
-                                <label for="cobricao-acumulada">Cobrição Acumulado (ha)</label>
-                                <input type="number" id="cobricao-acumulada" step="0.01" class="readonly-field" readonly>
+                                <button id="btn-add-insumo-row" class="btn btn-secondary" style="width: 100%;">➕ Adicionar Insumo</button>
                             </div>
                         </div>
-                    </div>
-
-                    <!-- 3. Qualidade Muda/Plantio -->
-                    <div class="chart-card form-card">
-                        <h4 class="section-title">3. Qualidade Muda/Plantio</h4>
                         
+                        <div class="table-container" style="max-height: 300px; overflow-y: auto; margin-top: 15px;">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Produto</th>
+                                        <th>Dose Prev.</th>
+                                        <th>Dose Real.</th>
+                                        <th>Total Prev.</th>
+                                        <th>Total Real.</th>
+                                        <th style="width: 50px;">Ação</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="insumos-plantio-tbody">
+                                    <!-- Insumos adicionados aparecem aqui -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <div id="insumos-total-gasto" style="text-align: right; font-weight: bold; margin-top: 10px; font-size: 1.1em; color: var(--primary-dark);">
+                            Total Gasto no Dia: 0.000
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 3 Content -->
+                <div class="step-content" data-step="3">
+                    <!-- Qualidade Muda/Plantio -->
+                    <div class="chart-card form-card">
+                        <h4 class="section-title">Qualidade de Plantio</h4>
+                        
+                        <!-- Gemas -->
                         <div class="modal-subsection" id="sec-gemas">
                             <h5 style="margin: 0 0 8px 0; color: #666; font-weight: 600;">🧬 Gemas</h5>
-                            <div class="modal-form-grid" style="grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));">
+                            <div class="modal-form-grid" style="grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));">
                                 <div class="form-group">
-                                    <label for="qual-gemas-amostra">Amostra (m)</label>
+                                    <label for="qual-gemas-amostra">Amostra</label>
                                     <input type="number" id="qual-gemas-amostra" step="0.1">
                                 </div>
                                 <div class="form-group">
@@ -1811,11 +1785,12 @@
                             </div>
                         </div>
 
+                        <!-- Toletes -->
                         <div class="modal-subsection" id="sec-toletes">
                             <h5 style="margin: 0 0 8px 0; color: #666; font-weight: 600;">🪵 Toletes</h5>
-                            <div class="modal-form-grid" style="grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));">
+                            <div class="modal-form-grid" style="grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));">
                                 <div class="form-group">
-                                    <label for="qual-toletes-amostra">Amostra (m)</label>
+                                    <label for="qual-toletes-amostra">Amostra</label>
                                     <input type="number" id="qual-toletes-amostra" step="0.1">
                                 </div>
                                 <div class="form-group">
@@ -1841,65 +1816,7 @@
                             </div>
                         </div>
 
-                        <div class="modal-subsection" id="sec-mudas">
-                            <h5 style="margin: 0 0 8px 0; color: #666; font-weight: 600;">🌱 Qualidade de Muda</h5>
-                            <div class="modal-form-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
-                                <!-- Campos de Identificação da Muda -->
-                                <div class="form-group">
-                                    <label for="muda-colheita-info">Colheita de muda</label>
-                                    <input type="text" id="muda-colheita-info">
-                                </div>
-                                <div class="form-group">
-                                    <label for="qual-muda-liberacao">Liberação</label>
-                                    <input type="text" id="qual-muda-liberacao">
-                                </div>
-                                <div class="form-group">
-                                    <label for="muda-fazenda-origem">Fazenda</label>
-                                    <input type="text" id="muda-fazenda-origem">
-                                </div>
-                                <div class="form-group">
-                                    <label for="muda-talhao-origem">Talhão</label>
-                                    <input type="text" id="muda-talhao-origem">
-                                </div>
-                                <div class="form-group">
-                                    <label for="qual-muda-variedade">Variedade</label>
-                                    <input type="text" id="qual-muda-variedade">
-                                </div>
-
-                                <!-- Campos de Métricas -->
-                                <div class="form-group">
-                                    <label for="qual-mudas-amostra-fixo">Amostra Fixa</label>
-                                    <input type="text" id="qual-mudas-amostra-fixo" value="100 toletes" readonly style="background-color: #e9ecef;">
-                                </div>
-                                <div class="form-group">
-                                    <label for="qual-mudas-total">Total de gemas</label>
-                                    <input type="number" id="qual-mudas-total" step="1">
-                                </div>
-                                <div class="form-group">
-                                    <label for="qual-mudas-boas">Gemas boas</label>
-                                    <input type="number" id="qual-mudas-boas" step="1">
-                                </div>
-                                <div class="form-group">
-                                    <label for="qual-mudas-ruins">Gemas ruins</label>
-                                    <input type="number" id="qual-mudas-ruins" step="1">
-                                </div>
-                                <div class="form-group">
-                                    <label for="qual-mudas-boas-pct">% recomendada de boas (>80%)</label>
-                                    <input type="number" id="qual-mudas-boas-pct" step="0.01" class="readonly-field" readonly>
-                                </div>
-                                <div class="form-group">
-                                    <label for="qual-mudas-reboulos">Reboulos</label>
-                                    <input type="number" id="qual-mudas-reboulos" step="1">
-                                </div>
-                                
-                                <!-- Hidden/Legacy fields that might be needed for calculation but hidden in UI if not requested? 
-                                     Actually I'll just remove the ones not requested from this section view 
-                                     or keep them if they are essential. 
-                                     The user listed specific fields. I replaced the old structure with this new one. 
-                                -->
-                            </div>
-                        </div>
-
+                        <!-- Outros -->
                         <div id="sec-outros">
                             <h5 style="margin: 10px 0 5px 0; color: #666;">Outros Indicadores</h5>
                             <div class="modal-form-grid">
@@ -1923,24 +1840,24 @@
                         </div>
                     </div>
 
-                    <!-- 4. Muda -->
+                    <!-- Muda Consumo -->
                     <div class="chart-card form-card" id="sec-muda-consumo-card">
-                        <h4 class="section-title">4. Muda (Consumo)</h4>
+                        <h4 class="section-title">Consumo de Muda</h4>
                         <div class="modal-form-grid">
                             <div class="form-group">
-                                <label for="muda-consumo-total">Consumo total de muda (ton)</label>
+                                <label for="muda-consumo-total">Consumo total (ton)</label>
                                 <input type="number" id="muda-consumo-total" step="0.01">
                             </div>
                             <div class="form-group">
-                                <label for="muda-consumo-acumulado">Consumo acumulado (ton)</label>
+                                <label for="muda-consumo-acumulado">Consumo acum. (ton)</label>
                                 <input type="number" id="muda-consumo-acumulado" step="0.01" class="readonly-field" readonly>
                             </div>
                             <div class="form-group">
-                                <label for="muda-consumo-dia">Consumo total do dia (ton)</label>
+                                <label for="muda-consumo-dia">Consumo dia (ton)</label>
                                 <input type="number" id="muda-consumo-dia" step="0.01">
                             </div>
                             <div class="form-group">
-                                <label for="muda-previsto">Previsto das mudas (ton)</label>
+                                <label for="muda-previsto">Previsto (ton)</label>
                                 <input type="number" id="muda-previsto" step="0.01">
                             </div>
                             <div class="form-group">
@@ -1953,10 +1870,64 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Qualidade Muda -->
+                    <div class="chart-card form-card">
+                         <h4 class="section-title">Origem & Qualidade da Muda</h4>
+                         <div class="modal-subsection" id="sec-mudas">
+                            <div class="modal-form-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
+                                <div class="form-group">
+                                    <label for="muda-colheita-info">Colheita de muda</label>
+                                    <input type="text" id="muda-colheita-info">
+                                </div>
+                                <div class="form-group">
+                                    <label for="qual-muda-liberacao">Liberação</label>
+                                    <input type="text" id="qual-muda-liberacao">
+                                </div>
+                                <div class="form-group">
+                                    <label for="muda-fazenda-origem">Fazenda Origem</label>
+                                    <input type="text" id="muda-fazenda-origem">
+                                </div>
+                                <div class="form-group">
+                                    <label for="muda-talhao-origem">Talhão Origem</label>
+                                    <input type="text" id="muda-talhao-origem">
+                                </div>
+                                <div class="form-group">
+                                    <label for="qual-muda-variedade">Variedade</label>
+                                    <input type="text" id="qual-muda-variedade">
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="qual-mudas-amostra-fixo">Amostra Fixa</label>
+                                    <input type="text" id="qual-mudas-amostra-fixo" value="100 toletes" readonly style="background-color: #e9ecef;">
+                                </div>
+                                <div class="form-group">
+                                    <label for="qual-mudas-total">Total gemas</label>
+                                    <input type="number" id="qual-mudas-total" step="1">
+                                </div>
+                                <div class="form-group">
+                                    <label for="qual-mudas-boas">Gemas boas</label>
+                                    <input type="number" id="qual-mudas-boas" step="1">
+                                </div>
+                                <div class="form-group">
+                                    <label for="qual-mudas-ruins">Gemas ruins</label>
+                                    <input type="number" id="qual-mudas-ruins" step="1">
+                                </div>
+                                <div class="form-group">
+                                    <label for="qual-mudas-boas-pct">% Boas (>80%)</label>
+                                    <input type="number" id="qual-mudas-boas-pct" step="0.01" class="readonly-field" readonly>
+                                </div>
+                                <div class="form-group">
+                                    <label for="qual-mudas-reboulos">Reboulos</label>
+                                    <input type="number" id="qual-mudas-reboulos" step="1">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     
-                    <!-- 5. Produção Colheita Muda (Novo Card) -->
+                     <!-- Colheita Muda (Hidden) -->
                     <div class="chart-card form-card" id="sec-colheita-producao-card" style="display: none;">
-                        <h4 class="section-title">4. Produção Colheita Muda</h4>
+                        <h4 class="section-title">Produção Colheita Muda</h4>
                         <div class="modal-form-grid">
                             <div class="form-group">
                                 <label for="colheita-hectares">Hectares colhidos</label>
@@ -1973,11 +1944,14 @@
                         </div>
                     </div>
                 </div>
-            </div>
-            <div class="modal-footer" style="border-top: 1px solid var(--border); padding-top: 15px; padding-bottom: 20px; margin-top: 10px; margin-bottom: 10px;">
-                <button class="btn btn-secondary close-novo-lancamento-modal">Cancelar</button>
-                <button id="plantio-save-btn" class="btn btn-primary" style="padding: 10px 25px; font-size: 1.1em;">💾 Registrar Dia</button>
-            </div>
+
+                <div class="step-footer">
+                    <button class="btn btn-secondary close-novo-lancamento-modal">Cancelar</button>
+                    <div style="flex: 1;"></div>
+                    <button id="step-prev-btn" class="btn btn-secondary" style="display: none; margin-right: 10px;">❮ Anterior</button>
+                    <button id="step-next-btn" class="btn btn-primary">Próximo ❯</button>
+                    <button id="plantio-save-btn" class="btn btn-primary" style="display: none; padding: 10px 25px; font-size: 1.1em;">💾 Registrar Dia</button>
+                </div>
         </div>
     </div>
     <!-- Modal Transporte de Composto -->

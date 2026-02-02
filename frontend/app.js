@@ -1000,8 +1000,33 @@ forceReloadAllData() {
     });
 }
 
+    setupPlantioSummaryListeners() {
+        const updateSummary = () => this.updatePlantioSummary();
+
+        const ids = [
+            'plantio-data', 
+            'single-frente', 
+            'single-plantio-dia', 
+            'insumos-total-gasto' // This might need a mutation observer if it's not an input
+        ];
+
+        ids.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('change', updateSummary);
+                el.addEventListener('input', updateSummary);
+            }
+        });
+
+        // For calculated fields like total cost, we might want to observe changes or just rely on the fact that
+        // functions updating them should also call updatePlantioSummary or trigger an event.
+        // Since updatePlantioSummary reads from the DOM, we should call it whenever we update those fields in JS too.
+    }
+
     async setupEventListeners() {
         console.log('setupEventListeners started');
+        this.setupPlantioSummaryListeners();
+        this.initPlantioModalSteps();
         this.setupViagemAduboListeners();
         // Modal de Gerenciar Fazendas
         const btnOpenFazendas = document.getElementById('btn-open-fazendas-modal');
@@ -5002,7 +5027,7 @@ forceReloadAllData() {
             }
         });
         const plantioSaveBtn = document.getElementById('plantio-save-btn');
-        if (plantioSaveBtn) plantioSaveBtn.addEventListener('click', async () => { await this.savePlantioDia(); });
+        if (plantioSaveBtn) plantioSaveBtn.addEventListener('click', async () => { await this.savePlantioDia(false); });
 
         const singlePlantioDia = document.getElementById('single-plantio-dia');
         const mudaConsumoDia = document.getElementById('muda-consumo-dia');
@@ -5046,6 +5071,26 @@ forceReloadAllData() {
 
         const singleFrente = document.getElementById('single-frente');
         const singleOs = document.getElementById('single-os');
+
+        // Validation listeners for visual feedback
+        const requiredIds = ['single-frente', 'plantio-data', 'single-plantio-dia'];
+        requiredIds.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                const validate = () => {
+                    const msgEl = document.getElementById('msg-' + id);
+                    if (!el.value) {
+                        el.classList.add('input-error');
+                        if (msgEl) msgEl.style.display = 'block';
+                    } else {
+                        el.classList.remove('input-error');
+                        if (msgEl) msgEl.style.display = 'none';
+                    }
+                };
+                el.addEventListener('blur', validate);
+                el.addEventListener('input', validate);
+            }
+        });
 
         if (singleFrente) {
             singleFrente.addEventListener('change', async () => {
@@ -9837,9 +9882,10 @@ InsumosApp.prototype.renderInsumosDraft = function() {
     const totalEl = document.getElementById('insumos-total-gasto');
     if (totalEl) {
         totalEl.innerHTML = `
-            <div>Total Gasto no Dia: ${this.ui.formatNumber(totalGasto||0, 3)}</div>
+            <div>Total Gasto no Dia: <span id="val-total-gasto">${this.ui.formatNumber(totalGasto||0, 3)}</span></div>
             <div style="color: #666; font-size: 0.9em; margin-top: 5px;">Total Previsto Dia: ${this.ui.formatNumber(totalPrevistoDia||0, 3)}</div>
         `;
+        this.updatePlantioSummary();
     }
 };
 
@@ -9879,6 +9925,159 @@ InsumosApp.prototype.loadProdutosDatalist = async function() {
         }
     } catch (e) {
         console.error('Erro ao carregar produtos para select:', e);
+    }
+};
+
+InsumosApp.prototype.initPlantioModalSteps = function() {
+    const steps = document.querySelectorAll('.step-btn');
+    steps.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const step = parseInt(btn.getAttribute('data-step'));
+            this.goToPlantioStep(step);
+        });
+    });
+
+    const prevBtn = document.getElementById('step-prev-btn');
+    const nextBtn = document.getElementById('step-next-btn');
+
+    if (prevBtn) {
+        prevBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (this.currentStep > 1) {
+                this.goToPlantioStep(this.currentStep - 1);
+            }
+        });
+    }
+
+    if (nextBtn) {
+        nextBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (this.validatePlantioStep(this.currentStep)) {
+                if (this.currentStep < 3) {
+                    this.goToPlantioStep(this.currentStep + 1);
+                }
+            }
+        });
+    }
+};
+
+InsumosApp.prototype.validatePlantioStep = function(step) {
+    const currentStepEl = document.querySelector(`.step-content[data-step="${step}"]`);
+    if (!currentStepEl) return true;
+
+    // Validation for Step 1
+    if (step === 1) {
+        const dataEl = document.getElementById('plantio-data');
+        const frenteEl = document.getElementById('single-frente');
+        const areaEl = document.getElementById('single-plantio-dia');
+        let valid = true;
+
+        if (!dataEl.value) {
+            dataEl.classList.add('input-error');
+            const msg = document.getElementById('msg-plantio-data');
+            if (msg) msg.style.display = 'block';
+            valid = false;
+        }
+        if (!frenteEl.value) {
+            frenteEl.classList.add('input-error');
+            const msg = document.getElementById('msg-single-frente');
+            if (msg) msg.style.display = 'block';
+            valid = false;
+        }
+        if (!areaEl.value || parseFloat(areaEl.value) <= 0) {
+            areaEl.classList.add('input-error');
+            const msg = document.getElementById('msg-single-plantio-dia');
+            if (msg) msg.style.display = 'block';
+            valid = false;
+        }
+        if (!valid) {
+            this.ui.showNotification('Preencha os campos obrigatórios (*)', 'warning');
+            return false;
+        }
+    }
+    
+    return true;
+};
+
+InsumosApp.prototype.goToPlantioStep = function(step) {
+    this.currentStep = step;
+    
+    // Update buttons
+    const stepBtns = document.querySelectorAll('.step-btn');
+    stepBtns.forEach(btn => {
+        const s = parseInt(btn.getAttribute('data-step'));
+        if (s === step) btn.classList.add('active');
+        else btn.classList.remove('active');
+    });
+
+    // Update content
+    const contents = document.querySelectorAll('.step-content');
+    contents.forEach(content => {
+        const s = parseInt(content.getAttribute('data-step'));
+        if (s === step) content.classList.add('active');
+        else content.classList.remove('active');
+    });
+
+    // Update Footer Buttons
+    const prevBtn = document.getElementById('step-prev-btn');
+    const nextBtn = document.getElementById('step-next-btn');
+    const saveBtn = document.getElementById('plantio-save-btn');
+
+    if (prevBtn) prevBtn.style.display = step === 1 ? 'none' : 'block';
+    
+    if (step === 3) {
+        if (nextBtn) nextBtn.style.display = 'none';
+        if (saveBtn) saveBtn.style.display = 'block';
+    } else {
+        if (nextBtn) nextBtn.style.display = 'block';
+        if (saveBtn) saveBtn.style.display = 'none';
+    }
+    
+    this.updatePlantioSummary();
+};
+
+InsumosApp.prototype.updatePlantioSummary = function() {
+    const dataEl = document.getElementById('plantio-data');
+    const frenteEl = document.getElementById('single-frente');
+    const areaEl = document.getElementById('single-plantio-dia');
+    const custoEl = document.getElementById('insumos-total-gasto');
+
+    const sumData = document.getElementById('summary-data');
+    const sumFrente = document.getElementById('summary-frente');
+    const sumArea = document.getElementById('summary-area');
+    const sumCusto = document.getElementById('summary-custo');
+
+    if (sumData && dataEl) {
+        const val = dataEl.value;
+        if (val) {
+             const parts = val.split('-');
+             if (parts.length === 3) sumData.textContent = `${parts[2]}/${parts[1]}/${parts[0]}`;
+        } else {
+             sumData.textContent = '-';
+        }
+    }
+    if (sumFrente && frenteEl) {
+        const val = frenteEl.value;
+        sumFrente.textContent = val || '-';
+    }
+    if (sumArea && areaEl) {
+        const val = parseFloat(areaEl.value || 0);
+        sumArea.textContent = val.toFixed(2);
+    }
+    if (sumCusto) {
+         const valEl = document.getElementById('val-total-gasto');
+         if (valEl) {
+             sumCusto.textContent = valEl.textContent;
+         } else if (custoEl) {
+             // Fallback for initial state or if structure differs
+             const text = custoEl.textContent;
+             if (text.includes(':')) {
+                 const val = text.split(':')[1].trim().split('\n')[0]; // Take first line only
+                 sumCusto.textContent = val;
+             } else {
+                 sumCusto.textContent = '0.000';
+             }
+         }
     }
 };
 
@@ -9955,8 +10154,16 @@ InsumosApp.prototype.resetPlantioForm = function() {
     ];
     ids.forEach(id => {
         const el = document.getElementById(id);
-        if (el) el.value = '';
+        if (el) {
+            el.value = '';
+            el.classList.remove('input-error');
+            const msgEl = document.getElementById('msg-' + id);
+            if (msgEl) msgEl.style.display = 'none';
+        }
     });
+
+    const dataEl = document.getElementById('plantio-data');
+    if (dataEl) dataEl.valueAsDate = new Date();
 
     const saveBtn = document.getElementById('plantio-save-btn');
     if (saveBtn) saveBtn.textContent = '💾 Registrar Dia';
@@ -9964,6 +10171,9 @@ InsumosApp.prototype.resetPlantioForm = function() {
     this.updateToletesPercent();
     this.updateGemasPercent();
     this.updateMudasPercent();
+
+    this.goToPlantioStep(1);
+    this.updatePlantioSummary();
 };
 
 InsumosApp.prototype.handleEditPlantio = function(id) {
@@ -10078,9 +10288,12 @@ InsumosApp.prototype.handleEditPlantio = function(id) {
     this.updateToletesPercent();
     this.updateGemasPercent();
     this.updateMudasPercent();
+
+    // Atualizar Resumo do Modal (Advanced UI)
+    this.updatePlantioSummary();
 };
 
-InsumosApp.prototype.savePlantioDia = async function() {
+InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
     console.log('Iniciando savePlantioDia...');
     const data = document.getElementById('plantio-data')?.value;
     const responsavel = document.getElementById('plantio-responsavel')?.value;
@@ -10269,8 +10482,12 @@ InsumosApp.prototype.savePlantioDia = async function() {
             // Atualizar dashboard para refletir novos dados
             this.loadDashboard();
             
-            const modal = document.getElementById('novo-lancamento-modal');
-            if (modal) modal.style.display = 'none';
+            if (!createAnother) {
+                const modal = document.getElementById('novo-lancamento-modal');
+                if (modal) modal.style.display = 'none';
+            } else {
+                this.ui.showNotification('Registro salvo! Pronto para o próximo.', 'success', 2000);
+            }
         } else {
             console.error('Erro na resposta da API:', res);
             this.ui.showNotification('Erro ao registrar', 'error');

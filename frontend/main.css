@@ -1201,3 +1201,120 @@ body.dark-mode .text-success {
     }
 }
 
+
+/* --- New Advanced Planting Modal Styles (Added by Trae) --- */
+
+/* Fix: Validation error should override highlight */
+.highlight-input.input-error {
+    border-color: var(--error) !important;
+    background-color: rgba(211, 47, 47, 0.05) !important;
+}
+
+.validation-msg {
+    color: var(--error);
+    font-size: 0.85em;
+    margin-top: 4px;
+    display: none;
+}
+
+/* Modal Steps Navigation */
+.modal-steps {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    gap: 10px;
+    overflow-x: auto;
+}
+
+.step-btn {
+    padding: 10px 20px;
+    border: none;
+    background: transparent;
+    border-bottom: 3px solid transparent;
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--text-light);
+    transition: all 0.2s;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.step-btn:hover {
+    color: var(--primary);
+    background: rgba(0,0,0,0.02);
+}
+
+.step-btn.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+}
+
+.step-content {
+    display: none;
+    animation: fadeIn 0.3s ease;
+}
+
+.step-content.active {
+    display: block;
+}
+
+/* Modal Summary Panel */
+.modal-summary-panel {
+    background: linear-gradient(to right, #e8f5e9, #f1f8e9);
+    border: 1px solid #c8e6c9;
+    border-radius: 8px;
+    padding: 10px 15px;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9em;
+    color: var(--primary-dark);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.step-footer {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid var(--border);
+}
+
+/* Scoped styles for Novo Lancamento Modal to ensure isolation */
+#novo-lancamento-modal .modal-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+}
+
+@media (max-width: 600px) {
+    #novo-lancamento-modal .modal-form-grid {
+        grid-template-columns: 1fr;
+    }
+    #novo-lancamento-modal .modal-form-grid .form-group[style*="span 2"] {
+        grid-column: span 1 !important;
+    }
+}
+
+#novo-lancamento-modal .modal-subsection {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+    background: rgba(0,0,0,0.02);
+}
+
+/* Ensure these scoped styles override general ones if needed */
+#novo-lancamento-modal .readonly-field {
+    background-color: #e9ecef;
+    cursor: not-allowed;
+    font-weight: 600;
+    color: var(--text);
+}
