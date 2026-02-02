@@ -7542,25 +7542,40 @@ forceReloadAllData() {
         // 3.1 New Button: Novo Lançamento (Manual)
         const btnNew = document.getElementById('btn-novo-lancamento-composto');
         if (btnNew) {
-            btnNew.addEventListener('click', async () => {
-                const form = document.getElementById('form-transporte-composto');
-                const modal = document.getElementById('modal-transporte-composto');
-                if (form && modal) {
-                    form.reset();
-                    document.getElementById('composto-id').value = '';
-                    
-                    // Populate fazendas
-                    await this.populateCompostoFazendas();
+            // Remove existing listeners
+            const newBtnNew = btnNew.cloneNode(true);
+            btnNew.parentNode.replaceChild(newBtnNew, btnNew);
 
-                    this.compostoDiarioDraft = [];
-                    this.renderCompostoDiarioDraft();
-                    
-                    // Unlock fields for new entry
-                    this.toggleCompostoFields(false);
-                    
-                    modal.style.display = 'block';
+            newBtnNew.addEventListener('click', async () => {
+                console.log('Botão Novo Transporte Composto clicado');
+                try {
+                    const form = document.getElementById('form-transporte-composto');
+                    const modal = document.getElementById('modal-transporte-composto');
+                    if (form && modal) {
+                        form.reset();
+                        const idField = document.getElementById('composto-id');
+                        if (idField) idField.value = '';
+                        
+                        // Populate fazendas
+                        await this.populateCompostoFazendas();
+
+                        this.compostoDiarioDraft = [];
+                        this.renderCompostoDiarioDraft();
+                        
+                        // Unlock fields for new entry
+                        this.toggleCompostoFields(false);
+                        
+                        modal.style.display = 'block';
+                    } else {
+                        console.error('Form ou Modal Composto não encontrado');
+                    }
+                } catch (err) {
+                    console.error('Erro ao abrir modal composto:', err);
+                    this.ui.showNotification('Erro ao abrir modal', 'error');
                 }
             });
+        } else {
+            console.error('Botão btn-novo-lancamento-composto não encontrado!');
         }
         
         // Listener for Fazenda Selection to auto-fill Code
