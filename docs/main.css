@@ -1082,3 +1082,122 @@ body.dark-mode .text-success {
 .flex-2 { flex: 2; }
 .full-width { width: 100%; }
 
+/* --- Melhorias de UX/UI para Lançamentos --- */
+
+/* Modal Content Wider */
+.modal-content.large-modal {
+    max-width: 1200px !important;
+    width: 95% !important;
+}
+
+/* Grid Layout Improvement */
+.modal-form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); /* Better responsiveness */
+    gap: 20px !important;
+}
+
+/* Input Styles */
+.form-group input, 
+.form-group select {
+    height: 48px; /* Larger touch target */
+    font-size: 16px !important; /* Readable text */
+    padding: 8px 12px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    background-color: #fff;
+}
+
+.form-group input:focus, 
+.form-group select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 4px rgba(var(--primary-rgb), 0.15);
+    outline: none;
+}
+
+/* Label Styles */
+.form-group label {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-dark);
+    margin-bottom: 8px;
+    display: block;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Highlight Important Fields */
+.highlight-input {
+    border-color: var(--primary) !important;
+    background-color: rgba(var(--primary-rgb), 0.05) !important;
+    font-weight: bold;
+    font-size: 1.1em !important;
+}
+
+/* Section Separation */
+.chart-card.form-card {
+    background: #fdfdfd;
+    border: 1px solid #e0e0e0;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+    margin-bottom: 30px;
+    padding: 25px;
+    border-radius: 12px;
+}
+
+.section-title {
+    font-size: 1.25em;
+    color: var(--primary-dark);
+    border-bottom: 2px solid var(--primary);
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Save Button Prominence */
+#plantio-save-btn {
+    width: 100%;
+    max-width: 300px;
+    height: 55px;
+    font-size: 1.2em;
+    font-weight: bold;
+    box-shadow: 0 4px 15px rgba(var(--primary-rgb), 0.3);
+    margin: 0 auto;
+    display: block;
+    border-radius: 30px;
+}
+
+.modal-footer {
+    position: sticky;
+    bottom: 0;
+    background: var(--surface);
+    z-index: 10;
+    border-top: 1px solid var(--border);
+    padding: 20px;
+    box-shadow: 0 -5px 20px rgba(0,0,0,0.05);
+}
+
+/* Readonly fields styling */
+.readonly-field {
+    background-color: #f0f2f5 !important;
+    color: #6c757d !important;
+    border-color: #e9ecef !important;
+    cursor: default;
+}
+
+/* Responsive Tweaks */
+@media (max-width: 768px) {
+    .modal-form-grid {
+        grid-template-columns: 1fr;
+    }
+    .chart-card.form-card {
+        padding: 15px;
+    }
+    #plantio-save-btn {
+        width: 100%;
+        max-width: none;
+    }
+}
+
