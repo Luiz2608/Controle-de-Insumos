@@ -1054,10 +1054,12 @@ forceReloadAllData() {
     }
 
     async setupEventListeners() {
-        console.log('setupEventListeners started');
         this.setupPlantioSummaryListeners();
         this.initPlantioModalSteps();
+        this.initGenericModalSteps(); // Initialize generic steps for Adubo/Composto
         this.setupViagemAduboListeners();
+        this.setupCompostoListeners(); // Ensure Composto listeners are set on startup
+        this._compostoListenersSet = true;
         // Modal de Gerenciar Fazendas
         const btnOpenFazendas = document.getElementById('btn-open-fazendas-modal');
         const fazendasModal = document.getElementById('fazendas-modal');
@@ -1118,6 +1120,8 @@ forceReloadAllData() {
                     this.toggleOperacaoSections();
                 }
                 novoLancamentoModal.style.display = 'flex';
+
+
                 // Garantir que a lista de OS e Frentes esteja carregada
                 await this.loadOSList();
                 
@@ -5875,13 +5879,22 @@ forceReloadAllData() {
 
  
     setupViagemAduboListeners() {
+        console.log('Setting up Viagem Adubo listeners...');
         // Button Nova Viagem (Open Modal)
         const btnNovaViagem = document.getElementById('btn-nova-viagem-adubo');
         
         if (btnNovaViagem) {
-            btnNovaViagem.onclick = () => {
+            console.log('Botão btn-nova-viagem-adubo encontrado.');
+            // Remove listeners antigos clonando (opcional, mas seguro)
+            const newBtn = btnNovaViagem.cloneNode(true);
+            btnNovaViagem.parentNode.replaceChild(newBtn, btnNovaViagem);
+            
+            newBtn.addEventListener('click', () => {
+                console.log('Botão Nova Viagem Adubo clicado!');
                 this.openViagemAduboModal(null, 'create');
-            };
+            });
+        } else {
+            console.error('Botão btn-nova-viagem-adubo NÃO encontrado!');
         }
 
         // Toggle Filters Button
@@ -6012,14 +6025,41 @@ forceReloadAllData() {
                 }
             };
         }
+
+        // Summary Listeners (Adubo)
+        const updateAduboSummary = () => this.checkViagemAduboLimit();
+        const aduboInputs = ['modal-viagem-quantidade-total', 'modal-viagem-adubo-os'];
+        aduboInputs.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('input', updateAduboSummary);
+                el.addEventListener('change', updateAduboSummary);
+            }
+        });
     }
 
     async openViagemAduboModal(id = null, mode = 'edit') {
+        console.log('openViagemAduboModal chamado. ID:', id, 'Mode:', mode);
         const modal = document.getElementById('modal-viagem-adubo');
-        if (!modal) return;
+        if (!modal) {
+            console.error('Modal modal-viagem-adubo NÃO encontrado!');
+            return;
+        }
+        
+        modal.dataset.editingId = id || ''; // Set editing ID for validation
+
+        // Reset to Step 1
+        if (this.goToModalStep) {
+            this.goToModalStep('adubo', 1);
+        }
 
         this.viagemAduboMode = mode;
         const isView = mode === 'view';
+        if (isView) {
+            modal.classList.add('view-mode');
+        } else {
+            modal.classList.remove('view-mode');
+        }
 
         // Reset Fields (Using modal- prefix)
         const fields = [
@@ -6038,8 +6078,9 @@ forceReloadAllData() {
         });
 
         // Hide/Show Buttons based on mode
-        const btnSave = document.getElementById('btn-save-viagem-fix');
-        if (btnSave) btnSave.style.display = isView ? 'none' : 'inline-block';
+        // const btnSave = document.getElementById('btn-save-viagem-fix');
+        // if (btnSave) btnSave.style.display = isView ? 'none' : 'inline-block';
+        // Now handled by .view-mode CSS and step logic
 
         const btnAddBag = document.getElementById('modal-bag-add-btn');
         if (btnAddBag) btnAddBag.style.display = isView ? 'none' : 'inline-block';
@@ -6109,7 +6150,71 @@ forceReloadAllData() {
             btnPrint.style.display = id ? 'inline-block' : 'none';
         }
 
-        modal.style.display = 'block';
+        this.checkViagemAduboLimit(); // Update Summary
+        console.log('Exibindo modal modal-viagem-adubo agora.');
+        
+
+        
+
+        // FORCE VISIBILITY - NUCLEAR OPTION
+        modal.style.display = 'flex'; // Must be flex to center
+        modal.style.position = 'fixed';
+        modal.style.top = '0';
+        modal.style.left = '0';
+        modal.style.width = '100vw'; // Viewport width
+        modal.style.height = '100vh'; // Viewport height
+        modal.style.zIndex = '10500';
+        modal.style.opacity = '1';
+        modal.style.visibility = 'visible';
+        modal.style.backgroundColor = 'rgba(0,0,0,0.5)'; // Force semi-transparent background
+        modal.style.backdropFilter = 'blur(2px)'; // Restore visual style
+
+        // Override CSS classes potentially hiding it
+        modal.classList.add('force-visible');
+        
+        // Force content visibility
+        const modalContent = modal.querySelector('.modal-content');
+        if (modalContent) {
+            modalContent.style.display = 'flex';
+            modalContent.style.flexDirection = 'column';
+            modalContent.style.opacity = '1';
+            modalContent.style.visibility = 'visible';
+            modalContent.style.zIndex = '10501';
+            modalContent.style.animation = 'none'; // Disable animation to prevent opacity: 0 lock
+            modalContent.style.margin = 'auto'; // Ensure centering
+            modalContent.style.position = 'relative'; // Ensure z-index works
+        } else {
+            console.error('CRITICAL: .modal-content NOT FOUND inside modal-viagem-adubo');
+        }
+
+        // Debug visibility
+        setTimeout(() => {
+            const rect = modal.getBoundingClientRect();
+            const computed = window.getComputedStyle(modal);
+            console.log('Modal Viagem Adubo DIAGNOSTIC:', {
+                rect: {
+                    width: rect.width,
+                    height: rect.height,
+                    top: rect.top,
+                    left: rect.left
+                },
+                styles: {
+                    display: computed.display,
+                    opacity: computed.opacity,
+                    visibility: computed.visibility,
+                    zIndex: computed.zIndex,
+                    position: computed.position
+                },
+                contentRect: modalContent ? modalContent.getBoundingClientRect() : 'NO CONTENT',
+                hasContent: !!modalContent
+            });
+            
+            // Fallback: If height is 0, append to body
+            if (rect.height === 0 || rect.width === 0) {
+                 console.warn('Modal has 0 dimensions! Moving to body end...');
+                 document.body.appendChild(modal);
+            }
+        }, 100);
     }
 
     async populateViagemAduboSelects() {
@@ -6308,52 +6413,75 @@ forceReloadAllData() {
         const osNum = document.getElementById('modal-viagem-adubo-os')?.value;
         const qtdInput = document.getElementById('modal-viagem-quantidade-total');
         
-        if (!osNum || !qtdInput) return;
+        // Update Summary Total (Current Input)
+        const summaryTotal = document.getElementById('summary-adubo-total');
+        const currentQtd = qtdInput ? (parseFloat(qtdInput.value) || 0) : 0;
         
-        const currentQtd = parseFloat(qtdInput.value) || 0;
-        
-        // Find OS
-        const os = this.osListCache ? this.osListCache.find(o => String(o.numero) === String(osNum)) : null;
-        if (!os) return;
-        
-        // Determine Target Quantity
-        // Priority: quantidade > (dose * area)
-        let target = 0;
-        if (os.quantidade != null) {
-            target = parseFloat(os.quantidade);
-        } else if (os.doseRecomendada != null && os.areaTotal != null) {
-            target = parseFloat(os.doseRecomendada) * parseFloat(os.areaTotal);
-        } else if (os.dose != null && os.areaTotal != null) {
-             target = parseFloat(os.dose) * parseFloat(os.areaTotal);
+        if (summaryTotal) {
+             summaryTotal.textContent = this.ui.formatNumber(currentQtd, 3);
         }
         
-        // Se não tiver target, não valida
-        if (target <= 0) {
-            qtdInput.classList.remove('input-warning');
-            qtdInput.title = "";
+        // Elements for Meta/Realizado/Restante
+        const summaryMeta = document.getElementById('summary-adubo-meta');
+        const summaryRealizado = document.getElementById('summary-adubo-realizado');
+        const summaryRestante = document.getElementById('summary-adubo-restante');
+
+        if (!osNum) {
+            if(summaryMeta) summaryMeta.textContent = '0.000';
+            if(summaryRealizado) summaryRealizado.textContent = '0.000';
+            if(summaryRestante) summaryRestante.textContent = '0.000';
             return;
         }
         
-        const editingId = document.getElementById('modal-viagem-adubo').dataset.editingId;
+        // Find OS
+        const os = this.osListCache ? this.osListCache.find(o => String(o.numero) === String(osNum)) : null;
         
+        // Determine Target Quantity (Meta)
+        let target = 0;
+        if (os) {
+            if (os.quantidade != null) {
+                target = parseFloat(os.quantidade);
+            } else if (os.doseRecomendada != null && os.areaTotal != null) {
+                target = parseFloat(os.doseRecomendada) * parseFloat(os.areaTotal);
+            } else if (os.dose != null && os.areaTotal != null) {
+                target = parseFloat(os.dose) * parseFloat(os.areaTotal);
+            }
+        }
+        
+        // Calculate Realizado (Accumulated + Current)
+        const editingId = document.getElementById('modal-viagem-adubo').dataset.editingId;
         const existingSum = (this.viagensAdubo || [])
             .filter(v => String(v.numero_os) === String(osNum) && String(v.id) !== String(editingId))
             .reduce((sum, v) => sum + (parseFloat(v.quantidade_total) || 0), 0);
             
-        const total = existingSum + currentQtd;
+        const totalRealizado = existingSum + currentQtd;
+        const restante = Math.max(0, target - totalRealizado);
+
+        // Update UI
+        if (summaryMeta) summaryMeta.textContent = this.ui.formatNumber(target, 3);
+        if (summaryRealizado) {
+            summaryRealizado.textContent = this.ui.formatNumber(totalRealizado, 3);
+            summaryRealizado.style.color = totalRealizado > target ? 'var(--error)' : 'var(--primary)';
+        }
+        if (summaryRestante) summaryRestante.textContent = this.ui.formatNumber(restante, 3);
         
-        if (total > target) {
+        // Validation / Warnings
+        if (target > 0 && totalRealizado > target) {
             // Check if notification already shown to avoid spam
-            if (!this._lastAlertOS || this._lastAlertOS !== osNum || this._lastAlertTotal !== total) {
-                 this.ui.showNotification(`Atenção: Quantidade total (${this.ui.formatNumber(total)}) excede o previsto na OS (${this.ui.formatNumber(target)})!`, 'warning');
+            if (!this._lastAlertOS || this._lastAlertOS !== osNum || this._lastAlertTotal !== totalRealizado) {
+                 this.ui.showNotification(`Atenção: Quantidade total (${this.ui.formatNumber(totalRealizado)}) excede o previsto na OS (${this.ui.formatNumber(target)})!`, 'warning');
                  this._lastAlertOS = osNum;
-                 this._lastAlertTotal = total;
+                 this._lastAlertTotal = totalRealizado;
             }
-            qtdInput.classList.add('input-warning');
-            qtdInput.title = `Total Previsto: ${this.ui.formatNumber(target)} | Total Acumulado: ${this.ui.formatNumber(total)}`;
+            if (qtdInput) {
+                qtdInput.classList.add('input-warning');
+                qtdInput.title = `Total Previsto: ${this.ui.formatNumber(target)} | Total Acumulado: ${this.ui.formatNumber(totalRealizado)}`;
+            }
         } else {
-            qtdInput.classList.remove('input-warning');
-            qtdInput.title = "";
+            if (qtdInput) {
+                qtdInput.classList.remove('input-warning');
+                qtdInput.title = "";
+            }
             this._lastAlertOS = null;
         }
     }
@@ -6999,6 +7127,12 @@ forceReloadAllData() {
     }
 
     renderBagsDraft() {
+        // Update Summary Bags Count
+        const summaryBags = document.getElementById('summary-adubo-bags');
+        if (summaryBags) {
+            summaryBags.textContent = (this.viagensAduboBagsDraft || []).length;
+        }
+
         const renderTo = (tbodyId, isViewMode) => {
             const tbody = document.getElementById(tbodyId);
             if (!tbody) return;
@@ -7604,7 +7738,51 @@ forceReloadAllData() {
                         // Unlock fields for new entry
                         this.toggleCompostoFields(false);
                         
-                        modal.style.display = 'block';
+                        // Reset to Step 1
+                        if (this.goToModalStep) {
+                            this.goToModalStep('composto', 1);
+                        }
+
+
+
+                        // FORCE VISIBILITY - NUCLEAR OPTION
+                        modal.style.display = 'flex';
+                        modal.style.position = 'fixed';
+                        modal.style.top = '0';
+                        modal.style.left = '0';
+                        modal.style.width = '100vw';
+                        modal.style.height = '100vh';
+                        modal.style.zIndex = '10500';
+                        modal.style.opacity = '1';
+                        modal.style.visibility = 'visible';
+                        modal.style.backgroundColor = 'rgba(0,0,0,0.5)';
+                        modal.style.backdropFilter = 'blur(2px)';
+                        
+                        modal.classList.add('force-visible');
+
+                        const modalContent = modal.querySelector('.modal-content');
+                        if (modalContent) {
+                            modalContent.style.display = 'flex';
+                            modalContent.style.flexDirection = 'column';
+                            modalContent.style.opacity = '1';
+                            modalContent.style.visibility = 'visible';
+                            modalContent.style.zIndex = '10501';
+                            modalContent.style.animation = 'none';
+                            modalContent.style.margin = 'auto';
+                            modalContent.style.position = 'relative';
+                        }
+                        
+                        console.log('Exibindo modal modal-transporte-composto agora (Force Visible).');
+                        
+                        // Fallback check
+                        setTimeout(() => {
+                             const rect = modal.getBoundingClientRect();
+                             if (rect.height === 0 || rect.width === 0) {
+                                  console.warn('Modal Composto has 0 dimensions! Moving to body end...');
+                                  document.body.appendChild(modal);
+                             }
+                        }, 100);
+
                     } else {
                         console.error('Form ou Modal Composto não encontrado');
                     }
@@ -7988,9 +8166,9 @@ forceReloadAllData() {
         
         // Update Summary Block
         const mainQtdInput = document.getElementById('composto-quantidade');
-        const summaryMeta = document.getElementById('summary-meta');
-        const summaryRealizado = document.getElementById('summary-realizado');
-        const summaryRestante = document.getElementById('summary-restante');
+        const summaryMeta = document.getElementById('summary-composto-meta');
+        const summaryRealizado = document.getElementById('summary-composto-realizado');
+        const summaryRestante = document.getElementById('summary-composto-restante');
 
         if (summaryRealizado) summaryRealizado.textContent = this.ui.formatNumber(total, 3);
 
@@ -10133,6 +10311,110 @@ InsumosApp.prototype.updatePlantioSummary = function() {
              }
          }
     }
+};
+
+// Generic Modal Steps Logic (Adubo, Composto, etc.)
+InsumosApp.prototype.initGenericModalSteps = function() {
+    // Step Headers (Tabs)
+    document.querySelectorAll('.step-btn[data-modal]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const modalName = btn.getAttribute('data-modal');
+            const step = parseInt(btn.getAttribute('data-step'));
+            this.goToModalStep(modalName, step);
+        });
+    });
+
+    // Prev Buttons
+    document.querySelectorAll('.btn-step-prev[data-modal]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const modalName = btn.getAttribute('data-modal');
+            const currentStep = this.getCurrentStep(modalName);
+            if (currentStep > 1) {
+                this.goToModalStep(modalName, currentStep - 1);
+            }
+        });
+    });
+
+    // Next Buttons
+    document.querySelectorAll('.btn-step-next[data-modal]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const modalName = btn.getAttribute('data-modal');
+            const currentStep = this.getCurrentStep(modalName);
+            if (this.validateModalStep(modalName, currentStep)) {
+                this.goToModalStep(modalName, currentStep + 1);
+            }
+        });
+    });
+};
+
+InsumosApp.prototype.getCurrentStep = function(modalName) {
+    const activeStep = document.querySelector(`.step-content.active[data-modal="${modalName}"]`);
+    return activeStep ? parseInt(activeStep.getAttribute('data-step')) : 1;
+};
+
+InsumosApp.prototype.goToModalStep = function(modalName, step) {
+    // Hide all steps for this modal
+    document.querySelectorAll(`.step-content[data-modal="${modalName}"]`).forEach(el => el.classList.remove('active'));
+    document.querySelectorAll(`.step-btn[data-modal="${modalName}"]`).forEach(el => el.classList.remove('active'));
+
+    // Show target step
+    const targetContent = document.querySelector(`.step-content[data-modal="${modalName}"][data-step="${step}"]`);
+    const targetBtn = document.querySelector(`.step-btn[data-modal="${modalName}"][data-step="${step}"]`);
+    
+    if (targetContent) targetContent.classList.add('active');
+    if (targetBtn) targetBtn.classList.add('active');
+
+    // Update footer buttons visibility
+    const prevBtn = document.querySelector(`.btn-step-prev[data-modal="${modalName}"]`);
+    const nextBtn = document.querySelector(`.btn-step-next[data-modal="${modalName}"]`);
+    const saveBtn = document.querySelector(`.btn-save-final[data-modal="${modalName}"]`);
+    
+    // Count total steps for this modal
+    const totalSteps = document.querySelectorAll(`.step-content[data-modal="${modalName}"]`).length;
+
+    if (prevBtn) prevBtn.style.display = step > 1 ? 'inline-block' : 'none';
+    
+    if (nextBtn) {
+        if (step < totalSteps) {
+            nextBtn.style.display = 'inline-block';
+            if (saveBtn) saveBtn.style.display = 'none';
+        } else {
+            nextBtn.style.display = 'none';
+            if (saveBtn) saveBtn.style.display = 'inline-block';
+        }
+    }
+};
+
+InsumosApp.prototype.validateModalStep = function(modalName, step) {
+    // Simple validation: Check required fields in the current step
+    const currentStepEl = document.querySelector(`.step-content[data-step="${step}"][data-modal="${modalName}"]`);
+    if (!currentStepEl) return true;
+
+    let valid = true;
+    const requiredInputs = currentStepEl.querySelectorAll('[required], .highlight-input');
+    
+    requiredInputs.forEach(input => {
+        // Skip hidden inputs
+        if (input.type === 'hidden' || input.style.display === 'none') return;
+        
+        if (!input.value || input.value.trim() === '') {
+            input.classList.add('input-error');
+            // Remove error class on input
+            input.addEventListener('input', function() {
+                this.classList.remove('input-error');
+            }, { once: true });
+            valid = false;
+        }
+    });
+
+    if (!valid) {
+        this.ui.showNotification('Por favor, preencha todos os campos obrigatórios.', 'warning');
+    }
+
+    return valid;
 };
 
 InsumosApp.prototype.toggleOperacaoSections = function() {

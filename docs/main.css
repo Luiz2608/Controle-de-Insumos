@@ -1318,3 +1318,105 @@ body.dark-mode .text-success {
     font-weight: 600;
     color: var(--text);
 }
+
+/* --- DARK MODE FIXES FOR MODALS (ADDED VIA TRAE) --- */
+body.dark-mode #novo-lancamento-modal .readonly-field {
+    background-color: #383838 !important;
+    color: #e0e0e0 !important;
+    border-color: #555 !important;
+}
+
+body.dark-mode #novo-lancamento-modal .modal-summary-panel,
+body.dark-mode .modal-summary-panel {
+    background: linear-gradient(to right, #1e1e1e, #2d2d2d);
+    border-color: #444;
+    color: #81C784; /* Light Green */
+}
+
+body.dark-mode #novo-lancamento-modal .step-btn,
+body.dark-mode .step-btn {
+    color: #aaa;
+}
+
+body.dark-mode #novo-lancamento-modal .step-btn:hover,
+body.dark-mode .step-btn:hover {
+    background: rgba(255,255,255,0.05);
+}
+
+body.dark-mode #novo-lancamento-modal .step-btn.active,
+body.dark-mode .step-btn.active {
+    color: #81C784; /* Light Green */
+    border-bottom-color: #81C784;
+}
+
+/* Fix for green background containers in dark mode */
+body.dark-mode .form-group[style*="background: rgba(46, 125, 50, 0.1)"] {
+    background: rgba(129, 199, 132, 0.1) !important; /* Light green background */
+    border-color: #81C784 !important;
+}
+
+/* Ensure labels with primary-dark color use the light green in dark mode */
+body.dark-mode label[style*="var(--primary-dark)"] {
+    color: #81C784 !important;
+}
+
+/* Fix Total Gasto label */
+body.dark-mode #insumos-total-gasto {
+    color: #81C784 !important;
+}
+
+/* Disable modal animation in dark mode to prevent visibility glitches */
+body.dark-mode .modal-content {
+    animation: none !important;
+}
+
+/* --- PLANTIO DARK MODE FIXES (TRAE v31) --- */
+
+/* Ensure the modal content itself has the correct dark background */
+body.dark-mode #novo-lancamento-modal .modal-content {
+    background-color: #1e1e1e !important;
+    color: #e0e0e0 !important;
+    border-color: #333 !important;
+}
+
+/* Ensure chart cards inside the modal are also dark */
+body.dark-mode #novo-lancamento-modal .chart-card {
+    background-color: #1e1e1e !important;
+    border-color: #333 !important;
+    color: #e0e0e0 !important;
+}
+
+/* Override any hardcoded white backgrounds in form sections */
+body.dark-mode #novo-lancamento-modal .form-section {
+    background-color: #1e1e1e !important;
+    color: #e0e0e0 !important;
+}
+
+/* Fix input backgrounds specifically for Plantio modal in dark mode */
+body.dark-mode #novo-lancamento-modal input,
+body.dark-mode #novo-lancamento-modal select,
+body.dark-mode #novo-lancamento-modal textarea {
+    background-color: #2d2d2d !important;
+    color: #e0e0e0 !important;
+    border-color: #444 !important;
+}
+
+/* Fix the footer background */
+body.dark-mode #novo-lancamento-modal .modal-footer {
+    background-color: #1e1e1e !important;
+    border-top-color: #333 !important;
+}
+
+/* Ensure Close button is visible */
+body.dark-mode #novo-lancamento-modal .close-modal {
+    color: #aaa !important;
+}
+body.dark-mode #novo-lancamento-modal .close-modal:hover {
+    color: #fff !important;
+}
+
+/* Fix section titles if they are dark text on dark background */
+body.dark-mode #novo-lancamento-modal h3,
+body.dark-mode #novo-lancamento-modal h4 {
+    color: #e0e0e0 !important;
+}
