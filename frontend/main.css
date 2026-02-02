@@ -1117,7 +1117,7 @@ body.dark-mode .text-success {
 }
 
 /* Label Styles */
-.form-group label {
+#novo-lancamento-modal .form-group label {
     font-size: 14px;
     font-weight: 700;
     color: var(--text-dark);
@@ -1128,7 +1128,7 @@ body.dark-mode .text-success {
 }
 
 /* Highlight Important Fields */
-.highlight-input {
+#novo-lancamento-modal .highlight-input {
     border-color: var(--primary) !important;
     background-color: rgba(var(--primary-rgb), 0.05) !important;
     font-weight: bold;
@@ -1136,7 +1136,7 @@ body.dark-mode .text-success {
 }
 
 /* Section Separation */
-.chart-card.form-card {
+#novo-lancamento-modal .chart-card.form-card {
     background: #fdfdfd;
     border: 1px solid #e0e0e0;
     box-shadow: 0 4px 6px rgba(0,0,0,0.02);
@@ -1145,7 +1145,7 @@ body.dark-mode .text-success {
     border-radius: 12px;
 }
 
-.section-title {
+#novo-lancamento-modal .section-title {
     font-size: 1.25em;
     color: var(--primary-dark);
     border-bottom: 2px solid var(--primary);
@@ -1157,7 +1157,7 @@ body.dark-mode .text-success {
 }
 
 /* Save Button Prominence */
-#plantio-save-btn {
+#novo-lancamento-modal #plantio-save-btn {
     width: 100%;
     max-width: 300px;
     height: 55px;
@@ -1169,7 +1169,7 @@ body.dark-mode .text-success {
     border-radius: 30px;
 }
 
-.modal-footer {
+#novo-lancamento-modal .modal-footer {
     position: sticky;
     bottom: 0;
     background: var(--surface);
@@ -1180,7 +1180,7 @@ body.dark-mode .text-success {
 }
 
 /* Readonly fields styling */
-.readonly-field {
+#novo-lancamento-modal .readonly-field {
     background-color: #f0f2f5 !important;
     color: #6c757d !important;
     border-color: #e9ecef !important;
@@ -1189,13 +1189,13 @@ body.dark-mode .text-success {
 
 /* Responsive Tweaks */
 @media (max-width: 768px) {
-    .modal-form-grid {
+    #novo-lancamento-modal .modal-form-grid {
         grid-template-columns: 1fr;
     }
-    .chart-card.form-card {
+    #novo-lancamento-modal .chart-card.form-card {
         padding: 15px;
     }
-    #plantio-save-btn {
+    #novo-lancamento-modal #plantio-save-btn {
         width: 100%;
         max-width: none;
     }
@@ -1205,12 +1205,12 @@ body.dark-mode .text-success {
 /* --- New Advanced Planting Modal Styles (Added by Trae) --- */
 
 /* Fix: Validation error should override highlight */
-.highlight-input.input-error {
+#novo-lancamento-modal .highlight-input.input-error {
     border-color: var(--error) !important;
     background-color: rgba(211, 47, 47, 0.05) !important;
 }
 
-.validation-msg {
+#novo-lancamento-modal .validation-msg {
     color: var(--error);
     font-size: 0.85em;
     margin-top: 4px;
@@ -1218,7 +1218,7 @@ body.dark-mode .text-success {
 }
 
 /* Modal Steps Navigation */
-.modal-steps {
+#novo-lancamento-modal .modal-steps {
     display: flex;
     border-bottom: 1px solid var(--border);
     margin-bottom: 20px;
@@ -1227,7 +1227,7 @@ body.dark-mode .text-success {
     overflow-x: auto;
 }
 
-.step-btn {
+#novo-lancamento-modal .step-btn {
     padding: 10px 20px;
     border: none;
     background: transparent;
@@ -1242,27 +1242,27 @@ body.dark-mode .text-success {
     gap: 8px;
 }
 
-.step-btn:hover {
+#novo-lancamento-modal .step-btn:hover {
     color: var(--primary);
     background: rgba(0,0,0,0.02);
 }
 
-.step-btn.active {
+#novo-lancamento-modal .step-btn.active {
     color: var(--primary);
     border-bottom-color: var(--primary);
 }
 
-.step-content {
+#novo-lancamento-modal .step-content {
     display: none;
     animation: fadeIn 0.3s ease;
 }
 
-.step-content.active {
+#novo-lancamento-modal .step-content.active {
     display: block;
 }
 
 /* Modal Summary Panel */
-.modal-summary-panel {
+#novo-lancamento-modal .modal-summary-panel {
     background: linear-gradient(to right, #e8f5e9, #f1f8e9);
     border: 1px solid #c8e6c9;
     border-radius: 8px;
@@ -1279,7 +1279,7 @@ body.dark-mode .text-success {
     box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
-.step-footer {
+#novo-lancamento-modal .step-footer {
     display: flex;
     justify-content: space-between;
     margin-top: 20px;
