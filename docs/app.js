@@ -10607,7 +10607,7 @@ InsumosApp.prototype.setupAdminPanel = function() {
     if (btn) {
         btn.addEventListener('click', () => {
             if (modal) {
-                modal.style.display = 'block';
+                modal.style.display = 'flex';
                 this.loadAdminUsers();
             }
         });
@@ -10620,12 +10620,6 @@ InsumosApp.prototype.setupAdminPanel = function() {
     }
 
     if (modal) {
-        window.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                modal.style.display = 'none';
-            }
-        });
-        
         // Tab switching
         const tabs = modal.querySelectorAll('.admin-tabs .tab');
         tabs.forEach(tab => {
