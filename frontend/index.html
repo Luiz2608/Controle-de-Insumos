@@ -121,14 +121,16 @@
                 </div>
             </div>
 
-            <div id="admin-modal" class="modal" style="display: none; z-index: 10000;">
-                <div class="modal-content" style="max-width: 900px;">
-                    <div class="modal-header">
-                        <h3>🛡️ Painel Administrativo</h3>
-                        <button class="close-modal close-admin-modal">&times;</button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="tabs admin-tabs" style="margin-bottom: 15px;">
+            <!-- Admin Panel (Full Screen) -->
+            <div id="admin-modal" class="admin-full-screen" style="display: none;">
+                <div class="admin-header">
+                    <h3 style="margin:0; font-size:1.5rem; display:flex; align-items:center; gap:10px;">
+                        🛡️ Painel Administrativo
+                    </h3>
+                    <button class="btn btn-secondary close-admin-modal">Voltar ao Sistema</button>
+                </div>
+                <div class="admin-content">
+                    <div class="tabs admin-tabs" style="margin-bottom: 20px;">
                             <button class="tab active" data-tab="admin-users">👥 Usuários</button>
                             <button class="tab" data-tab="admin-logs">📜 Histórico (Audit)</button>
                             <button class="tab" data-tab="admin-system">⚙️ Sistema</button>
@@ -191,7 +193,6 @@
                             </div>
                         </div>
                     </div>
-                </div>
             </div>
 
             <!-- Permissions Modal -->

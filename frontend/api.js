@@ -402,34 +402,57 @@ class ApiService {
 
     async updateUser(id, updates) {
         this.checkConfig();
-        // Atualiza tabela pública 'users'
-        const { data, error } = await this.supabase
-            .from('users')
-            .update(updates)
-            .eq('id', id)
-            .select();
+        
+        // Use backend API to ensure permissions (Admin Middleware) and bypass RLS
+        const result = await this.request(`/api/users/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(updates)
+        });
 
-        if (error) {
-            console.error('Erro ao atualizar usuário:', error);
-            return { success: false, message: error.message };
+        if (!result.success) {
+            console.error('Erro ao atualizar usuário via API:', result.message);
+            // Fallback: Tenta direto via Supabase caso a API falhe (ex: offline ou erro de auth)
+            // mas provavelmente falhará por RLS se não for o próprio usuário
+            console.warn('Tentando fallback direto Supabase...');
+            const { data, error } = await this.supabase
+                .from('users')
+                .update(updates)
+                .eq('id', id)
+                .select();
+
+            if (error) {
+                return { success: false, message: error.message };
+            }
+            
+            await this.logAction('UPDATE_USER', { target_user_id: id, updates });
+            return { success: true, data: data[0] };
         }
         
         await this.logAction('UPDATE_USER', { target_user_id: id, updates });
-        
-        return { success: true, data: data[0] };
+        return result;
     }
 
     async deleteUser(id) {
         this.checkConfig();
-        // Deleta da tabela pública 'users'
-        const { error } = await this.supabase
-            .from('users')
-            .delete()
-            .eq('id', id);
+        
+        // Use backend API
+        const result = await this.request(`/api/users/${id}`, {
+            method: 'DELETE'
+        });
 
-        if (error) {
-            console.error('Erro ao excluir usuário:', error);
-            return { success: false, message: error.message };
+        if (!result.success) {
+            console.error('Erro ao excluir usuário via API:', result.message);
+            // Fallback
+            const { error } = await this.supabase
+                .from('users')
+                .delete()
+                .eq('id', id);
+
+            if (error) {
+                return { success: false, message: error.message };
+            }
+             await this.logAction('DELETE_USER', { target_user_id: id });
+             return { success: true };
         }
         
         await this.logAction('DELETE_USER', { target_user_id: id });
