@@ -9057,7 +9057,6 @@ forceReloadAllData() {
                         content.style.opacity = '1';
                         content.style.visibility = 'visible';
                         content.style.animation = 'none'; // Desativa animação temporariamente
-                        // Reativa animação após um frame se desejar, mas por segurança deixamos sem
                     }
 
                 } else {
@@ -11499,12 +11498,17 @@ InsumosApp.prototype.updateCurrentUserUI = function() {
     const el = document.getElementById('current-user');
     let u = null;
     if (this.api && this.api.user) {
-        if (this.api.user.user_metadata && this.api.user.user_metadata.nome) {
+        // Prioridade: Username (nome de usuário)
+        if (this.api.user.user_metadata && this.api.user.user_metadata.username) {
+            u = this.api.user.user_metadata.username;
+        } else if (this.api.user.username) {
+            u = this.api.user.username;
+        }
+        // Fallback: Nome do funcionário
+        else if (this.api.user.user_metadata && this.api.user.user_metadata.nome) {
             u = this.api.user.user_metadata.nome;
         } else if (this.api.user.email) {
             u = this.api.user.email;
-        } else if (this.api.user.username) {
-            u = this.api.user.username;
         }
     }
 
