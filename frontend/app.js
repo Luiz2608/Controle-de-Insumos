@@ -9007,8 +9007,14 @@ forceReloadAllData() {
             if (res && res.success && res.data) {
                 console.log('✅ Dados recebidos:', res.data);
                 
-                // Aguardar o preenchimento do formulário para garantir que tudo esteja pronto
-                await this.fillCompostoForm(res.data);
+                // Aguardar o preenchimento do formulário
+                try {
+                    await this.fillCompostoForm(res.data);
+                    console.log('📝 Formulário preenchido com sucesso');
+                } catch (fillError) {
+                    console.error('⚠️ Erro ao preencher formulário (continuando abertura do modal):', fillError);
+                    this.ui.showNotification('Alerta: Alguns dados podem não ter sido carregados.', 'warning');
+                }
                 
                 // Set hidden ID
                 const idField = document.getElementById('composto-id');
@@ -9020,8 +9026,13 @@ forceReloadAllData() {
                 // Show Modal
                 const modal = document.getElementById('modal-transporte-composto');
                 if (modal) {
-                    console.log('🔓 Abrindo modal de transporte composto');
-                    modal.style.display = 'block';
+                    console.log('🔓 Abrindo modal de transporte composto (forcing flex)');
+                    modal.style.display = 'flex'; // Força flexbox explicitamente
+                    // Adiciona um pequeno timeout para garantir renderização se necessário
+                    setTimeout(() => {
+                        modal.style.opacity = '1';
+                        console.log('👁️ Modal opacity set to 1');
+                    }, 10);
                 } else {
                     console.error('❌ Modal #modal-transporte-composto não encontrado no DOM');
                     this.ui.showNotification('Erro interno: Modal não encontrado.', 'error');
