@@ -10310,7 +10310,12 @@ InsumosApp.prototype.initPlantioModalSteps = function() {
         prevBtn.addEventListener('click', (e) => {
             e.preventDefault();
             if (this.currentStep > 1) {
-                this.goToPlantioStep(this.currentStep - 1);
+                let prevStep = this.currentStep - 1;
+                const tipo = document.getElementById('tipo-operacao')?.value;
+                if (tipo === 'colheita_muda' && prevStep === 2) {
+                    prevStep = 1;
+                }
+                this.goToPlantioStep(prevStep);
             }
         });
     }
@@ -10320,7 +10325,12 @@ InsumosApp.prototype.initPlantioModalSteps = function() {
             e.preventDefault();
             if (this.validatePlantioStep(this.currentStep)) {
                 if (this.currentStep < 3) {
-                    this.goToPlantioStep(this.currentStep + 1);
+                    let nextStep = this.currentStep + 1;
+                    const tipo = document.getElementById('tipo-operacao')?.value;
+                    if (tipo === 'colheita_muda' && nextStep === 2) {
+                        nextStep = 3;
+                    }
+                    this.goToPlantioStep(nextStep);
                 }
             }
         });
@@ -10336,6 +10346,7 @@ InsumosApp.prototype.validatePlantioStep = function(step) {
         const dataEl = document.getElementById('plantio-data');
         const frenteEl = document.getElementById('single-frente');
         const areaEl = document.getElementById('single-plantio-dia');
+        const tipo = document.getElementById('tipo-operacao')?.value;
         let valid = true;
 
         if (!dataEl.value) {
@@ -10350,12 +10361,21 @@ InsumosApp.prototype.validatePlantioStep = function(step) {
             if (msg) msg.style.display = 'block';
             valid = false;
         }
-        if (!areaEl.value || parseFloat(areaEl.value) <= 0) {
-            areaEl.classList.add('input-error');
-            const msg = document.getElementById('msg-single-plantio-dia');
-            if (msg) msg.style.display = 'block';
-            valid = false;
+        
+        // Only validate Plantio Area if NOT colheita_muda
+        if (tipo !== 'colheita_muda') {
+            // Fix: Handle comma as decimal separator (common in Brazil)
+            const valStr = (areaEl.value || '').replace(',', '.');
+            const val = parseFloat(valStr);
+
+            if (!areaEl.value || isNaN(val) || val <= 0) {
+                areaEl.classList.add('input-error');
+                const msg = document.getElementById('msg-single-plantio-dia');
+                if (msg) msg.style.display = 'block';
+                valid = false;
+            }
         }
+
         if (!valid) {
             this.ui.showNotification('Preencha os campos obrigatórios (*)', 'warning');
             return false;
@@ -10427,7 +10447,7 @@ InsumosApp.prototype.updatePlantioSummary = function() {
         sumFrente.textContent = val || '-';
     }
     if (sumArea && areaEl) {
-        const val = parseFloat(areaEl.value || 0);
+        const val = parseFloat((areaEl.value || '0').replace(',', '.'));
         sumArea.textContent = val.toFixed(2);
     }
     if (sumCusto) {
@@ -10578,6 +10598,12 @@ InsumosApp.prototype.toggleOperacaoSections = function() {
             group.style.display = tipo === 'colheita_muda' ? 'none' : 'block';
         }
     });
+
+    // Hide Insumos Step Button (Step 2)
+    const step2Btn = document.querySelector('.step-btn[data-step="2"]');
+    if (step2Btn) {
+        step2Btn.style.display = tipo === 'colheita_muda' ? 'none' : 'flex';
+    }
     
     if (tipo === 'plantio') {
         if (secGemas) secGemas.style.display = 'block';
@@ -10766,24 +10792,35 @@ InsumosApp.prototype.handleEditPlantio = function(id) {
 
 InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
     console.log('Iniciando savePlantioDia...');
+
+    // Helper to handle Brazilian number format (commas)
+    const parseVal = (id) => {
+        const el = document.getElementById(id);
+        if (!el) return 0;
+        let val = el.value || '0';
+        if (typeof val === 'string') val = val.replace(',', '.');
+        return parseFloat(val);
+    };
+
     const data = document.getElementById('plantio-data')?.value;
     const responsavel = document.getElementById('plantio-responsavel')?.value;
     const observacoes = document.getElementById('plantio-obs')?.value || '';
-    const toletesTotalVal = parseFloat(document.getElementById('qual-toletes-total')?.value || '0');
-    const toletesBonsVal = parseFloat(document.getElementById('qual-toletes-bons')?.value || '0');
-    const toletesRuinsVal = parseFloat(document.getElementById('qual-toletes-ruins')?.value || '0');
+    
+    const toletesTotalVal = parseVal('qual-toletes-total');
+    const toletesBonsVal = parseVal('qual-toletes-bons');
+    const toletesRuinsVal = parseVal('qual-toletes-ruins');
     const toletesBonsPctVal = toletesTotalVal > 0 ? (toletesBonsVal / toletesTotalVal) * 100 : 0;
     const toletesRuinsPctVal = toletesTotalVal > 0 ? (toletesRuinsVal / toletesTotalVal) * 100 : 0;
 
-    const gemasTotalVal = parseFloat(document.getElementById('qual-gemas-total')?.value || '0');
-    const gemasBoasVal = parseFloat(document.getElementById('qual-gemas-boas')?.value || '0');
-    const gemasRuinsVal = parseFloat(document.getElementById('qual-gemas-ruins')?.value || '0');
+    const gemasTotalVal = parseVal('qual-gemas-total');
+    const gemasBoasVal = parseVal('qual-gemas-boas');
+    const gemasRuinsVal = parseVal('qual-gemas-ruins');
     const gemasBoasPctVal = gemasTotalVal > 0 ? (gemasBoasVal / gemasTotalVal) * 100 : 0;
     const gemasRuinsPctVal = gemasTotalVal > 0 ? (gemasRuinsVal / gemasTotalVal) * 100 : 0;
 
-    const mudasTotalVal = parseFloat(document.getElementById('qual-mudas-total')?.value || '0');
-    const mudasBoasVal = parseFloat(document.getElementById('qual-mudas-boas')?.value || '0');
-    const mudasRuinsVal = parseFloat(document.getElementById('qual-mudas-ruins')?.value || '0');
+    const mudasTotalVal = parseVal('qual-mudas-total');
+    const mudasBoasVal = parseVal('qual-mudas-boas');
+    const mudasRuinsVal = parseVal('qual-mudas-ruins');
     const mudasBoasPctVal = mudasTotalVal > 0 ? (mudasBoasVal / mudasTotalVal) * 100 : 0;
     const mudasRuinsPctVal = mudasTotalVal > 0 ? (mudasRuinsVal / mudasTotalVal) * 100 : 0;
 
@@ -10797,46 +10834,46 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
         gemasRuinsPct: gemasRuinsPctVal,
         gemasOk: gemasBoasVal,
         gemasNok: gemasRuinsVal,
-        gemasAmostra: parseFloat(document.getElementById('qual-gemas-amostra')?.value || '0'),
-        gemasMedia: parseFloat(document.getElementById('qual-gemas-media')?.value || '0'),
+        gemasAmostra: parseVal('qual-gemas-amostra'),
+        gemasMedia: parseVal('qual-gemas-media'),
 
         mudasTotal: mudasTotalVal,
         mudasBoas: mudasBoasVal,
         mudasRuins: mudasRuinsVal,
         mudasBoasPct: mudasBoasPctVal,
         mudasRuinsPct: mudasRuinsPctVal,
-        mudasAmostra: parseFloat(document.getElementById('qual-mudas-amostra')?.value || '0'),
-        mudasMedia: parseFloat(document.getElementById('qual-mudas-media')?.value || '0'),
+        mudasAmostra: parseVal('qual-mudas-amostra'),
+        mudasMedia: parseVal('qual-mudas-media'),
 
         toletesTotal: toletesTotalVal,
         toletesBons: toletesBonsVal,
         toletesRuins: toletesRuinsVal,
         toletesBonsPct: toletesBonsPctVal,
         toletesRuinsPct: toletesRuinsPctVal,
-        toletesAmostra: parseFloat(document.getElementById('qual-toletes-amostra')?.value || '0'),
-        toletesMedia: parseFloat(document.getElementById('qual-toletes-media')?.value || '0'),
-        mudaTonHa: parseFloat(document.getElementById('qual-muda')?.value || '0'),
-        profundidadeCm: parseFloat(document.getElementById('qual-profundidade')?.value || '0'),
+        toletesAmostra: parseVal('qual-toletes-amostra'),
+        toletesMedia: parseVal('qual-toletes-media'),
+        mudaTonHa: parseVal('qual-muda'),
+        profundidadeCm: parseVal('qual-profundidade'),
         cobertura: document.getElementById('qual-cobertura')?.value || '',
         alinhamento: document.getElementById('qual-alinhamento')?.value || '',
-        chuvaMm: parseFloat(document.getElementById('chuva-mm')?.value || '0'),
+        chuvaMm: parseVal('chuva-mm'),
         gps: !!document.getElementById('plantio-gps')?.checked,
-        oxifertilDose: parseFloat(document.getElementById('oxifertil-dose')?.value || '0'),
-        cobricaoDia: parseFloat(document.getElementById('cobricao-dia')?.value || '0'),
-        cobricaoAcumulada: parseFloat(document.getElementById('cobricao-acumulada')?.value || '0'),
-        mudaConsumoTotal: parseFloat(document.getElementById('muda-consumo-total')?.value || '0'),
-        mudaConsumoAcumulado: parseFloat(document.getElementById('muda-consumo-acumulado')?.value || '0'),
-        mudaConsumoDia: parseFloat(document.getElementById('muda-consumo-dia')?.value || '0'),
-        mudaPrevisto: parseFloat(document.getElementById('muda-previsto')?.value || '0'),
+        oxifertilDose: parseVal('oxifertil-dose'),
+        cobricaoDia: parseVal('cobricao-dia'),
+        cobricaoAcumulada: parseVal('cobricao-acumulada'),
+        mudaConsumoTotal: parseVal('muda-consumo-total'),
+        mudaConsumoAcumulado: parseVal('muda-consumo-acumulado'),
+        mudaConsumoDia: parseVal('muda-consumo-dia'),
+        mudaPrevisto: parseVal('muda-previsto'),
         mudaLiberacaoFazenda: document.getElementById('qual-muda-liberacao')?.value || document.getElementById('muda-liberacao-fazenda')?.value || '',
         mudaVariedade: document.getElementById('qual-muda-variedade')?.value || document.getElementById('muda-variedade')?.value || '',
         mudaColheitaInfo: document.getElementById('muda-colheita-info')?.value || '',
         mudaFazendaOrigem: document.getElementById('muda-fazenda-origem')?.value || '',
         mudaTalhaoOrigem: document.getElementById('muda-talhao-origem')?.value || '',
-        mudasReboulos: parseFloat(document.getElementById('qual-mudas-reboulos')?.value || '0'),
-        colheitaHectares: parseFloat(document.getElementById('colheita-hectares')?.value || '0'),
-        colheitaTchEstimado: parseFloat(document.getElementById('colheita-tch-estimado')?.value || '0'),
-        colheitaTchReal: parseFloat(document.getElementById('colheita-tch-real')?.value || '0'),
+        mudasReboulos: parseVal('qual-mudas-reboulos'),
+        colheitaHectares: parseVal('colheita-hectares'),
+        colheitaTchEstimado: parseVal('colheita-tch-estimado'),
+        colheitaTchReal: parseVal('colheita-tch-real'),
         qualEquipamentoTrator: document.getElementById('qual-equipamento-trator')?.value || '',
         qualEquipamentoPlantadora: document.getElementById('qual-equipamento-plantadora')?.value || '',
         qualOperador: document.getElementById('qual-operador')?.value || '',
@@ -10866,17 +10903,17 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
         fazenda: fazendaNome,
         cod: codFinal,
         regiao: document.getElementById('single-regiao')?.value || '',
-        area: parseFloat(document.getElementById('single-area')?.value || '0'),
-        plantada: parseFloat(document.getElementById('single-plantada')?.value || '0'),
-        areaTotal: parseFloat(document.getElementById('single-area-total')?.value || '0'),
-        areaAcumulada: parseFloat(document.getElementById('single-area-acumulada')?.value || '0'),
-        plantioDiario: parseFloat(document.getElementById('single-plantio-dia')?.value || '0')
+        area: parseVal('single-area'),
+        plantada: parseVal('single-plantada'),
+        areaTotal: parseVal('single-area-total'),
+        areaAcumulada: parseVal('single-area-acumulada'),
+        plantioDiario: parseVal('single-plantio-dia')
     };
     
     // Capturar tipo de operação e colheita
     // const tipoOperacao = document.getElementById('tipo-operacao')?.value || 'plantio';
     // Se for colheita_muda, pegar do input específico, senão 0
-    const colheitaHa = parseFloat(document.getElementById('colheita-hectares')?.value || '0');
+    const colheitaHa = parseVal('colheita-hectares');
 
     const payload = {
         data, responsavel, observacoes,
