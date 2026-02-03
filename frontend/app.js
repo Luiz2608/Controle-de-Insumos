@@ -9026,19 +9026,37 @@ forceReloadAllData() {
                 // Show Modal
                 const modal = document.getElementById('modal-transporte-composto');
                 if (modal) {
-                    console.log('🔓 Abrindo modal de transporte composto (forcing z-index)');
+                    console.log('🔓 Abrindo modal de transporte composto (forcing z-index & visibility)');
                     
-                    // Reset e Força Visual
-                    modal.style.display = 'block'; // O CSS .modal[style*="display: block"] converte para flex
-                    modal.style.zIndex = '99999'; // Garante que fique acima de tudo
-                    modal.style.opacity = '1';
-                    modal.style.visibility = 'visible';
+                    // 1. Move para o body para evitar problemas de overflow/z-index do pai
+                    if (modal.parentNode !== document.body) {
+                        document.body.appendChild(modal);
+                    }
+
+                    // 2. Reset de Classes e Estilos
+                    modal.classList.remove('fade'); // Remove fade se existir
+                    modal.classList.add('show');    // Adiciona show por precaução
                     
-                    // Garante que o conteúdo também esteja visível
+                    // 3. Força Visual Extrema
+                    modal.style.cssText = `
+                        display: block !important;
+                        z-index: 99999 !important;
+                        opacity: 1 !important;
+                        visibility: visible !important;
+                        top: 0 !important;
+                        left: 0 !important;
+                        width: 100% !important;
+                        height: 100% !important;
+                        background-color: rgba(0,0,0,0.5) !important;
+                    `;
+                    
+                    // 4. Garante que o conteúdo interno esteja visível e sem animações bugadas
                     const content = modal.querySelector('.modal-content');
                     if (content) {
                         content.style.display = 'flex';
                         content.style.opacity = '1';
+                        content.style.visibility = 'visible';
+                        content.style.animation = 'none'; // Desativa animação temporariamente
                     }
 
                 } else {
