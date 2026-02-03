@@ -9001,9 +9001,15 @@ forceReloadAllData() {
     async editComposto(id) {
         this.ui.showNotification('Carregando dados...', 'info');
         try {
+            console.log('🔄 Buscando dados do transporte composto:', id);
             const res = await this.api.getTransporteCompostoById(id);
+            
             if (res && res.success && res.data) {
-                this.fillCompostoForm(res.data);
+                console.log('✅ Dados recebidos:', res.data);
+                
+                // Aguardar o preenchimento do formulário para garantir que tudo esteja pronto
+                await this.fillCompostoForm(res.data);
+                
                 // Set hidden ID
                 const idField = document.getElementById('composto-id');
                 if (idField) idField.value = id;
@@ -9013,13 +9019,20 @@ forceReloadAllData() {
                 
                 // Show Modal
                 const modal = document.getElementById('modal-transporte-composto');
-                if (modal) modal.style.display = 'block';
+                if (modal) {
+                    console.log('🔓 Abrindo modal de transporte composto');
+                    modal.style.display = 'block';
+                } else {
+                    console.error('❌ Modal #modal-transporte-composto não encontrado no DOM');
+                    this.ui.showNotification('Erro interno: Modal não encontrado.', 'error');
+                }
             } else {
+                console.warn('⚠️ Dados não encontrados ou erro na resposta:', res);
                 this.ui.showNotification('Erro ao carregar registro.', 'error');
             }
         } catch (e) {
-            console.error(e);
-            this.ui.showNotification('Erro de conexão.', 'error');
+            console.error('❌ Erro fatal em editComposto:', e);
+            this.ui.showNotification('Erro de conexão ou processamento.', 'error');
         }
     }
     
