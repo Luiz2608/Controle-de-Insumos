@@ -781,7 +781,7 @@ class ApiService {
 
     async getFazendas() {
         this.checkConfig();
-        const { data, error } = await this.supabase.from('fazendas').select('*');
+        const { data, error } = await this.supabase.from('fazendas').select('codigo, nome, regiao, area_total, plantio_acumulado, muda_acumulada, observacoes');
         if (error) throw error;
         
         const parsedData = data.map(f => {
@@ -841,7 +841,6 @@ class ApiService {
             area_total: payload.areaTotal || payload.area_total,
             plantio_acumulado: payload.plantioAcumulado || payload.plantio_acumulado,
             muda_acumulada: payload.mudaAcumulada || payload.muda_acumulada,
-            cobricao_acumulada: payload.cobricaoAcumulada || payload.cobricao_acumulada,
             observacoes: obs
         };
 
@@ -865,7 +864,6 @@ class ApiService {
         if (payload.areaTotal !== undefined) updates.area_total = payload.areaTotal;
         if (payload.plantioAcumulado !== undefined) updates.plantio_acumulado = payload.plantioAcumulado;
         if (payload.mudaAcumulada !== undefined) updates.muda_acumulada = payload.mudaAcumulada;
-        if (payload.cobricaoAcumulada !== undefined) updates.cobricao_acumulada = payload.cobricaoAcumulada;
         
         // Handle talhoes preservation in observacoes
         if (payload.observacoes !== undefined || payload.talhoes !== undefined) {
@@ -1087,9 +1085,34 @@ class ApiService {
 
     async getPlantioDia() {
         this.checkConfig();
-        const { data, error } = await this.supabase.from('plantio_diario').select('*');
+        const { data: plantios, error } = await this.supabase.from('plantio_diario').select('*');
         if (error) throw error;
-        return { success: true, data };
+        
+        try {
+            // Tenta buscar equipamentos vinculados para garantir que os dados apareçam
+            const { data: equipamentos } = await this.supabase.from('equipamento_operador').select('*');
+            
+            if (equipamentos && equipamentos.length > 0) {
+                // Merge manual para garantir integridade
+                const merged = plantios.map(p => {
+                    const equip = equipamentos.find(e => e.plantio_diario_id === p.id);
+                    if (equip) {
+                        p.qualidade = p.qualidade || {};
+                        // Prioriza dados da tabela dedicada
+                        p.qualidade.qualEquipamentoTrator = equip.trator;
+                        p.qualidade.qualEquipamentoPlantadora = equip.plantadora_colhedora;
+                        p.qualidade.qualOperador = equip.operador;
+                        p.qualidade.qualMatricula = equip.matricula;
+                    }
+                    return p;
+                });
+                return { success: true, data: merged };
+            }
+        } catch (e) {
+            console.warn('Não foi possível carregar dados de equipamentos separados:', e);
+        }
+        
+        return { success: true, data: plantios };
     }
 
     async addPlantioDia(payload) {

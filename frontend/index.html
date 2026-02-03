@@ -1773,10 +1773,10 @@
                                 <input type="text" id="qual-operador" placeholder="Nome">
                             </div>
                             <div class="form-group">
-                                <label for="qual-matricula">Matrícula</label>
-                                <input type="text" id="qual-matricula" placeholder="Registro">
-                            </div>
+                            <label for="qual-matricula">Matrícula</label>
+                            <input type="text" id="qual-matricula" placeholder="Registro">
                         </div>
+                    </div>
                     </div>
 
                     <!-- Qualidade Muda/Plantio -->
@@ -1907,10 +1907,12 @@
                             <div class="modal-form-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
 
                                 <div class="form-group">
-                                    <label for="muda-colheita-info">Colheita de muda</label>
-                                    <input type="text" id="muda-colheita-info">
+                                    <label for="muda-colheita-info">Liberação de Colheita</label>
+                                    <select id="muda-colheita-info" class="highlight-input">
+                                        <option value="">Selecione...</option>
+                                    </select>
                                 </div>
-                                <div class="form-group">
+                                <div class="form-group" style="display: none;">
                                     <label for="qual-muda-liberacao">Liberação</label>
                                     <input type="text" id="qual-muda-liberacao">
                                 </div>
@@ -1948,8 +1950,24 @@
                                     <input type="number" id="qual-mudas-boas-pct" step="0.01" class="readonly-field" readonly>
                                 </div>
                                 <div class="form-group">
-                                    <label for="qual-mudas-reboulos">Reboulos</label>
+                                    <label for="qual-mudas-reboulos">Total Reboulos</label>
                                     <input type="number" id="qual-mudas-reboulos" step="1">
+                                </div>
+                                <div class="form-group">
+                                    <label for="qual-mudas-reboulos-bons">Reboulos Bons</label>
+                                    <input type="number" id="qual-mudas-reboulos-bons" step="1">
+                                </div>
+                                <div class="form-group">
+                                    <label for="qual-mudas-reboulos-ruins">Reboulos Ruins</label>
+                                    <input type="number" id="qual-mudas-reboulos-ruins" step="1">
+                                </div>
+                                <div class="form-group">
+                                    <label for="qual-mudas-reboulos-bons-pct">% Bons</label>
+                                    <input type="number" id="qual-mudas-reboulos-bons-pct" step="0.01" class="readonly-field" readonly>
+                                </div>
+                                <div class="form-group">
+                                    <label for="qual-mudas-reboulos-ruins-pct">% Ruins</label>
+                                    <input type="number" id="qual-mudas-reboulos-ruins-pct" step="0.01" class="readonly-field" readonly>
                                 </div>
                             </div>
                         </div>

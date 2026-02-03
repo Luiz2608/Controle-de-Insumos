@@ -1142,6 +1142,7 @@ forceReloadAllData() {
                     novoLancamentoModal.style.display = 'flex';
                     await this.loadOSList();
                     this.loadProdutosDatalist();
+                    await this.loadLiberacoesForSelect();
                 });
             }
 
@@ -5171,7 +5172,7 @@ forceReloadAllData() {
         const gemasBoas = document.getElementById('qual-gemas-boas');
         const gemasRuins = document.getElementById('qual-gemas-ruins');
         const gemasAmostra = document.getElementById('qual-gemas-amostra');
-        const bindGemas = () => this.updateGemasPercent();
+        const bindGemas = (e) => this.updateGemasPercent(e?.target);
         if (gemasTotal) gemasTotal.addEventListener('input', bindGemas);
         if (gemasBoas) gemasBoas.addEventListener('input', bindGemas);
         if (gemasRuins) gemasRuins.addEventListener('input', bindGemas);
@@ -5181,11 +5182,24 @@ forceReloadAllData() {
         const mudasBoas = document.getElementById('qual-mudas-boas');
         const mudasRuins = document.getElementById('qual-mudas-ruins');
         const mudasAmostra = document.getElementById('qual-mudas-amostra');
-        const bindMudas = () => this.updateMudasPercent();
+        
+        // Reboulos Listeners
+        const mudasReboulosTotal = document.getElementById('qual-mudas-reboulos');
+        const mudasReboulosBons = document.getElementById('qual-mudas-reboulos-bons');
+        const mudasReboulosRuins = document.getElementById('qual-mudas-reboulos-ruins');
+
+        const bindMudas = (e) => this.updateMudasPercent(e?.target);
         if (mudasTotal) mudasTotal.addEventListener('input', bindMudas);
         if (mudasBoas) mudasBoas.addEventListener('input', bindMudas);
         if (mudasRuins) mudasRuins.addEventListener('input', bindMudas);
         if (mudasAmostra) mudasAmostra.addEventListener('input', bindMudas);
+        
+        if (mudasReboulosTotal) mudasReboulosTotal.addEventListener('input', bindMudas);
+        if (mudasReboulosBons) mudasReboulosBons.addEventListener('input', bindMudas);
+        if (mudasReboulosRuins) mudasReboulosRuins.addEventListener('input', bindMudas);
+
+        const mudaColheitaSelect = document.getElementById('muda-colheita-info');
+        if (mudaColheitaSelect) mudaColheitaSelect.addEventListener('change', () => this.onLiberacaoSelectChange());
 
         const singleFrente = document.getElementById('single-frente');
         const singleOs = document.getElementById('single-os');
@@ -5756,6 +5770,18 @@ forceReloadAllData() {
                     </div>
                 </div>
 
+                <!-- Seção 1.5: Equipe e Equipamentos -->
+                <div class="details-card full-width">
+                    <h5>👷 Equipe e Equipamentos</h5>
+                    <div class="info-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                        <div class="info-item"><strong>Trator:</strong> ${q.qualEquipamentoTrator || '—'}</div>
+                        <div class="info-item"><strong>Plantadora:</strong> ${q.qualEquipamentoPlantadora || '—'}</div>
+                        <div class="info-item"><strong>Operador:</strong> ${q.qualOperador || '—'}</div>
+                        <div class="info-item"><strong>Matrícula:</strong> ${q.qualMatricula || '—'}</div>
+                        <div class="info-item"><strong>Frota:</strong> ${q.qualFrota || '—'}</div>
+                    </div>
+                </div>
+
                 <!-- Seção 2: Local e Área -->
                 <div class="details-card full-width">
                     <h5>🚜 Local e Área</h5>
@@ -5806,6 +5832,10 @@ forceReloadAllData() {
                             ${qualItem('Mudas Boas', this.ui.formatNumber(q.mudasBoas||0), `(${this.ui.formatNumber(q.mudasBoasPct||0,1)}%)`)}
                             ${qualItem('Mudas Ruins', this.ui.formatNumber(q.mudasRuins||0), `(${this.ui.formatNumber(q.mudasRuinsPct||0,1)}%)`)}
                             
+                            ${qualItem('Reboulos Totais', this.ui.formatNumber(q.mudasReboulos||0))}
+                            ${qualItem('Reboulos Bons', this.ui.formatNumber(q.mudasReboulosBons||0), `(${this.ui.formatNumber(q.mudasReboulosBonsPct||0,1)}%)`)}
+                            ${qualItem('Reboulos Ruins', this.ui.formatNumber(q.mudasReboulosRuins||0), `(${this.ui.formatNumber(q.mudasReboulosRuinsPct||0,1)}%)`)}
+                            
                             ${qualItem('Muda (ton/ha)', this.ui.formatNumber(q.mudaTonHa||0))}
                             ${qualItem('Profundidade', this.ui.formatNumber(q.profundidadeCm||0), 'cm')}
                             ${qualItem('Cobertura', q.cobertura||'—')}
@@ -5820,6 +5850,11 @@ forceReloadAllData() {
                             ${qualItem('Consumo Muda Total', this.ui.formatNumber(q.mudaConsumoTotal||0,2))}
                             ${qualItem('Muda Previsto', this.ui.formatNumber(q.mudaPrevisto||0,2))}
                             ${qualItem('Variedade', q.mudaVariedade||'—')}
+                            ${qualItem('Liberação', q.mudaLiberacaoFazenda||'—')}
+                            ${qualItem('Fazenda Origem', q.mudaFazendaOrigem||'—')}
+                            ${qualItem('Talhão Origem', q.mudaTalhaoOrigem||'—')}
+                            ${qualItem('Colheita Hectares', this.ui.formatNumber(q.colheitaHectares||0,2))}
+                            ${qualItem('TCH Real', this.ui.formatNumber(q.colheitaTchReal||0,2))}
                         </div>
                     </div>
                 </div>
@@ -9959,7 +9994,7 @@ InsumosApp.prototype.exportPDF = function() {
     doc.save(`insumos_${Date.now()}.pdf`);
 };
 
-InsumosApp.prototype.updateGemasPercent = function() {
+InsumosApp.prototype.updateGemasPercent = function(triggerEl) {
     const totalEl = document.getElementById('qual-gemas-total');
     const bonsEl = document.getElementById('qual-gemas-boas');
     const ruinsEl = document.getElementById('qual-gemas-ruins');
@@ -9979,13 +10014,26 @@ InsumosApp.prototype.updateGemasPercent = function() {
     if (total > 0) {
         let bons = parseFloat(bonsEl.value || '0');
         let ruins = parseFloat(ruinsEl.value || '0');
-        if (bonsEl.value && !ruinsEl.value) {
+        
+        if (triggerEl === bonsEl) {
             ruins = total - bons;
+            if (ruins < 0) ruins = 0;
             ruinsEl.value = ruins;
-        } else if (ruinsEl.value && !bonsEl.value) {
+        } else if (triggerEl === ruinsEl) {
             bons = total - ruins;
+            if (bons < 0) bons = 0;
             bonsEl.value = bons;
+        } else {
+             // Fallback
+             if (bonsEl.value && !ruinsEl.value) {
+                ruins = total - bons;
+                ruinsEl.value = ruins;
+            } else if (ruinsEl.value && !bonsEl.value) {
+                bons = total - ruins;
+                bonsEl.value = bons;
+            }
         }
+        
         bonsPctEl.value = ((bons / total) * 100).toFixed(2);
         ruinsPctEl.value = ((ruins / total) * 100).toFixed(2);
     } else {
@@ -9994,7 +10042,76 @@ InsumosApp.prototype.updateGemasPercent = function() {
     }
 };
 
-InsumosApp.prototype.updateMudasPercent = function() {
+InsumosApp.prototype.loadLiberacoesForSelect = async function() {
+    const select = document.getElementById('muda-colheita-info');
+    if (!select) return;
+    
+    select.innerHTML = '<option value="">Carregando...</option>';
+    
+    try {
+        const res = await this.api.getLiberacaoColheita();
+        select.innerHTML = '<option value="">Selecione...</option>';
+        
+        if (res && res.success && Array.isArray(res.data)) {
+            // Sort by date desc
+            const list = res.data;
+            this.liberacaoCache = list; 
+            
+            list.forEach(lib => {
+                const opt = document.createElement('option');
+                opt.value = lib.id;
+                const dateStr = this.ui.formatDateBR(lib.data);
+                // Display: Data | Fazenda | Frente | Status
+                opt.textContent = `${lib.numero_liberacao || lib.id} | ${dateStr} | ${lib.fazenda} | ${lib.frente}`;
+                select.appendChild(opt);
+            });
+        }
+    } catch (e) {
+        console.error('Erro ao carregar liberações:', e);
+        select.innerHTML = '<option value="">Erro ao carregar</option>';
+    }
+};
+
+InsumosApp.prototype.onLiberacaoSelectChange = function() {
+    const select = document.getElementById('muda-colheita-info');
+    if (!select) return;
+    const id = select.value;
+    if (!id || !this.liberacaoCache) return;
+    
+    const lib = this.liberacaoCache.find(l => String(l.id) === String(id));
+    if (!lib) return;
+    
+    const fazendaEl = document.getElementById('muda-liberacao-fazenda'); // Note: index.html might have different ID, let's check.
+    // In index.html: <input type="text" id="muda-fazenda-origem">
+    // <input type="text" id="muda-talhao-origem">
+    // <input type="text" id="qual-muda-liberacao">
+    // <input type="text" id="qual-muda-variedade">
+    
+    const libEl = document.getElementById('qual-muda-liberacao');
+    const fazendaOrigemEl = document.getElementById('muda-fazenda-origem');
+    const talhaoOrigemEl = document.getElementById('muda-talhao-origem');
+    const varEl = document.getElementById('qual-muda-variedade');
+    
+    if (libEl) libEl.value = lib.numero_liberacao || lib.id;
+    if (fazendaOrigemEl) fazendaOrigemEl.value = lib.fazenda;
+    if (talhaoOrigemEl) talhaoOrigemEl.value = lib.frente; // Or logic to extract from talhoes? User said "puxar liberação e as outras informações... liberação, fazenda, talhão, etc."
+    
+    // If talhoes list exists, maybe we can't map 1:1 to a single field unless we pick one.
+    // Assuming 'frente' acts as the main location identifier or we list talhoes.
+    // If 'talhoes' is JSONB array:
+    if (varEl && Array.isArray(lib.talhoes) && lib.talhoes.length > 0) {
+        const vars = [...new Set(lib.talhoes.map(x => x.variedade).filter(Boolean))];
+        if (vars.length > 0) varEl.value = vars.join(', ');
+        
+        // Also update talhao if not set by frente
+        if (talhaoOrigemEl && (!lib.frente || lib.frente === '')) {
+             const tals = [...new Set(lib.talhoes.map(x => x.talhao).filter(Boolean))];
+             if (tals.length > 0) talhaoOrigemEl.value = tals.join(', ');
+        }
+    }
+};
+
+InsumosApp.prototype.updateMudasPercent = function(triggerEl) {
     const totalEl = document.getElementById('qual-mudas-total');
     const bonsEl = document.getElementById('qual-mudas-boas');
     const ruinsEl = document.getElementById('qual-mudas-ruins');
@@ -10016,18 +10133,70 @@ InsumosApp.prototype.updateMudasPercent = function() {
     if (total > 0) {
         let bons = parseFloat(bonsEl.value || '0');
         let ruins = parseFloat(ruinsEl.value || '0');
-        if (bonsEl.value && !ruinsEl.value) {
+        
+        if (triggerEl === bonsEl) {
             ruins = total - bons;
+            if (ruins < 0) ruins = 0;
             ruinsEl.value = ruins;
-        } else if (ruinsEl.value && !bonsEl.value) {
+        } else if (triggerEl === ruinsEl) {
             bons = total - ruins;
+            if (bons < 0) bons = 0;
             bonsEl.value = bons;
+        } else {
+             if (bonsEl.value && !ruinsEl.value) {
+                ruins = total - bons;
+                ruinsEl.value = ruins;
+            } else if (ruinsEl.value && !bonsEl.value) {
+                bons = total - ruins;
+                bonsEl.value = bons;
+            }
         }
+        
         bonsPctEl.value = ((bons / total) * 100).toFixed(2);
         if (ruinsPctEl) ruinsPctEl.value = ((ruins / total) * 100).toFixed(2);
     } else {
         bonsPctEl.value = '';
         if (ruinsPctEl) ruinsPctEl.value = '';
+    }
+
+    // --- Lógica Reboulos ---
+    const reboulosTotalEl = document.getElementById('qual-mudas-reboulos');
+    const reboulosBonsEl = document.getElementById('qual-mudas-reboulos-bons');
+    const reboulosRuinsEl = document.getElementById('qual-mudas-reboulos-ruins');
+    const reboulosBonsPctEl = document.getElementById('qual-mudas-reboulos-bons-pct');
+    const reboulosRuinsPctEl = document.getElementById('qual-mudas-reboulos-ruins-pct');
+
+    if (reboulosTotalEl && reboulosBonsEl && reboulosRuinsEl && reboulosBonsPctEl && reboulosRuinsPctEl) {
+        const reboulosTotal = parseFloat(reboulosTotalEl.value || '0');
+        if (reboulosTotal > 0) {
+            let reboulosBons = parseFloat(reboulosBonsEl.value || '0');
+            let reboulosRuins = parseFloat(reboulosRuinsEl.value || '0');
+            
+            // Auto-complete logic
+            if (triggerEl === reboulosBonsEl) {
+                reboulosRuins = reboulosTotal - reboulosBons;
+                if (reboulosRuins < 0) reboulosRuins = 0;
+                reboulosRuinsEl.value = reboulosRuins;
+            } else if (triggerEl === reboulosRuinsEl) {
+                reboulosBons = reboulosTotal - reboulosRuins;
+                if (reboulosBons < 0) reboulosBons = 0;
+                reboulosBonsEl.value = reboulosBons;
+            } else {
+                if (reboulosBonsEl.value && !reboulosRuinsEl.value) {
+                    reboulosRuins = reboulosTotal - reboulosBons;
+                    reboulosRuinsEl.value = reboulosRuins;
+                } else if (reboulosRuinsEl.value && !reboulosBonsEl.value) {
+                    reboulosBons = reboulosTotal - reboulosRuins;
+                    reboulosBonsEl.value = reboulosBons;
+                }
+            }
+
+            reboulosBonsPctEl.value = ((reboulosBons / reboulosTotal) * 100).toFixed(2);
+            reboulosRuinsPctEl.value = ((reboulosRuins / reboulosTotal) * 100).toFixed(2);
+        } else {
+            reboulosBonsPctEl.value = '';
+            reboulosRuinsPctEl.value = '';
+        }
     }
 };
 
@@ -10636,7 +10805,7 @@ InsumosApp.prototype.resetPlantioForm = function() {
     }
 
     const ids = [
-        'qual-equipamento-trator', 'qual-equipamento-plantadora', 'qual-operador', 'qual-matricula',
+        'qual-equipamento-trator', 'qual-equipamento-plantadora', 'qual-operador', 'qual-matricula', 'qual-frota',
         'plantio-data', 'plantio-responsavel', 'plantio-obs',
         'qual-toletes-total', 'qual-toletes-bons', 'qual-toletes-ruins', 'qual-toletes-amostra',
         'qual-gemas-total', 'qual-gemas-boas', 'qual-gemas-ruins', 'qual-gemas-amostra', 'qual-gemas-media',
@@ -10709,6 +10878,13 @@ InsumosApp.prototype.handleEditPlantio = function(id) {
 
     // Qualidade
     const q = record.qualidade || {};
+    
+    // Equipamentos
+    set('qual-equipamento-trator', q.qualEquipamentoTrator);
+    set('qual-equipamento-plantadora', q.qualEquipamentoPlantadora);
+    set('qual-operador', q.qualOperador);
+    set('qual-matricula', q.qualMatricula);
+
     set('qual-toletes-total', q.toletesTotal);
     set('qual-toletes-bons', q.toletesBons);
     set('qual-toletes-ruins', q.toletesRuins);
@@ -10752,6 +10928,9 @@ InsumosApp.prototype.handleEditPlantio = function(id) {
     set('muda-fazenda-origem', q.mudaFazendaOrigem);
     set('muda-talhao-origem', q.mudaTalhaoOrigem);
     set('qual-mudas-reboulos', q.mudasReboulos);
+    set('qual-mudas-reboulos-bons', q.mudasReboulosBons);
+    set('qual-mudas-reboulos-ruins', q.mudasReboulosRuins);
+    // Pct fields are auto-calculated by updateMudasPercent() called later
 
     // Frentes (pega a primeira se houver)
     if (record.frentes && record.frentes.length > 0) {
@@ -10860,7 +11039,6 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
         gps: !!document.getElementById('plantio-gps')?.checked,
         oxifertilDose: parseVal('oxifertil-dose'),
         cobricaoDia: parseVal('cobricao-dia'),
-        cobricaoAcumulada: parseVal('cobricao-acumulada'),
         mudaConsumoTotal: parseVal('muda-consumo-total'),
         mudaConsumoAcumulado: parseVal('muda-consumo-acumulado'),
         mudaConsumoDia: parseVal('muda-consumo-dia'),
@@ -10871,6 +11049,10 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
         mudaFazendaOrigem: document.getElementById('muda-fazenda-origem')?.value || '',
         mudaTalhaoOrigem: document.getElementById('muda-talhao-origem')?.value || '',
         mudasReboulos: parseVal('qual-mudas-reboulos'),
+        mudasReboulosBons: parseVal('qual-mudas-reboulos-bons'),
+        mudasReboulosRuins: parseVal('qual-mudas-reboulos-ruins'),
+        mudasReboulosBonsPct: parseVal('qual-mudas-reboulos-bons-pct'),
+        mudasReboulosRuinsPct: parseVal('qual-mudas-reboulos-ruins-pct'),
         colheitaHectares: parseVal('colheita-hectares'),
         colheitaTchEstimado: parseVal('colheita-tch-estimado'),
         colheitaTchReal: parseVal('colheita-tch-real'),
@@ -10941,8 +11123,7 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
                 try {
                     await this.api.updateFazenda(frente.cod, {
                         plantioAcumulado: frente.areaAcumulada,
-                        mudaAcumulada: qualidade.mudaConsumoAcumulado,
-                        cobricaoAcumulada: qualidade.cobricaoAcumulada
+                        mudaAcumulada: qualidade.mudaConsumoAcumulado
                     });
                     // Atualiza cache de fazendas
                     const cadResp = await this.api.getFazendas();
