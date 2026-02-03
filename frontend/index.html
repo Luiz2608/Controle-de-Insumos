@@ -452,6 +452,12 @@
                     <h4>Comparação por Produto</h4>
                     <canvas id="chart-dose-produtos"></canvas>
                 </div>
+
+                <!-- Linha 5: Qualidade Operacional -->
+                <div class="chart-card wide">
+                    <h4>Ranking de Operadores (Qualidade da Muda - % Boas)</h4>
+                    <canvas id="chart-ranking-operadores"></canvas>
+                </div>
             </div>
         </div>
 
@@ -1750,6 +1756,29 @@
 
                 <!-- Step 3 Content -->
                 <div class="step-content" data-step="3">
+                    <!-- Equipe e Equipamentos (Comum) -->
+                    <div class="chart-card form-card">
+                        <h4 class="section-title">Equipe e Equipamentos</h4>
+                        <div class="modal-form-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
+                            <div class="form-group">
+                                <label for="qual-equipamento-trator">Trator</label>
+                                <input type="text" id="qual-equipamento-trator" placeholder="ID/Modelo">
+                            </div>
+                            <div class="form-group">
+                                <label for="qual-equipamento-plantadora">Plantadora/Colhedora</label>
+                                <input type="text" id="qual-equipamento-plantadora" placeholder="ID/Modelo">
+                            </div>
+                            <div class="form-group">
+                                <label for="qual-operador">Operador</label>
+                                <input type="text" id="qual-operador" placeholder="Nome">
+                            </div>
+                            <div class="form-group">
+                                <label for="qual-matricula">Matrícula</label>
+                                <input type="text" id="qual-matricula" placeholder="Registro">
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Qualidade Muda/Plantio -->
                     <div class="chart-card form-card">
                         <h4 class="section-title">Qualidade de Plantio</h4>
@@ -1876,6 +1905,7 @@
                          <h4 class="section-title">Origem & Qualidade da Muda</h4>
                          <div class="modal-subsection" id="sec-mudas">
                             <div class="modal-form-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
+
                                 <div class="form-group">
                                     <label for="muda-colheita-info">Colheita de muda</label>
                                     <input type="text" id="muda-colheita-info">

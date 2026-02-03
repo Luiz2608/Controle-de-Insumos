@@ -2484,6 +2484,7 @@ forceReloadAllData() {
         try { this.renderFarmProgressChart(); } catch(e) { console.error('Erro Chart Fazendas:', e); }
         try { this.renderInsumosGlobalChart(); } catch(e) { console.error('Erro Chart Insumos Global:', e); }
         try { this.renderInsumosTimelineChart(); } catch(e) { console.error('Erro Chart Insumos Timeline:', e); }
+        try { this.renderRankingOperadoresChart(); } catch(e) { console.error('Erro Chart Ranking:', e); }
     }
 
     // Função original renomeada/substituída
@@ -2717,6 +2718,89 @@ forceReloadAllData() {
                     }
                 },
                 cutout: '75%'
+            })
+        });
+    }
+
+    renderRankingOperadoresChart() {
+        const ctx = document.getElementById('chart-ranking-operadores');
+        if (!ctx) return;
+
+        const existing = Chart.getChart(ctx);
+        if (existing) existing.destroy();
+
+        // Filtrar plantio data pelo período
+        const data = (this.plantioDiarioData || []).filter(item => {
+            const d = item.data || item.created_at;
+            return this.isDateInPeriod(d);
+        });
+
+        // Agrupar por operador e calcular média
+        const operators = {};
+        data.forEach(item => {
+            if (!item.qualidade) return;
+            // Tenta pegar o novo campo qualOperador, ou fallback se existir outro
+            const op = item.qualidade.qualOperador || item.qualidade.operador;
+            if (!op) return; 
+
+            // Prioriza mudasBoasPct (como solicitado "qualidade da muda")
+            // Fallback para gemasBoasPct se mudas não existir
+            let pct = parseFloat(item.qualidade.mudasBoasPct);
+            if (isNaN(pct)) pct = parseFloat(item.qualidade.gemasBoasPct);
+            if (isNaN(pct)) pct = 0;
+            
+            if (!operators[op]) operators[op] = { total: 0, count: 0 };
+            operators[op].total += pct;
+            operators[op].count++;
+        });
+
+        const ranking = Object.keys(operators).map(op => ({
+            operador: op,
+            media: operators[op].total / operators[op].count
+        }));
+
+        // Sort by media descending (Melhores primeiro)
+        ranking.sort((a, b) => b.media - a.media);
+
+        // Top 10
+        const topRanking = ranking.slice(0, 10);
+
+        const labels = topRanking.map(r => r.operador);
+        const values = topRanking.map(r => r.media);
+        
+        // Colors based on score
+        const colors = values.map(v => {
+            if (v >= 90) return '#4ade80'; // Green
+            if (v >= 80) return '#fbbf24'; // Yellow
+            return '#f87171'; // Red
+        });
+
+        if (this._charts.rankingOperadores) this._charts.rankingOperadores.destroy();
+
+        this._charts.rankingOperadores = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: '% Mudas Boas',
+                    data: values,
+                    backgroundColor: colors,
+                    borderRadius: 6,
+                }]
+            },
+            options: this.getCommonChartOptions({
+                indexAxis: 'y', // Horizontal bar
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => `Qualidade: ${context.raw.toFixed(1)}%`
+                        }
+                    }
+                },
+                scales: {
+                    x: { max: 100, beginAtZero: true }
+                }
             })
         });
     }
@@ -10526,6 +10610,7 @@ InsumosApp.prototype.resetPlantioForm = function() {
     }
 
     const ids = [
+        'qual-equipamento-trator', 'qual-equipamento-plantadora', 'qual-operador', 'qual-matricula',
         'plantio-data', 'plantio-responsavel', 'plantio-obs',
         'qual-toletes-total', 'qual-toletes-bons', 'qual-toletes-ruins', 'qual-toletes-amostra',
         'qual-gemas-total', 'qual-gemas-boas', 'qual-gemas-ruins', 'qual-gemas-amostra', 'qual-gemas-media',
@@ -10752,6 +10837,10 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
         colheitaHectares: parseFloat(document.getElementById('colheita-hectares')?.value || '0'),
         colheitaTchEstimado: parseFloat(document.getElementById('colheita-tch-estimado')?.value || '0'),
         colheitaTchReal: parseFloat(document.getElementById('colheita-tch-real')?.value || '0'),
+        qualEquipamentoTrator: document.getElementById('qual-equipamento-trator')?.value || '',
+        qualEquipamentoPlantadora: document.getElementById('qual-equipamento-plantadora')?.value || '',
+        qualOperador: document.getElementById('qual-operador')?.value || '',
+        qualMatricula: document.getElementById('qual-matricula')?.value || '',
         tipoOperacao: tipoOperacao // Persist in JSONB to avoid schema issues
     };
     let fazendaNome = document.getElementById('single-fazenda')?.value || '';

@@ -1100,6 +1100,26 @@ class ApiService {
         };
         const { data, error } = await this.supabase.from('plantio_diario').insert([item]).select();
         if (error) throw error;
+
+        // Save equipment data to dedicated table
+        if (payload.qualidade) {
+            try {
+                const equipItem = {
+                    plantio_diario_id: item.id,
+                    trator: payload.qualidade.qualEquipamentoTrator,
+                    plantadora_colhedora: payload.qualidade.qualEquipamentoPlantadora,
+                    operador: payload.qualidade.qualOperador,
+                    matricula: payload.qualidade.qualMatricula
+                };
+                // Only save if meaningful data exists
+                if (equipItem.trator || equipItem.plantadora_colhedora || equipItem.operador || equipItem.matricula) {
+                    await this.supabase.from('equipamento_operador').insert([equipItem]);
+                }
+            } catch (e) {
+                console.error('Erro ao salvar equipamento_operador:', e);
+            }
+        }
+
         await this.logAction('ADD_PLANTIO', { id: item.id, item });
         return { success: true, data: data[0] };
     }
@@ -1116,6 +1136,29 @@ class ApiService {
             .select();
             
         if (error) throw error;
+
+        // Update equipment data
+        if (payload.qualidade) {
+            try {
+                const equipItem = {
+                    plantio_diario_id: id,
+                    trator: payload.qualidade.qualEquipamentoTrator,
+                    plantadora_colhedora: payload.qualidade.qualEquipamentoPlantadora,
+                    operador: payload.qualidade.qualOperador,
+                    matricula: payload.qualidade.qualMatricula
+                };
+                
+                // Upsert works because of the UNIQUE constraint on plantio_diario_id
+                if (equipItem.trator || equipItem.plantadora_colhedora || equipItem.operador || equipItem.matricula) {
+                     await this.supabase
+                        .from('equipamento_operador')
+                        .upsert(equipItem, { onConflict: 'plantio_diario_id' });
+                }
+            } catch (e) {
+                console.error('Erro ao atualizar equipamento_operador:', e);
+            }
+        }
+
         await this.logAction('UPDATE_PLANTIO', { id, updateData });
         return { success: true, data: data[0] };
     }
