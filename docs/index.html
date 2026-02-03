@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="version" content="1.0.3-restored-updates">
     <title>Gestão de Insumos</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -1091,7 +1090,7 @@
                 <h3>📋 Cadastro de Ordem de Serviço (OS)</h3>
                 <button class="close-modal close-os-modal">&times;</button>
             </div>
-            <div class="modal-body" style="overflow-y: auto; max-height: 80vh;">
+            <div class="modal-body">
                 
                 <!-- LISTA DE OS (Visão Principal) -->
                 <div id="os-view-list" class="chart-card form-card">
@@ -1304,7 +1303,7 @@
                 <h3>🏡 Gerenciar Fazendas</h3>
                 <button class="close-modal close-fazendas-modal">&times;</button>
             </div>
-            <div class="modal-body" style="overflow-y: auto; max-height: 80vh;">
+            <div class="modal-body">
                 <div class="charts">
                     <div class="chart-card form-card">
                         <h4 style="margin: 0 0 10px 0;">Cadastro de Fazendas</h4>
@@ -1456,7 +1455,7 @@
                 <h3>🌾 Liberação de Colheita de Muda</h3>
                 <button class="close-modal close-liberacao-modal">&times;</button>
             </div>
-            <div class="modal-body" style="overflow-y: auto; max-height: 80vh;">
+            <div class="modal-body">
                 
                 <!-- LIST VIEW -->
                 <div id="liberacao-view-list">
@@ -1590,7 +1589,7 @@
                 <h3>Novo Lançamento de Plantio</h3>
                 <button class="close-modal close-novo-lancamento-modal">&times;</button>
             </div>
-            <div class="modal-body" style="overflow-y: auto; max-height: 80vh;">
+            <div class="modal-body">
 
 
                 <!-- Summary Panel -->
@@ -1959,12 +1958,12 @@
 
     <!-- Modal Transporte de Composto -->
     <div id="modal-transporte-composto" class="modal" style="display: none;">
-        <div class="modal-content" style="width: 80%; max-width: 900px;">
+        <div class="modal-content">
             <div class="modal-header">
                 <h3>Cadastro de Transporte de Composto</h3>
                 <span class="close-modal close-composto-modal" style="cursor: pointer;">&times;</span>
             </div>
-            
+            <div class="modal-body">
             <form id="form-transporte-composto">
                 <input type="hidden" name="id" id="composto-id">
                 <div class="form-grid boletim-grid">
@@ -2090,7 +2089,7 @@
                 <h3>Cadastro de Viagem (Adubo)</h3>
                 <span class="close-modal close-viagem-adubo-modal" style="cursor: pointer;">&times;</span>
             </div>
-            <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+            <div class="modal-body">
                 <div class="form-grid boletim-grid">
                     <div class="form-group">
                         <label for="modal-viagem-data">Data</label>

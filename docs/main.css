@@ -527,6 +527,13 @@ body {
     flex-direction: column;
 }
 
+.modal-body {
+    flex: 1;
+    overflow-y: auto;
+    /* Ensure padding doesn't cause double scrollbars if not needed, 
+       but standard padding is usually on modal-content */
+}
+
 .modal-content.large-modal {
     max-width: 95%;
     width: 95%;
