@@ -9026,13 +9026,21 @@ forceReloadAllData() {
                 // Show Modal
                 const modal = document.getElementById('modal-transporte-composto');
                 if (modal) {
-                    console.log('🔓 Abrindo modal de transporte composto (forcing flex)');
-                    modal.style.display = 'flex'; // Força flexbox explicitamente
-                    // Adiciona um pequeno timeout para garantir renderização se necessário
-                    setTimeout(() => {
-                        modal.style.opacity = '1';
-                        console.log('👁️ Modal opacity set to 1');
-                    }, 10);
+                    console.log('🔓 Abrindo modal de transporte composto (forcing z-index)');
+                    
+                    // Reset e Força Visual
+                    modal.style.display = 'block'; // O CSS .modal[style*="display: block"] converte para flex
+                    modal.style.zIndex = '99999'; // Garante que fique acima de tudo
+                    modal.style.opacity = '1';
+                    modal.style.visibility = 'visible';
+                    
+                    // Garante que o conteúdo também esteja visível
+                    const content = modal.querySelector('.modal-content');
+                    if (content) {
+                        content.style.display = 'flex';
+                        content.style.opacity = '1';
+                    }
+
                 } else {
                     console.error('❌ Modal #modal-transporte-composto não encontrado no DOM');
                     this.ui.showNotification('Erro interno: Modal não encontrado.', 'error');
