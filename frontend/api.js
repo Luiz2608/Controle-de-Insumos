@@ -504,9 +504,31 @@ class ApiService {
 
     async getPlantioDiario() {
         this.checkConfig();
-        const { data, error } = await this.supabase.from('plantio_diario').select('*');
+        const { data: plantios, error } = await this.supabase.from('plantio_diario').select('*');
         if (error) throw error;
-        return { success: true, data };
+
+        // Buscar dados de equipamento/operador para enriquecer
+        const { data: equipamentos } = await this.supabase.from('equipamento_operador').select('*');
+        
+        if (plantios && equipamentos) {
+            const merged = plantios.map(p => {
+                // Encontrar equipamento vinculado (se houver)
+                // Assumindo que equipamento_operador tem plantio_diario_id
+                const equip = equipamentos.find(e => e.plantio_diario_id === p.id);
+                if (equip) {
+                    p.qualidade = p.qualidade || {};
+                    // Merge info
+                    p.qualidade.qualEquipamentoTrator = equip.trator;
+                    p.qualidade.qualEquipamentoPlantadora = equip.plantadora_colhedora;
+                    p.qualidade.qualOperador = equip.operador;
+                    p.qualidade.qualMatricula = equip.matricula;
+                }
+                return p;
+            });
+            return { success: true, data: merged };
+        }
+
+        return { success: true, data: plantios };
     }
 
     async getOxifertil(filters = {}) {
@@ -1113,6 +1135,42 @@ class ApiService {
         }
         
         return { success: true, data: plantios };
+    }
+
+    async findPlantioByDataFrente(dataStr, frente) {
+        this.checkConfig();
+        // Assuming frentes is a JSONB array of objects with a 'frente' key
+        const { data: records, error } = await this.supabase
+            .from('plantio_diario')
+            .select('*')
+            .eq('data', dataStr)
+            .contains('frentes', JSON.stringify([{ frente: String(frente) }]));
+
+        if (error) {
+            console.error('Erro ao buscar plantio por data/frente:', error);
+            return { success: false, error };
+        }
+        
+        if (records && records.length > 0) {
+             const record = records[0];
+             // Fetch quality data if exists
+             const { data: equip } = await this.supabase
+                .from('equipamento_operador')
+                .select('*')
+                .eq('plantio_diario_id', record.id)
+                .maybeSingle();
+             
+             if (equip) {
+                 record.qualidade = record.qualidade || {};
+                 record.qualidade.qualEquipamentoTrator = equip.trator;
+                 record.qualidade.qualEquipamentoPlantadora = equip.plantadora_colhedora;
+                 record.qualidade.qualOperador = equip.operador;
+                 record.qualidade.qualMatricula = equip.matricula;
+             }
+             return { success: true, data: record };
+        }
+
+        return { success: true, data: null };
     }
 
     async addPlantioDia(payload) {
