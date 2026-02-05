@@ -1129,22 +1129,47 @@ forceReloadAllData() {
                 this.loadProdutosDatalist();
             });
 
-            // Novo botão para Colheita de Muda
-            const btnNovaColheitaMuda = document.getElementById('btn-nova-colheita-muda');
-            if (btnNovaColheitaMuda) {
-                btnNovaColheitaMuda.addEventListener('click', async () => {
-                    this.resetPlantioForm();
-                    const tipoOp = document.getElementById('tipo-operacao');
-                    if (tipoOp) {
-                        tipoOp.value = 'colheita_muda';
-                        this.toggleOperacaoSections();
+            // Novo botão para Qualidade de Muda
+            const btnNovaQualidadeMuda = document.getElementById('btn-nova-qualidade-muda');
+            if (btnNovaQualidadeMuda) {
+                btnNovaQualidadeMuda.addEventListener('click', async () => {
+                    this.resetPlantioForm('qualidade');
+                    // Não adicionar opção ao select - manter isolado
+                    // O toggleOperacaoSections vai esconder o select e mostrar apenas os campos de qualidade
+                    
+                    const modalTitle = document.getElementById('modal-novo-plantio-title');
+                    if (modalTitle) {
+                        modalTitle.textContent = 'Novo Lançamento de Qualidade';
                     }
+
                     novoLancamentoModal.style.display = 'flex';
                     await this.loadOSList();
                     this.loadProdutosDatalist();
                     await this.loadLiberacoesForSelect();
+                    // Populate single-frente based on default quality type (plantio)
+                    this.populateSingleFrente('plantio');
                 });
             }
+
+            // Listener para Select de Tipo de Qualidade
+            const qualTipoSelect = document.getElementById('qualidade-tipo-select');
+            if (qualTipoSelect) {
+                qualTipoSelect.addEventListener('change', () => {
+                    this.toggleOperacaoSections();
+                    this.populateSingleFrente(qualTipoSelect.value);
+                });
+            }
+
+            // Remove listener for deleted button
+            /*
+            // Novo botão para Colheita de Muda (Restaurado)
+            const btnNovaColheitaMuda = document.getElementById('btn-nova-colheita-muda');
+            if (btnNovaColheitaMuda) {
+                btnNovaColheitaMuda.addEventListener('click', async () => {
+                    ...
+                });
+            }
+            */
 
             const tipoOperacaoSelect = document.getElementById('tipo-operacao');
             if (tipoOperacaoSelect) {
@@ -1179,6 +1204,17 @@ forceReloadAllData() {
         const btnNovaLiberacao = document.getElementById('btn-nova-liberacao');
         const btnVoltarLiberacaoList = document.getElementById('btn-voltar-liberacao-list');
 
+        // Listener para Histórico de Qualidade
+        const btnQualidadeHistorico = document.getElementById('btn-qualidade-historico');
+        const qualidadeListModal = document.getElementById('qualidade-list-modal');
+        if (btnQualidadeHistorico && qualidadeListModal) {
+            btnQualidadeHistorico.addEventListener('click', (e) => {
+                e.preventDefault(); // Prevent form submission or focus change
+                qualidadeListModal.style.display = 'flex';
+                this.renderQualidadeList();
+            });
+        }
+        
         if (btnLiberacao && liberacaoModal) {
             btnLiberacao.addEventListener('click', async () => {
                 liberacaoModal.style.display = 'flex';
@@ -5204,6 +5240,33 @@ forceReloadAllData() {
         const singleFrente = document.getElementById('single-frente');
         const singleOs = document.getElementById('single-os');
 
+        // Plantio Tabs Listeners
+        const plantioTabs = document.querySelectorAll('.plantio-tab-btn');
+        plantioTabs.forEach(btn => {
+            btn.addEventListener('click', () => {
+                // Update UI
+                plantioTabs.forEach(b => {
+                    b.classList.remove('active');
+                    b.style.color = '#666';
+                    b.style.borderBottomColor = 'transparent';
+                });
+                btn.classList.add('active');
+                btn.style.color = 'var(--text-color)';
+                btn.style.borderBottomColor = 'var(--primary)'; // Or specific color
+                
+                // Update State and Render
+                this.plantioTab = btn.getAttribute('data-tab');
+                this.renderPlantioDia();
+            });
+        });
+        
+        // Initialize default tab style
+        const activeTab = document.querySelector('.plantio-tab-btn.active');
+        if (activeTab) {
+            activeTab.style.color = 'var(--text-color)';
+            activeTab.style.borderBottomColor = 'var(--primary)';
+        }
+
         // Validation listeners for visual feedback
         const requiredIds = ['single-frente', 'plantio-data', 'single-plantio-dia'];
         requiredIds.forEach(id => {
@@ -5664,10 +5727,28 @@ forceReloadAllData() {
         const tbody = document.getElementById('plantio-table-body');
         if (!tbody) return;
         
-        const rows = (this.plantioDia || []).slice().sort((a,b)=> String(a.data||'').localeCompare(String(b.data||'')));
+        // Determine active tab filter
+        const currentTab = this.plantioTab || 'plantio';
+        
+        const allRows = (this.plantioDia || []).slice().sort((a,b)=> String(a.data||'').localeCompare(String(b.data||'')));
+        
+        // Filter rows based on tab
+        const rows = allRows.filter(r => {
+            const q = r.qualidade || {};
+            // Check top level or quality level
+            const tipo = r.tipo_operacao || q.tipoOperacao || 'plantio';
+            
+            if (currentTab === 'plantio') {
+                return tipo === 'plantio';
+            } else if (currentTab === 'colheita_muda') {
+                return tipo === 'colheita_muda';
+            }
+            // Qualidade de Muda não é mais exibida nesta tabela principal
+            return false;
+        });
         
         if (rows.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 20px; color: #666;">Nenhum registro de plantio encontrado.</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 20px; color: #666;">Nenhum registro de ${currentTab === 'plantio' ? 'Plantio' : 'Colheita de Muda'} encontrado.</td></tr>`;
             return;
         }
 
@@ -5696,6 +5777,70 @@ forceReloadAllData() {
                 </td>
             </tr>`;
         }).join('');
+    }
+
+    renderQualidadeList() {
+        const tbody = document.getElementById('qualidade-list-body');
+        if (!tbody) return;
+
+        const allRows = (this.plantioDia || []).slice().sort((a,b)=> String(b.data||'').localeCompare(String(a.data||''))); // Descending date
+        
+        // Filter for Quality records
+        const rows = allRows.filter(r => {
+            const q = r.qualidade || {};
+            const tipo = r.tipo_operacao || q.tipoOperacao || 'plantio';
+            return tipo === 'qualidade_muda';
+        });
+
+        if (rows.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 20px; color: #666;">Nenhum registro de Qualidade encontrado.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = rows.map(r => {
+            const frentes = (r.frentes||[]);
+            const fazendaFrente = frentes.length > 0 ? `${frentes[0].fazenda || ''} / ${frentes[0].frente || ''}` : '—';
+            
+            // Variedade is often in 'frentes' or specific field? 
+            // Looking at Step 1, we have 'liberacao-variedade' which might be stored in 'frentes' or 'variedade' field.
+            // Let's assume it's in the first frente or we need to find where it's saved.
+            // In 'addPlantioDia', variety might be saved in 'frentes' array items if linked to Talhão, or top level.
+            // For now, display '—' if not found.
+            // Wait, quality usually has 'variedade' field in the form? 
+            // In step 3 (Quality), we have Gemas/Toletes fields but Variedade is usually from the location (Step 1).
+            // Let's check 'frentes' for variety.
+            const variedade = frentes.length > 0 && frentes[0].variedade ? frentes[0].variedade : '—';
+            
+            // Calculate an index or show summary
+            const q = r.qualidade || {};
+            const indice = q.indiceQualidade || '—'; // If we have a calculated index
+            // Or show Gemas Viáveis %
+            const gemasViaveis = q.gemasViaveisPerc ? `${this.ui.formatNumber(q.gemasViaveisPerc, 1)}%` : '—';
+
+            return `
+            <tr>
+                <td>${this.ui.formatDateBR(r.data)}</td>
+                <td>${fazendaFrente}</td>
+                <td>${variedade}</td>
+                <td>${gemasViaveis}</td>
+                <td>
+                    <div style="display: flex; gap: 5px;">
+                        <button class="btn btn-sm btn-secondary" onclick="window.insumosApp.showPlantioDetails('${r.id}')">
+                            📋
+                        </button>
+                        <button class="btn btn-sm btn-secondary btn-edit-plantio" data-plantio-id="${r.id}" title="Editar">
+                            ✏️
+                        </button>
+                        <button class="btn btn-sm btn-delete-plantio" data-plantio-id="${r.id}" style="background-color: #e74c3c; color: white;" title="Excluir">
+                            🗑️
+                        </button>
+                    </div>
+                </td>
+            </tr>`;
+        }).join('');
+
+        // Re-attach listeners for dynamic buttons inside the modal
+        this.attachDynamicListeners();
     }
 
     showPlantioDetails(id) {
@@ -5757,6 +5902,117 @@ forceReloadAllData() {
                 <div class="value">${val}${sub ? `<span class="sub-value">${sub}</span>` : ''}</div>
             </div>
         `;
+        
+        // Define Tipo de Operação label
+        const tipoOpMap = {
+            'plantio': 'Plantio de Cana',
+            'colheita_muda': 'Colheita de Muda',
+            'qualidade_muda': 'Qualidade de Muda'
+        };
+        const rawTipo = r.tipo_operacao || (q.tipoOperacao) || 'plantio';
+        const tipoOpLabel = tipoOpMap[rawTipo] || rawTipo;
+        const isQualidadeMuda = rawTipo === 'colheita_muda' || rawTipo === 'qualidade_muda';
+
+        let qualitySections = '';
+        if (isQualidadeMuda) {
+             qualitySections += `
+                <!-- Subseção Colheita/Qualidade -->
+                <h6 style="margin: 0 0 5px 0; border-bottom: 1px solid #eee; padding-bottom: 5px;">🌾 Dados da Qualidade/Colheita</h6>
+                <div class="quality-grid">
+                    ${qualItem('Colheita Hectares', this.ui.formatNumber(q.colheitaHectares||0,2))}
+                    ${qualItem('TCH Estimado', this.ui.formatNumber(q.colheitaTchEstimado||0,2))}
+                    ${qualItem('TCH Real', this.ui.formatNumber(q.colheitaTchReal||0,2))}
+                </div>
+                <!-- Subseção Gemas -->
+                <h6 style="margin: 15px 0 5px 0; border-bottom: 1px solid #eee; padding-bottom: 5px;">🧬 Gemas (Qualidade)</h6>
+                <div class="quality-grid">
+                    ${qualItem('Amostra', this.ui.formatNumber(q.gemasAmostra||0, 1))}
+                    ${qualItem('Total', this.ui.formatNumber(q.gemasTotal||0))}
+                    ${qualItem('Média/m', this.ui.formatNumber(q.gemasMedia||0, 2))}
+                    ${qualItem('Viáveis', this.ui.formatNumber(q.gemasBoas||0), `(${this.ui.formatNumber(q.gemasBoasPct||0,1)}%)`)}
+                    ${qualItem('Inviáveis', this.ui.formatNumber(q.gemasRuins||0), `(${this.ui.formatNumber(q.gemasRuinsPct||0,1)}%)`)}
+                </div>
+                <!-- Subseção Toletes -->
+                <h6 style="margin: 15px 0 5px 0; border-bottom: 1px solid #eee; padding-bottom: 5px;">🪵 Toletes (Qualidade)</h6>
+                <div class="quality-grid">
+                    ${qualItem('Amostra', this.ui.formatNumber(q.toletesAmostra||0, 1))}
+                    ${qualItem('Total', this.ui.formatNumber(q.toletesTotal||0))}
+                    ${qualItem('Média/m', this.ui.formatNumber(q.toletesMedia||0, 2))}
+                    ${qualItem('Bons', this.ui.formatNumber(q.toletesBons||0), `(${this.ui.formatNumber(q.toletesBonsPct||0,1)}%)`)}
+                    ${qualItem('Ruins', this.ui.formatNumber(q.toletesRuins||0), `(${this.ui.formatNumber(q.toletesRuinsPct||0,1)}%)`)}
+                </div>
+            `;
+            
+            // Outros Indicadores para Colheita (Apenas Chuva por enquanto)
+            qualitySections += `
+                <h6 style="margin: 15px 0 5px 0; border-bottom: 1px solid #eee; padding-bottom: 5px;">📏 Outros Indicadores</h6>
+                <div class="quality-grid">
+                    ${qualItem('Chuva', this.ui.formatNumber(q.chuvaMm||0,1), 'mm')}
+                </div>
+            `;
+
+        } else {
+            qualitySections += `
+                <!-- Subseção Gemas -->
+                <h6 style="margin: 0 0 5px 0; border-bottom: 1px solid #eee; padding-bottom: 5px;">🧬 Gemas</h6>
+                <div class="quality-grid">
+                    ${qualItem('Amostra', this.ui.formatNumber(q.gemasAmostra||0, 1))}
+                    ${qualItem('Total', this.ui.formatNumber(q.gemasTotal||0))}
+                    ${qualItem('Média/m', this.ui.formatNumber(q.gemasMedia||0, 2))}
+                    ${qualItem('Viáveis', this.ui.formatNumber(q.gemasBoas||0), `(${this.ui.formatNumber(q.gemasBoasPct||0,1)}%)`)}
+                    ${qualItem('Inviáveis', this.ui.formatNumber(q.gemasRuins||0), `(${this.ui.formatNumber(q.gemasRuinsPct||0,1)}%)`)}
+                </div>
+                <!-- Subseção Toletes -->
+                <h6 style="margin: 15px 0 5px 0; border-bottom: 1px solid #eee; padding-bottom: 5px;">🪵 Toletes</h6>
+                <div class="quality-grid">
+                    ${qualItem('Amostra', this.ui.formatNumber(q.toletesAmostra||0, 1))}
+                    ${qualItem('Total', this.ui.formatNumber(q.toletesTotal||0))}
+                    ${qualItem('Média/m', this.ui.formatNumber(q.toletesMedia||0, 2))}
+                    ${qualItem('Bons', this.ui.formatNumber(q.toletesBons||0), `(${this.ui.formatNumber(q.toletesBonsPct||0,1)}%)`)}
+                    ${qualItem('Ruins', this.ui.formatNumber(q.toletesRuins||0), `(${this.ui.formatNumber(q.toletesRuinsPct||0,1)}%)`)}
+                </div>
+                <!-- Subseção Mudas (Plantio) -->
+                <h6 style="margin: 15px 0 5px 0; border-bottom: 1px solid #eee; padding-bottom: 5px;">🌱 Mudas (Plantio)</h6>
+                <div class="quality-grid">
+                    ${qualItem('Amostra', this.ui.formatNumber(q.mudasAmostra||0, 1))}
+                    ${qualItem('Total', this.ui.formatNumber(q.mudasTotal||0))}
+                    ${qualItem('Média/m', this.ui.formatNumber(q.mudasMedia||0, 2))}
+                    ${qualItem('Boas', this.ui.formatNumber(q.mudasBoas||0), `(${this.ui.formatNumber(q.mudasBoasPct||0,1)}%)`)}
+                    ${qualItem('Ruins', this.ui.formatNumber(q.mudasRuins||0), `(${this.ui.formatNumber(q.mudasRuinsPct||0,1)}%)`)}
+                </div>
+                <!-- Subseção Reboulos -->
+                <h6 style="margin: 15px 0 5px 0; border-bottom: 1px solid #eee; padding-bottom: 5px;">🍂 Reboulos</h6>
+                <div class="quality-grid">
+                    ${qualItem('Total', this.ui.formatNumber(q.mudasReboulos||0))}
+                    ${qualItem('Bons', this.ui.formatNumber(q.mudasReboulosBons||0), `(${this.ui.formatNumber(q.mudasReboulosBonsPct||0,1)}%)`)}
+                    ${qualItem('Ruins', this.ui.formatNumber(q.mudasReboulosRuins||0), `(${this.ui.formatNumber(q.mudasReboulosRuinsPct||0,1)}%)`)}
+                </div>
+                <!-- Subseção Consumo de Muda -->
+                <h6 style="margin: 15px 0 5px 0; border-bottom: 1px solid #eee; padding-bottom: 5px;">🚜 Consumo de Muda</h6>
+                <div class="quality-grid">
+                    ${qualItem('Consumo Total', this.ui.formatNumber(q.mudaConsumoTotal||0,2), 'ton')}
+                    ${qualItem('Consumo Acum.', this.ui.formatNumber(q.mudaConsumoAcumulado||0,2), 'ton')}
+                    ${qualItem('Consumo Dia', this.ui.formatNumber(q.mudaConsumoDia||0,2), 'ton')}
+                    ${qualItem('Previsto', this.ui.formatNumber(q.mudaPrevisto||0,2), 'ton')}
+                    ${qualItem('Liberação', q.mudaLiberacaoFazenda||'—')}
+                    ${qualItem('Info Colheita', q.mudaColheitaInfo||'—')}
+                    ${qualItem('Variedade', q.mudaVariedade||'—')}
+                    ${qualItem('Fazenda Origem', q.mudaFazendaOrigem||'—')}
+                    ${qualItem('Talhão Origem', q.mudaTalhaoOrigem||'—')}
+                </div>
+                
+                <!-- Subseção Outros (Plantio) -->
+                <h6 style="margin: 15px 0 5px 0; border-bottom: 1px solid #eee; padding-bottom: 5px;">📏 Outros Indicadores</h6>
+                <div class="quality-grid">
+                    ${qualItem('Muda (ton/ha)', this.ui.formatNumber(q.mudaTonHa||0))}
+                    ${qualItem('Profundidade', this.ui.formatNumber(q.profundidadeCm||0), 'cm')}
+                    ${qualItem('Cobertura', q.cobertura||'—')}
+                    ${qualItem('Espaçamento', q.alinhamento||'—')}
+                    ${qualItem('Chuva', this.ui.formatNumber(q.chuvaMm||0,1), 'mm')}
+                    ${qualItem('Cobrição Dia', this.ui.formatNumber(q.cobricaoDia||0,2))}
+                </div>
+            `;
+        }
 
         return `
             <div class="plantio-details-container">
@@ -5764,6 +6020,7 @@ forceReloadAllData() {
                 <div class="details-card full-width">
                     <h5>📋 Informações Gerais</h5>
                     <div class="info-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px;">
+                        <div class="info-item"><strong>Operação:</strong> ${tipoOpLabel}</div>
                         <div class="info-item"><strong>Data:</strong> ${dataStr}</div>
                         <div class="info-item"><strong>Responsável:</strong> ${resp}</div>
                         <div class="info-item full-span" style="grid-column: 1 / -1;"><strong>Observações:</strong> ${obs}</div>
@@ -5778,7 +6035,6 @@ forceReloadAllData() {
                         <div class="info-item"><strong>Plantadora:</strong> ${q.qualEquipamentoPlantadora || '—'}</div>
                         <div class="info-item"><strong>Operador:</strong> ${q.qualOperador || '—'}</div>
                         <div class="info-item"><strong>Matrícula:</strong> ${q.qualMatricula || '—'}</div>
-                        <div class="info-item"><strong>Frota:</strong> ${q.qualFrota || '—'}</div>
                     </div>
                 </div>
 
@@ -5805,7 +6061,8 @@ forceReloadAllData() {
                 </div>
 
                 <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-                    <!-- Seção 3: Insumos -->
+                    <!-- Seção 3: Insumos (Ocultar se for Qualidade de Muda) -->
+                    ${!isQualidadeMuda ? `
                     <div class="details-card flex-1" style="min-width: 300px;">
                         <h5>🧪 Insumos Aplicados</h5>
                         <div style="overflow-x: auto;">
@@ -5815,47 +6072,12 @@ forceReloadAllData() {
                             </table>
                         </div>
                     </div>
+                    ` : ''}
 
-                    <!-- Seção 4: Qualidade e Condições -->
-                    <div class="details-card flex-2" style="min-width: 300px;">
-                        <h5>📊 Qualidade e Condições</h5>
-                        <div class="quality-grid">
-                            ${qualItem('Gemas Totais', this.ui.formatNumber(q.gemasTotal||0))}
-                            ${qualItem('Gemas Boas', this.ui.formatNumber(q.gemasBoas||0), `(${this.ui.formatNumber(q.gemasBoasPct||0,1)}%)`)}
-                            ${qualItem('Gemas Ruins', this.ui.formatNumber(q.gemasRuins||0), `(${this.ui.formatNumber(q.gemasRuinsPct||0,1)}%)`)}
-                            
-                            ${qualItem('Toletes Totais', this.ui.formatNumber(q.toletesTotal||0))}
-                            ${qualItem('Toletes Bons', this.ui.formatNumber(q.toletesBons||0), `(${this.ui.formatNumber(q.toletesBonsPct||0,1)}%)`)}
-                            ${qualItem('Toletes Ruins', this.ui.formatNumber(q.toletesRuins||0), `(${this.ui.formatNumber(q.toletesRuinsPct||0,1)}%)`)}
-                            
-                            ${qualItem('Mudas Totais', this.ui.formatNumber(q.mudasTotal||0))}
-                            ${qualItem('Mudas Boas', this.ui.formatNumber(q.mudasBoas||0), `(${this.ui.formatNumber(q.mudasBoasPct||0,1)}%)`)}
-                            ${qualItem('Mudas Ruins', this.ui.formatNumber(q.mudasRuins||0), `(${this.ui.formatNumber(q.mudasRuinsPct||0,1)}%)`)}
-                            
-                            ${qualItem('Reboulos Totais', this.ui.formatNumber(q.mudasReboulos||0))}
-                            ${qualItem('Reboulos Bons', this.ui.formatNumber(q.mudasReboulosBons||0), `(${this.ui.formatNumber(q.mudasReboulosBonsPct||0,1)}%)`)}
-                            ${qualItem('Reboulos Ruins', this.ui.formatNumber(q.mudasReboulosRuins||0), `(${this.ui.formatNumber(q.mudasReboulosRuinsPct||0,1)}%)`)}
-                            
-                            ${qualItem('Muda (ton/ha)', this.ui.formatNumber(q.mudaTonHa||0))}
-                            ${qualItem('Profundidade', this.ui.formatNumber(q.profundidadeCm||0), 'cm')}
-                            ${qualItem('Cobertura', q.cobertura||'—')}
-                            ${qualItem('Alinhamento', q.alinhamento||'—')}
-                            ${qualItem('Chuva', this.ui.formatNumber(q.chuvaMm||0,1), 'mm')}
-                            ${qualItem('GPS', q.gps ? 'Sim' : 'Não')}
-                            
-                            ${qualItem('Cobrição Dia', this.ui.formatNumber(q.cobricaoDia||0,2))}
-                            ${qualItem('Cobrição Acum.', this.ui.formatNumber(q.cobricaoAcumulada||0,2))}
-                            
-                            ${qualItem('Consumo Muda Dia', this.ui.formatNumber(q.mudaConsumoDia||0,2))}
-                            ${qualItem('Consumo Muda Total', this.ui.formatNumber(q.mudaConsumoTotal||0,2))}
-                            ${qualItem('Muda Previsto', this.ui.formatNumber(q.mudaPrevisto||0,2))}
-                            ${qualItem('Variedade', q.mudaVariedade||'—')}
-                            ${qualItem('Liberação', q.mudaLiberacaoFazenda||'—')}
-                            ${qualItem('Fazenda Origem', q.mudaFazendaOrigem||'—')}
-                            ${qualItem('Talhão Origem', q.mudaTalhaoOrigem||'—')}
-                            ${qualItem('Colheita Hectares', this.ui.formatNumber(q.colheitaHectares||0,2))}
-                            ${qualItem('TCH Real', this.ui.formatNumber(q.colheitaTchReal||0,2))}
-                        </div>
+                    <!-- Seção 4: Qualidade & Indicadores (Dinâmica) -->
+                    <div class="details-card flex-1" style="min-width: 300px;">
+                        <h5>📊 Indicadores & Qualidade</h5>
+                        ${qualitySections}
                     </div>
                 </div>
             </div>`;
@@ -9994,7 +10216,7 @@ InsumosApp.prototype.exportPDF = function() {
     doc.save(`insumos_${Date.now()}.pdf`);
 };
 
-InsumosApp.prototype.updateGemasPercent = function() {
+InsumosApp.prototype.updateGemasPercent = function(triggerEl) {
     const totalEl = document.getElementById('qual-gemas-total');
     const bonsEl = document.getElementById('qual-gemas-boas');
     const ruinsEl = document.getElementById('qual-gemas-ruins');
@@ -10014,6 +10236,7 @@ InsumosApp.prototype.updateGemasPercent = function() {
     if (total > 0) {
         let bons = parseFloat(bonsEl.value || '0');
         let ruins = parseFloat(ruinsEl.value || '0');
+        
         if (triggerEl === bonsEl) {
             ruins = total - bons;
             if (ruins < 0) ruins = 0;
@@ -10023,6 +10246,7 @@ InsumosApp.prototype.updateGemasPercent = function() {
             if (bons < 0) bons = 0;
             bonsEl.value = bons;
         } else {
+             // Fallback
              if (bonsEl.value && !ruinsEl.value) {
                 ruins = total - bons;
                 ruinsEl.value = ruins;
@@ -10031,6 +10255,7 @@ InsumosApp.prototype.updateGemasPercent = function() {
                 bonsEl.value = bons;
             }
         }
+        
         bonsPctEl.value = ((bons / total) * 100).toFixed(2);
         ruinsPctEl.value = ((ruins / total) * 100).toFixed(2);
     } else {
@@ -10078,7 +10303,12 @@ InsumosApp.prototype.onLiberacaoSelectChange = function() {
     const lib = this.liberacaoCache.find(l => String(l.id) === String(id));
     if (!lib) return;
     
-    const fazendaEl = document.getElementById('muda-liberacao-fazenda');
+    const fazendaEl = document.getElementById('muda-liberacao-fazenda'); // Note: index.html might have different ID, let's check.
+    // In index.html: <input type="text" id="muda-fazenda-origem">
+    // <input type="text" id="muda-talhao-origem">
+    // <input type="text" id="qual-muda-liberacao">
+    // <input type="text" id="qual-muda-variedade">
+    
     const libEl = document.getElementById('qual-muda-liberacao');
     const fazendaOrigemEl = document.getElementById('muda-fazenda-origem');
     const talhaoOrigemEl = document.getElementById('muda-talhao-origem');
@@ -10086,12 +10316,16 @@ InsumosApp.prototype.onLiberacaoSelectChange = function() {
     
     if (libEl) libEl.value = lib.numero_liberacao || lib.id;
     if (fazendaOrigemEl) fazendaOrigemEl.value = lib.fazenda;
-    if (talhaoOrigemEl) talhaoOrigemEl.value = lib.frente; 
+    if (talhaoOrigemEl) talhaoOrigemEl.value = lib.frente; // Or logic to extract from talhoes? User said "puxar liberação e as outras informações... liberação, fazenda, talhão, etc."
     
+    // If talhoes list exists, maybe we can't map 1:1 to a single field unless we pick one.
+    // Assuming 'frente' acts as the main location identifier or we list talhoes.
+    // If 'talhoes' is JSONB array:
     if (varEl && Array.isArray(lib.talhoes) && lib.talhoes.length > 0) {
         const vars = [...new Set(lib.talhoes.map(x => x.variedade).filter(Boolean))];
         if (vars.length > 0) varEl.value = vars.join(', ');
         
+        // Also update talhao if not set by frente
         if (talhaoOrigemEl && (!lib.frente || lib.frente === '')) {
              const tals = [...new Set(lib.talhoes.map(x => x.talhao).filter(Boolean))];
              if (tals.length > 0) talhaoOrigemEl.value = tals.join(', ');
@@ -10121,13 +10355,25 @@ InsumosApp.prototype.updateMudasPercent = function(triggerEl) {
     if (total > 0) {
         let bons = parseFloat(bonsEl.value || '0');
         let ruins = parseFloat(ruinsEl.value || '0');
-        if (bonsEl.value && !ruinsEl.value) {
+        
+        if (triggerEl === bonsEl) {
             ruins = total - bons;
+            if (ruins < 0) ruins = 0;
             ruinsEl.value = ruins;
-        } else if (ruinsEl.value && !bonsEl.value) {
+        } else if (triggerEl === ruinsEl) {
             bons = total - ruins;
+            if (bons < 0) bons = 0;
             bonsEl.value = bons;
+        } else {
+             if (bonsEl.value && !ruinsEl.value) {
+                ruins = total - bons;
+                ruinsEl.value = ruins;
+            } else if (ruinsEl.value && !bonsEl.value) {
+                bons = total - ruins;
+                bonsEl.value = bons;
+            }
         }
+        
         bonsPctEl.value = ((bons / total) * 100).toFixed(2);
         if (ruinsPctEl) ruinsPctEl.value = ((ruins / total) * 100).toFixed(2);
     } else {
@@ -10457,7 +10703,9 @@ InsumosApp.prototype.initPlantioModalSteps = function() {
             if (this.currentStep > 1) {
                 let prevStep = this.currentStep - 1;
                 const tipo = document.getElementById('tipo-operacao')?.value;
-                if (tipo === 'colheita_muda' && prevStep === 2) {
+                
+                // Se for qualidade_muda, o passo 2 (Insumos) não existe, pula do 3 para o 1
+                if (tipo === 'qualidade_muda' && prevStep === 2) {
                     prevStep = 1;
                 }
                 this.goToPlantioStep(prevStep);
@@ -10469,10 +10717,17 @@ InsumosApp.prototype.initPlantioModalSteps = function() {
         nextBtn.addEventListener('click', (e) => {
             e.preventDefault();
             if (this.validatePlantioStep(this.currentStep)) {
-                if (this.currentStep < 3) {
+                // Determine max steps based on type
+                const tipo = document.getElementById('tipo-operacao')?.value;
+                let maxStep = 3;
+                if (tipo === 'plantio') maxStep = 2; // Plantio ends at step 2 (Insumos)
+                if (tipo === 'colheita_muda') maxStep = 1; // Colheita ends at step 1 (Dados)
+
+                if (this.currentStep < maxStep) {
                     let nextStep = this.currentStep + 1;
-                    const tipo = document.getElementById('tipo-operacao')?.value;
-                    if (tipo === 'colheita_muda' && nextStep === 2) {
+                    
+                    // Se for qualidade_muda, o passo 2 (Insumos) não existe, pula do 1 para o 3
+                    if (tipo === 'qualidade_muda' && nextStep === 2) {
                         nextStep = 3;
                     }
                     this.goToPlantioStep(nextStep);
@@ -10507,8 +10762,9 @@ InsumosApp.prototype.validatePlantioStep = function(step) {
             valid = false;
         }
         
-        // Only validate Plantio Area if NOT colheita_muda
-        if (tipo !== 'colheita_muda') {
+        // Only validate Plantio Area if NOT qualidade_muda and NOT colheita_muda (Colheita uses different fields or less strict)
+        // Adjust validation logic as needed for Colheita
+        if (tipo !== 'qualidade_muda' && tipo !== 'colheita_muda') {
             // Fix: Handle comma as decimal separator (common in Brazil)
             const valStr = (areaEl.value || '').replace(',', '.');
             const val = parseFloat(valStr);
@@ -10553,10 +10809,20 @@ InsumosApp.prototype.goToPlantioStep = function(step) {
     const prevBtn = document.getElementById('step-prev-btn');
     const nextBtn = document.getElementById('step-next-btn');
     const saveBtn = document.getElementById('plantio-save-btn');
+    const tipo = document.getElementById('tipo-operacao')?.value;
 
     if (prevBtn) prevBtn.style.display = step === 1 ? 'none' : 'block';
     
-    if (step === 3) {
+    // Logic for Finish/Save button
+    let isLastStep = false;
+    if (tipo === 'plantio' && step === 2) isLastStep = true;
+    if (tipo === 'colheita_muda' && step === 1) isLastStep = true; // Colheita ends at step 1
+    if (tipo === 'qualidade_muda' && step === 3) isLastStep = true;
+    
+    // Fallback for safety
+    if (step === 3) isLastStep = true;
+
+    if (isLastStep) {
         if (nextBtn) nextBtn.style.display = 'none';
         if (saveBtn) saveBtn.style.display = 'block';
     } else {
@@ -10716,19 +10982,108 @@ InsumosApp.prototype.validateModalStep = function(modalName, step) {
     return valid;
 };
 
-InsumosApp.prototype.toggleOperacaoSections = function() {
-    const tipo = document.getElementById('tipo-operacao')?.value || 'plantio';
+InsumosApp.prototype.populateSingleFrente = async function(tipo) {
+    const select = document.getElementById('single-frente');
+    if (!select) return;
+
+    // Map types to categories
+    const category = (tipo === 'plantio' || tipo === 'plantio_cana') ? 'plantio' : 'colheita';
     
+    // Check if we already populated for this category to avoid flickering/resetting
+    if (select.dataset.loadedType === category && select.options.length > 1) return;
+
+    const currentVal = select.value;
+    select.innerHTML = '<option value="">Carregando...</option>';
+    
+    let options = [];
+    if (category === 'plantio') {
+        // Hardcoded plantio frentes
+        options = ["4001", "4002", "4009 Abençoada"];
+    } else {
+        // Fetch from liberation data for colheita/qualidade_muda
+        if (!this.liberacaoCache) {
+             try {
+                 const res = await this.api.getLiberacaoColheita();
+                 if (res && res.success) this.liberacaoCache = res.data;
+                 else this.liberacaoCache = [];
+             } catch(e) { console.error(e); this.liberacaoCache = []; }
+        }
+        // Extract unique frentes
+        const frentes = [...new Set(this.liberacaoCache.map(l => l.frente).filter(Boolean))];
+        options = frentes.sort();
+    }
+
+    select.innerHTML = '<option value="">Selecione</option>';
+    options.forEach(opt => {
+        const el = document.createElement('option');
+        el.value = opt;
+        el.textContent = opt;
+        select.appendChild(el);
+    });
+
+    select.dataset.loadedType = category;
+
+    if (currentVal && options.includes(currentVal)) {
+        select.value = currentVal;
+    }
+};
+
+InsumosApp.prototype.toggleOperacaoSections = function() {
+    const tipoEl = document.getElementById('tipo-operacao');
+    const qualTipoSelect = document.getElementById('qualidade-tipo-select');
+    
+    // Restore 'tipo' for visibility logic
+    const tipo = this.isQualidadeMode ? 'qualidade_muda' : (tipoEl?.value || 'plantio');
+
+    // Determine type for Frente population
+    let tipoParaFrente = tipoEl?.value || 'plantio';
+    if (this.isQualidadeMode) {
+        // In quality mode, use the quality sub-type (plantio_cana or colheita_muda)
+        tipoParaFrente = qualTipoSelect ? qualTipoSelect.value : 'plantio_cana';
+    }
+    
+    // Populate Frentes based on type
+    this.populateSingleFrente(tipoParaFrente);
+
+    // Toggle visibilidade do Select de Tipo
+    const tipoGroup = tipoEl?.closest('.form-group');
+    if (tipoGroup) {
+        tipoGroup.style.display = this.isQualidadeMode ? 'none' : 'block';
+    }
+
+    // Toggle visibilidade do Select de Tipo de Qualidade (Agora no Step 1)
+    const qualTipoContainer = document.getElementById('qualidade-tipo-container');
+    if (qualTipoContainer) {
+        qualTipoContainer.style.display = this.isQualidadeMode ? 'block' : 'none';
+    }
+
+    // Toggle campos específicos de Plantio vs Qualidade no Step 1
+    const hideInQuality = document.querySelectorAll('.hide-in-quality');
+    hideInQuality.forEach(el => {
+        el.style.display = this.isQualidadeMode ? 'none' : 'block';
+    });
+
+    const showInQuality = document.querySelectorAll('.show-in-quality-only');
+    showInQuality.forEach(el => {
+        el.style.display = this.isQualidadeMode ? 'block' : 'none';
+    });
+
+    // Subtipo de Qualidade (se estiver em modo qualidade)
+    const subTipoQualidade = (this.isQualidadeMode && qualTipoSelect) ? qualTipoSelect.value : 'plantio_cana';
+
+    // Elementos das Seções de Qualidade
     const secGemas = document.getElementById('sec-gemas');
     const secToletes = document.getElementById('sec-toletes');
     const secMudas = document.getElementById('sec-mudas');
     const secOutros = document.getElementById('sec-outros');
     const secMudaConsumo = document.getElementById('sec-muda-consumo-card');
+    
+    // Seções principais
     const secInsumos = document.getElementById('sec-insumos');
     const secColheitaProducao = document.getElementById('sec-colheita-producao-card');
 
-    // Campos específicos para esconder em Colheita de Muda
-    const fieldsToHideInColheita = [
+    // Campos de área de plantio que devem sumir em colheita ou qualidade
+    const plantioAreaFields = [
         'single-area',           // Área Planejada OS
         'single-plantio-dia',    // Plantio dia
         'single-area-acumulada', // Acumulado Plantio
@@ -10736,47 +11091,98 @@ InsumosApp.prototype.toggleOperacaoSections = function() {
         'cobricao-acumulada'     // Cobrição Acumulado
     ];
 
-    fieldsToHideInColheita.forEach(id => {
+    // Lógica de Visibilidade dos Campos de Plantio
+    plantioAreaFields.forEach(id => {
         const el = document.getElementById(id);
         const group = el?.closest('.form-group');
         if (group) {
-            group.style.display = tipo === 'colheita_muda' ? 'none' : 'block';
+            // Mostrar apenas se for tipo plantio E NÃO for modo qualidade
+            group.style.display = (tipo === 'plantio') ? 'block' : 'none';
         }
     });
 
-    // Hide Insumos Step Button (Step 2)
-    const step2Btn = document.querySelector('.step-btn[data-step="2"]');
+    // Toggle Step Buttons Visibility
+    const step2Btn = document.querySelector('.step-btn[data-step="2"]'); // Insumos
+    const step3Btn = document.querySelector('.step-btn[data-step="3"]'); // Qualidade
+    const histBtn = document.getElementById('btn-qualidade-historico'); // Histórico Button
+    
     if (step2Btn) {
-        step2Btn.style.display = tipo === 'colheita_muda' ? 'none' : 'flex';
+        // Passo 2 (Insumos) só aparece em Plantio
+        step2Btn.style.display = tipo === 'plantio' ? 'flex' : 'none';
+    }
+    if (step3Btn) {
+        // Passo 3 (Qualidade) aparece em Qualidade de Muda OU Plantio (para agregar)
+        step3Btn.style.display = (tipo === 'qualidade_muda' || this.isQualidadeMode || tipo === 'plantio') ? 'flex' : 'none';
+    }
+    if (histBtn) {
+        // Botão Histórico só aparece em Qualidade de Muda
+        histBtn.style.display = (tipo === 'qualidade_muda' || this.isQualidadeMode) ? 'block' : 'none';
     }
     
+    // Resetar visibilidade das seções
+    const setDisplay = (el, show) => { if (el) el.style.display = show ? 'block' : 'none'; };
+
     if (tipo === 'plantio') {
-        if (secGemas) secGemas.style.display = 'block';
-        if (secToletes) secToletes.style.display = 'block';
-        if (secOutros) secOutros.style.display = 'block';
-        if (secMudaConsumo) secMudaConsumo.style.display = 'block';
-        if (secInsumos) secInsumos.style.display = 'block';
-        if (secMudas) secMudas.style.display = 'none';
-        if (secColheitaProducao) secColheitaProducao.style.display = 'none';
-    } else { // colheita_muda
-        if (secGemas) secGemas.style.display = 'none';
-        if (secToletes) secToletes.style.display = 'none';
-        if (secOutros) secOutros.style.display = 'none';
-        if (secMudaConsumo) secMudaConsumo.style.display = 'none';
-        if (secInsumos) secInsumos.style.display = 'none';
-        if (secMudas) secMudas.style.display = 'block';
-        if (secColheitaProducao) secColheitaProducao.style.display = 'block';
+        setDisplay(secInsumos, true);
+        setDisplay(secColheitaProducao, false);
+        // Mostrar seções de qualidade para Plantio (Agregado)
+        setDisplay(secGemas, true);
+        setDisplay(secToletes, true);
+        setDisplay(secMudas, false);
+        setDisplay(secOutros, true);
+        setDisplay(secMudaConsumo, true);
+    } else if (tipo === 'colheita_muda') {
+        setDisplay(secInsumos, false);
+        setDisplay(secColheitaProducao, true); // Campos de colheita (hectares, tch)
+        // Esconder seções de qualidade
+        setDisplay(secGemas, false);
+        setDisplay(secToletes, false);
+        setDisplay(secMudas, false);
+        setDisplay(secOutros, false);
+        setDisplay(secMudaConsumo, false);
+    } else if (tipo === 'qualidade_muda') {
+        setDisplay(secInsumos, false);
+        setDisplay(secColheitaProducao, false);
+        
+        // Lógica diferenciada baseada no subtipo de qualidade
+        if (subTipoQualidade === 'plantio_cana') {
+             // Plantio de Cana: Trator..., Qualidade Plantio (Gemas, Toletes, Outros), Consumo Muda
+            setDisplay(secGemas, true); 
+            setDisplay(secToletes, true);
+            setDisplay(secMudas, false); // Origem & Qualidade Muda (específico de Colheita)
+            setDisplay(secOutros, true);
+            setDisplay(secMudaConsumo, true);
+        } else {
+            // Colheita de Muda: Trator..., Origem & Qualidade Muda
+            setDisplay(secGemas, false); 
+            setDisplay(secToletes, false);
+            setDisplay(secMudas, true);
+            setDisplay(secOutros, false);
+            setDisplay(secMudaConsumo, false);
+        }
     }
 };
 
-InsumosApp.prototype.resetPlantioForm = function() {
+InsumosApp.prototype.resetPlantioForm = function(mode = 'normal') {
     this.currentPlantioId = null;
     this.plantioInsumosDraft = [];
     this.renderInsumosDraft();
+    
+    // Definir modo de operação (normal vs qualidade)
+    this.isQualidadeMode = (mode === 'qualidade');
+
+    const modalTitle = document.getElementById('modal-novo-plantio-title');
+    if (modalTitle) {
+        modalTitle.textContent = this.isQualidadeMode ? 'Novo Lançamento de Qualidade' : 'Novo Lançamento de Plantio';
+    }
 
     const tipoOp = document.getElementById('tipo-operacao');
     if (tipoOp) {
-        tipoOp.value = 'plantio';
+        // Se for modo normal, reseta para plantio
+        // Se for modo qualidade, o toggleOperacaoSections vai cuidar de esconder o select e forçar o tipo lógico
+        if (!this.isQualidadeMode) {
+            tipoOp.value = 'plantio';
+        }
         this.toggleOperacaoSections();
     }
 
@@ -10823,7 +11229,13 @@ InsumosApp.prototype.handleEditPlantio = function(id) {
     const record = this.plantioDia.find(r => String(r.id) === String(id));
     if (!record) return;
 
-    this.resetPlantioForm();
+    // Determine type FIRST
+    const tipoOp = record.tipo_operacao || (record.qualidade && record.qualidade.tipoOperacao) || 'plantio';
+    
+    // Call reset with correct mode
+    const mode = (tipoOp === 'qualidade_muda') ? 'qualidade' : 'normal';
+    this.resetPlantioForm(mode);
+
     this.currentPlantioId = record.id;
     console.log('Editando Plantio:', record);
 
@@ -10839,8 +11251,11 @@ InsumosApp.prototype.handleEditPlantio = function(id) {
     set('plantio-obs', record.observacoes);
 
     // Tipo de Operação
-    const tipoOp = record.tipo_operacao || (record.qualidade && record.qualidade.tipoOperacao) || 'plantio';
-    set('tipo-operacao', tipoOp);
+    // Only set if option exists (for plantio/colheita). For qualidade, toggle logic handles it.
+    if (tipoOp !== 'qualidade_muda') {
+        set('tipo-operacao', tipoOp);
+    }
+    
     // Disparar evento para ajustar visibilidade das seções
     const tipoOpEl = document.getElementById('tipo-operacao');
     if (tipoOpEl) {
@@ -11035,7 +11450,7 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
         qualEquipamentoTrator: document.getElementById('qual-equipamento-trator')?.value || '',
         qualEquipamentoPlantadora: document.getElementById('qual-equipamento-plantadora')?.value || '',
         qualOperador: document.getElementById('qual-operador')?.value || '',
-        qualMatricula: document.getElementById('qual-matricula')?.value || '',
+        qualMatricula: document.getElementById('qual-matricula-header')?.value || document.getElementById('qual-matricula')?.value || '',
         tipoOperacao: tipoOperacao // Persist in JSONB to avoid schema issues
     };
     let fazendaNome = document.getElementById('single-fazenda')?.value || '';
@@ -11081,6 +11496,35 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
         insumos: this.plantioInsumosDraft.slice(),
         qualidade
     };
+    
+    // Auto-Aggregation Logic for Quality Mode
+    if (this.isQualidadeMode && !this.currentPlantioId) {
+        try {
+            const found = await this.api.findPlantioByDataFrente(data, frenteKey);
+            if (found && found.success && found.data) {
+                const rec = found.data;
+                console.log('Registro existente encontrado para agregação:', rec);
+                this.currentPlantioId = rec.id;
+                
+                // Preserve existing data that shouldn't be overwritten by Quality form
+                // Only overwrite if we actually have drafts (which we shouldn't in quality mode)
+                if ((!this.plantioInsumosDraft || this.plantioInsumosDraft.length === 0) && rec.insumos) {
+                    payload.insumos = rec.insumos;
+                }
+                
+                // Merge observations
+                if (rec.observacoes && payload.observacoes && !rec.observacoes.includes(payload.observacoes)) {
+                    payload.observacoes = rec.observacoes + ' | ' + payload.observacoes;
+                } else if (rec.observacoes) {
+                    payload.observacoes = rec.observacoes;
+                }
+                
+                this.ui.showNotification('Agregando dados de qualidade ao registro existente.', 'info');
+            }
+        } catch (e) {
+            console.error('Erro ao buscar registro existente:', e);
+        }
+    }
     
     try {
         let res;
