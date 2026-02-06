@@ -10368,18 +10368,15 @@ InsumosApp.prototype.updateGemasPercent = function(triggerEl) {
 
 InsumosApp.prototype.loadLiberacoesForSelect = async function() {
     // Targets: muda-colheita-info (Qualidade/Colheita) AND muda-liberacao-fazenda (Plantio)
-    const targets = [
-        { selectId: 'muda-colheita-info', filterId: 'filter-liberacao' },
-        { selectId: 'muda-liberacao-fazenda', filterId: 'filter-muda-liberacao-fazenda' }
-    ];
+    const targets = ['muda-colheita-info', 'muda-liberacao-fazenda'];
     
     // Filter active targets
-    const activeTargets = targets.filter(t => document.getElementById(t.selectId));
+    const activeTargets = targets.filter(id => document.getElementById(id));
     if (activeTargets.length === 0) return;
     
     // Set loading
-    activeTargets.forEach(t => {
-        const el = document.getElementById(t.selectId);
+    activeTargets.forEach(id => {
+        const el = document.getElementById(id);
         if (el) el.innerHTML = '<option value="">Carregando...</option>';
     });
     
@@ -10410,35 +10407,23 @@ InsumosApp.prototype.loadLiberacoesForSelect = async function() {
             };
 
             // Process each target
-            activeTargets.forEach(t => {
-                const selectEl = document.getElementById(t.selectId);
-                const filterEl = document.getElementById(t.filterId);
+            activeTargets.forEach(id => {
+                const selectEl = document.getElementById(id);
                 
                 if (selectEl) {
                     renderOptions(list, selectEl);
                     
                     // Attach change listener via closure to capture ID
                     selectEl.onchange = () => {
-                        this.onLiberacaoSelectChange(t.selectId);
-                    };
-                }
-
-                if (filterEl) {
-                    filterEl.oninput = (e) => {
-                        const term = e.target.value.toLowerCase();
-                        const filtered = list.filter(lib => {
-                            const searchStr = `${lib.numero_liberacao || ''} ${lib.data || ''} ${lib.fazenda || ''} ${lib.frente || ''} ${JSON.stringify(lib.talhoes || '')}`.toLowerCase();
-                            return searchStr.includes(term);
-                        });
-                        if (selectEl) renderOptions(filtered, selectEl);
+                        this.onLiberacaoSelectChange(id);
                     };
                 }
             });
         }
     } catch (e) {
         console.error('Erro ao carregar liberações:', e);
-        activeTargets.forEach(t => {
-            const el = document.getElementById(t.selectId);
+        activeTargets.forEach(id => {
+            const el = document.getElementById(id);
             if (el) el.innerHTML = '<option value="">Erro ao carregar</option>';
         });
     }
