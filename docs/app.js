@@ -10367,71 +10367,127 @@ InsumosApp.prototype.updateGemasPercent = function(triggerEl) {
 };
 
 InsumosApp.prototype.loadLiberacoesForSelect = async function() {
-    const select = document.getElementById('muda-colheita-info');
-    if (!select) return;
+    // Targets: muda-colheita-info (Qualidade/Colheita) AND muda-liberacao-fazenda (Plantio)
+    const targets = [
+        { selectId: 'muda-colheita-info', filterId: 'filter-liberacao' },
+        { selectId: 'muda-liberacao-fazenda', filterId: 'filter-muda-liberacao-fazenda' }
+    ];
     
-    select.innerHTML = '<option value="">Carregando...</option>';
+    // Filter active targets
+    const activeTargets = targets.filter(t => document.getElementById(t.selectId));
+    if (activeTargets.length === 0) return;
+    
+    // Set loading
+    activeTargets.forEach(t => {
+        const el = document.getElementById(t.selectId);
+        if (el) el.innerHTML = '<option value="">Carregando...</option>';
+    });
     
     try {
         const res = await this.api.getLiberacaoColheita();
-        select.innerHTML = '<option value="">Selecione...</option>';
         
         if (res && res.success && Array.isArray(res.data)) {
-            // Sort by date desc
             const list = res.data;
             this.liberacaoCache = list; 
             
-            list.forEach(lib => {
-                const opt = document.createElement('option');
-                opt.value = lib.id;
-                const dateStr = this.ui.formatDateBR(lib.data);
-                // Display: Data | Fazenda | Frente | Status
-                opt.textContent = `${lib.numero_liberacao || lib.id} | ${dateStr} | ${lib.fazenda} | ${lib.frente}`;
-                select.appendChild(opt);
+            const renderOptions = (items, selectEl) => {
+                selectEl.innerHTML = '<option value="">Selecione...</option>';
+                items.forEach(lib => {
+                    const opt = document.createElement('option');
+                    // Use Number as value for consistency with text fields
+                    opt.value = lib.numero_liberacao || lib.id;
+                    const dateStr = this.ui.formatDateBR(lib.data);
+                    
+                    let variety = '';
+                    if (Array.isArray(lib.talhoes) && lib.talhoes.length > 0) {
+                        const vars = [...new Set(lib.talhoes.map(t => t.variedade).filter(Boolean))];
+                        if (vars.length > 0) variety = ` | ${vars.join(', ')}`;
+                    }
+
+                    opt.textContent = `${lib.numero_liberacao || lib.id} | ${dateStr} | ${lib.fazenda} | ${lib.frente}${variety}`;
+                    selectEl.appendChild(opt);
+                });
+            };
+
+            // Process each target
+            activeTargets.forEach(t => {
+                const selectEl = document.getElementById(t.selectId);
+                const filterEl = document.getElementById(t.filterId);
+                
+                if (selectEl) {
+                    renderOptions(list, selectEl);
+                    
+                    // Attach change listener via closure to capture ID
+                    selectEl.onchange = () => {
+                        this.onLiberacaoSelectChange(t.selectId);
+                    };
+                }
+
+                if (filterEl) {
+                    filterEl.oninput = (e) => {
+                        const term = e.target.value.toLowerCase();
+                        const filtered = list.filter(lib => {
+                            const searchStr = `${lib.numero_liberacao || ''} ${lib.data || ''} ${lib.fazenda || ''} ${lib.frente || ''} ${JSON.stringify(lib.talhoes || '')}`.toLowerCase();
+                            return searchStr.includes(term);
+                        });
+                        if (selectEl) renderOptions(filtered, selectEl);
+                    };
+                }
             });
         }
     } catch (e) {
         console.error('Erro ao carregar liberações:', e);
-        select.innerHTML = '<option value="">Erro ao carregar</option>';
+        activeTargets.forEach(t => {
+            const el = document.getElementById(t.selectId);
+            if (el) el.innerHTML = '<option value="">Erro ao carregar</option>';
+        });
     }
 };
 
-InsumosApp.prototype.onLiberacaoSelectChange = function() {
-    const select = document.getElementById('muda-colheita-info');
+InsumosApp.prototype.onLiberacaoSelectChange = function(triggerId) {
+    // Default to the main one if no triggerId provided (legacy support)
+    if (!triggerId) triggerId = 'muda-colheita-info';
+
+    const select = document.getElementById(triggerId);
     if (!select) return;
-    const id = select.value;
-    if (!id || !this.liberacaoCache) return;
+    const val = select.value;
+    if (!val || !this.liberacaoCache) return;
     
-    const lib = this.liberacaoCache.find(l => String(l.id) === String(id));
+    const lib = this.liberacaoCache.find(l => 
+        String(l.numero_liberacao) === String(val) || String(l.id) === String(val)
+    );
     if (!lib) return;
     
-    const fazendaEl = document.getElementById('muda-liberacao-fazenda'); // Note: index.html might have different ID, let's check.
-    // In index.html: <input type="text" id="muda-fazenda-origem">
-    // <input type="text" id="muda-talhao-origem">
-    // <input type="text" id="qual-muda-liberacao">
-    // <input type="text" id="qual-muda-variedade">
+    // Extract Variety
+    let variety = '';
+    if (Array.isArray(lib.talhoes) && lib.talhoes.length > 0) {
+        const vars = [...new Set(lib.talhoes.map(t => t.variedade).filter(Boolean))];
+        if (vars.length > 0) variety = vars.join(', ');
+    }
     
-    const libEl = document.getElementById('qual-muda-liberacao');
-    const fazendaOrigemEl = document.getElementById('muda-fazenda-origem');
-    const talhaoOrigemEl = document.getElementById('muda-talhao-origem');
-    const varEl = document.getElementById('qual-muda-variedade');
-    
-    if (libEl) libEl.value = lib.numero_liberacao || lib.id;
-    if (fazendaOrigemEl) fazendaOrigemEl.value = lib.fazenda;
-    if (talhaoOrigemEl) talhaoOrigemEl.value = lib.frente; // Or logic to extract from talhoes? User said "puxar liberação e as outras informações... liberação, fazenda, talhão, etc."
-    
-    // If talhoes list exists, maybe we can't map 1:1 to a single field unless we pick one.
-    // Assuming 'frente' acts as the main location identifier or we list talhoes.
-    // If 'talhoes' is JSONB array:
-    if (varEl && Array.isArray(lib.talhoes) && lib.talhoes.length > 0) {
-        const vars = [...new Set(lib.talhoes.map(x => x.variedade).filter(Boolean))];
-        if (vars.length > 0) varEl.value = vars.join(', ');
+    // Extract Talhao/Frente
+    let talhao = lib.frente || '';
+    if (!talhao && Array.isArray(lib.talhoes) && lib.talhoes.length > 0) {
+         const tals = [...new Set(lib.talhoes.map(x => x.talhao).filter(Boolean))];
+         if (tals.length > 0) talhao = tals.join(', ');
+    }
+
+    if (triggerId === 'muda-colheita-info') {
+        // Logic for Colheita/Qualidade Mode
+        const libEl = document.getElementById('qual-muda-liberacao');
+        const fazendaOrigemEl = document.getElementById('muda-fazenda-origem');
+        const talhaoOrigemEl = document.getElementById('muda-talhao-origem');
+        const varEl = document.getElementById('qual-muda-variedade');
         
-        // Also update talhao if not set by frente
-        if (talhaoOrigemEl && (!lib.frente || lib.frente === '')) {
-             const tals = [...new Set(lib.talhoes.map(x => x.talhao).filter(Boolean))];
-             if (tals.length > 0) talhaoOrigemEl.value = tals.join(', ');
-        }
+        if (libEl) libEl.value = lib.numero_liberacao || lib.id;
+        if (fazendaOrigemEl) fazendaOrigemEl.value = lib.fazenda;
+        if (talhaoOrigemEl) talhaoOrigemEl.value = talhao;
+        if (varEl) varEl.value = variety;
+
+    } else if (triggerId === 'muda-liberacao-fazenda') {
+        // Logic for Plantio de Cana Mode
+        const varEl = document.getElementById('muda-variedade');
+        if (varEl) varEl.value = variety;
     }
 };
 
@@ -10885,6 +10941,68 @@ InsumosApp.prototype.validatePlantioStep = function(step) {
 
         if (!valid) {
             this.ui.showNotification('Preencha os campos obrigatórios (*)', 'warning');
+            return false;
+        }
+    }
+
+    // Validation for Step 3
+    if (step === 3) {
+        let valid = true;
+
+        // Validar #muda-liberacao-fazenda (Plantio de Cana)
+        const libFazenda = document.getElementById('muda-liberacao-fazenda');
+        const libFazendaContainer = libFazenda?.closest('.form-group');
+        // Check visibility: offsetParent is null if hidden
+        if (libFazenda && libFazendaContainer && libFazendaContainer.offsetParent !== null) {
+             if (!libFazenda.value) {
+                 libFazenda.classList.add('input-error');
+                 let msg = document.getElementById('msg-muda-liberacao-fazenda');
+                 if (!msg) {
+                     msg = document.createElement('small');
+                     msg.id = 'msg-muda-liberacao-fazenda';
+                     msg.className = 'text-danger validation-msg';
+                     msg.textContent = 'Selecione a Liberação da Fazenda';
+                     msg.style.display = 'block';
+                     libFazenda.parentNode.appendChild(msg);
+                 } else {
+                     msg.style.display = 'block';
+                 }
+                 valid = false;
+             } else {
+                 libFazenda.classList.remove('input-error');
+                 const msg = document.getElementById('msg-muda-liberacao-fazenda');
+                 if (msg) msg.style.display = 'none';
+             }
+        }
+
+        // Validar #muda-colheita-info (Colheita de Muda)
+        const colheitaInfo = document.getElementById('muda-colheita-info');
+        const colheitaInfoContainer = colheitaInfo?.closest('.form-group');
+        
+        if (colheitaInfo && colheitaInfoContainer && colheitaInfoContainer.offsetParent !== null) {
+            if (!colheitaInfo.value) {
+                colheitaInfo.classList.add('input-error');
+                 let msg = document.getElementById('msg-muda-colheita-info');
+                 if (!msg) {
+                     msg = document.createElement('small');
+                     msg.id = 'msg-muda-colheita-info';
+                     msg.className = 'text-danger validation-msg';
+                     msg.textContent = 'Selecione a Liberação de Colheita';
+                     msg.style.display = 'block';
+                     colheitaInfo.parentNode.appendChild(msg);
+                 } else {
+                     msg.style.display = 'block';
+                 }
+                valid = false;
+            } else {
+                colheitaInfo.classList.remove('input-error');
+                const msg = document.getElementById('msg-muda-colheita-info');
+                if (msg) msg.style.display = 'none';
+            }
+        }
+
+        if (!valid) {
+            this.ui.showNotification('Preencha os campos obrigatórios de qualidade.', 'warning');
             return false;
         }
     }
@@ -11522,7 +11640,7 @@ InsumosApp.prototype.resetPlantioForm = function(mode = 'normal') {
     this.updatePlantioSummary();
 };
 
-InsumosApp.prototype.handleEditPlantio = function(id) {
+InsumosApp.prototype.handleEditPlantio = async function(id) {
     if (!this.plantioDia) return;
     const record = this.plantioDia.find(r => String(r.id) === String(id));
     if (!record) return;
@@ -11533,6 +11651,9 @@ InsumosApp.prototype.handleEditPlantio = function(id) {
     // Call reset with correct mode
     const mode = (tipoOp === 'qualidade_muda') ? 'qualidade' : 'normal';
     this.resetPlantioForm(mode);
+
+    // Ensure quality options are loaded before setting values
+    await this.loadLiberacoesForSelect();
 
     this.currentPlantioId = record.id;
     console.log('Editando Plantio:', record);
