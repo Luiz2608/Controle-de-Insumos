@@ -1427,3 +1427,26 @@ body.dark-mode #novo-lancamento-modal h3,
 body.dark-mode #novo-lancamento-modal h4 {
     color: #e0e0e0 !important;
 }
+
+/* Badges for record types */
+.badge {
+    display: inline-block;
+    padding: 0.35em 0.65em;
+    font-size: 0.75em;
+    font-weight: 700;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: baseline;
+    border-radius: 0.25rem;
+    color: #fff;
+}
+
+.badge-info {
+    background-color: var(--info, #17a2b8);
+}
+
+.badge-warning {
+    background-color: var(--warning, #ffc107);
+    color: #212529;
+}

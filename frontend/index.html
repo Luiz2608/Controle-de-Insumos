@@ -196,8 +196,8 @@
             </div>
 
             <!-- Permissions Modal -->
-            <div id="permissions-modal" class="modal" style="display: none; z-index: 10001;">
-                <div class="modal-content" style="max-width: 500px;">
+            <div id="permissions-modal" class="modal" style="display: none; z-index: 10001; align-items: center; justify-content: center;">
+                <div class="modal-content" style="max-width: 500px; max-height: 85vh; overflow-y: auto; margin: auto;">
                     <div class="modal-header">
                         <h3>🔒 Permissões de Acesso</h3>
                         <button class="close-modal close-permissions-modal">&times;</button>
@@ -211,8 +211,25 @@
                             <div class="form-group">
                                 <label><input type="checkbox" name="perm_plantio" value="plantio-dia"> Plantio</label>
                             </div>
+                            <!-- Sub-abas Plantio -->
+                            <div class="form-group" style="margin-left: 20px; border-left: 2px solid #eee; padding-left: 10px;">
+                                <label style="font-size: 0.9em; color: #555;"><input type="checkbox" name="perm_sub_plantio" value="sub_plantio"> ↳ Plantio de Cana</label>
+                            </div>
+                            <div class="form-group" style="margin-left: 20px; border-left: 2px solid #eee; padding-left: 10px;">
+                                <label style="font-size: 0.9em; color: #555;"><input type="checkbox" name="perm_sub_colheita" value="sub_colheita_muda"> ↳ Colheita de Muda</label>
+                            </div>
+                            <div class="form-group" style="margin-left: 20px; border-left: 2px solid #eee; padding-left: 10px;">
+                                <label style="font-size: 0.9em; color: #555;"><input type="checkbox" name="perm_sub_qualidade" value="sub_qualidade_muda"> ↳ Qualidade de Muda</label>
+                            </div>
                             <div class="form-group">
                                 <label><input type="checkbox" name="perm_viagens" value="viagens-adubo"> Viagens Adubo</label>
+                            </div>
+                            <!-- Sub-abas Viagens Adubo -->
+                            <div class="form-group" style="margin-left: 20px; border-left: 2px solid #eee; padding-left: 10px;">
+                                <label style="font-size: 0.9em; color: #555;"><input type="checkbox" name="perm_sub_viagem_adubo" value="sub_viagem_adubo"> ↳ Transporte de Adubo</label>
+                            </div>
+                            <div class="form-group" style="margin-left: 20px; border-left: 2px solid #eee; padding-left: 10px;">
+                                <label style="font-size: 0.9em; color: #555;"><input type="checkbox" name="perm_sub_viagem_composto" value="sub_viagem_composto"> ↳ Transporte de Composto</label>
                             </div>
                             <div class="form-group">
                                 <label><input type="checkbox" name="perm_insumos" value="insumos-fazendas"> Insumos</label>
@@ -220,6 +237,7 @@
                             <div class="form-group">
                                 <label><input type="checkbox" name="perm_estoque" value="estoque"> Estoque</label>
                             </div>
+
                             <div style="margin-top: 15px; display: flex; justify-content: flex-end; gap: 10px;">
                                 <button type="button" class="btn btn-secondary close-permissions-modal">Cancelar</button>
                                 <button type="submit" class="btn btn-primary">Salvar Permissões</button>
@@ -1035,11 +1053,14 @@
                     <button class="plantio-tab-btn" data-tab="colheita_muda" style="background: none; border: none; padding: 10px 5px; font-weight: 600; color: #666; border-bottom: 3px solid transparent; cursor: pointer; font-size: 1rem;">
                         🌾 Colheita de Muda
                     </button>
+                    <button class="plantio-tab-btn" data-tab="qualidade_muda" style="background: none; border: none; padding: 10px 5px; font-weight: 600; color: #666; border-bottom: 3px solid transparent; cursor: pointer; font-size: 1rem;">
+                        🧬 Qualidade de Muda
+                    </button>
                 </div>
 
                 <div class="table-container" style="flex: 1; overflow-y: auto;">
                     <table class="data-table">
-                        <thead>
+                        <thead id="plantio-table-head">
                             <tr>
                                 <th>Data</th>
                                 <th>Frentes</th>
@@ -1622,8 +1643,6 @@
                     <button class="step-btn active" data-step="1">1. Dados Operacionais</button>
                     <button class="step-btn" data-step="2">2. Insumos</button>
                     <button class="step-btn" data-step="3">3. Qualidade</button>
-                    <!-- Botão para ver histórico de Qualidade (só visível em modo Qualidade) -->
-                    <button id="btn-qualidade-historico" class="btn btn-secondary" style="display: none; margin-left: auto; background-color: #6c757d; color: white;">📋 Ver Histórico</button>
                 </div>
 
                 <!-- Step 1 Content -->
@@ -1806,7 +1825,20 @@
                 <!-- Step 3 Content -->
                 <div class="step-content" data-step="3">
                     
-                    <!-- Qualidade Type Toggle moved to Step 1 -->
+                    <!-- Container para Seleção de Qualidade (Apenas modo Plantio) -->
+                    <div id="qualidade-selection-container" class="chart-card form-card" style="display: none;">
+                        <h4 class="section-title">Vincular Qualidade de Muda</h4>
+                        <p class="text-muted">Selecione um registro de qualidade lançado anteriormente para vincular a este plantio.</p>
+                        
+                        <div id="qualidade-records-list" class="records-list-container" style="max-height: 300px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; padding: 10px;">
+                            <!-- Lista populada via JS -->
+                            <div class="text-center p-3 text-muted">Nenhum registro de qualidade encontrado para esta data/frente.</div>
+                        </div>
+                        <input type="hidden" id="selected-qualidade-id">
+                    </div>
+
+                    <!-- Container Manual (Escondido no modo Plantio, Visível no modo Qualidade) -->
+                    <div id="qualidade-manual-content">
 
                     <!-- Equipe e Equipamentos (Comum) -->
                     <div class="chart-card form-card">
@@ -1919,7 +1951,7 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    </div><!-- End qualidade-manual-content part 1 -->
 
                     <!-- Muda Consumo -->
                     <div class="chart-card form-card" id="sec-muda-consumo-card">
@@ -1953,10 +1985,9 @@
                     </div>
 
                     <!-- Qualidade Muda -->
-                    <div class="chart-card form-card">
+                    <div class="chart-card form-card qualidade-manual-block">
                          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">
                             <h4 class="section-title" style="margin: 0; border: none; padding: 0;">Origem & Qualidade da Muda</h4>
-                            <button id="btn-qualidade-historico" class="btn btn-secondary btn-sm" style="background-color: #6c757d; color: white;">📋 Ver Histórico</button>
                          </div>
                          <div class="modal-subsection" id="sec-mudas">
                             <div class="modal-form-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
@@ -2381,8 +2412,8 @@
         });
     </script>
     <!-- Modal Lista Qualidade de Muda (Histórico) -->
-    <div id="qualidade-list-modal" class="modal" style="display: none; z-index: 1060;">
-        <div class="modal-content" style="max-width: 900px;">
+    <div id="qualidade-list-modal" class="modal" style="display: none; z-index: 1100;">
+        <div class="modal-content" style="max-width: 900px; max-height: 90vh;">
             <div class="modal-header">
                 <h3>Histórico de Qualidade de Muda</h3>
                 <button class="close-modal" onclick="document.getElementById('qualidade-list-modal').style.display='none'">&times;</button>

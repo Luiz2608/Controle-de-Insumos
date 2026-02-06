@@ -1173,6 +1173,52 @@ class ApiService {
         return { success: true, data: null };
     }
 
+    async getQualidadeRecords(dataStr, frente) {
+        this.checkConfig();
+        // Remove filter by tipoOperacao to get ALL potential quality records, filtering in JS if needed
+        let query = this.supabase
+            .from('plantio_diario')
+            .select('*, equipamento_operador(*)')
+            .not('qualidade', 'is', null); // Fetch records that have ANY quality data
+
+        if (dataStr) {
+            query = query.eq('data', dataStr);
+        }
+        // Se a frente for fornecida, podemos filtrar. 
+        // Como 'frentes' é JSONB, usamos contains.
+        if (frente) {
+             query = query.contains('frentes', JSON.stringify([{ frente: String(frente) }]));
+        }
+
+        const { data, error } = await query;
+
+        if (error) {
+            console.error('Erro ao buscar registros de qualidade:', error);
+            return { success: false, message: error.message };
+        }
+        
+        // Mapear equipamento se vier aninhado (depende da query join, mas select * traz tudo do plantio)
+        // O join 'equipamento_operador(*)' vai trazer um array (ou null).
+        // Precisamos tratar isso.
+        
+        const mapped = data.map(record => {
+             const equip = (record.equipamento_operador && record.equipamento_operador.length > 0) 
+                 ? record.equipamento_operador[0] 
+                 : null;
+                 
+             if (equip) {
+                 record.qualidade = record.qualidade || {};
+                 record.qualidade.qualEquipamentoTrator = equip.trator;
+                 record.qualidade.qualEquipamentoPlantadora = equip.plantadora_colhedora;
+                 record.qualidade.qualOperador = equip.operador;
+                 record.qualidade.qualMatricula = equip.matricula;
+             }
+             return record;
+        });
+
+        return { success: true, data: mapped };
+    }
+
     async addPlantioDia(payload) {
         this.checkConfig();
         const item = {
