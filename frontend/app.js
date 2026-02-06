@@ -5245,9 +5245,6 @@ forceReloadAllData() {
         if (mudasReboulosBons) mudasReboulosBons.addEventListener('input', bindMudas);
         if (mudasReboulosRuins) mudasReboulosRuins.addEventListener('input', bindMudas);
 
-        const mudaColheitaSelect = document.getElementById('muda-colheita-info');
-        if (mudaColheitaSelect) mudaColheitaSelect.addEventListener('change', () => this.onLiberacaoSelectChange());
-
         const singleFrente = document.getElementById('single-frente');
         const singleOs = document.getElementById('single-os');
 
@@ -10374,6 +10371,13 @@ InsumosApp.prototype.loadLiberacoesForSelect = async function() {
     const activeTargets = targets.filter(id => document.getElementById(id));
     if (activeTargets.length === 0) return;
     
+    // Save current values to restore after loading if valid
+    const currentValues = {};
+    activeTargets.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) currentValues[id] = el.value;
+    });
+
     // Set loading
     activeTargets.forEach(id => {
         const el = document.getElementById(id);
@@ -10391,8 +10395,8 @@ InsumosApp.prototype.loadLiberacoesForSelect = async function() {
                 selectEl.innerHTML = '<option value="">Selecione...</option>';
                 items.forEach(lib => {
                     const opt = document.createElement('option');
-                    // Use Number as value for consistency with text fields
-                    opt.value = lib.numero_liberacao || lib.id;
+                    // Force String for consistency
+                    opt.value = String(lib.numero_liberacao || lib.id);
                     const dateStr = this.ui.formatDateBR(lib.data);
                     
                     let variety = '';
@@ -10413,6 +10417,11 @@ InsumosApp.prototype.loadLiberacoesForSelect = async function() {
                 if (selectEl) {
                     renderOptions(list, selectEl);
                     
+                    // Restore value if it exists in the new options
+                    if (currentValues[id]) {
+                         selectEl.value = currentValues[id];
+                    }
+
                     // Attach change listener via closure to capture ID
                     selectEl.onchange = () => {
                         this.onLiberacaoSelectChange(id);
@@ -10438,8 +10447,9 @@ InsumosApp.prototype.onLiberacaoSelectChange = function(triggerId) {
     const val = select.value;
     if (!val || !this.liberacaoCache) return;
     
+    // Robust comparison using String
     const lib = this.liberacaoCache.find(l => 
-        String(l.numero_liberacao) === String(val) || String(l.id) === String(val)
+        String(l.numero_liberacao || l.id) === String(val)
     );
     if (!lib) return;
     
@@ -11008,6 +11018,10 @@ InsumosApp.prototype.goToPlantioStep = function(step) {
     // Load Quality Records if entering Step 3 in Plantio or Colheita mode
             if (step === 3 && (tipo === 'plantio' || tipo === 'colheita_muda') && !this.isQualidadeMode) {
                 this.loadQualidadeRecords(tipo);
+                // Also load dropdown options for Colheita de Muda
+                if (tipo === 'colheita_muda') {
+                    this.loadLiberacoesForSelect();
+                }
             }
             
             if (isLastStep) {
