@@ -10367,8 +10367,8 @@ InsumosApp.prototype.updateGemasPercent = function(triggerEl) {
 };
 
 InsumosApp.prototype.loadLiberacoesForSelect = async function() {
-    // Targets: muda-colheita-info (Qualidade/Colheita) AND muda-liberacao-fazenda (Plantio)
-    const targets = ['muda-colheita-info', 'muda-liberacao-fazenda'];
+    // Targets: muda-colheita-info (Qualidade/Colheita)
+    const targets = ['muda-colheita-info'];
     
     // Filter active targets
     const activeTargets = targets.filter(id => document.getElementById(id));
@@ -10933,32 +10933,6 @@ InsumosApp.prototype.validatePlantioStep = function(step) {
     // Validation for Step 3
     if (step === 3) {
         let valid = true;
-
-        // Validar #muda-liberacao-fazenda (Plantio de Cana)
-        const libFazenda = document.getElementById('muda-liberacao-fazenda');
-        const libFazendaContainer = libFazenda?.closest('.form-group');
-        // Check visibility: offsetParent is null if hidden
-        if (libFazenda && libFazendaContainer && libFazendaContainer.offsetParent !== null) {
-             if (!libFazenda.value) {
-                 libFazenda.classList.add('input-error');
-                 let msg = document.getElementById('msg-muda-liberacao-fazenda');
-                 if (!msg) {
-                     msg = document.createElement('small');
-                     msg.id = 'msg-muda-liberacao-fazenda';
-                     msg.className = 'text-danger validation-msg';
-                     msg.textContent = 'Selecione a Liberação da Fazenda';
-                     msg.style.display = 'block';
-                     libFazenda.parentNode.appendChild(msg);
-                 } else {
-                     msg.style.display = 'block';
-                 }
-                 valid = false;
-             } else {
-                 libFazenda.classList.remove('input-error');
-                 const msg = document.getElementById('msg-muda-liberacao-fazenda');
-                 if (msg) msg.style.display = 'none';
-             }
-        }
 
         // Validar #muda-colheita-info (Colheita de Muda)
         const colheitaInfo = document.getElementById('muda-colheita-info');
