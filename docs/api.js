@@ -1893,11 +1893,11 @@ class ApiService {
                         continue;
                     }
 
-                    if (response.status === 400 || response.status === 403) {
+                    if (response.status === 400 || response.status === 403 || response.status === 429) {
                         const errText = await response.text();
-                        console.error('Gemini Auth/Request Error:', errText);
-                        if (errText.includes('API_KEY_INVALID') || errText.includes('API Key not found')) {
-                            console.warn('Chave API inválida. Solicitando nova...');
+                        console.error('Gemini Auth/Request/Quota Error:', errText);
+                        if (response.status === 429 || errText.includes('API_KEY_INVALID') || errText.includes('API Key not found')) {
+                            console.warn('Chave API inválida ou Cota Excedida (429). Solicitando nova...');
                             localStorage.removeItem('geminiApiKey');
                             retryWithNewKey = true;
                             if (i === maxRetries - 1) i--;
