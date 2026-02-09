@@ -1784,15 +1784,55 @@ class ApiService {
         return { success: true, data: data[0] };
     }
 
+    // === SYSTEM SETTINGS ===
+
+    async getGeminiApiKey() {
+        // 1. Tentar cache local da instância
+        if (this._cachedGeminiKey) return this._cachedGeminiKey;
+
+        // 2. Tentar localStorage (dev/override - prioridade para testes locais)
+        let key = localStorage.getItem('gemini_api_key');
+        if (key) {
+            this._cachedGeminiKey = key;
+            return key;
+        }
+
+        // 3. Tentar Supabase (Production - tabela system_settings)
+        if (this.supabase) {
+            try {
+                const { data, error } = await this.supabase
+                    .from('system_settings')
+                    .select('value')
+                    .eq('key', 'gemini_api_key')
+                    .single();
+                
+                if (data && data.value) {
+                    this._cachedGeminiKey = data.value;
+                    return data.value;
+                }
+            } catch (err) {
+                console.warn('Erro ao buscar chave Gemini do Supabase:', err);
+            }
+        }
+
+        // 4. Config global (legado/fallback)
+        if (window.API_CONFIG && window.API_CONFIG.geminiKey) {
+            return window.API_CONFIG.geminiKey;
+        }
+
+        return null;
+    }
+
     // === AI ANALYSIS ===
 
     async analyzeImage(file) {
         this.checkConfig();
-        // Use key from global config (preferred) or localStorage (standardized key)
-        const geminiKey = (window.API_CONFIG && window.API_CONFIG.geminiKey) || localStorage.getItem('gemini_api_key');
+        
+        // Obter chave de forma segura (Supabase > LocalStorage > Config)
+        const geminiKey = await this.getGeminiApiKey();
         
         if (!geminiKey) {
-            return { success: false, message: 'Chave da API Gemini não configurada. Vá em "Mais Ações" > "Configurações" para adicionar sua chave.' };
+            return { success: false, message: 'Chave da API Gemini não encontrada no sistema. Contate o administrador.' };
         }
 
         try {
@@ -1807,8 +1847,8 @@ class ApiService {
                 reader.readAsDataURL(file);
             });
 
-            // Prepare request for Gemini 2.0 Flash
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`;
+            // Prepare request for Gemini 3.0 (updated per user request)
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.0-flash:generateContent?key=${geminiKey}`;
             
             const payload = {
                 contents: [{
