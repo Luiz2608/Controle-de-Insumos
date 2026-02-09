@@ -1115,6 +1115,7 @@
             <div class="modal-body" id="plantio-detail-body"></div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" onclick="document.getElementById('plantio-detail-modal').style.display='none'">Fechar</button>
+                <button type="button" class="btn btn-primary" id="plantio-detail-print-btn">🖨️ Imprimir</button>
             </div>
         </div>
     </div>
@@ -1867,6 +1868,31 @@
                     <div class="chart-card form-card">
                         <h4 class="section-title">Qualidade de Plantio</h4>
                         
+                        <!-- AI Analysis Section -->
+                        <div class="ai-analysis-container">
+                            <h5>🤖 Análise de IA (Gemas/Toletes)</h5>
+                            <p>Tire uma foto da amostra no chão para contagem automática.</p>
+                            
+                            <div class="ai-controls">
+                                <div class="ai-actions">
+                                    <input type="file" id="ai-image-input" accept="image/*" capture="environment" style="display: none;">
+                                    <button type="button" class="btn btn-secondary" onclick="document.getElementById('ai-image-input').click()" style="width: 100%; margin-bottom: 5px;">
+                                        📸 Tirar Foto / Upload
+                                    </button>
+                                    <button type="button" class="btn btn-primary" id="btn-analyze-image" style="width: 100%;" disabled>
+                                        ✨ Analisar com IA
+                                    </button>
+                                </div>
+                                <div class="ai-preview-box">
+                                    <img id="ai-image-preview" style="max-width: 100%; max-height: 100%; display: none;">
+                                    <span id="ai-preview-placeholder" class="ai-preview-placeholder">🖼️</span>
+                                </div>
+                            </div>
+                            <div id="ai-loading" class="ai-loading">
+                                ⏳ Processando imagem... <span id="ai-progress">0%</span>
+                            </div>
+                        </div>
+
                         <!-- Gemas -->
                         <div class="modal-subsection" id="sec-gemas">
                             <h5 style="margin: 0 0 8px 0; color: #666; font-weight: 600;">🧬 Gemas</h5>

@@ -4,6 +4,7 @@ const path = require('path');
 const bodyParser = require('body-parser');
 require('dotenv').config();
 const supabase = require('./config/supabase');
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 // Importar rotas existentes (mantendo compatibilidade)
 // Note: importRoutes é usado para processamento de arquivo temporário
@@ -92,6 +93,63 @@ function requireAuth(req, res, next) {
 // Health check
 app.get('/api/health', (req, res) => {
     res.json({ success: true, message: 'API Supabase funcionando!' });
+});
+
+// === Rota de IA (Gemini) ===
+app.post('/api/analyze-image', async (req, res) => {
+    try {
+        const { imageBase64 } = req.body;
+        if (!imageBase64) return res.status(400).json({ success: false, message: 'Imagem não fornecida' });
+
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (!apiKey) return res.status(500).json({ success: false, message: 'Chave de API do Gemini não configurada no servidor (.env)' });
+
+        const genAI = new GoogleGenerativeAI(apiKey);
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+        // Clean base64 string (remove "data:image/jpeg;base64," prefix)
+        const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
+
+        const prompt = `Analise esta imagem de plantio de cana-de-açúcar (ou amostra de solo/mudas).
+        Objetivo: Contar as gemas (buds) visíveis e os toletes (setts).
+        1. Conte o total de gemas e tente classificar como 'boas' (viáveis) ou 'ruins' (danificadas/secas).
+        2. Conte o total de toletes e classifique como 'bons' ou 'ruins'.
+        
+        Se a imagem não for clara ou não contiver esses elementos, retorne zeros.
+        
+        Retorne APENAS um JSON válido com a seguinte estrutura (sem markdown, sem explicações):
+        {
+            "gemas": { "total": 0, "boas": 0, "ruins": 0 },
+            "toletes": { "total": 0, "bons": 0, "ruins": 0 }
+        }`;
+
+        const result = await model.generateContent([
+            prompt,
+            {
+                inlineData: {
+                    data: base64Data,
+                    mimeType: "image/jpeg",
+                },
+            },
+        ]);
+
+        const response = await result.response;
+        const text = response.text();
+        
+        // Extract JSON from text (sometimes it comes with markdown blocks)
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) {
+            console.error('Resposta da IA inválida:', text);
+            throw new Error('Falha ao processar resposta da IA (formato inválido)');
+        }
+        
+        const data = JSON.parse(jsonMatch[0]);
+        res.json({ success: true, data });
+
+    } catch (error) {
+        console.error('Erro na análise de IA:', error);
+        res.status(500).json({ success: false, message: 'Erro ao processar imagem na IA', error: error.message });
+    }
 });
 
 // === CRUD de Fazendas (Supabase) ===
