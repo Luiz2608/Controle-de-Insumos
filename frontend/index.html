@@ -72,7 +72,6 @@
                     <div class="actions-dropdown">
                         <button id="more-actions-btn" class="btn btn-secondary">⋯ Mais Ações</button>
                         <div id="more-actions-menu" class="dropdown-menu">
-                            <button id="settings-btn" class="btn btn-secondary">⚙️ Configurações</button>
                             <button id="export-csv-btn" class="btn btn-secondary">⬇️ Exportar CSV</button>
                             <button id="export-excel-btn" class="btn btn-secondary">⬇️ Exportar Excel</button>
                             <button id="export-pdf-btn" class="btn btn-secondary">⬇️ Exportar PDF</button>
@@ -1869,8 +1868,30 @@
                     <div class="chart-card form-card">
                         <h4 class="section-title">Qualidade de Plantio</h4>
                         
-                        <!-- AI Analysis Section Removed -->
-
+                        <!-- AI Analysis Section -->
+                        <div class="ai-analysis-container">
+                            <h5>🤖 Análise de IA (Gemas/Toletes)</h5>
+                            <p>Tire uma foto da amostra no chão para contagem automática.</p>
+                            
+                            <div class="ai-controls">
+                                <div class="ai-actions">
+                                    <input type="file" id="ai-image-input" accept="image/*" capture="environment" style="display: none;">
+                                    <button type="button" class="btn btn-secondary" onclick="document.getElementById('ai-image-input').click()" style="width: 100%; margin-bottom: 5px;">
+                                        📸 Tirar Foto / Upload
+                                    </button>
+                                    <button type="button" class="btn btn-primary" id="btn-analyze-image" style="width: 100%;" disabled>
+                                        ✨ Analisar com IA
+                                    </button>
+                                </div>
+                                <div class="ai-preview-box">
+                                    <img id="ai-image-preview" style="max-width: 100%; max-height: 100%; display: none;">
+                                    <span id="ai-preview-placeholder" class="ai-preview-placeholder">🖼️</span>
+                                </div>
+                            </div>
+                            <div id="ai-loading" class="ai-loading">
+                                ⏳ Processando imagem... <span id="ai-progress">0%</span>
+                            </div>
+                        </div>
 
                         <!-- Gemas -->
                         <div class="modal-subsection" id="sec-gemas">
@@ -2147,9 +2168,9 @@
                 
                 <!-- Summary Block -->
                 <div class="summary-block-theme" style="display: flex; gap: 20px; padding: 10px; border-radius: 4px; margin-bottom: 10px; font-size: 0.9em; align-items: center; justify-content: space-around; border: 1px solid #ddd;">
-                    <div><strong>Meta da O.S.:</strong> <span id="summary-composto-meta">0.000</span> t</div>
-                    <div><strong>Realizado:</strong> <span id="summary-composto-realizado" style="color: blue;">0.000</span> t</div>
-                    <div><strong>Restante:</strong> <span id="summary-composto-restante" style="font-weight: bold;">0.000</span> t</div>
+                    <div><strong>Meta da O.S.:</strong> <span id="summary-meta">0.000</span> t</div>
+                    <div><strong>Realizado:</strong> <span id="summary-realizado" style="color: blue;">0.000</span> t</div>
+                    <div><strong>Restante:</strong> <span id="summary-restante" style="font-weight: bold;">0.000</span> t</div>
                 </div>
 
                 <div class="form-grid" style="grid-template-columns: auto auto auto auto; align-items: end; margin-bottom: 10px; gap: 10px;">
@@ -2390,29 +2411,6 @@
     </div>
 
  
-    <!-- Modal Configurações -->
-    <div id="settings-modal" class="modal" style="display: none;">
-        <div class="modal-content" style="max-width: 500px;">
-            <div class="modal-header">
-                <h3>Configurações do Sistema</h3>
-                <span class="close-modal" onclick="document.getElementById('settings-modal').style.display='none'">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <label for="settings-gemini-key">Chave de API do Google Gemini (IA)</label>
-                    <input type="password" id="settings-gemini-key" class="form-control" placeholder="Deixe em branco para usar a chave do sistema..." style="width: 100%; padding: 8px; margin-top: 5px;">
-                    <small class="text-muted" style="display: block; margin-top: 5px; color: #666;">
-                        A chave é carregada automaticamente do banco de dados. Use este campo apenas para <b>testes locais</b> (sobrescreve a chave do sistema).
-                    </small>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="document.getElementById('settings-modal').style.display='none'">Cancelar</button>
-                <button id="btn-save-settings" class="btn btn-primary">Salvar Configurações</button>
-            </div>
-        </div>
-    </div>
-
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>

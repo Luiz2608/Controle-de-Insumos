@@ -54,11 +54,83 @@ class InsumosApp {
             window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
         }
         
-        // this.initPlantioModalIA(); // Removed per user request
+        this.initPlantioModalIA();
         this.initTheme();
     }
 
-    // initPlantioModalIA removed
+    initPlantioModalIA() {
+        // Inicializa listeners para upload e análise de imagem com IA
+        const imageInput = document.getElementById('ai-image-input');
+        const analyzeBtn = document.getElementById('btn-analyze-image');
+        const preview = document.getElementById('ai-image-preview');
+        const placeholder = document.getElementById('ai-preview-placeholder');
+        const loading = document.getElementById('ai-loading');
+        const progress = document.getElementById('ai-progress');
+
+        if (imageInput) {
+            imageInput.addEventListener('change', (e) => {
+                if (e.target.files && e.target.files[0]) {
+                    const file = e.target.files[0];
+                    const reader = new FileReader();
+                    
+                    reader.onload = (evt) => {
+                        if (preview) {
+                            preview.src = evt.target.result;
+                            preview.style.display = 'block';
+                        }
+                        if (placeholder) placeholder.style.display = 'none';
+                        if (analyzeBtn) analyzeBtn.disabled = false;
+                    };
+                    
+                    reader.readAsDataURL(file);
+                }
+            });
+        }
+
+        if (analyzeBtn) {
+            analyzeBtn.addEventListener('click', async () => {
+                if (!imageInput || !imageInput.files[0]) return;
+                
+                const file = imageInput.files[0];
+                
+                // UI Loading State
+                if (loading) loading.style.display = 'block';
+                if (progress) progress.textContent = '0%';
+                analyzeBtn.disabled = true;
+                analyzeBtn.textContent = '⏳ Analisando...';
+
+                try {
+                    if (progress) progress.textContent = '50%';
+                    
+                    // Call API
+                    const res = await this.api.analyzeImage(file);
+                    
+                    if (progress) progress.textContent = '100%';
+
+                    if (res.success) {
+                        // Populate form fields
+                        const toletesInput = document.getElementById('qual-toletes-amostra');
+                        const gemasInput = document.getElementById('qual-gemas-amostra');
+                        
+                        if (toletesInput) toletesInput.value = res.data.toletes || 0;
+                        if (gemasInput) gemasInput.value = res.data.gemas || 0;
+                        
+                        this.ui.showNotification('✅ Análise concluída com sucesso!', 'success');
+                    } else {
+                        this.ui.showNotification('❌ ' + res.message, 'error');
+                    }
+                } catch (e) {
+                    console.error('Erro na análise:', e);
+                    this.ui.showNotification('Erro ao processar imagem', 'error');
+                } finally {
+                    // Reset UI
+                    if (loading) loading.style.display = 'none';
+                    analyzeBtn.disabled = false;
+                    analyzeBtn.innerHTML = '✨ Analisar com IA';
+                }
+            });
+        }
+    }
 
     initTheme() {
         const savedTheme = localStorage.getItem('theme');
@@ -974,51 +1046,11 @@ class InsumosApp {
             });
         }
     }
-    setupSettings() {
-        // Botão de abrir
-        const btnSettings = document.getElementById('settings-btn');
-        if (btnSettings) {
-            btnSettings.addEventListener('click', () => {
-                const modal = document.getElementById('settings-modal');
-                if (modal) {
-                    modal.style.display = 'flex';
-                    // Carregar chave atual
-                    const currentKey = localStorage.getItem('gemini_api_key') || '';
-                    const input = document.getElementById('settings-gemini-key');
-                    if (input) input.value = currentKey;
-                }
-            });
-        }
-
-        // Botão de salvar
-        const btnSave = document.getElementById('btn-save-settings');
-        if (btnSave) {
-            btnSave.addEventListener('click', () => {
-                const input = document.getElementById('settings-gemini-key');
-                if (input) {
-                    const newKey = input.value.trim();
-                    localStorage.setItem('gemini_api_key', newKey);
-                    
-                    // Atualizar config global
-                    if (window.API_CONFIG) {
-                        window.API_CONFIG.geminiKey = newKey;
-                    }
-                    
-                    this.ui.showNotification('Configurações salvas com sucesso!', 'success');
-                    
-                    const modal = document.getElementById('settings-modal');
-                    if (modal) modal.style.display = 'none';
-                }
-            });
-        }
-    }
-
     async init() {
         try {
             this.ui.showLoading();
             
             this.initTheme();
-            this.setupSettings();
             await this.setupEventListeners();
             this.setupAIAnalysis();
             this.setupAdminPanel();
