@@ -3846,6 +3846,10 @@ forceReloadAllData() {
 
             // Chamar Gemini
             let geminiKey = (window.API_CONFIG && window.API_CONFIG.geminiKey) || localStorage.getItem('geminiApiKey') || '';
+            
+            // Se a chave no config estiver vazia ou for a inválida conhecida, ignorar
+            if (geminiKey === 'AIzaSyC2hHNdbxhhvnJhXSAUbzwn73viGnpFwqA') geminiKey = '';
+
             if (!geminiKey || geminiKey.trim().length < 20) {
                 geminiKey = await this.askGeminiKey();
             }
@@ -3888,7 +3892,7 @@ forceReloadAllData() {
                 Se algum campo não for encontrado, use null.
             `;
 
-            const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + geminiKey;
+            const getUrl = (key) => 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + key;
             
             // Montar payload
             const parts = [{ text: prompt }];
@@ -3907,9 +3911,19 @@ forceReloadAllData() {
 
             let response;
             const maxRetries = 3;
+            let retryWithNewKey = false;
+
             for (let i = 0; i < maxRetries; i++) {
                 try {
-                    response = await fetch(url, {
+                    // Se for retry com nova chave, pedir ao usuário
+                    if (retryWithNewKey) {
+                        this.ui.showNotification('Chave API inválida ou expirada. Por favor, informe uma nova.', 'warning');
+                        geminiKey = await this.askGeminiKey();
+                        if (!geminiKey) throw new Error('Chave API não fornecida');
+                        retryWithNewKey = false;
+                    }
+
+                    response = await fetch(getUrl(geminiKey), {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(requestBody)
@@ -3924,8 +3938,24 @@ forceReloadAllData() {
                         await new Promise(r => setTimeout(r, waitTime));
                         continue;
                     }
+
+                    if (response.status === 400 || response.status === 403) {
+                        const errText = await response.text();
+                        console.error('Gemini Auth/Request Error:', errText);
+                        
+                        // Verificar se é erro de chave
+                        if (errText.includes('API_KEY_INVALID') || errText.includes('API Key not found')) {
+                            console.warn('Chave API inválida detectada. Solicitando nova chave...');
+                            localStorage.removeItem('geminiApiKey'); // Limpar chave inválida
+                            retryWithNewKey = true; // Forçar pedido de nova chave na próxima iteração
+                            
+                            // Se for a última tentativa, dar uma chance extra para a nova chave
+                            if (i === maxRetries - 1) i--; 
+                            continue;
+                        }
+                    }
                     
-                    break; // Outro erro HTTP (400, 401, 500, etc), não tenta novamente
+                    break; // Outro erro HTTP, não tenta novamente
                 } catch (fetchErr) {
                     console.error(`Erro de rede na tentativa ${i+1}:`, fetchErr);
                     if (i === maxRetries - 1) throw fetchErr; // Se for a última, lança o erro
