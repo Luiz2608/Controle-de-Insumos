@@ -127,6 +127,26 @@ class ApiService {
             // Use upsert para garantir que o registro exista e esteja atualizado
             const { error } = await this.supabase.from('users').upsert(publicUser);
             if (error) {
+                // Tratamento específico para erro de coluna inexistente (Schema Cache ou Migração Pendente)
+                if (error.code === 'PGRST204' && (error.message.includes('email') || error.message.includes('column'))) {
+                    console.warn('⚠️ Schema do banco desatualizado. Tentando sincronização básica (apenas username/password). Recomendado aplicar migration 002_add_user_fields.sql');
+                    
+                    // Fallback: Tenta atualizar apenas os campos que sabemos que existem na versão base
+                    const basicUser = {
+                        id: user.id,
+                        username: publicUser.username,
+                        password: publicUser.password
+                    };
+                    
+                    const { error: retryError } = await this.supabase.from('users').upsert(basicUser);
+                    if (retryError) {
+                         console.error('❌ Falha também no fallback de sync:', retryError);
+                    } else {
+                        console.log('✅ Sincronização básica realizada com sucesso (Fallback).');
+                    }
+                    return;
+                }
+
                 console.error('Erro detalhado Supabase sync:', error);
                 // Tenta alertar se for erro de permissão (RLS)
                 if (error.code === '42501') {
@@ -1153,6 +1173,9 @@ class ApiService {
         
         if (records && records.length > 0) {
              const record = records[0];
+             // Ensure qualidade is an object
+             record.qualidade = record.qualidade || {};
+
              // Fetch quality data if exists
              const { data: equip } = await this.supabase
                 .from('equipamento_operador')
@@ -1161,11 +1184,14 @@ class ApiService {
                 .maybeSingle();
              
              if (equip) {
-                 record.qualidade = record.qualidade || {};
-                 record.qualidade.qualEquipamentoTrator = equip.trator;
-                 record.qualidade.qualEquipamentoPlantadora = equip.plantadora_colhedora;
-                 record.qualidade.qualOperador = equip.operador;
-                 record.qualidade.qualMatricula = equip.matricula;
+                 // Merge equipment data into qualidade, preserving existing fields
+                 record.qualidade = {
+                     ...record.qualidade,
+                     qualEquipamentoTrator: equip.trator,
+                     qualEquipamentoPlantadora: equip.plantadora_colhedora,
+                     qualOperador: equip.operador,
+                     qualMatricula: equip.matricula
+                 };
              }
              return { success: true, data: record };
         }
@@ -1756,6 +1782,81 @@ class ApiService {
         if (error) throw error;
         await this.logAction('UPDATE_SYSTEM_SETTINGS', { key, value });
         return { success: true, data: data[0] };
+    }
+
+    // === AI ANALYSIS ===
+
+    async analyzeImage(file) {
+        this.checkConfig();
+        // Use key from global config (preferred) or localStorage
+        const geminiKey = (window.API_CONFIG && window.API_CONFIG.geminiKey) || localStorage.getItem('geminiApiKey');
+        
+        if (!geminiKey) {
+            return { success: false, message: 'Chave da API Gemini não configurada.' };
+        }
+
+        try {
+            // Convert file to Base64
+            const base64Data = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    const base64String = reader.result.toString().split(',')[1];
+                    resolve(base64String);
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+
+            // Prepare request for Gemini 2.0 Flash
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`;
+            
+            const payload = {
+                contents: [{
+                    parts: [
+                        { text: "Analise esta imagem de amostras de cana-de-açúcar. Conte o número total de toletes (segmentos de cana) e o número total de gemas (brotos/olhos) visíveis. Retorne APENAS um objeto JSON neste formato, sem markdown ou texto adicional: { \"toletes\": number, \"gemas\": number }." },
+                        { inline_data: { mime_type: file.type, data: base64Data } }
+                    ]
+                }]
+            };
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const errText = await response.text();
+                throw new Error(`Gemini API Error: ${response.status} ${response.statusText} - ${errText}`);
+            }
+
+            const data = await response.json();
+            
+            // Parse response
+            if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+                const text = data.candidates[0].content.parts[0].text;
+                // Extract JSON from text (in case model adds markdown blocks)
+                const jsonMatch = text.match(/\{[\s\S]*\}/);
+                
+                if (jsonMatch) {
+                    try {
+                        const result = JSON.parse(jsonMatch[0]);
+                        return { success: true, data: result };
+                    } catch (e) {
+                        console.error('JSON Parse Error:', e);
+                        return { success: false, message: 'Erro ao interpretar resposta da IA.' };
+                    }
+                }
+            }
+
+            return { success: false, message: 'Não foi possível analisar a imagem.' };
+
+        } catch (e) {
+            console.error('Gemini API Error:', e);
+            return { success: false, message: e.message };
+        }
     }
 }
 

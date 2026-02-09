@@ -54,7 +54,82 @@ class InsumosApp {
             window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
         }
         
+        this.initPlantioModalIA();
         this.initTheme();
+    }
+
+    initPlantioModalIA() {
+        // Inicializa listeners para upload e análise de imagem com IA
+        const imageInput = document.getElementById('ai-image-input');
+        const analyzeBtn = document.getElementById('btn-analyze-image');
+        const preview = document.getElementById('ai-image-preview');
+        const placeholder = document.getElementById('ai-preview-placeholder');
+        const loading = document.getElementById('ai-loading');
+        const progress = document.getElementById('ai-progress');
+
+        if (imageInput) {
+            imageInput.addEventListener('change', (e) => {
+                if (e.target.files && e.target.files[0]) {
+                    const file = e.target.files[0];
+                    const reader = new FileReader();
+                    
+                    reader.onload = (evt) => {
+                        if (preview) {
+                            preview.src = evt.target.result;
+                            preview.style.display = 'block';
+                        }
+                        if (placeholder) placeholder.style.display = 'none';
+                        if (analyzeBtn) analyzeBtn.disabled = false;
+                    };
+                    
+                    reader.readAsDataURL(file);
+                }
+            });
+        }
+
+        if (analyzeBtn) {
+            analyzeBtn.addEventListener('click', async () => {
+                if (!imageInput || !imageInput.files[0]) return;
+                
+                const file = imageInput.files[0];
+                
+                // UI Loading State
+                if (loading) loading.style.display = 'block';
+                if (progress) progress.textContent = '0%';
+                analyzeBtn.disabled = true;
+                analyzeBtn.textContent = '⏳ Analisando...';
+
+                try {
+                    if (progress) progress.textContent = '50%';
+                    
+                    // Call API
+                    const res = await this.api.analyzeImage(file);
+                    
+                    if (progress) progress.textContent = '100%';
+
+                    if (res.success) {
+                        // Populate form fields
+                        const toletesInput = document.getElementById('qual-toletes-amostra');
+                        const gemasInput = document.getElementById('qual-gemas-amostra');
+                        
+                        if (toletesInput) toletesInput.value = res.data.toletes || 0;
+                        if (gemasInput) gemasInput.value = res.data.gemas || 0;
+                        
+                        this.ui.showNotification('✅ Análise concluída com sucesso!', 'success');
+                    } else {
+                        this.ui.showNotification('❌ ' + res.message, 'error');
+                    }
+                } catch (e) {
+                    console.error('Erro na análise:', e);
+                    this.ui.showNotification('Erro ao processar imagem', 'error');
+                } finally {
+                    // Reset UI
+                    if (loading) loading.style.display = 'none';
+                    analyzeBtn.disabled = false;
+                    analyzeBtn.innerHTML = '✨ Analisar com IA';
+                }
+            });
+        }
     }
 
     initTheme() {
@@ -422,7 +497,7 @@ class InsumosApp {
             this.showProgress('Processando...', 60, 'Interpretando dados com IA...');
             
             let fazendas = [];
-            let geminiKey = localStorage.getItem('geminiApiKey') || '';
+            let geminiKey = (window.API_CONFIG && window.API_CONFIG.geminiKey) || localStorage.getItem('geminiApiKey') || '';
             if (!geminiKey || geminiKey.trim().length < 20) {
                 this.hideProgress(); // O prompt vai aparecer
                 geminiKey = await this.askGeminiKey();
@@ -463,7 +538,7 @@ class InsumosApp {
                         '- Não inclua comentários, texto explicativo nem campos extras, apenas o JSON.'
                     ].join('\n');
 
-                    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + geminiKey;
+                    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + geminiKey;
                     
                     const response = await fetch(url, {
                         method: 'POST',
@@ -977,6 +1052,7 @@ class InsumosApp {
             
             this.initTheme();
             await this.setupEventListeners();
+            this.setupAIAnalysis();
             this.setupAdminPanel();
             this.setupVersionCheck();
             await this.ensureApiReady();
@@ -3732,7 +3808,7 @@ forceReloadAllData() {
             }
 
             // Chamar Gemini
-            let geminiKey = localStorage.getItem('geminiApiKey') || '';
+            let geminiKey = (window.API_CONFIG && window.API_CONFIG.geminiKey) || localStorage.getItem('geminiApiKey') || '';
             if (!geminiKey || geminiKey.trim().length < 20) {
                 geminiKey = await this.askGeminiKey();
             }
@@ -3775,7 +3851,7 @@ forceReloadAllData() {
                 Se algum campo não for encontrado, use null.
             `;
 
-            const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + geminiKey;
+            const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + geminiKey;
             
             // Montar payload
             const parts = [{ text: prompt }];
@@ -5953,7 +6029,80 @@ forceReloadAllData() {
         if (modalBody && modal) {
             modalBody.innerHTML = html;
             modal.style.display = 'block';
+            
+            const btnPrint = document.getElementById('plantio-detail-print-btn');
+            if (btnPrint) {
+                btnPrint.onclick = () => this.printPlantioDetails(id);
+            }
         }
+    }
+
+    printPlantioDetails(id) {
+        const r = (this.plantioDia || []).find(p => String(p.id) === String(id));
+        if (!r) return;
+
+        const content = this.getPlantioDetailsHTML(r);
+        
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) {
+            this.ui.showNotification('Bloqueador de pop-ups impediu a impressão.', 'error');
+            return;
+        }
+
+        printWindow.document.write(`
+            <html>
+            <head>
+                <title>Relatório de Plantio/Colheita</title>
+                <style>
+                    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; color: #333; }
+                    h2 { color: #2c3e50; }
+                    h5 { border-bottom: 2px solid #3498db; padding-bottom: 8px; margin-top: 25px; color: #2c3e50; font-size: 1.1em; }
+                    h6 { color: #7f8c8d; margin-top: 15px; border-bottom: 1px solid #eee; }
+                    .details-card { margin-bottom: 20px; page-break-inside: avoid; }
+                    .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 15px; }
+                    .info-item { font-size: 0.95em; }
+                    .info-item strong { color: #555; }
+                    
+                    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9em; }
+                    th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+                    th { background-color: #f8f9fa; color: #2c3e50; font-weight: 600; }
+                    tr:nth-child(even) { background-color: #fcfcfc; }
+                    
+                    .quality-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 15px; margin-top: 10px; }
+                    .quality-item { background: #f8f9fa; padding: 10px; border-radius: 6px; text-align: center; border: 1px solid #e9ecef; }
+                    .quality-item .label { font-size: 0.85em; color: #7f8c8d; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+                    .quality-item .value { font-weight: 700; font-size: 1.1em; color: #2c3e50; }
+                    .sub-value { font-size: 0.8em; color: #95a5a6; display: block; margin-top: 2px; }
+                    
+                    .full-span { grid-column: 1 / -1; }
+                    
+                    /* Hide non-printable elements from the HTML string if any */
+                    .no-print { display: none; }
+                    
+                    @media print {
+                        body { padding: 0; background: white; }
+                        .details-card { border: none; padding: 0; margin-bottom: 20px; }
+                        button { display: none; }
+                        @page { margin: 1.5cm; }
+                    }
+                </style>
+            </head>
+            <body>
+                <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #eee; padding-bottom: 20px;">
+                    <h2 style="margin: 0;">Relatório de Operação Agrícola</h2>
+                    <p style="color: #7f8c8d; margin: 5px 0 0 0;">Gerado em: ${new Date().toLocaleString('pt-BR')}</p>
+                </div>
+                ${content}
+                <script>
+                    setTimeout(() => {
+                        window.print();
+                        // Optional: window.close(); 
+                    }, 500);
+                </script>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
     }
 
     getPlantioDetailsHTML(r) {
@@ -5965,6 +6114,13 @@ forceReloadAllData() {
         const dataStr = fmtDate(r.data);
         const resp = r.responsavel || '—';
         const obs = r.observacoes || '—';
+        
+        const q = r.qualidade||{};
+        
+        // Quality Source Info
+        const qualitySourceInfo = q.qualitySourceLabel 
+            ? `<div class="info-item full-span" style="grid-column: 1 / -1; margin-top: 5px; color: var(--primary);"><strong>🔗 Qualidade Vinculada:</strong> ${q.qualitySourceLabel}</div>`
+            : '';
 
         const frentesRows = (r.frentes||[]).map(f => `
             <tr>
@@ -5991,8 +6147,6 @@ forceReloadAllData() {
                 <td>${unid}</td>
             </tr>
         `}).join('');
-        
-        const q = r.qualidade||{};
         
         // Helper para item de qualidade
         const qualItem = (label, val, sub = '') => `
@@ -6109,6 +6263,8 @@ forceReloadAllData() {
                     ${qualItem('Espaçamento', q.alinhamento||'—')}
                     ${qualItem('Chuva', this.ui.formatNumber(q.chuvaMm||0,1), 'mm')}
                     ${qualItem('Cobrição Dia', this.ui.formatNumber(q.cobricaoDia||0,2))}
+                    ${qualItem('Cobrição Acum.', this.ui.formatNumber(q.cobricaoAcumulada||0,2))}
+                    ${qualItem('Oxifertil', this.ui.formatNumber(q.oxifertilDose||0,2), 'L/ha')}
                 </div>
             `;
         }
@@ -6122,7 +6278,9 @@ forceReloadAllData() {
                         <div class="info-item"><strong>Operação:</strong> ${tipoOpLabel}</div>
                         <div class="info-item"><strong>Data:</strong> ${dataStr}</div>
                         <div class="info-item"><strong>Responsável:</strong> ${resp}</div>
+                        <div class="info-item"><strong>GPS:</strong> ${q.gps ? '✅ Sim' : '❌ Não'}</div>
                         <div class="info-item full-span" style="grid-column: 1 / -1;"><strong>Observações:</strong> ${obs}</div>
+                        ${qualitySourceInfo}
                     </div>
                 </div>
 
@@ -9672,6 +9830,126 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+InsumosApp.prototype.setupAIAnalysis = function() {
+    const btnAnalyze = document.getElementById('btn-analyze-image');
+    const fileInput = document.getElementById('ai-image-input');
+    const imgPreview = document.getElementById('ai-image-preview');
+    const placeholder = document.getElementById('ai-preview-placeholder');
+    const loadingDiv = document.getElementById('ai-loading');
+    const progressSpan = document.getElementById('ai-progress');
+
+    if (!btnAnalyze || !fileInput) return;
+
+    // 1. Handle File Selection
+    fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                if (imgPreview) {
+                    imgPreview.src = evt.target.result;
+                    imgPreview.style.display = 'block';
+                }
+                if (placeholder) placeholder.style.display = 'none';
+                btnAnalyze.disabled = false;
+                btnAnalyze.textContent = '✨ Analisar com IA';
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    // 2. Handle Analysis Click
+    btnAnalyze.addEventListener('click', async () => {
+        if (!fileInput.files[0]) return;
+
+        // UI Loading State
+        btnAnalyze.disabled = true;
+        btnAnalyze.textContent = '⏳ Analisando...';
+        if (loadingDiv) loadingDiv.style.display = 'block';
+        
+        try {
+            // Get Base64
+            const base64 = imgPreview.src;
+            
+            // Try Direct Gemini API Call first (since Supabase Edge Function has CORS issues on local file://)
+            // Using window.apiService.analyzeImage which connects directly to Google
+            console.log('Tentando análise direta via API Gemini (Client-side)...');
+            const directResult = await window.apiService.analyzeImage(fileInput.files[0]);
+            
+            if (directResult.success) {
+                var aiData = directResult.data;
+            } else {
+                console.warn('Falha na análise direta, tentando Supabase/Local...', directResult.message);
+                
+                // Fallback: Call Supabase Edge Function
+                const { data: result, error } = await this.api.supabase.functions.invoke('analyze-image', {
+                    body: { imageBase64: base64 }
+                });
+
+                if (error) {
+                     console.error('Supabase Function Error:', error);
+                     // Fallback to local server
+                     try {
+                        const localResp = await fetch('http://localhost:3000/api/analyze-image', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ imageBase64: base64 })
+                        });
+                        const localResult = await localResp.json();
+                        if (localResult.success) {
+                            var aiData = localResult.data;
+                        } else {
+                            throw new Error(error.message || 'Erro na análise via Edge Function e Local');
+                        }
+                     } catch (localErr) {
+                         throw new Error(directResult.message || error.message || 'Erro na análise de imagem');
+                     }
+                } else {
+                     if (!result.success) throw new Error(result.message);
+                     var aiData = result.data;
+                }
+            }
+
+            // Fill Fields with Real Data
+            const setVal = (id, val) => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.value = val;
+                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+            };
+
+            setVal('qual-gemas-total', aiData.gemas.total);
+            setVal('qual-gemas-boas', aiData.gemas.boas);
+            setVal('qual-gemas-ruins', aiData.gemas.ruins);
+
+            setVal('qual-toletes-total', aiData.toletes.total);
+            setVal('qual-toletes-bons', aiData.toletes.bons);
+            setVal('qual-toletes-ruins', aiData.toletes.ruins);
+
+            if (this.ui && this.ui.showNotification) {
+                this.ui.showNotification(`Análise Realizada! Gemas: ${aiData.gemas.total}, Toletes: ${aiData.toletes.total}`, 'success', 5000);
+            }
+            btnAnalyze.textContent = '✅ Sucesso!';
+
+        } catch (error) {
+            console.error(error);
+            if (this.ui && this.ui.showNotification) {
+                this.ui.showNotification(`Erro: ${error.message}`, 'error');
+            }
+            btnAnalyze.textContent = '❌ Erro';
+        } finally {
+            // Reset UI
+            if (loadingDiv) loadingDiv.style.display = 'none';
+            btnAnalyze.disabled = false;
+            
+            setTimeout(() => {
+                btnAnalyze.textContent = '✨ Analisar Novamente';
+            }, 3000);
+        }
+    });
+};
+
 InsumosApp.prototype.updateInsumosDashboard = function(data) {
     const num = v => {
         if (typeof v === 'number') return v;
@@ -11017,7 +11295,11 @@ InsumosApp.prototype.goToPlantioStep = function(step) {
 
     // Load Quality Records if entering Step 3 in Plantio or Colheita mode
             if (step === 3 && (tipo === 'plantio' || tipo === 'colheita_muda') && !this.isQualidadeMode) {
-                this.loadQualidadeRecords(tipo);
+                // Pass current selection if available in hidden input to ensure highlighting
+                const hiddenInput = document.getElementById('selected-qualidade-id');
+                const currentId = hiddenInput ? hiddenInput.value : null;
+                this.loadQualidadeRecords(tipo, currentId);
+                
                 // Also load dropdown options for Colheita de Muda
                 if (tipo === 'colheita_muda') {
                     this.loadLiberacoesForSelect();
@@ -11238,7 +11520,7 @@ InsumosApp.prototype.populateSingleFrente = async function(tipo) {
     }
 };
 
-InsumosApp.prototype.loadQualidadeRecords = async function(targetType = null) {
+InsumosApp.prototype.loadQualidadeRecords = async function(targetType = null, preSelectedId = null) {
     const listContainer = document.getElementById('qualidade-records-list');
     const hiddenInput = document.getElementById('selected-qualidade-id');
     const dataInput = document.getElementById('plantio-data');
@@ -11253,9 +11535,14 @@ InsumosApp.prototype.loadQualidadeRecords = async function(targetType = null) {
     const data = dataInput ? dataInput.value : null;
     const frente = frenteInput ? frenteInput.value : null;
     
-    // Clear previous selection
-    if (hiddenInput) hiddenInput.value = '';
-    this.currentPlantioId = null; 
+    // Capture current selection to preserve highlight
+    // Priority: preSelectedId > hiddenInput.value
+    let currentSelectionId = preSelectedId;
+    if (!currentSelectionId && hiddenInput) {
+        currentSelectionId = hiddenInput.value;
+    }
+    
+    // Note: Do NOT clear currentPlantioId here, as it tracks the main record being edited
 
     listContainer.innerHTML = '<div class="text-center p-3">Carregando registros...</div>';
 
@@ -11291,9 +11578,12 @@ InsumosApp.prototype.loadQualidadeRecords = async function(targetType = null) {
             }
 
             listContainer.innerHTML = '';
+            let foundSelection = false;
+
             rows.forEach(rec => {
                 const div = document.createElement('div');
                 div.className = 'quality-record-item';
+                div.dataset.id = rec.id;
                 div.style.padding = '10px';
                 div.style.marginBottom = '8px';
                 div.style.border = '1px solid #ddd';
@@ -11321,6 +11611,19 @@ InsumosApp.prototype.loadQualidadeRecords = async function(targetType = null) {
                     </div>
                 `;
 
+                // Auto-highlight if matches current selection
+                if (currentSelectionId && String(rec.id) === String(currentSelectionId)) {
+                    div.style.backgroundColor = '#e3f2fd';
+                    div.style.borderColor = '#2196F3';
+                    div.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                    foundSelection = true;
+                    // Ensure hidden input is consistent (if passed via preSelectedId)
+                    if (hiddenInput && hiddenInput.value !== String(rec.id)) {
+                        hiddenInput.value = rec.id;
+                        hiddenInput.dataset.label = `${dataFmt} | Frente: ${rec.frentes?.[0]?.frente || 'N/A'}`;
+                    }
+                }
+
                 div.addEventListener('click', () => {
                     // Selection logic
                     document.querySelectorAll('.quality-record-item').forEach(el => {
@@ -11332,8 +11635,11 @@ InsumosApp.prototype.loadQualidadeRecords = async function(targetType = null) {
                     div.style.borderColor = '#2196F3';
                     div.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
                     
-                    if (hiddenInput) hiddenInput.value = rec.id;
-                    this.currentPlantioId = rec.id; // Set ID for update
+                    if (hiddenInput) {
+                        hiddenInput.value = rec.id;
+                        hiddenInput.dataset.label = `${dataFmt} | Frente: ${rec.frentes?.[0]?.frente || 'N/A'}`;
+                    }
+                    // Note: Do NOT update this.currentPlantioId here. We are linking a quality record to the current Plantio record.
                     
                     // Populate hidden manual inputs with selected record data
                     // This ensures savePlantioDia includes the quality data instead of overwriting with zeros
@@ -11599,6 +11905,13 @@ InsumosApp.prototype.resetPlantioForm = function(mode = 'normal') {
         }
     });
 
+    // Clear hidden inputs not in the list
+    const hiddenQualId = document.getElementById('selected-qualidade-id');
+    if (hiddenQualId) {
+        hiddenQualId.value = '';
+        hiddenQualId.dataset.label = '';
+    }
+
     const dataEl = document.getElementById('plantio-data');
     if (dataEl) dataEl.valueAsDate = new Date();
 
@@ -11661,6 +11974,20 @@ InsumosApp.prototype.handleEditPlantio = async function(id) {
 
     // Qualidade
     const q = record.qualidade || {};
+    
+    // Restore quality selection if available
+    if (q.qualitySourceId) {
+        set('selected-qualidade-id', q.qualitySourceId);
+        const hidden = document.getElementById('selected-qualidade-id');
+        if (hidden) hidden.dataset.label = q.qualitySourceLabel || '';
+        
+        // Load and highlight the selected record
+        // This ensures the list is populated and the item is highlighted immediately
+        if (tipoOp === 'plantio' || tipoOp === 'colheita_muda') {
+             // Use the modified loadQualidadeRecords with preSelectedId
+             await this.loadQualidadeRecords(tipoOp, q.qualitySourceId);
+        }
+    }
     
     // Equipamentos
     set('qual-equipamento-trator', q.qualEquipamentoTrator);
@@ -11833,6 +12160,7 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
         gps: !!document.getElementById('plantio-gps')?.checked,
         oxifertilDose: parseVal('oxifertil-dose'),
         cobricaoDia: parseVal('cobricao-dia'),
+        cobricaoAcumulada: parseVal('cobricao-acumulada'),
         mudaConsumoTotal: parseVal('muda-consumo-total'),
         mudaConsumoAcumulado: parseVal('muda-consumo-acumulado'),
         mudaConsumoDia: parseVal('muda-consumo-dia'),
@@ -11854,6 +12182,8 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
         qualEquipamentoPlantadora: document.getElementById('qual-equipamento-plantadora')?.value || '',
         qualOperador: document.getElementById('qual-operador')?.value || '',
         qualMatricula: document.getElementById('qual-matricula-header')?.value || document.getElementById('qual-matricula')?.value || '',
+        qualitySourceId: document.getElementById('selected-qualidade-id')?.value || null,
+        qualitySourceLabel: document.getElementById('selected-qualidade-id')?.dataset.label || null,
         tipoOperacao: tipoOperacao // Persist in JSONB to avoid schema issues
     };
     let fazendaNome = document.getElementById('single-fazenda')?.value || '';
