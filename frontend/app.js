@@ -3792,15 +3792,52 @@ forceReloadAllData() {
                 }
 
             } else if (file.type.startsWith('image/')) {
-                // Converter imagem para Base64
-                content = await new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = () => resolve(reader.result.split(',')[1]); // Remove o prefixo data:image/...;base64,
-                    reader.onerror = reject;
-                    reader.readAsDataURL(file);
-                });
-                inlineData = { mime_type: file.type, data: content };
-                content = ''; // Limpar content texto pois usaremos inlineData
+                // Converter imagem para Base64 com redimensionamento para evitar payload muito grande
+                try {
+                    content = await new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            const img = new Image();
+                            img.onload = () => {
+                                const canvas = document.createElement('canvas');
+                                let width = img.width;
+                                let height = img.height;
+                                const maxDim = 1500; // Limite razoável para OCR sem perder qualidade
+                                
+                                if (width > maxDim || height > maxDim) {
+                                    if (width > height) {
+                                        height = Math.round((height * maxDim) / width);
+                                        width = maxDim;
+                                    } else {
+                                        width = Math.round((width * maxDim) / height);
+                                        height = maxDim;
+                                    }
+                                }
+                                
+                                canvas.width = width;
+                                canvas.height = height;
+                                const ctx = canvas.getContext('2d');
+                                ctx.drawImage(img, 0, 0, width, height);
+                                
+                                // Exportar como JPEG 80% qualidade
+                                const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                                resolve(dataUrl.split(',')[1]);
+                            };
+                            img.onerror = reject;
+                            img.src = e.target.result;
+                        };
+                        reader.onerror = reject;
+                        reader.readAsDataURL(file);
+                    });
+                    
+                    // Sempre enviar como image/jpeg após conversão no canvas
+                    inlineData = { mime_type: 'image/jpeg', data: content };
+                    content = ''; 
+                } catch (imgErr) {
+                    console.error('Erro ao processar imagem:', imgErr);
+                    this.ui.showNotification('Erro ao processar imagem.', 'error');
+                    return;
+                }
             } else {
                 this.ui.showNotification('Formato não suportado. Use PDF ou Imagem.', 'error');
                 console.error('Formato não suportado:', file.type);
@@ -3851,7 +3888,7 @@ forceReloadAllData() {
                 Se algum campo não for encontrado, use null.
             `;
 
-            const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + geminiKey;
+            const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + geminiKey;
             
             // Montar payload
             const parts = [{ text: prompt }];
@@ -3934,9 +3971,13 @@ forceReloadAllData() {
                 }
             } else {
                 if (response) {
-                    console.error('Erro HTTP Gemini:', response.status, response.statusText);
+                    const errorText = await response.text();
+                    console.error('Erro HTTP Gemini:', response.status, response.statusText, errorText);
+                    
                     if (response.status === 503) {
                         this.ui.showNotification('Serviço de IA indisponível (sobrecarga). Tente novamente em 1 minuto.', 'error', 6000);
+                    } else if (response.status === 400) {
+                        this.ui.showNotification(`Erro na requisição à IA (400). Detalhes no console.`, 'error');
                     } else {
                         this.ui.showNotification(`Erro na IA (${response.status}). Verifique sua chave ou tente novamente.`, 'error');
                     }
