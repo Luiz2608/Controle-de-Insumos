@@ -1046,11 +1046,51 @@ class InsumosApp {
             });
         }
     }
+    setupSettings() {
+        // Botão de abrir
+        const btnSettings = document.getElementById('settings-btn');
+        if (btnSettings) {
+            btnSettings.addEventListener('click', () => {
+                const modal = document.getElementById('settings-modal');
+                if (modal) {
+                    modal.style.display = 'flex';
+                    // Carregar chave atual
+                    const currentKey = localStorage.getItem('gemini_api_key') || '';
+                    const input = document.getElementById('settings-gemini-key');
+                    if (input) input.value = currentKey;
+                }
+            });
+        }
+
+        // Botão de salvar
+        const btnSave = document.getElementById('btn-save-settings');
+        if (btnSave) {
+            btnSave.addEventListener('click', () => {
+                const input = document.getElementById('settings-gemini-key');
+                if (input) {
+                    const newKey = input.value.trim();
+                    localStorage.setItem('gemini_api_key', newKey);
+                    
+                    // Atualizar config global
+                    if (window.API_CONFIG) {
+                        window.API_CONFIG.geminiKey = newKey;
+                    }
+                    
+                    this.ui.showNotification('Configurações salvas com sucesso!', 'success');
+                    
+                    const modal = document.getElementById('settings-modal');
+                    if (modal) modal.style.display = 'none';
+                }
+            });
+        }
+    }
+
     async init() {
         try {
             this.ui.showLoading();
             
             this.initTheme();
+            this.setupSettings();
             await this.setupEventListeners();
             this.setupAIAnalysis();
             this.setupAdminPanel();

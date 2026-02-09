@@ -1788,11 +1788,11 @@ class ApiService {
 
     async analyzeImage(file) {
         this.checkConfig();
-        // Use key from global config (preferred) or localStorage
-        const geminiKey = (window.API_CONFIG && window.API_CONFIG.geminiKey) || localStorage.getItem('geminiApiKey');
+        // Use key from global config (preferred) or localStorage (standardized key)
+        const geminiKey = (window.API_CONFIG && window.API_CONFIG.geminiKey) || localStorage.getItem('gemini_api_key');
         
         if (!geminiKey) {
-            return { success: false, message: 'Chave da API Gemini não configurada.' };
+            return { success: false, message: 'Chave da API Gemini não configurada. Vá em "Mais Ações" > "Configurações" para adicionar sua chave.' };
         }
 
         try {

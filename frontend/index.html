@@ -72,6 +72,7 @@
                     <div class="actions-dropdown">
                         <button id="more-actions-btn" class="btn btn-secondary">⋯ Mais Ações</button>
                         <div id="more-actions-menu" class="dropdown-menu">
+                            <button id="settings-btn" class="btn btn-secondary">⚙️ Configurações</button>
                             <button id="export-csv-btn" class="btn btn-secondary">⬇️ Exportar CSV</button>
                             <button id="export-excel-btn" class="btn btn-secondary">⬇️ Exportar Excel</button>
                             <button id="export-pdf-btn" class="btn btn-secondary">⬇️ Exportar PDF</button>
@@ -2411,6 +2412,29 @@
     </div>
 
  
+    <!-- Modal Configurações -->
+    <div id="settings-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3>Configurações do Sistema</h3>
+                <span class="close-modal" onclick="document.getElementById('settings-modal').style.display='none'">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="settings-gemini-key">Chave de API do Google Gemini (IA)</label>
+                    <input type="password" id="settings-gemini-key" class="form-control" placeholder="Cole sua chave API aqui (AIza...)" style="width: 100%; padding: 8px; margin-top: 5px;">
+                    <small class="text-muted" style="display: block; margin-top: 5px; color: #666;">
+                        A chave será salva apenas no seu navegador. <a href="https://aistudio.google.com/app/apikey" target="_blank">Obter chave</a>
+                    </small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="document.getElementById('settings-modal').style.display='none'">Cancelar</button>
+                <button id="btn-save-settings" class="btn btn-primary">Salvar Configurações</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
