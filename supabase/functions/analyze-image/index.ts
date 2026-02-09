@@ -17,15 +17,17 @@ serve(async (req) => {
   }
 
   try {
-    const { imageBase64 } = await req.json()
+    const { imageBase64, apiKey: userApiKey } = await req.json()
     
     if (!imageBase64) {
       throw new Error('Imagem não fornecida')
     }
 
-    const apiKey = Deno.env.get('GEMINI_API_KEY')
+    // Prioritize user key, fallback to env (optional, or remove env if strict)
+    // User requested to ask user for key, so we expect it in request.
+    const apiKey = userApiKey || Deno.env.get('GEMINI_API_KEY')
     if (!apiKey) {
-      throw new Error('Chave de API do Gemini não configurada (GEMINI_API_KEY)')
+      throw new Error('Chave de API do Gemini não fornecida. Por favor, configure sua chave.')
     }
 
     const genAI = new GoogleGenerativeAI(apiKey)

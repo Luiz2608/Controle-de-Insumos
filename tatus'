@@ -1,0 +1,80 @@
+[33mcommit 6cc37ee3fa2aef30b6257d40fab18f788f48f1fc[m
+Author: Luiz2608 <santossilvaluizeduardo@gmail.com>
+Date:   Fri Jan 23 14:05:50 2026 -0300
+
+    Fix: Remove import button, correct metas_plantio table name, add SQL script
+
+ frontend/import.js | 11 [32m+[m[31m----------[m
+ 1 file changed, 1 insertion(+), 10 deletions(-)
+
+[33mcommit 28d8971c3f82315867c06eb499136327720fb2c8[m
+Author: Luiz2608 <santossilvaluizeduardo@gmail.com>
+Date:   Tue Jan 20 14:24:07 2026 -0300
+
+    Fix layout in Estoque tab, improve O.S. dropdown with imported data, and add auto-sync for stock
+
+ frontend/import.js | 22 [32m++++++++++++++++++[m[31m----[m
+ 1 file changed, 18 insertions(+), 4 deletions(-)
+
+[33mcommit e406aa540390b5c9ed6942d4da156f3ae2fdad6a[m
+Author: Luiz2608 <santossilvaluizeduardo@gmail.com>
+Date:   Tue Jan 20 09:50:54 2026 -0300
+
+    fix: sync stock on OS import and resolve merge conflicts
+
+ frontend/import.js | 72 [32m++++++++++++++++++++++++++++++++++++++++++++++++++++++[m
+ 1 file changed, 72 insertions(+)
+
+[33mcommit bc0cd17f31f5dc53f5c3d7db494814f857cfa711[m
+Author: Luiz2608 <santossilvaluizeduardo@gmail.com>
+Date:   Fri Jan 16 15:19:52 2026 -0300
+
+    Ajuste importação de fazendas via PDF (Gemini + fallback)
+
+ frontend/import.js | 273 [32m+++++++++++++++++++++++++++++++++++++++++++++++++++++[m
+ 1 file changed, 273 insertions(+)
+
+[33mcommit b351e252598860c3976ca803c1084602f9b3a7c4[m
+Author: Luiz2608 <santossilvaluizeduardo@gmail.com>
+Date:   Thu Jan 15 08:30:38 2026 -0300
+
+    Ajusta importação Excel para funcionar no GitHub Pages
+
+ frontend/import.js | 242 [32m+++++++++++++++++++++++++++++[m[31m------------------------[m
+ 1 file changed, 132 insertions(+), 110 deletions(-)
+
+[33mcommit 136a442d663a19be5e3145a397576cdd5544d328[m
+Author: Luiz2608 <santossilvaluizeduardo@gmail.com>
+Date:   Mon Nov 24 14:41:28 2025 -0300
+
+    Login/cadastro e UX:\n- Cadastro no overlay de login com criação de token\n- Exibir usuário autenticado no cabeçalho\n- Mover botão Sair para menu Mais Ações\n- Ajustar backend de auth: token->usuário, /auth/register, /auth/me\n- Correção de ordem das rotas e SPA catch-all (plantio-dia)\n- Integração do token no cliente e limpeza no logout
+
+ frontend/import.js | 12 [32m++++++[m[31m------[m
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+[33mcommit f3ca525fad234438a5832c7f5f63959d9b308320[m
+Author: Luiz2608 <santossilvaluizeduardo@gmail.com>
+Date:   Fri Nov 21 13:44:41 2025 -0300
+
+    V3
+
+ frontend/import.js | 20 [32m++++++++++[m[31m----------[m
+ 1 file changed, 10 insertions(+), 10 deletions(-)
+
+[33mcommit ed9999829f7f14a6effbf5ce0ea2154072bec29b[m
+Author: Luiz2608 <santossilvaluizeduardo@gmail.com>
+Date:   Fri Nov 21 06:51:39 2025 -0300
+
+    Atualização funcional
+
+ frontend/import.js | 22 [32m+++++++++[m[31m-------------[m
+ 1 file changed, 9 insertions(+), 13 deletions(-)
+
+[33mcommit 7b9711a9087e5b712072fc050465688fd2e1b925[m
+Author: Luiz2608 <santossilvaluizeduardo@gmail.com>
+Date:   Wed Nov 19 08:59:54 2025 -0300
+
+    Primeiro commit
+
+ frontend/import.js | 531 [32m+++++++++++++++++++++++++++++++++++++++++++++++++++++[m
+ 1 file changed, 531 insertions(+)

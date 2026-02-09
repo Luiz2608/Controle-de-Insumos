@@ -1786,50 +1786,135 @@ class ApiService {
 
     // === AI ANALYSIS ===
 
+    // Helper para solicitar chave Gemini
+    async askGeminiKey() {
+        const message = 'Informe sua chave da API Gemini. Ela será salva apenas neste navegador.';
+        const key = window.prompt(message, '');
+        if (key && key.trim().length > 0) {
+            const trimmed = key.trim();
+            localStorage.setItem('geminiApiKey', trimmed);
+            return trimmed;
+        }
+        return '';
+    }
+
     async analyzeImage(file) {
         this.checkConfig();
         // Use key from global config (preferred) or localStorage
-        const geminiKey = (window.API_CONFIG && window.API_CONFIG.geminiKey) || localStorage.getItem('geminiApiKey');
+        let geminiKey = (window.API_CONFIG && window.API_CONFIG.geminiKey) || localStorage.getItem('geminiApiKey');
         
+        // Se a chave no config estiver vazia ou for a inválida conhecida, ignorar
+        if (geminiKey === 'AIzaSyC2hHNdbxhhvnJhXSAUbzwn73viGnpFwqA') geminiKey = '';
+
+        if (!geminiKey || geminiKey.trim().length < 20) {
+            geminiKey = await this.askGeminiKey();
+        }
+
         if (!geminiKey) {
             return { success: false, message: 'Chave da API Gemini não configurada.' };
         }
 
         try {
-            // Convert file to Base64
+            // Convert file to Base64 with resizing (Max 1500px, JPEG 0.8)
             const base64Data = await new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onloadend = () => {
-                    const base64String = reader.result.toString().split(',')[1];
-                    resolve(base64String);
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+                    const maxDim = 1500;
+                    
+                    if (width > maxDim || height > maxDim) {
+                        if (width > height) {
+                            height = Math.round((height * maxDim) / width);
+                            width = maxDim;
+                        } else {
+                            width = Math.round((width * maxDim) / height);
+                            height = maxDim;
+                        }
+                    }
+                    
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    
+                    // Exportar como JPEG 80% qualidade
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                    resolve(dataUrl.split(',')[1]);
                 };
+                img.onerror = reject;
+                
+                const reader = new FileReader();
+                reader.onload = (e) => { img.src = e.target.result; };
                 reader.onerror = reject;
                 reader.readAsDataURL(file);
             });
 
-            // Prepare request for Gemini 2.0 Flash
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`;
+            // Prepare request for Gemini 1.5 Flash (More stable for JSON)
+            const getUrl = (key) => `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
             
             const payload = {
                 contents: [{
                     parts: [
                         { text: "Analise esta imagem de amostras de cana-de-açúcar. Conte o número total de toletes (segmentos de cana) e o número total de gemas (brotos/olhos) visíveis. Retorne APENAS um objeto JSON neste formato, sem markdown ou texto adicional: { \"toletes\": number, \"gemas\": number }." },
-                        { inline_data: { mime_type: file.type, data: base64Data } }
+                        { inline_data: { mime_type: "image/jpeg", data: base64Data } }
                     ]
-                }]
+                }],
+                generationConfig: {
+                    response_mime_type: 'application/json'
+                }
             };
 
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(payload)
-            });
+            let response;
+            const maxRetries = 3;
+            let retryWithNewKey = false;
+
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    if (retryWithNewKey) {
+                        geminiKey = await this.askGeminiKey();
+                        if (!geminiKey) return { success: false, message: 'Chave API não fornecida' };
+                        retryWithNewKey = false;
+                    }
+
+                    response = await fetch(getUrl(geminiKey), {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (response.ok) break;
+
+                    if (response.status === 503) {
+                        const waitTime = (i + 1) * 2000;
+                        console.warn(`Gemini 503. Tentativa ${i+1}/${maxRetries}. Aguardando ${waitTime}ms...`);
+                        await new Promise(r => setTimeout(r, waitTime));
+                        continue;
+                    }
+
+                    if (response.status === 400 || response.status === 403) {
+                        const errText = await response.text();
+                        console.error('Gemini Auth/Request Error:', errText);
+                        if (errText.includes('API_KEY_INVALID') || errText.includes('API Key not found')) {
+                            console.warn('Chave API inválida. Solicitando nova...');
+                            localStorage.removeItem('geminiApiKey');
+                            retryWithNewKey = true;
+                            if (i === maxRetries - 1) i--;
+                            continue;
+                        }
+                    }
+                    break;
+                } catch (err) {
+                    console.error(`Erro de rede tentativa ${i+1}:`, err);
+                    if (i === maxRetries - 1) throw err;
+                    await new Promise(r => setTimeout(r, 2000));
+                }
+            }
 
             if (!response.ok) {
                 const errText = await response.text();
-                throw new Error(`Gemini API Error: ${response.status} ${response.statusText} - ${errText}`);
+                throw new Error(`Gemini API Error: ${response.status} - ${errText}`);
             }
 
             const data = await response.json();
