@@ -3939,13 +3939,13 @@ forceReloadAllData() {
                         continue;
                     }
 
-                    if (response.status === 400 || response.status === 403) {
+                    if (response.status === 400 || response.status === 403 || response.status === 429) {
                         const errText = await response.text();
-                        console.error('Gemini Auth/Request Error:', errText);
+                        console.error('Gemini Auth/Request/Quota Error:', errText);
                         
-                        // Verificar se é erro de chave
-                        if (errText.includes('API_KEY_INVALID') || errText.includes('API Key not found')) {
-                            console.warn('Chave API inválida detectada. Solicitando nova chave...');
+                        // Verificar se é erro de chave ou cota excedida (429)
+                        if (response.status === 429 || errText.includes('API_KEY_INVALID') || errText.includes('API Key not found')) {
+                            console.warn('Chave API inválida ou Cota Excedida (429). Solicitando nova chave...');
                             localStorage.removeItem('geminiApiKey'); // Limpar chave inválida
                             retryWithNewKey = true; // Forçar pedido de nova chave na próxima iteração
                             
