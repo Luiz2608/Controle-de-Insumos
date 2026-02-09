@@ -519,7 +519,7 @@ router.post('/fazendas-gemini', upload.single('file'), async (req, res) => {
             '- Não inclua comentários, texto explicativo nem campos extras, apenas o JSON.'
         ].join('\n');
 
-        const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + encodeURIComponent(apiKey);
+        const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + encodeURIComponent(apiKey);
 
         const response = await fetch(url, {
             method: 'POST',

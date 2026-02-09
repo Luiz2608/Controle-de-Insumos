@@ -105,7 +105,7 @@ app.post('/api/analyze-image', async (req, res) => {
         if (!apiKey) return res.status(500).json({ success: false, message: 'Chave de API do Gemini não configurada no servidor (.env)' });
 
         const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
         // Clean base64 string (remove "data:image/jpeg;base64," prefix)
         const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
