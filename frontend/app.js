@@ -3693,6 +3693,39 @@ forceReloadAllData() {
         }
     }
 
+    extractOSDataFromText(text) {
+        if (!text) return null;
+        const clean = text.replace(/\s+/g, ' ');
+        
+        const extract = (regex, group=1) => {
+            const match = clean.match(regex);
+            return match ? match[group].trim() : null;
+        };
+
+        const formatDate = (dateStr) => {
+            if (!dateStr) return null;
+            const parts = dateStr.split('/');
+            if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`; // DD/MM/YYYY -> YYYY-MM-DD
+            return null;
+        };
+
+        return {
+            numero: extract(/(?:O\.?S\.?|Ordem\s*de\s*Servi[çc]o|N[ºo]\.?)\s*:?\s*(\d+)/i) || extract(/(\d+)\s*Status/i),
+            status: extract(/(?:Status|Situa[çc][ãa]o)\s*:?\s*([A-Za-z]+)/i),
+            abertura: formatDate(extract(/(?:Data|Abertura)\s*:?\s*(\d{2}\/\d{2}\/\d{4})/i)),
+            inicioPrev: formatDate(extract(/(?:In[ií]cio|Prev\.|Programado)\s*:?\s*(\d{2}\/\d{2}\/\d{4})/i)),
+            finalPrev: formatDate(extract(/(?:Fim|T[eé]rmino|Conclus[ãa]o)\s*:?\s*(\d{2}\/\d{2}\/\d{4})/i)),
+            respAplicacao: extract(/(?:Resp(?:ons[aá]vel)?|Aplicador)\s*:?\s*([A-Za-z\s]+?)(?=\s*(?:Empresa|Frente|Processo|$))/i),
+            empresa: extract(/(?:Empresa)\s*:?\s*([A-Za-z0-9\s]+?)(?=\s*(?:Frente|Processo|$))/i),
+            frente: extract(/(?:Frente)\s*:?\s*([A-Za-z0-9\s]+?)(?=\s*(?:Processo|Subprocesso|$))/i),
+            processo: extract(/(?:Processo)\s*:?\s*([A-Za-z0-9\s]+?)(?=\s*(?:Subprocesso|Fazenda|$))/i),
+            subprocesso: extract(/(?:Subprocesso)\s*:?\s*([A-Za-z0-9\s]+?)(?=\s*(?:Fazenda|Setor|$))/i),
+            fazenda: extract(/(?:Fazenda|Local)\s*:?\s*(\d+\s*-\s*[A-Za-z0-9\s]+)/i) || extract(/(?:Fazenda|Local)\s*:?\s*([A-Za-z0-9\s]+)/i),
+            talhoes: [],
+            produtos: []
+        };
+    }
+
     async handleOSFile(file) {
         console.log('Iniciando processamento do arquivo:', file.name, file.type);
         if (!file) return;
@@ -3732,8 +3765,17 @@ forceReloadAllData() {
                     }
 
                     console.log('Texto extraído (chars):', fullText.length);
+                    
+                    // Tentar parsear localmente via Regex primeiro (Evita uso de cota do Gemini)
+                    const localData = this.extractOSDataFromText(fullText);
+                    if (localData && (localData.numero || localData.fazenda)) {
+                        console.log('Dados extraídos localmente (PDF Texto):', localData);
+                        this.fillOSForm(localData);
+                        this.ui.showNotification('Dados lidos do PDF com sucesso!', 'success');
+                        return;
+                    }
 
-                    // Lógica de Fallback: Se tiver pouco texto (< 50 chars), renderizar como imagem
+                    // Lógica de Fallback: Se tiver pouco texto (< 50 chars) ou regex falhou, renderizar como imagem para OCR/Gemini
                     if (fullText.replace(/\s/g, '').length < 50) {
                         console.warn('PDF com pouco texto detectado. Convertendo página 1 para imagem...');
                         this.ui.showNotification('PDF escaneado detectado. Lendo como imagem...', 'info', 2000);
@@ -3747,6 +3789,21 @@ forceReloadAllData() {
 
                         await page.render({ canvasContext: context, viewport: viewport }).promise;
                         
+                        // Tentar OCR Local com Tesseract se disponível (PDF Escaneado)
+                        if (window.Tesseract) {
+                            this.ui.showNotification('Tentando OCR no PDF escaneado...', 'info');
+                            try {
+                                const { data: { text } } = await window.Tesseract.recognize(canvas, 'por');
+                                console.log('Texto OCR PDF:', text);
+                                const localData = this.extractOSDataFromText(text);
+                                if (localData && (localData.numero || localData.fazenda)) {
+                                    this.fillOSForm(localData);
+                                    this.ui.showNotification('Dados extraídos via OCR!', 'success');
+                                    return;
+                                }
+                            } catch(err) { console.error('Erro Tesseract PDF:', err); }
+                        }
+
                         // Converter canvas para base64 (JPEG para reduzir tamanho)
                         const base64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
                         inlineData = { mime_type: 'image/jpeg', data: base64 };
@@ -3760,7 +3817,28 @@ forceReloadAllData() {
                 }
 
             } else if (file.type.startsWith('image/')) {
-                // Converter imagem para Base64
+                // Tentar OCR Local com Tesseract se disponível
+                if (window.Tesseract) {
+                    this.ui.showNotification('Tentando leitura local (OCR)...', 'info');
+                    try {
+                        const { data: { text } } = await window.Tesseract.recognize(file, 'por', {
+                            logger: m => console.log(m)
+                        });
+                        console.log('Texto OCR:', text);
+                        
+                        const localData = this.extractOSDataFromText(text);
+                        if (localData && (localData.numero || localData.fazenda)) {
+                            this.fillOSForm(localData);
+                            this.ui.showNotification('Dados extraídos via OCR!', 'success');
+                            return;
+                        }
+                    } catch(err) { 
+                        console.error('Erro Tesseract:', err);
+                        this.ui.showNotification('Falha no OCR local, tentando IA...', 'warning');
+                    }
+                }
+
+                // Converter imagem para Base64 (Fallback para Gemini)
                 content = await new Promise((resolve, reject) => {
                     const reader = new FileReader();
                     reader.onload = () => resolve(reader.result.split(',')[1]); // Remove o prefixo data:image/...;base64,
@@ -3905,6 +3983,8 @@ forceReloadAllData() {
                     console.error('Erro HTTP Gemini:', response.status, response.statusText);
                     if (response.status === 503) {
                         this.ui.showNotification('Serviço de IA indisponível (sobrecarga). Tente novamente em 1 minuto.', 'error', 6000);
+                    } else if (response.status === 429) {
+                        this.ui.showNotification('Limite de uso da IA excedido (Erro 429). Preencha manualmente ou tente mais tarde.', 'error', 8000);
                     } else {
                         this.ui.showNotification(`Erro na IA (${response.status}). Verifique sua chave ou tente novamente.`, 'error');
                     }
