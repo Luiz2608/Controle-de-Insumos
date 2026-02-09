@@ -1847,8 +1847,9 @@ class ApiService {
                 reader.readAsDataURL(file);
             });
 
-            // Prepare request for Gemini 3.0 (updated per user request)
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.0-flash:generateContent?key=${geminiKey}`;
+            // Prepare request for Gemini 2.0 Flash (Stable/Recommended)
+            // Note: There is no 2.5 version yet. Using 2.0 Flash as it is the latest fast model.
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`;
             
             const payload = {
                 contents: [{

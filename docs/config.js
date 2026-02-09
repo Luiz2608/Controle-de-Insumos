@@ -4,9 +4,9 @@ const SUPABASE_KEY = 'sb_publishable_s-7JLyKsL2q995jQMdXYHw_KQwuSXPQ';
 const GEMINI_API_KEY = localStorage.getItem('gemini_api_key') || '';
 
 
-const isLocalBackend = false; 
-// Backend local desativado conforme solicitação. O frontend agora fala direto com o Supabase.
-const API_URL = ''; 
+const isLocalBackend = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+// Backend local apenas se estiver rodando localmente. Em produção (GitHub Pages), usa apenas Supabase.
+const API_URL = isLocalBackend ? 'http://localhost:3000' : ''; 
 
 window.SUPABASE_CONFIG = {
     url: SUPABASE_URL,
