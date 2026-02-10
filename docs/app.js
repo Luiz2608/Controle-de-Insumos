@@ -3743,51 +3743,21 @@ forceReloadAllData() {
             console.log('Tipo do arquivo:', file.type);
 
             if (file.type === 'application/pdf') {
-                if (!window.pdfjsLib) {
-                    this.ui.showNotification('Leitor de PDF não carregado', 'error');
-                    console.error('pdfjsLib não encontrado');
-                    return;
-                }
-                
                 try {
-                    const buffer = await file.arrayBuffer();
-                    const loadingTask = window.pdfjsLib.getDocument({ data: buffer });
-                    const pdf = await loadingTask.promise;
+                    // Ler PDF como Base64 para envio direto (Gemini 1.5 suporta PDF nativamente)
+                    console.log('Lendo PDF para envio direto...');
+                    const base64 = await new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve(reader.result.split(',')[1]);
+                        reader.onerror = reject;
+                        reader.readAsDataURL(file);
+                    });
                     
-                    // Tentar extrair texto primeiro
-                    let fullText = '';
-                    for (let pageNum = 1; pageNum <= Math.min(pdf.numPages, 3); pageNum++) {
-                        const page = await pdf.getPage(pageNum);
-                        const textContent = await page.getTextContent();
-                        const strings = textContent.items.map(item => item.str);
-                        fullText += strings.join(' ') + '\n';
-                    }
-
-                    console.log('Texto extraído (chars):', fullText.length);
-
-                    // Lógica de Fallback: Se tiver pouco texto (< 50 chars), renderizar como imagem
-                    if (fullText.replace(/\s/g, '').length < 50) {
-                        console.warn('PDF com pouco texto detectado. Convertendo página 1 para imagem...');
-                        this.ui.showNotification('PDF escaneado detectado. Lendo como imagem...', 'info', 2000);
-
-                        const page = await pdf.getPage(1);
-                        const viewport = page.getViewport({ scale: 2.0 }); // Alta resolução
-                        const canvas = document.createElement('canvas');
-                        const context = canvas.getContext('2d');
-                        canvas.height = viewport.height;
-                        canvas.width = viewport.width;
-
-                        await page.render({ canvasContext: context, viewport: viewport }).promise;
-                        
-                        // Converter canvas para base64 (JPEG para reduzir tamanho)
-                        const base64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
-                        inlineData = { mime_type: 'image/jpeg', data: base64 };
-                    } else {
-                        content = fullText;
-                    }
+                    inlineData = { mime_type: 'application/pdf', data: base64 };
+                    console.log('PDF preparado com sucesso.');
                 } catch (pdfErr) {
-                    console.error('Erro no processamento do PDF:', pdfErr);
-                    this.ui.showNotification('Erro ao ler PDF.', 'error');
+                    console.error('Erro ao ler arquivo PDF:', pdfErr);
+                    this.ui.showNotification('Erro ao ler arquivo PDF.', 'error');
                     return;
                 }
 
