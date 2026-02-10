@@ -1173,6 +1173,17 @@
                             </div>
                         </div>
 
+                        <!-- Barra de Progresso Importação OS -->
+                        <div id="os-import-progress" style="display: none; margin-bottom: 15px; background-color: #f8f9fa; border: 1px solid #e9ecef; border-radius: 4px; padding: 10px;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                                <span id="os-progress-text" style="font-size: 13px; font-weight: 600; color: #495057;">Preparando...</span>
+                                <span id="os-progress-percent" style="font-size: 13px; font-weight: 600; color: #495057;">0%</span>
+                            </div>
+                            <div style="width: 100%; height: 6px; background-color: #e9ecef; border-radius: 3px; overflow: hidden;">
+                                <div id="os-progress-bar" style="width: 0%; height: 100%; background-color: #28a745; transition: width 0.4s ease;"></div>
+                            </div>
+                        </div>
+
                         <div class="form-grid boletim-grid">
                             <!-- Cabeçalho -->
                             <div class="form-group">

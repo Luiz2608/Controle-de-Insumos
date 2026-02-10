@@ -3729,7 +3729,30 @@ forceReloadAllData() {
         console.log('Iniciando processamento do arquivo:', file.name, file.type);
         if (!file) return;
 
-        this.ui.showNotification('Processando arquivo da OS...', 'info', 3000);
+        // UI Elements for Progress
+        const progressContainer = document.getElementById('os-import-progress');
+        const progressBar = document.getElementById('os-progress-bar');
+        const progressText = document.getElementById('os-progress-text');
+        const progressPercent = document.getElementById('os-progress-percent');
+
+        const updateProgress = (pct, msg) => {
+            if (progressContainer) progressContainer.style.display = 'block';
+            if (progressBar) progressBar.style.width = `${pct}%`;
+            if (progressText) progressText.textContent = msg;
+            if (progressPercent) progressPercent.textContent = `${pct}%`;
+        };
+
+        const hideProgress = () => {
+            if (progressContainer) {
+                setTimeout(() => {
+                    progressContainer.style.display = 'none';
+                    if (progressBar) progressBar.style.width = '0%';
+                }, 2000);
+            }
+        };
+
+        updateProgress(5, 'Iniciando leitura do arquivo...');
+        // this.ui.showNotification('Processando arquivo da OS...', 'info', 3000); // Substituído pela barra
 
         try {
             let content = '';
@@ -3815,6 +3838,7 @@ forceReloadAllData() {
             }
 
             // Chamar Gemini
+            updateProgress(40, 'Arquivo lido. Verificando chave API...');
             let geminiKey = (window.API_CONFIG && window.API_CONFIG.geminiKey) || localStorage.getItem('geminiApiKey') || '';
             
             // Se a chave no config estiver vazia ou for a inválida conhecida, ignorar
@@ -3829,7 +3853,8 @@ forceReloadAllData() {
                 return;
             }
 
-            this.ui.showNotification('Enviando para análise inteligente...', 'info', 3000);
+            updateProgress(60, 'Enviando para IA (Gemini 2.5)...');
+            // this.ui.showNotification('Enviando para análise inteligente...', 'info', 3000);
 
             const prompt = `
                 Você é um assistente especializado em extração de dados de Ordens de Serviço (OS) Agrícolas.
@@ -3938,6 +3963,7 @@ forceReloadAllData() {
                 console.log('Gemini Full Response:', data);
 
                 if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+                    updateProgress(85, 'Resposta recebida. Estruturando dados...');
                     const text = data.candidates[0].content.parts[0].text;
                     console.log('Gemini Raw Text:', text);
                     
@@ -3961,8 +3987,12 @@ forceReloadAllData() {
                     if (json) {
                         console.log('JSON Parseado com sucesso:', json);
                         this.fillOSForm(json);
+                        updateProgress(100, 'Dados importados com sucesso!');
+                        setTimeout(hideProgress, 1500);
                         this.ui.showNotification('Dados extraídos com sucesso!', 'success');
                     } else {
+                        updateProgress(0, 'Falha ao estruturar dados.');
+                        hideProgress();
                         this.ui.showNotification('Não foi possível estruturar os dados.', 'warning');
                     }
                 } else {
@@ -3988,6 +4018,8 @@ forceReloadAllData() {
 
         } catch (e) {
             console.error('Exceção no processamento:', e);
+            updateProgress(0, 'Erro fatal no processamento.');
+            hideProgress();
             this.ui.showNotification('Erro ao processar arquivo.', 'error');
         }
     }
