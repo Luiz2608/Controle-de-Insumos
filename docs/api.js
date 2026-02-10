@@ -1851,8 +1851,8 @@ class ApiService {
                 reader.readAsDataURL(file);
             });
 
-            // Prepare request for Gemini 2.0 Flash
-            const getUrl = (key) => `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
+            // Prepare request for Gemini 2.5 Flash
+            const getUrl = (key) => `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
             
             const payload = {
                 contents: [{

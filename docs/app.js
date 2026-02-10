@@ -3862,7 +3862,7 @@ forceReloadAllData() {
                 Se algum campo não for encontrado, use null.
             `;
 
-            const getUrl = (key) => 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + key;
+            const getUrl = (key) => 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + key;
             
             // Montar payload
             const parts = [{ text: prompt }];

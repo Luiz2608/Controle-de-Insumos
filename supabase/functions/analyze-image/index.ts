@@ -31,7 +31,7 @@ serve(async (req) => {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey)
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" })
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" })
 
     // Clean base64 string
     const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "")
