@@ -3802,7 +3802,7 @@ forceReloadAllData() {
                                 const canvas = document.createElement('canvas');
                                 let width = img.width;
                                 let height = img.height;
-                                const maxDim = 1500; // Limite razoável para OCR sem perder qualidade
+                                const maxDim = 2500; // Aumentado para 2500px para melhorar leitura de texto (OCR)
                                 
                                 if (width > maxDim || height > maxDim) {
                                     if (width > height) {
