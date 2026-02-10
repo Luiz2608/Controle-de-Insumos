@@ -3751,6 +3751,11 @@ forceReloadAllData() {
             }
         };
 
+        if (file.type !== 'application/pdf') {
+            this.ui.showNotification('Formato inválido. Importe apenas arquivos PDF.', 'warning');
+            return;
+        }
+
         updateProgress(5, 'Iniciando leitura do arquivo...');
         // this.ui.showNotification('Processando arquivo da OS...', 'info', 3000); // Substituído pela barra
 
@@ -3988,8 +3993,12 @@ forceReloadAllData() {
                     if (json) {
                         console.log('JSON Parseado com sucesso:', json);
                         this.fillOSForm(json);
+                        updateProgress(100, 'Dados importados com sucesso!');
+                        setTimeout(hideProgress, 2000);
                         this.ui.showNotification('Dados extraídos com sucesso!', 'success');
                     } else {
+                        updateProgress(0, 'Falha ao estruturar dados.');
+                        hideProgress();
                         this.ui.showNotification('Não foi possível estruturar os dados.', 'warning');
                     }
                 } else {
