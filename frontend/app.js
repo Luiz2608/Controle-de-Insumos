@@ -8843,9 +8843,9 @@ forceReloadAllData() {
         
         // Update Summary Block
         const mainQtdInput = document.getElementById('composto-quantidade');
-        const summaryMeta = document.getElementById('summary-composto-meta');
-        const summaryRealizado = document.getElementById('summary-composto-realizado');
-        const summaryRestante = document.getElementById('summary-composto-restante');
+        const summaryMeta = document.getElementById('summary-meta');
+        const summaryRealizado = document.getElementById('summary-realizado');
+        const summaryRestante = document.getElementById('summary-restante');
 
         if (summaryRealizado) summaryRealizado.textContent = this.ui.formatNumber(total, 3);
 
