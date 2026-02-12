@@ -7191,6 +7191,57 @@ forceReloadAllData() {
 
         setupSync('viagem-fazenda', 'viagem-codigo-fazenda');
         setupSync('modal-viagem-fazenda', 'modal-viagem-codigo-fazenda');
+        
+        const osSelectAuto = document.getElementById('modal-viagem-adubo-os');
+        if (osSelectAuto) {
+            osSelectAuto.addEventListener('change', () => {
+                const osNum = osSelectAuto.value;
+                if (!osNum || !this.osListCache) return;
+                const os = this.osListCache.find(o => String(o.numero) === String(osNum));
+                if (!os) return;
+                const elFrente = document.getElementById('modal-viagem-frente');
+                if (elFrente && os.frente) elFrente.value = os.frente;
+                const elFazenda = document.getElementById('modal-viagem-fazenda');
+                const elCodigo = document.getElementById('modal-viagem-codigo-fazenda');
+                if (elFazenda && elCodigo) {
+                    const norm = (s) => s ? s.toString().trim().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') : '';
+                    const target = String(os.fazenda || '').trim();
+                    const tN = norm(target);
+                    const codigoOS = os.fazenda_codigo || os.codigoFazenda || os.codigo || '';
+                    if (codigoOS) {
+                        elCodigo.value = String(codigoOS).trim();
+                        const opt = elCodigo.options[elCodigo.selectedIndex];
+                        const nome = opt ? opt.getAttribute('data-fazenda') : '';
+                        if (nome) elFazenda.value = nome;
+                    } else {
+                        let i = -1;
+                        for (let idx = 0; idx < elFazenda.options.length; idx++) {
+                            const v = norm(elFazenda.options[idx].value || '');
+                            const t = norm(elFazenda.options[idx].text || '');
+                            if (v === tN || t === tN || (v && (v.includes(tN) || tN.includes(v))) || (t && (t.includes(tN) || tN.includes(t)))) { i = idx; break; }
+                        }
+                        if (i > 0) {
+                            elFazenda.selectedIndex = i;
+                            const opt = elFazenda.options[i];
+                            const codigo = opt ? opt.getAttribute('data-codigo') : '';
+                            if (codigo) elCodigo.value = codigo;
+                            const event = new Event('change');
+                            elFazenda.dispatchEvent(event);
+                        } else {
+                            for (let idx = 0; idx < elCodigo.options.length; idx++) {
+                                const df = norm(elCodigo.options[idx].getAttribute('data-fazenda') || '');
+                                if (df && (df === tN || df.includes(tN) || tN.includes(df))) {
+                                    elCodigo.selectedIndex = idx;
+                                    const nome = elCodigo.options[idx].getAttribute('data-fazenda');
+                                    if (nome) elFazenda.value = nome;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
     }
 
     checkViagemAduboLimit() {
