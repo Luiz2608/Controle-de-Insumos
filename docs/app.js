@@ -4655,7 +4655,7 @@ forceReloadAllData() {
     getStatusClass(status) {
         if (!status) return '';
         const s = status.toLowerCase();
-        if (s.includes('executad') || s.includes('concluid')) return 'status-success'; // Verde
+        if (s.includes('executad') || s.includes('concluid') || s.includes('fechad')) return 'status-success'; // Verde
         if (s.includes('planejad') || s.includes('abert')) return 'status-warning'; // Amarelo
         if (s.includes('cancel')) return 'status-danger'; // Vermelho
         return '';
@@ -5460,7 +5460,12 @@ forceReloadAllData() {
                     singleOs.innerHTML = '<option value="">Selecione a OS</option>';
                     if (val && this.osListCache) {
                         // Comparação robusta (string e trim)
-                        const osList = this.osListCache.filter(o => String(o.frente).trim() === String(val).trim());
+                        const osList = this.osListCache.filter(o => {
+                            const sameFrente = String(o.frente).trim() === String(val).trim();
+                            const st = String(o.status || '').toLowerCase();
+                            const isFechada = st.includes('fechad') || st.includes('executad') || st.includes('concluid') || st.includes('cancel');
+                            return sameFrente && !isFechada;
+                        });
                         
                         if (osList.length === 0) {
                             console.warn(`Nenhuma OS encontrada para a frente: "${val}"`);
@@ -6210,6 +6215,8 @@ forceReloadAllData() {
                 <td>${this.ui.formatNumber(f.area||0)}</td>
                 <td>${this.ui.formatNumber(f.areaAcumulada||0)}</td>
                 <td>${this.ui.formatNumber(f.plantioDiario||0)}</td>
+                <td>${f.osNumero||'—'}</td>
+                <td>${f.osStatus||'—'}</td>
             </tr>
         `).join('');
         
@@ -6388,9 +6395,11 @@ forceReloadAllData() {
                                     <th>Área OS</th>
                                     <th>Área Acum. (OS)</th>
                                     <th>Plantio Dia</th>
+                                    <th>Nº OS</th>
+                                    <th>Status OS</th>
                                 </tr>
                             </thead>
-                            <tbody>${frentesRows || '<tr><td colspan="8" style="text-align:center;">—</td></tr>'}</tbody>
+                            <tbody>${frentesRows || '<tr><td colspan="10" style="text-align:center;">—</td></tr>'}</tbody>
                         </table>
                     </div>
                 </div>
@@ -7027,6 +7036,7 @@ forceReloadAllData() {
         // [NEW] OS Listener
         const osSelect = document.getElementById('modal-viagem-adubo-os');
         const qtdInput = document.getElementById('modal-viagem-quantidade-total');
+        const osInputMain = document.getElementById('viagem-adubo-os');
 
         if (qtdInput) {
             qtdInput.addEventListener('input', () => this.checkViagemAduboLimit());
@@ -7123,6 +7133,18 @@ forceReloadAllData() {
                     }
                 }
             };
+        }
+        // Listener para formulário principal (não modal)
+        if (osInputMain) {
+            osInputMain.addEventListener('change', () => {
+                const osNum = osInputMain.value;
+                if (!osNum || !this.osListCache) return;
+                const os = this.osListCache.find(o => String(o.numero) === String(osNum));
+                if (os && os.frente) {
+                    const elFrente = document.getElementById('viagem-frente');
+                    if (elFrente) elFrente.value = os.frente;
+                }
+            });
         }
 
         const setupSync = (fazendaId, codigoId) => {
@@ -7877,6 +7899,29 @@ forceReloadAllData() {
         const renderTo = (tbodyId, isViewMode) => {
             const tbody = document.getElementById(tbodyId);
             if (!tbody) return;
+            // Ajusta cabeçalho da tabela do modal conforme modo de visualização
+            if (tbodyId === 'modal-bags-table-body') {
+                const table = tbody.closest('table');
+                const theadRow = table ? table.querySelector('thead tr') : null;
+                if (theadRow) {
+                    if (isViewMode) {
+                        theadRow.innerHTML = `
+                            <th>Identificação</th>
+                            <th>Lacre</th>
+                            <th>Observações</th>
+                            <th>Devolvido</th>
+                        `;
+                    } else {
+                        theadRow.innerHTML = `
+                            <th>Identificação</th>
+                            <th>Lacre</th>
+                            <th>Observações</th>
+                            <th>Devolvido</th>
+                            <th>Ações</th>
+                        `;
+                    }
+                }
+            }
             if (!Array.isArray(this.viagensAduboBagsDraft) || !this.viagensAduboBagsDraft.length) {
                 tbody.innerHTML = '';
                 return;
@@ -12362,6 +12407,15 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
         areaAcumulada: parseVal('single-area-acumulada'),
         plantioDiario: parseVal('single-plantio-dia')
     };
+    // Vincular O.S selecionada (número e status) para exibição em preview/detalhes
+    const osNumeroSel = document.getElementById('single-os')?.value || '';
+    let osStatusSel = '';
+    if (osNumeroSel && Array.isArray(this.osListCache)) {
+        const osFound = this.osListCache.find(o => String(o.numero) === String(osNumeroSel));
+        osStatusSel = osFound && osFound.status ? osFound.status : '';
+    }
+    if (osNumeroSel) frente.osNumero = osNumeroSel;
+    if (osStatusSel) frente.osStatus = osStatusSel;
     
     // Capturar tipo de operação e colheita
     // const tipoOperacao = document.getElementById('tipo-operacao')?.value || 'plantio';
