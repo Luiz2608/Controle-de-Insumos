@@ -7177,7 +7177,26 @@ forceReloadAllData() {
                 const os = this.osListCache.find(o => String(o.numero) === String(osNum));
                 if (!os) return;
                 const elFrente = document.getElementById('modal-viagem-frente');
-                if (elFrente && os.frente) elFrente.value = os.frente;
+                if (elFrente) {
+                    const targetFrente = String(os.frente || os.frente_nome || '').trim();
+                    if (targetFrente) {
+                        const norm = (s) => s ? s.toString().trim().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') : '';
+                        const tN = norm(targetFrente);
+                        let matchIdx = -1;
+                        for (let i = 0; i < elFrente.options.length; i++) {
+                            const v = norm(elFrente.options[i].value || '');
+                            const t = norm(elFrente.options[i].text || '');
+                            if (v === tN || t === tN || (v && (v.includes(tN) || tN.includes(v))) || (t && (t.includes(tN) || tN.includes(t)))) { matchIdx = i; break; }
+                        }
+                        if (matchIdx >= 0) {
+                            elFrente.selectedIndex = matchIdx;
+                            const evt = new Event('change');
+                            elFrente.dispatchEvent(evt);
+                        } else {
+                            elFrente.value = '';
+                        }
+                    }
+                }
                 const elFazenda = document.getElementById('modal-viagem-fazenda');
                 const elCodigo = document.getElementById('modal-viagem-codigo-fazenda');
                 if (elFazenda && elCodigo) {

@@ -7075,9 +7075,26 @@ forceReloadAllData() {
                 const os = this.osListCache.find(o => String(o.numero) === String(osNum));
                 if (os) {
                     // Auto-fill fields
-                    if (os.frente) {
+                    {
                         const elFrente = document.getElementById('modal-viagem-frente');
-                        if (elFrente) elFrente.value = os.frente;
+                        const targetFrente = String(os.frente || os.frente_nome || '').trim();
+                        if (elFrente && targetFrente) {
+                            const norm = (s) => s ? s.toString().trim().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') : '';
+                            const tN = norm(targetFrente);
+                            let matchIdx = -1;
+                            for (let i = 0; i < elFrente.options.length; i++) {
+                                const v = norm(elFrente.options[i].value || '');
+                                const t = norm(elFrente.options[i].text || '');
+                                if (v === tN || t === tN || (v && (v.includes(tN) || tN.includes(v))) || (t && (t.includes(tN) || tN.includes(t)))) { matchIdx = i; break; }
+                            }
+                            if (matchIdx >= 0) {
+                                elFrente.selectedIndex = matchIdx;
+                                const evt = new Event('change');
+                                elFrente.dispatchEvent(evt);
+                            } else {
+                                elFrente.value = '';
+                            }
+                        }
                     }
                     if (os.fazenda) {
                          const elFazenda = document.getElementById('modal-viagem-fazenda');
