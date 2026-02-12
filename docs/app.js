@@ -6699,7 +6699,29 @@ forceReloadAllData() {
                         this.renderBagsDraft();
                     }
                 }
+                if (target.classList.contains('btn-edit-bag-row') || target.closest('.btn-edit-bag-row')) {
+                    const btn = target.classList.contains('btn-edit-bag-row') ? target : target.closest('.btn-edit-bag-row');
+                    const idx = parseInt(btn.getAttribute('data-idx'));
+                    if (!isNaN(idx) && this.viagensAduboBagsDraft[idx]) {
+                        const current = this.viagensAduboBagsDraft[idx];
+                        const novoLacre = window.prompt('Editar lacre:', current.lacre || '');
+                        if (novoLacre != null) {
+                            const novaObs = window.prompt('Editar observações:', current.observacoes || '');
+                            this.viagensAduboBagsDraft[idx] = { ...current, lacre: (novoLacre || '').trim(), observacoes: (novaObs || '').trim() };
+                            this.renderBagsDraft();
+                        }
+                    }
+                }
             };
+            modalBagsBody.addEventListener('change', (e) => {
+                const t = e.target;
+                if (t && t.classList.contains('bag-devolvido')) {
+                    const idx = parseInt(t.getAttribute('data-idx'));
+                    if (!isNaN(idx) && this.viagensAduboBagsDraft[idx]) {
+                        this.viagensAduboBagsDraft[idx].devolvido = !!t.checked;
+                    }
+                }
+            });
         }
 
         // Summary Listeners (Adubo)
@@ -6712,6 +6734,47 @@ forceReloadAllData() {
                 el.addEventListener('change', updateAduboSummary);
             }
         });
+
+        const handleOutro = (prefix) => {
+            const select = document.getElementById(prefix + 'viagem-produto');
+            if (!select) return;
+            select.addEventListener('change', () => {
+                if (select.value === 'OUTRO') {
+                    const nome = window.prompt('Digite o nome do produto:','');
+                    if (!nome || !nome.trim()) {
+                        select.value = '';
+                        const outroEl = document.getElementById(prefix + 'viagem-produto-outro');
+                        const justEl = document.getElementById(prefix + 'viagem-produto-justificativa');
+                        if (outroEl) outroEl.value = '';
+                        if (justEl) justEl.value = '';
+                        return;
+                    }
+                    const justificativa = window.prompt('Justifique o uso do produto digitado:','');
+                    if (!justificativa || !justificativa.trim()) {
+                        select.value = '';
+                        const outroEl = document.getElementById(prefix + 'viagem-produto-outro');
+                        const justEl = document.getElementById(prefix + 'viagem-produto-justificativa');
+                        if (outroEl) outroEl.value = '';
+                        if (justEl) justEl.value = '';
+                        return;
+                    }
+                    const existing = Array.from(select.options).some(o => o.value === nome || o.textContent === nome);
+                    if (!existing) {
+                        const opt = document.createElement('option');
+                        opt.value = nome;
+                        opt.textContent = nome;
+                        select.appendChild(opt);
+                    }
+                    select.value = nome;
+                    const outroEl = document.getElementById(prefix + 'viagem-produto-outro');
+                    const justEl = document.getElementById(prefix + 'viagem-produto-justificativa');
+                    if (outroEl) outroEl.value = nome;
+                    if (justEl) justEl.value = justificativa;
+                }
+            });
+        };
+        handleOutro('modal-');
+        handleOutro('');
     }
 
     async openViagemAduboModal(id = null, mode = 'edit') {
@@ -7345,6 +7408,8 @@ forceReloadAllData() {
                 origem: getVal('viagem-origem'),
                 destino: getVal('viagem-destino'),
                 produto: produto,
+                produto_outro_descricao: getVal('viagem-produto-outro'),
+                produto_outro_justificativa: getVal('viagem-produto-justificativa'),
                 quantidadeTotal: quantidadeTotalNum,
                 unidade: getVal('viagem-unidade'),
                 caminhao: getVal('viagem-caminhao'),
@@ -7795,7 +7860,7 @@ forceReloadAllData() {
             return;
         }
         if (!Array.isArray(this.viagensAduboBagsDraft)) this.viagensAduboBagsDraft = [];
-        this.viagensAduboBagsDraft.push({ identificacao, lacre, observacoes });
+        this.viagensAduboBagsDraft.push({ identificacao, lacre, observacoes, devolvido: false });
         this.renderBagsDraft();
         if (identEl) identEl.value = '';
         if (lacreEl) lacreEl.value = '';
@@ -7817,12 +7882,14 @@ forceReloadAllData() {
                 return;
             }
             tbody.innerHTML = this.viagensAduboBagsDraft.map((b, idx) => {
-                const actionTd = isViewMode ? '<td></td>' : `<td><button class="btn btn-delete-bag-row" data-idx="${idx}">🗑️</button></td>`;
+                const actionTd = isViewMode ? '<td></td>' : `<td><button class="btn btn-secondary btn-edit-bag-row" data-idx="${idx}">✏️</button> <button class="btn btn-delete-bag-row" data-idx="${idx}">🗑️</button></td>`;
+                const devolvidoTd = isViewMode ? `<td>${b.devolvido ? 'Sim' : 'Não'}</td>` : `<td><input type="checkbox" class="bag-devolvido" data-idx="${idx}" ${b.devolvido ? 'checked' : ''}></td>`;
                 return `
                     <tr>
                         <td>${b.identificacao || ''}</td>
                         <td>${b.lacre || ''}</td>
                         <td>${b.observacoes || ''}</td>
+                        ${devolvidoTd}
                         ${actionTd}
                     </tr>
                 `;
@@ -7886,6 +7953,7 @@ forceReloadAllData() {
                         <th>Peso</th>
                         <th>Lacre</th>
                         <th>Observações</th>
+                        <th>Devolvido</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -7897,6 +7965,7 @@ forceReloadAllData() {
                                 <td>${this.ui.formatNumber(p, 3)}</td>
                                 <td>${b.lacre || ''}</td>
                                 <td>${b.observacoes || ''}</td>
+                                <td>${b.devolvido ? 'Sim' : 'Não'}</td>
                             </tr>
                         `;
                     }).join('')}
@@ -12471,6 +12540,8 @@ InsumosApp.prototype.saveViagemAdubo = async function() {
         origem,
         destino,
         produto,
+        produto_outro_descricao: document.getElementById('viagem-produto-outro')?.value || '',
+        produto_outro_justificativa: document.getElementById('viagem-produto-justificativa')?.value || '',
         quantidadeTotal,
         unidade,
         caminhao,
