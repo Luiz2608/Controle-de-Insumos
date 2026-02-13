@@ -7011,39 +7011,11 @@ forceReloadAllData() {
                 }
             }
 
-            // 2. Populate Frentes (From Plantio Data)
-            let plantioData = [];
-            if (this.plantioDiarioData && this.plantioDiarioData.length > 0) {
-                plantioData = this.plantioDiarioData;
-            } else {
-                const res = await this.api.getPlantioDiario();
-                if (res.success) plantioData = res.data;
-            }
-
-            if (plantioData && plantioData.length > 0) {
-                const frentes = new Set();
-                plantioData.forEach(p => {
-                    const fs = p.frentes || [];
-                    const list = Array.isArray(fs) ? fs : (fs ? [fs] : []);
-                    list.forEach(f => {
-                        if (f.frente) frentes.add(f.frente);
-                    });
-                });
-
-                const frentesHtml = '<option value="">Selecione</option>' + 
-                    Array.from(frentes).sort().map(f => `<option value="${f}">${f}</option>`).join('');
-                
-                const populateSelect = (id, html, current) => {
-                    const el = document.getElementById(id);
-                    if (el) {
-                        el.innerHTML = html;
-                        if (current) el.value = current;
-                    }
-                };
-
-                populateSelect('viagem-frente', frentesHtml, document.getElementById('viagem-frente')?.value);
-                populateSelect('modal-viagem-frente', frentesHtml, document.getElementById('modal-viagem-frente')?.value);
-            }
+            // 2. Frente agora é campo de texto: apenas garantir placeholder se necessário
+            const frenteMain = document.getElementById('viagem-frente');
+            const frenteModal = document.getElementById('modal-viagem-frente');
+            if (frenteMain && !frenteMain.placeholder) frenteMain.placeholder = 'Digite a Frente';
+            if (frenteModal && !frenteModal.placeholder) frenteModal.placeholder = 'Digite a Frente';
             
             // 3. Setup Sync Listeners
             this.setupViagemAduboSelectListeners();
@@ -7078,23 +7050,7 @@ forceReloadAllData() {
                     {
                         const elFrente = document.getElementById('modal-viagem-frente');
                         const targetFrente = String(os.frente || os.frente_nome || '').trim();
-                        if (elFrente && targetFrente) {
-                            const norm = (s) => s ? s.toString().trim().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') : '';
-                            const tN = norm(targetFrente);
-                            let matchIdx = -1;
-                            for (let i = 0; i < elFrente.options.length; i++) {
-                                const v = norm(elFrente.options[i].value || '');
-                                const t = norm(elFrente.options[i].text || '');
-                                if (v === tN || t === tN || (v && (v.includes(tN) || tN.includes(v))) || (t && (t.includes(tN) || tN.includes(t)))) { matchIdx = i; break; }
-                            }
-                            if (matchIdx >= 0) {
-                                elFrente.selectedIndex = matchIdx;
-                                const evt = new Event('change');
-                                elFrente.dispatchEvent(evt);
-                            } else {
-                                elFrente.value = '';
-                            }
-                        }
+                        if (elFrente) elFrente.value = targetFrente || '';
                     }
                     if (os.fazenda) {
                          const elFazenda = document.getElementById('modal-viagem-fazenda');

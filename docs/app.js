@@ -7018,8 +7018,10 @@ forceReloadAllData() {
                     }
                 };
 
-                populateSelect('viagem-frente', frentesHtml, document.getElementById('viagem-frente')?.value);
-                populateSelect('modal-viagem-frente', frentesHtml, document.getElementById('modal-viagem-frente')?.value);
+                const frenteMain = document.getElementById('viagem-frente');
+                const frenteModal = document.getElementById('modal-viagem-frente');
+                if (frenteMain && !frenteMain.placeholder) frenteMain.placeholder = 'Digite a Frente';
+                if (frenteModal && !frenteModal.placeholder) frenteModal.placeholder = 'Digite a Frente';
             }
             
             // 3. Setup Sync Listeners
@@ -7177,26 +7179,7 @@ forceReloadAllData() {
                 const os = this.osListCache.find(o => String(o.numero) === String(osNum));
                 if (!os) return;
                 const elFrente = document.getElementById('modal-viagem-frente');
-                if (elFrente) {
-                    const targetFrente = String(os.frente || os.frente_nome || '').trim();
-                    if (targetFrente) {
-                        const norm = (s) => s ? s.toString().trim().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') : '';
-                        const tN = norm(targetFrente);
-                        let matchIdx = -1;
-                        for (let i = 0; i < elFrente.options.length; i++) {
-                            const v = norm(elFrente.options[i].value || '');
-                            const t = norm(elFrente.options[i].text || '');
-                            if (v === tN || t === tN || (v && (v.includes(tN) || tN.includes(v))) || (t && (t.includes(tN) || tN.includes(t)))) { matchIdx = i; break; }
-                        }
-                        if (matchIdx >= 0) {
-                            elFrente.selectedIndex = matchIdx;
-                            const evt = new Event('change');
-                            elFrente.dispatchEvent(evt);
-                        } else {
-                            elFrente.value = '';
-                        }
-                    }
-                }
+                if (elFrente) elFrente.value = String(os.frente || os.frente_nome || '').trim();
                 const elFazenda = document.getElementById('modal-viagem-fazenda');
                 const elCodigo = document.getElementById('modal-viagem-codigo-fazenda');
                 if (elFazenda && elCodigo) {
