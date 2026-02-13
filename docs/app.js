@@ -7130,7 +7130,8 @@ forceReloadAllData() {
                         const prodSelect = document.getElementById('modal-viagem-produto');
                         if (prodSelect) {
                             prodSelect.innerHTML = '<option value="">Selecione</option>' + 
-                                os.produtos.map(p => `<option value="${p.produto}">${p.produto}</option>`).join('');
+                                os.produtos.map(p => `<option value="${p.produto}">${p.produto}</option>`).join('') +
+                                '<option value="OUTRO">Outro (digitar)</option>';
                         }
                     }
                 }
@@ -7138,6 +7139,8 @@ forceReloadAllData() {
         }
         // Listener para formulário principal (não modal)
         if (osInputMain) {
+            const prodMainSelect = document.getElementById('viagem-produto');
+            const defaultMainProdHTML = prodMainSelect ? prodMainSelect.innerHTML : '';
             osInputMain.addEventListener('change', () => {
                 const osNum = osInputMain.value;
                 if (!osNum || !this.osListCache) return;
@@ -7145,6 +7148,15 @@ forceReloadAllData() {
                 if (os && os.frente) {
                     const elFrente = document.getElementById('viagem-frente');
                     if (elFrente) elFrente.value = os.frente;
+                }
+                if (prodMainSelect) {
+                    if (os && Array.isArray(os.produtos) && os.produtos.length > 0) {
+                        prodMainSelect.innerHTML = '<option value="">Selecione</option>' +
+                            os.produtos.map(p => `<option value="${p.produto}">${p.produto}</option>`).join('') +
+                            '<option value="OUTRO">Outro (digitar)</option>';
+                    } else {
+                        prodMainSelect.innerHTML = defaultMainProdHTML;
+                    }
                 }
             });
         }
