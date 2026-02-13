@@ -6896,6 +6896,45 @@ forceReloadAllData() {
             if (document.getElementById('modal-viagem-transportadora')) document.getElementById('modal-viagem-transportadora').value = item.transportadora || '';
             if (document.getElementById('modal-viagem-observacoes')) document.getElementById('modal-viagem-observacoes').value = item.observacoes || '';
 
+            const prodSelectEdit = document.getElementById('modal-viagem-produto');
+            if (prodSelectEdit) {
+                const osNum = item.numeroOS || item.numero_os || '';
+                const os = (this.osListCache || []).find(o => String(o.numero) === String(osNum));
+                let populated = false;
+                if (os && Array.isArray(os.produtos) && os.produtos.length > 0) {
+                    prodSelectEdit.innerHTML = '<option value=\"\">Selecione</option>' +
+                        os.produtos.map(p => `<option value="${p.produto}">${p.produto}</option>`).join('') +
+                        '<option value=\"OUTRO\">Outro (digitar)</option>';
+                    populated = true;
+                }
+                if (!populated) {
+                    const hasOutro = Array.from(prodSelectEdit.options).some(o => o.value === 'OUTRO');
+                    if (!hasOutro) {
+                        const optOutro = document.createElement('option');
+                        optOutro.value = 'OUTRO';
+                        optOutro.textContent = 'Outro (digitar)';
+                        prodSelectEdit.appendChild(optOutro);
+                    }
+                }
+                const savedProd = item.produto || '';
+                if (savedProd) {
+                    const exists = Array.from(prodSelectEdit.options).some(o => o.value === savedProd);
+                    if (!exists) {
+                        const optSaved = document.createElement('option');
+                        optSaved.value = savedProd;
+                        optSaved.textContent = savedProd;
+                        prodSelectEdit.appendChild(optSaved);
+                    }
+                    prodSelectEdit.value = savedProd;
+                } else {
+                    prodSelectEdit.value = '';
+                }
+                const outroEl = document.getElementById('modal-viagem-produto-outro');
+                const justEl = document.getElementById('modal-viagem-produto-justificativa');
+                if (outroEl) outroEl.value = item.produto_outro_descricao || '';
+                if (justEl) justEl.value = item.produto_outro_justificativa || '';
+            }
+
             // Bags
             this.viagensAduboBagsDraft = Array.isArray(item.bags) ? [...item.bags] : [];
 
