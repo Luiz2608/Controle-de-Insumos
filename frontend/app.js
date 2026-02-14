@@ -6599,6 +6599,10 @@ forceReloadAllData() {
                 this.openFrentesReportModal();
             };
         }
+        document.addEventListener('click', (e) => {
+            const t = e.target.closest && e.target.closest('#btn-print-viagens-adubo-report');
+            if (t) this.openFrentesReportModal();
+        });
 
         // Close Modal Buttons
         const closeBtns = document.querySelectorAll('.close-viagem-adubo-modal');
@@ -11014,6 +11018,7 @@ InsumosApp.prototype.getDistinctFrentesFromViagens = function() {
 };
 
 InsumosApp.prototype.openFrentesReportModal = function() {
+    try { this.ui?.showLoading?.(); } catch(e) {}
     const modal = document.getElementById('modal-frentes-report');
     const listBody = document.getElementById('frentes-report-list');
     const searchInput = document.getElementById('frentes-report-search');
@@ -11030,6 +11035,7 @@ InsumosApp.prototype.openFrentesReportModal = function() {
             <td>${f.total.toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
         </tr>
     `).join('');
+    try { this.ui?.hideLoading?.(); } catch(e) {}
     modal.style.display = 'block';
     const filterRows = () => {
         const q = (searchInput?.value || '').toLowerCase();
