@@ -2390,41 +2390,6 @@
         </div>
     </div>
 
-    <!-- Modal Seleção de Frentes para Relatório -->
-    <div id="modal-frentes-report" class="modal" style="display:none;">
-        <div class="modal-content" style="width: 60%; max-width: 700px;">
-            <div class="modal-header">
-                <h3>Selecionar Frentes para Relatório</h3>
-                <span class="close-modal" id="close-frentes-report" style="cursor:pointer;">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div class="form-grid boletim-grid">
-                    <div class="form-group">
-                        <label for="frentes-report-search">Buscar Frente</label>
-                        <input type="text" id="frentes-report-search" placeholder="Ex.: 4001">
-                    </div>
-                </div>
-                <div class="table-container" style="max-height: 300px; overflow-y: auto; margin-top: 10px;">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th style="width:40px;"></th>
-                                <th>Frente</th>
-                                <th>Viagens</th>
-                                <th>Quantidade Total</th>
-                            </tr>
-                        </thead>
-                        <tbody id="frentes-report-list"></tbody>
-                    </table>
-                </div>
-            </div>
-            <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:10px;">
-                <button type="button" class="btn btn-secondary" id="btn-frentes-report-select-all">Selecionar Todas</button>
-                <button type="button" class="btn btn-secondary" id="btn-frentes-report-cancel">Cancelar</button>
-                <button type="button" class="btn btn-primary" id="btn-frentes-report-generate">Gerar Relatório</button>
-            </div>
-        </div>
-    </div>
 
     <!-- Generic Alert Modal (Center Screen) -->
     <div id="alert-modal" class="modal" style="display: none; z-index: 99999;">
