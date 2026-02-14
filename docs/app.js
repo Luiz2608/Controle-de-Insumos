@@ -10901,13 +10901,13 @@ InsumosApp.prototype.exportViagensAduboReport = function(selectedFrentes = null)
     if (!jsPDF || !window.jspdf) { this.ui?.showNotification?.('Biblioteca PDF não carregada', 'error'); return; }
     const doc = new jsPDF('p', 'pt', 'a4');
     doc.setFont('helvetica', 'normal');
-    const title = 'Relatório de Transporte de Insumos por Frente';
+    const title = 'Relatório de Transporte de Adubo por Frente';
     const dateStr = new Date().toLocaleDateString('pt-BR');
     doc.setFontSize(14);
     doc.text(title, 40, 40);
     doc.setFontSize(9);
     doc.text(`Emitido em: ${dateStr}`, 40, 58);
-    let viagens = Array.isArray(this.viagensAdubo) ? this.viagensAdubo.filter(v => ['adubo','composto'].includes((v.transportType || 'adubo'))) : [];
+    let viagens = Array.isArray(this.viagensAdubo) ? this.viagensAdubo.filter(v => (v.transportType || 'adubo') === 'adubo') : [];
     if (Array.isArray(selectedFrentes) && selectedFrentes.length > 0) {
         const set = new Set(selectedFrentes.map(f => String(f)));
         viagens = viagens.filter(v => set.has(String(v.frente || '')));
@@ -11056,48 +11056,6 @@ InsumosApp.prototype.exportViagensAduboReport = function(selectedFrentes = null)
     const totalQtdGeral = summaryBody.reduce((s,r)=>s+(parseFloat(String(r[2]).replace(/\./g,'').replace(',','.'))||0),0);
     doc.setFontSize(11);
     doc.text(`Totais Gerais: Viagens = ${totalViagensGeral} | Quantidade = ${totalQtdGeral.toLocaleString('pt-BR',{minimumFractionDigits:2})}`, 40, y+14);
-    y += 28;
-    try {
-        const compostoList = Array.isArray(this.transporteCompostoData) ? this.transporteCompostoData : [];
-        if (compostoList.length > 0) {
-            doc.setFontSize(12);
-            doc.text('TRANSPORTE DE COMPOSTO', 40, y);
-            y += 12;
-            const byFrenteC = {};
-            compostoList.forEach(i => {
-                const f = String(i.frente || 'N/D');
-                if (!byFrenteC[f]) byFrenteC[f] = [];
-                byFrenteC[f].push(i);
-            });
-            Object.keys(byFrenteC).sort((a,b)=>a.localeCompare(b)).forEach(frente => {
-                if (y > doc.internal.pageSize.getHeight() - 160) { doc.addPage(); y = 40; }
-                doc.setFontSize(11);
-                doc.text(`FRENTE ${frente}`, 40, y);
-                y += 10;
-                const head = ['OS','Abertura','Fazenda','Produto','Meta (t)','Status'];
-                const body = byFrenteC[frente].map(i => [
-                    String(i.numero_os || '-'),
-                    this.ui.formatDateBR(i.data_abertura),
-                    String(i.fazenda || '-'),
-                    String(i.produto || 'COMPOSTO'),
-                    this.ui.formatNumber(parseFloat(i.quantidade)||0, 3),
-                    String(i.status || '-')
-                ]);
-                makeTable(head, body, { 4: { halign: 'right' } });
-            });
-            if (y > doc.internal.pageSize.getHeight() - 120) { doc.addPage(); y = 40; }
-            doc.setFontSize(12);
-            doc.text('RESUMO GERAL COMPOSTO POR FRENTE', 40, y);
-            y += 12;
-            const sumHead = ['Frente','OSs','Meta Total (t)'];
-            const sumBody = Object.entries(byFrenteC).map(([frente, items]) => {
-                const count = items.length;
-                const totalMeta = items.reduce((s,i)=> s + (parseFloat(i.quantidade)||0), 0);
-                return [frente, String(count), this.ui.formatNumber(totalMeta, 3)];
-            }).sort((a,b)=> parseFloat(String(b[2]).replace(',','.')) - parseFloat(String(a[2]).replace(',','.')));
-            makeTable(sumHead, sumBody, { 1: { halign: 'right' }, 2: { halign: 'right' } });
-        }
-    } catch(e) {}
     doc.save(`relatorio_insumos_frente_${Date.now()}.pdf`);
 };
 

@@ -8713,10 +8713,7 @@ forceReloadAllData() {
         // 4. Form Submit
         const form = document.getElementById('form-transporte-composto');
         if (form) {
-            form.addEventListener('submit', (e) => {
-                if (this._editCompostoFrenteOnly) return this.handleCompostoFrenteOnlySubmit(e);
-                return this.handleCompostoSubmit(e);
-            });
+            form.addEventListener('submit', (e) => this.handleCompostoSubmit(e));
         }
         
         // 5. Search/Filter/Refresh
@@ -9920,17 +9917,6 @@ forceReloadAllData() {
                 
                 // Lock fields for editing (View Mode)
                 this.toggleCompostoFields(true);
-                try {
-                    const frenteEl = document.getElementById('composto-frente');
-                    if (frenteEl) {
-                        frenteEl.readOnly = false;
-                        frenteEl.classList.remove('readonly-input');
-                        frenteEl.style.backgroundColor = '';
-                        frenteEl.style.cursor = '';
-                        frenteEl.style.opacity = '';
-                    }
-                    this._editCompostoFrenteOnly = true;
-                } catch(e) {}
                 
                 // Show Modal
                 const modal = document.getElementById('modal-transporte-composto');
@@ -9979,29 +9965,6 @@ forceReloadAllData() {
         } catch (e) {
             console.error('❌ Erro fatal em editComposto:', e);
             this.ui.showNotification('Erro de conexão ou processamento.', 'error');
-        }
-    }
-
-    async handleCompostoFrenteOnlySubmit(e) {
-        e.preventDefault();
-        try {
-            const id = document.getElementById('composto-id')?.value;
-            const frente = document.getElementById('composto-frente')?.value;
-            if (!id) { this.ui.showNotification('Registro inválido', 'error'); return; }
-            if (!frente) { this.ui.showNotification('Informe a frente', 'warning'); return; }
-            const res = await this.api.updateTransporteCompostoFrente(id, frente);
-            if (res && res.success) {
-                this.ui.showNotification('Frente atualizada com sucesso', 'success');
-                const modal = document.getElementById('modal-transporte-composto');
-                if (modal) modal.style.display = 'none';
-                this._editCompostoFrenteOnly = false;
-                await this.renderTransporteComposto();
-            } else {
-                this.ui.showNotification('Falha ao atualizar frente', 'error');
-            }
-        } catch (err) {
-            console.error('Erro ao atualizar frente:', err);
-            this.ui.showNotification('Erro ao atualizar frente', 'error');
         }
     }
     
@@ -10932,13 +10895,13 @@ InsumosApp.prototype.exportViagensAduboReport = function(selectedFrentes = null)
     if (!jsPDF || !window.jspdf) { this.ui?.showNotification?.('Biblioteca PDF não carregada', 'error'); return; }
     const doc = new jsPDF('p', 'pt', 'a4');
     doc.setFont('helvetica', 'normal');
-    const title = 'Relatório de Transporte de Insumos por Frente';
+    const title = 'Relatório de Transporte de Adubo por Frente';
     const dateStr = new Date().toLocaleDateString('pt-BR');
     doc.setFontSize(14);
     doc.text(title, 40, 40);
     doc.setFontSize(9);
     doc.text(`Emitido em: ${dateStr}`, 40, 58);
-    let viagens = Array.isArray(this.viagensAdubo) ? this.viagensAdubo.filter(v => ['adubo','composto'].includes((v.transportType || 'adubo'))) : [];
+    let viagens = Array.isArray(this.viagensAdubo) ? this.viagensAdubo.filter(v => (v.transportType || 'adubo') === 'adubo') : [];
     if (Array.isArray(selectedFrentes) && selectedFrentes.length > 0) {
         const set = new Set(selectedFrentes.map(f => String(f)));
         viagens = viagens.filter(v => set.has(String(v.frente || '')));
@@ -11088,48 +11051,6 @@ InsumosApp.prototype.exportViagensAduboReport = function(selectedFrentes = null)
     const totalQtdGeral = summaryBody.reduce((s,r)=>s+(parseFloat(String(r[2]).replace(/\./g,'').replace(',','.'))||0),0);
     doc.setFontSize(11);
     doc.text(`Totais Gerais: Viagens = ${totalViagensGeral} | Quantidade = ${totalQtdGeral.toLocaleString('pt-BR',{minimumFractionDigits:2})}`, 40, y+14);
-    y += 28;
-    try {
-        const compostoList = Array.isArray(this.transporteCompostoData) ? this.transporteCompostoData : [];
-        if (compostoList.length > 0) {
-            doc.setFontSize(12);
-            doc.text('TRANSPORTE DE COMPOSTO', 40, y);
-            y += 12;
-            const byFrenteC = {};
-            compostoList.forEach(i => {
-                const f = String(i.frente || 'N/D');
-                if (!byFrenteC[f]) byFrenteC[f] = [];
-                byFrenteC[f].push(i);
-            });
-            Object.keys(byFrenteC).sort((a,b)=>a.localeCompare(b)).forEach(frente => {
-                if (y > doc.internal.pageSize.getHeight() - 160) { doc.addPage(); y = 40; }
-                doc.setFontSize(11);
-                doc.text(`FRENTE ${frente}`, 40, y);
-                y += 10;
-                const head = ['OS','Abertura','Fazenda','Produto','Meta (t)','Status'];
-                const body = byFrenteC[frente].map(i => [
-                    String(i.numero_os || '-'),
-                    this.ui.formatDateBR(i.data_abertura),
-                    String(i.fazenda || '-'),
-                    String(i.produto || 'COMPOSTO'),
-                    this.ui.formatNumber(parseFloat(i.quantidade)||0, 3),
-                    String(i.status || '-')
-                ]);
-                makeTable(head, body, { 4: { halign: 'right' } });
-            });
-            if (y > doc.internal.pageSize.getHeight() - 120) { doc.addPage(); y = 40; }
-            doc.setFontSize(12);
-            doc.text('RESUMO GERAL COMPOSTO POR FRENTE', 40, y);
-            y += 12;
-            const sumHead = ['Frente','OSs','Meta Total (t)'];
-            const sumBody = Object.entries(byFrenteC).map(([frente, items]) => {
-                const count = items.length;
-                const totalMeta = items.reduce((s,i)=> s + (parseFloat(i.quantidade)||0), 0);
-                return [frente, String(count), this.ui.formatNumber(totalMeta, 3)];
-            }).sort((a,b)=> parseFloat(String(b[2]).replace(',','.')) - parseFloat(String(a[2]).replace(',','.')));
-            makeTable(sumHead, sumBody, { 1: { halign: 'right' }, 2: { halign: 'right' } });
-        }
-    } catch(e) {}
     doc.save(`relatorio_insumos_frente_${Date.now()}.pdf`);
 };
 
