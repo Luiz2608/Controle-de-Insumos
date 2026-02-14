@@ -10913,17 +10913,20 @@ InsumosApp.prototype.exportViagensAduboReport = function(selectedFrentes = null)
         byFrente[frente].push(v);
     });
     let y = 80;
-    const makeTable = (head, body) => {
+    const makeTable = (head, body, colStyles) => {
         if (doc.autoTable) {
-            doc.autoTable({
+            const opts = {
                 startY: y,
                 head: [head],
                 body,
                 theme: 'grid',
                 styles: { fontSize: 9, cellPadding: 3, lineColor: [200, 200, 200], lineWidth: 0.2 },
                 headStyles: { fillColor: [225, 229, 235], textColor: [0, 0, 0], fontStyle: 'bold' },
+                alternateRowStyles: { fillColor: [245, 247, 250] },
                 margin: { left: 40, right: 30 }
-            });
+            };
+            if (colStyles) opts.columnStyles = colStyles;
+            doc.autoTable(opts);
             y = doc.lastAutoTable.finalY + 16;
         } else {
             doc.setFontSize(10);
@@ -10938,10 +10941,27 @@ InsumosApp.prototype.exportViagensAduboReport = function(selectedFrentes = null)
         this.ui?.showNotification?.('Sem viagens de adubo para gerar relatório', 'warning');
         return;
     }
+    const totalViagensAll = viagens.length;
+    const totalQtdAll = viagens.reduce((sum, v) => {
+        const q = parseFloat(v.quantidadeTotal ?? v.quantidade_total ?? 0);
+        return sum + (isNaN(q) ? 0 : q);
+    }, 0);
+    doc.setFontSize(12);
+    doc.text('Resumo Executivo', 40, y);
+    y += 12;
+    doc.setFillColor(245, 247, 250);
+    doc.rect(40, y, 320, 46, 'F');
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(10);
+    doc.text(`Viagens totais: ${String(totalViagensAll)}`, 48, y + 16);
+    doc.text(`Quantidade total: ${totalQtdAll.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} bags`, 48, y + 28);
+    doc.text(`Frentes atendidas: ${String(allFrentes.length)}`, 48, y + 40);
+    y += 62;
     allFrentes.forEach((frente, idx) => {
         if (idx > 0 && y > doc.internal.pageSize.getHeight() - 140) { doc.addPage(); y = 40; }
+        const blockStartY = y;
         doc.setFontSize(12);
-        doc.text(`Frente: ${frente}`, 40, y);
+        doc.text(`FRENTE ${frente}`, 40, y);
         y += 10;
         const viagensCount = byFrente[frente].length;
         const totalQtd = byFrente[frente].reduce((sum, v) => {
@@ -10949,9 +10969,9 @@ InsumosApp.prototype.exportViagensAduboReport = function(selectedFrentes = null)
             return sum + (isNaN(q) ? 0 : q);
         }, 0);
         doc.setFontSize(9);
-        doc.text(`KPIs: Viagens = ${viagensCount} | Quantidade total = ${totalQtd.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 40, y);
+        doc.text(`Viagens: ${viagensCount} | Quantidade: ${totalQtd.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} bags`, 40, y);
         y += 12;
-        const detHead = ['Data','Origem','Destino','Produto','Quantidade','Unidade','Transportadora','Observações'];
+        const detHead = ['Data','Origem','Destino','Produto','Quantidade'];
         const detRows = byFrente[frente].map(v => {
             const data = v.data ? new Date(v.data).toLocaleDateString('pt-BR') : 'N/D';
             return [
@@ -10959,39 +10979,39 @@ InsumosApp.prototype.exportViagensAduboReport = function(selectedFrentes = null)
                 String(v.origem || 'N/D'),
                 String(v.destino || 'N/D'),
                 String(v.produto || 'N/D'),
-                String(v.quantidadeTotal ?? v.quantidade_total ?? 'N/D'),
-                String(v.unidade || 'N/D'),
-                String(v.transportadora || 'N/D'),
-                String(v.observacoes || '')
+                String(v.quantidadeTotal ?? v.quantidade_total ?? 'N/D')
             ];
         });
-        makeTable(detHead, detRows);
-        doc.setFontSize(10);
-        doc.text(`Subtotal frente ${frente}: Viagens = ${viagensCount} | Quantidade total = ${totalQtd.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 40, y);
-        y += 12;
+        makeTable(detHead, detRows, { 4: { halign: 'right' } });
         const byProduto = {};
         byFrente[frente].forEach(v => {
             const key = String(v.produto || 'N/D');
             const q = parseFloat(v.quantidadeTotal ?? v.quantidade_total ?? 0);
             byProduto[key] = (byProduto[key] || 0) + (isNaN(q) ? 0 : q);
         });
-        const top = Object.entries(byProduto).sort((a,b)=>b[1]-a[1]).slice(0,3);
-        if (top.length) {
-            doc.setFontSize(9);
-            doc.text(`Top insumos: ${top.map(([p,q])=>`${p} (${q.toLocaleString('pt-BR',{minimumFractionDigits:2})})`).join(' | ')}`, 40, y);
-        }
-        y += 12;
-        const resumoHead = ['Insumo','Quantidade Total','Unidade'];
+        const resumoHead = ['Produto','Quantidade (bags)'];
         const resumoBody = Object.entries(byProduto)
             .sort((a,b)=>b[1]-a[1])
-            .map(([p,q]) => [p, q.toLocaleString('pt-BR',{minimumFractionDigits:2}), detRows.find(r=>r[5] && r[3]===p)?.[5] || 'N/D']);
-        makeTable(resumoHead, resumoBody);
-        y += 6;
+            .map(([p,q]) => [p, q.toLocaleString('pt-BR',{minimumFractionDigits:2})]);
+        makeTable(resumoHead, resumoBody, { 1: { halign: 'right' } });
+        doc.setFillColor(200, 200, 200);
+        const propW = Math.max(Math.round(((totalQtdAll > 0 ? totalQtd / totalQtdAll : 0) * 150)), 1);
+        doc.rect(40, y, propW, 8, 'F');
+        doc.setFontSize(9);
+        doc.text('Proporção no total', 40 + propW + 8, y + 7);
+        y += 20;
+        doc.setDrawColor(200, 200, 200);
+        const blockEndY = y;
+        const pageW = doc.internal.pageSize.getWidth();
+        const left = 36;
+        const right = pageW - 36;
+        doc.rect(left, blockStartY - 12, right - left, blockEndY - (blockStartY - 12), 'S');
+        y += 12;
         if (y > doc.internal.pageSize.getHeight() - 80) { doc.addPage(); y = 40; }
     });
     // Resumo geral
     doc.setFontSize(12);
-    doc.text('Resumo Geral por Frente', 40, y);
+    doc.text('RESUMO GERAL POR FRENTE', 40, y);
     y += 12;
     const summaryHead = ['Frente', 'Viagens', 'Quantidade Total'];
     const summaryBody = allFrentes.map(frente => {
@@ -11007,18 +11027,22 @@ InsumosApp.prototype.exportViagensAduboReport = function(selectedFrentes = null)
         const qb = parseFloat(String(b[2]).replace(/\./g,'').replace(',','.'))||0;
         return qb-qa;
     });
-    makeTable(summaryHead, orderedSummary);
+    makeTable(summaryHead, orderedSummary, { 1: { halign: 'right' }, 2: { halign: 'right' } });
     try {
         const totals = orderedSummary.map(row => ({ frente: row[0], qtd: parseFloat(row[2].replace(/\./g,'').replace(',','.')) || 0 }));
         const max = Math.max(...totals.map(t=>t.qtd), 1);
         doc.setFontSize(11);
-        doc.text('Comparativo (barras proporcionais por quantidade)', 40, y);
-        y += 12;
+        doc.text('COMPARATIVO ENTRE FRENTES', 40, y);
+        y += 10;
+        const baseX = 140;
         totals.sort((a,b)=>b.qtd-a.qtd).forEach(t => {
-            const len = Math.round((t.qtd / max) * 40);
-            const bar = Array(Math.max(len,1)).fill('|').join('');
+            const len = Math.round((t.qtd / max) * 200);
             doc.setFontSize(10);
-            doc.text(`${t.frente}: ${bar} ${t.qtd.toLocaleString('pt-BR',{minimumFractionDigits:2})}`, 40, y);
+            doc.text(String(t.frente), 40, y);
+            doc.setFillColor(200, 200, 200);
+            doc.rect(baseX, y - 8, Math.max(len, 1), 8, 'F');
+            const qtyText = t.qtd.toLocaleString('pt-BR',{minimumFractionDigits:2});
+            doc.text(qtyText, baseX + Math.max(len, 1) + 6, y);
             y += 12;
             if (y > doc.internal.pageSize.getHeight() - 60) { doc.addPage(); y = 40; }
         });
