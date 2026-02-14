@@ -1703,6 +1703,20 @@ class ApiService {
         }
         return { success: true, data };
     }
+    async updateTransporteCompostoFrente(id, frente) {
+        this.checkConfig();
+        const { data, error } = await this.supabase
+            .from('transporte_composto')
+            .update({ frente })
+            .eq('id', id)
+            .select();
+        if (error) {
+            console.error('Erro ao atualizar frente do composto:', error);
+            return { success: false, message: error.message };
+        }
+        await this.logAction('UPDATE_TRANSPORTE_COMPOSTO_FRENTE', { id, frente });
+        return { success: true, data: data[0] };
+    }
 
     // === OS Transporte Diário ===
     async getOSTransporteDiario(osId) {

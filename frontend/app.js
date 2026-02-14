@@ -8713,7 +8713,10 @@ forceReloadAllData() {
         // 4. Form Submit
         const form = document.getElementById('form-transporte-composto');
         if (form) {
-            form.addEventListener('submit', (e) => this.handleCompostoSubmit(e));
+            form.addEventListener('submit', (e) => {
+                if (this._editCompostoFrenteOnly) return this.handleCompostoFrenteOnlySubmit(e);
+                return this.handleCompostoSubmit(e);
+            });
         }
         
         // 5. Search/Filter/Refresh
@@ -9187,6 +9190,13 @@ forceReloadAllData() {
         }
         
         this.renderCompostoDiarioDraft();
+        const fazSel = document.getElementById('composto-fazenda');
+        const codigoEl = document.getElementById('composto-fazenda-codigo');
+        if (fazSel && codigoEl) {
+            const opt = fazSel.options[fazSel.selectedIndex];
+            const codigo = opt?.dataset?.codigo || data.fazenda_codigo || '';
+            codigoEl.value = codigo || '';
+        }
     }
 
     async handleCompostoSubmit(e) {
@@ -9917,6 +9927,15 @@ forceReloadAllData() {
                 
                 // Lock fields for editing (View Mode)
                 this.toggleCompostoFields(true);
+                const frenteEl = document.getElementById('composto-frente');
+                if (frenteEl) {
+                    frenteEl.readOnly = false;
+                    frenteEl.classList.remove('readonly-input');
+                    frenteEl.style.backgroundColor = '';
+                    frenteEl.style.cursor = '';
+                    frenteEl.style.opacity = '';
+                }
+                this._editCompostoFrenteOnly = true;
                 
                 // Show Modal
                 const modal = document.getElementById('modal-transporte-composto');
@@ -9965,6 +9984,23 @@ forceReloadAllData() {
         } catch (e) {
             console.error('❌ Erro fatal em editComposto:', e);
             this.ui.showNotification('Erro de conexão ou processamento.', 'error');
+        }
+    }
+    async handleCompostoFrenteOnlySubmit(e) {
+        e.preventDefault();
+        const id = document.getElementById('composto-id')?.value;
+        const frente = document.getElementById('composto-frente')?.value;
+        if (!id) { this.ui.showNotification('Registro inválido', 'error'); return; }
+        if (!frente) { this.ui.showNotification('Informe a frente', 'warning'); return; }
+        const res = await this.api.updateTransporteCompostoFrente(id, frente);
+        if (res && res.success) {
+            this.ui.showNotification('Frente atualizada com sucesso', 'success');
+            const modal = document.getElementById('modal-transporte-composto');
+            if (modal) modal.style.display = 'none';
+            this._editCompostoFrenteOnly = false;
+            await this.renderTransporteComposto();
+        } else {
+            this.ui.showNotification('Falha ao atualizar frente', 'error');
         }
     }
     
@@ -10890,7 +10926,7 @@ InsumosApp.prototype.exportPDF = function() {
     doc.save(`insumos_${Date.now()}.pdf`);
 };
 
-InsumosApp.prototype.exportViagensAduboReport = function(selectedFrentes = null) {
+InsumosApp.prototype.exportViagensAduboReport = async function(selectedFrentes = null) {
     const { jsPDF } = window.jspdf || {};
     if (!jsPDF || !window.jspdf) { this.ui?.showNotification?.('Biblioteca PDF não carregada', 'error'); return; }
     const doc = new jsPDF('p', 'pt', 'a4');
@@ -11051,6 +11087,64 @@ InsumosApp.prototype.exportViagensAduboReport = function(selectedFrentes = null)
     const totalQtdGeral = summaryBody.reduce((s,r)=>s+(parseFloat(String(r[2]).replace(/\./g,'').replace(',','.'))||0),0);
     doc.setFontSize(11);
     doc.text(`Totais Gerais: Viagens = ${totalViagensGeral} | Quantidade = ${totalQtdGeral.toLocaleString('pt-BR',{minimumFractionDigits:2})}`, 40, y+14);
+    if (!Array.isArray(this.transporteCompostoData) || !this.transporteCompostoData.length) {
+        try {
+            const resC = await this.api.getTransporteComposto();
+            if (resC && resC.success) this.transporteCompostoData = resC.data;
+        } catch(e) { console.warn('Falha ao carregar Transporte de Composto para relatório', e); }
+    }
+    if (Array.isArray(this.transporteCompostoData) && this.transporteCompostoData.length) {
+        doc.addPage();
+        y = 40;
+        doc.setFontSize(12);
+        doc.text('TRANSPORTE DE COMPOSTO', 40, y);
+        y += 12;
+        let composto = this.transporteCompostoData.slice();
+        if (Array.isArray(selectedFrentes) && selectedFrentes.length > 0) {
+            const setF = new Set(selectedFrentes.map(f => String(f)));
+            composto = composto.filter(c => setF.has(String(c.frente || '')));
+        }
+        // Carregar totais realizados dos transportes diários
+        let totalsByOS = {};
+        try {
+            const resDaily = await this.api.getAllTransporteDiario();
+            const dailyItems = (resDaily && resDaily.success) ? resDaily.data : [];
+            dailyItems.forEach(d => {
+                const oid = d.os_id;
+                const qty = parseFloat(d.quantidade) || 0;
+                totalsByOS[oid] = (totalsByOS[oid] || 0) + qty;
+            });
+        } catch(e) { console.warn('Falha ao carregar itens diários de Composto para relatório', e); }
+
+        const headC = ['OS','Abertura','Fazenda/Frente','Produto','Realizado (t)','Status'];
+        const bodyC = composto.map(c => {
+            const dt = c.data_abertura ? new Date(c.data_abertura).toLocaleDateString('pt-BR') : 'N/D';
+            const fazFr = `${String(c.fazenda || 'N/D')} / ${String(c.frente || 'N/D')}`;
+            const qtd = totalsByOS[c.id] != null ? Number(totalsByOS[c.id]) : null;
+            return [
+                String(c.numero_os || 'N/D'),
+                dt,
+                fazFr,
+                String(c.produto || 'COMPOSTO'),
+                qtd != null && !isNaN(qtd) ? qtd.toLocaleString('pt-BR',{minimumFractionDigits:3}) : 'N/D',
+                String(c.status || 'ABERTO')
+            ];
+        });
+        makeTable(headC, bodyC, { 4: { halign: 'right' } });
+        const byFrenteC = {};
+        composto.forEach(c => {
+            const f = String(c.frente || 'N/D');
+            const q = parseFloat(totalsByOS[c.id] ?? 0);
+            if (!byFrenteC[f]) byFrenteC[f] = { count: 0, total: 0 };
+            byFrenteC[f].count += 1;
+            byFrenteC[f].total += (isNaN(q) ? 0 : q);
+        });
+        const sumHeadC = ['Frente','OS','Total Real (t)'];
+        const sumBodyC = Object.entries(byFrenteC)
+            .sort((a,b)=>b[1].total - a[1].total)
+            .map(([f,info]) => [f, String(info.count), info.total.toLocaleString('pt-BR',{minimumFractionDigits:3})]);
+        makeTable(sumHeadC, sumBodyC, { 1: { halign: 'right' }, 2: { halign: 'right' } });
+    }
     doc.save(`relatorio_insumos_frente_${Date.now()}.pdf`);
 };
 
