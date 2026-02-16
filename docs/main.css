@@ -688,6 +688,15 @@ body {
     z-index: 13010 !important;
 }
 
+/* Lower the Nova Viagem modal baseline so 'Outro' stays on top */
+#modal-viagem-adubo {
+    z-index: 10000 !important;
+}
+#modal-viagem-adubo .modal-content {
+    position: relative;
+    z-index: 10005 !important;
+}
+
 .fw-bold {
     font-weight: 700 !important;
 }

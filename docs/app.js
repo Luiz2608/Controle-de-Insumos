@@ -6515,7 +6515,12 @@ forceReloadAllData() {
                     const modal = document.getElementById('modal-produto-outro');
                     if (modal) {
                         modal.style.zIndex = '12100';
+                        if (!modal.dataset.appended) {
+                            document.body.appendChild(modal);
+                            modal.dataset.appended = '1';
+                        }
                         modal.style.display = 'flex';
+                        this._outroContext = 'main';
                         const baseModal = document.getElementById('modal-viagem-adubo');
                         if (baseModal) {
                             baseModal.dataset.prevZ = baseModal.style.zIndex || '';
@@ -6539,7 +6544,12 @@ forceReloadAllData() {
                     const modal = document.getElementById('modal-produto-outro');
                     if (modal) {
                         modal.style.zIndex = '12100';
+                        if (!modal.dataset.appended) {
+                            document.body.appendChild(modal);
+                            modal.dataset.appended = '1';
+                        }
                         modal.style.display = 'flex';
+                        this._outroContext = 'modal';
                         const baseModal = document.getElementById('modal-viagem-adubo');
                         if (baseModal) {
                             baseModal.dataset.prevZ = baseModal.style.zIndex || '';
@@ -6582,7 +6592,7 @@ forceReloadAllData() {
                 }
                 const selectMain = document.getElementById('viagem-produto');
                 const selectModal = document.getElementById('modal-viagem-produto');
-                const targetSelect = (document.getElementById('modal-viagem-adubo')?.style.display === 'flex' && selectModal) ? selectModal : selectMain;
+                const targetSelect = (this._outroContext === 'modal' && selectModal) ? selectModal : selectMain;
                 if (targetSelect) {
                     let opt = Array.from(targetSelect.options).find(o => o.value === nome);
                     if (!opt) {
@@ -6595,7 +6605,7 @@ forceReloadAllData() {
                 }
                 const obsMain = document.getElementById('viagem-observacoes');
                 const obsModal = document.getElementById('modal-viagem-observacoes');
-                const targetObs = (document.getElementById('modal-viagem-adubo')?.style.display === 'flex' && obsModal) ? obsModal : obsMain;
+                const targetObs = (this._outroContext === 'modal' && obsModal) ? obsModal : obsMain;
                 if (targetObs) {
                     const prefix = 'Justificativa: ';
                     const has = (targetObs.value || '').includes(prefix);
@@ -6609,6 +6619,7 @@ forceReloadAllData() {
                     baseModal.style.zIndex = baseModal.dataset.prevZ || '';
                     delete baseModal.dataset.prevZ;
                 }
+                this._outroContext = null;
             };
         }
         // Resumo Executivo (PDF)
