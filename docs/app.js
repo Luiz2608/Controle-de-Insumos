@@ -6514,7 +6514,7 @@ forceReloadAllData() {
                 if (val === 'Outro') {
                     const modal = document.getElementById('modal-produto-outro');
                     if (modal) {
-                        modal.style.zIndex = '10050';
+                        modal.style.zIndex = '12100';
                         modal.style.display = 'flex';
                         setTimeout(() => {
                             const nomeEl = document.getElementById('outro-produto-nome');
@@ -6533,7 +6533,7 @@ forceReloadAllData() {
                 if (val === 'Outro') {
                     const modal = document.getElementById('modal-produto-outro');
                     if (modal) {
-                        modal.style.zIndex = '10050';
+                        modal.style.zIndex = '12100';
                         modal.style.display = 'flex';
                         setTimeout(() => {
                             const nomeEl = document.getElementById('outro-produto-nome');
