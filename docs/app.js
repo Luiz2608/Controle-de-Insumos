@@ -6516,6 +6516,11 @@ forceReloadAllData() {
                     if (modal) {
                         modal.style.zIndex = '12100';
                         modal.style.display = 'flex';
+                        const baseModal = document.getElementById('modal-viagem-adubo');
+                        if (baseModal) {
+                            baseModal.dataset.prevZ = baseModal.style.zIndex || '';
+                            baseModal.style.zIndex = '10400';
+                        }
                         setTimeout(() => {
                             const nomeEl = document.getElementById('outro-produto-nome');
                             if (nomeEl) nomeEl.focus();
@@ -6535,6 +6540,11 @@ forceReloadAllData() {
                     if (modal) {
                         modal.style.zIndex = '12100';
                         modal.style.display = 'flex';
+                        const baseModal = document.getElementById('modal-viagem-adubo');
+                        if (baseModal) {
+                            baseModal.dataset.prevZ = baseModal.style.zIndex || '';
+                            baseModal.style.zIndex = '10400';
+                        }
                         setTimeout(() => {
                             const nomeEl = document.getElementById('outro-produto-nome');
                             if (nomeEl) nomeEl.focus();
@@ -6551,6 +6561,11 @@ forceReloadAllData() {
                 el.onclick = () => {
                     const modal = document.getElementById('modal-produto-outro');
                     if (modal) modal.style.display = 'none';
+                    const baseModal = document.getElementById('modal-viagem-adubo');
+                    if (baseModal) {
+                        baseModal.style.zIndex = baseModal.dataset.prevZ || '';
+                        delete baseModal.dataset.prevZ;
+                    }
                 };
             }
         });
@@ -6589,6 +6604,11 @@ forceReloadAllData() {
                 this.customProdutoInfo = { nome, justificativa };
                 const modal = document.getElementById('modal-produto-outro');
                 if (modal) modal.style.display = 'none';
+                const baseModal = document.getElementById('modal-viagem-adubo');
+                if (baseModal) {
+                    baseModal.style.zIndex = baseModal.dataset.prevZ || '';
+                    delete baseModal.dataset.prevZ;
+                }
             };
         }
         // Resumo Executivo (PDF)
