@@ -773,6 +773,7 @@
                 <div style="display:flex; gap:10px;">
                      <button id="btn-nova-viagem-adubo" class="btn btn-primary">➕ Nova Viagem</button>
                      <button id="btn-toggle-viagens-filters" class="btn btn-secondary">🔍 Filtrar</button>
+                     <button id="btn-export-resumo-executivo" class="btn btn-secondary">📄 Resumo Executivo (PDF)</button>
                 </div>
             </div>
 
@@ -830,12 +831,7 @@
                     </div>
                     <div class="form-group adubo-field">
                         <label for="viagem-frente">Frente</label>
-                        <select id="viagem-frente">
-                            <option value="">Selecione</option>
-                            <option value="4001">4001</option>
-                            <option value="4002">4002</option>
-                            <option value="4009 Abençoada">4009 Abençoada</option>
-                        </select>
+                        <input type="text" id="viagem-frente" placeholder="Ex.: 4001">
                     </div>
                     <div class="form-group">
                         <label for="viagem-codigo-fazenda">Código</label>
@@ -871,6 +867,7 @@
                             <option>10-49-00</option>
                             <option>PEREGRINO</option>
                             <option>NO-NEMA</option>
+                            <option value="Outro">Outro</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -1113,6 +1110,31 @@
             <div class="modal-body"><pre id="import-result-json" class="json-preview"></pre></div>
             <div class="modal-footer">
                 <button class="btn btn-primary" id="btn-confirm-import">Preencher Formulário</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-produto-outro" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width: 520px;">
+            <div class="modal-header">
+                <h3>Produto Outro</h3>
+                <button class="close-modal" id="outro-produto-cancel">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="outro-produto-nome">Nome do Produto *</label>
+                        <input type="text" id="outro-produto-nome" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="outro-produto-justificativa">Justificativa *</label>
+                        <textarea id="outro-produto-justificativa" rows="3" required></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="outro-produto-cancel-btn">Cancelar</button>
+                <button class="btn btn-primary" id="outro-produto-confirm">Confirmar</button>
             </div>
         </div>
     </div>
@@ -2274,12 +2296,7 @@
                     </div>
                     <div class="form-group adubo-field">
                         <label for="modal-viagem-frente">Frente</label>
-                        <select id="modal-viagem-frente">
-                            <option value="">Selecione</option>
-                            <option value="4001">4001</option>
-                            <option value="4002">4002</option>
-                            <option value="4009 Abençoada">4009 Abençoada</option>
-                        </select>
+                        <input type="text" id="modal-viagem-frente" placeholder="Ex.: 4001">
                     </div>
                     <div class="form-group">
                         <label for="modal-viagem-codigo-fazenda">Código</label>
@@ -2317,6 +2334,7 @@
                             <option>10-49-00</option>
                             <option>PEREGRINO</option>
                             <option>NO-NEMA</option>
+                            <option value="Outro">Outro</option>
                         </select>
                     </div>
                     <div class="form-group">

@@ -6505,6 +6505,88 @@ forceReloadAllData() {
             };
         }
 
+        const prodSelect = document.getElementById('viagem-produto');
+        if (prodSelect) {
+            const newSel = prodSelect.cloneNode(true);
+            prodSelect.parentNode.replaceChild(newSel, prodSelect);
+            newSel.addEventListener('change', () => {
+                const val = newSel.value;
+                if (val === 'Outro') {
+                    const modal = document.getElementById('modal-produto-outro');
+                    if (modal) modal.style.display = 'flex';
+                }
+            });
+        }
+        const prodSelectModal = document.getElementById('modal-viagem-produto');
+        if (prodSelectModal) {
+            const newSelM = prodSelectModal.cloneNode(true);
+            prodSelectModal.parentNode.replaceChild(newSelM, prodSelectModal);
+            newSelM.addEventListener('change', () => {
+                const val = newSelM.value;
+                if (val === 'Outro') {
+                    const modal = document.getElementById('modal-produto-outro');
+                    if (modal) modal.style.display = 'flex';
+                }
+            });
+        }
+
+        const outroCancelEls = ['outro-produto-cancel', 'outro-produto-cancel-btn'];
+        outroCancelEls.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.onclick = () => {
+                    const modal = document.getElementById('modal-produto-outro');
+                    if (modal) modal.style.display = 'none';
+                };
+            }
+        });
+        const outroConfirm = document.getElementById('outro-produto-confirm');
+        if (outroConfirm) {
+            outroConfirm.onclick = () => {
+                const nomeEl = document.getElementById('outro-produto-nome');
+                const justEl = document.getElementById('outro-produto-justificativa');
+                const nome = nomeEl ? nomeEl.value.trim() : '';
+                const justificativa = justEl ? justEl.value.trim() : '';
+                if (!nome || !justificativa) {
+                    if (this.ui) this.ui.showNotification('Informe nome e justificativa do produto.', 'warning');
+                    return;
+                }
+                const selectMain = document.getElementById('viagem-produto');
+                const selectModal = document.getElementById('modal-viagem-produto');
+                const targetSelect = (document.getElementById('modal-viagem-adubo')?.style.display === 'flex' && selectModal) ? selectModal : selectMain;
+                if (targetSelect) {
+                    let opt = Array.from(targetSelect.options).find(o => o.value === nome);
+                    if (!opt) {
+                        opt = document.createElement('option');
+                        opt.value = nome;
+                        opt.textContent = nome;
+                        targetSelect.appendChild(opt);
+                    }
+                    targetSelect.value = nome;
+                }
+                const obsMain = document.getElementById('viagem-observacoes');
+                const obsModal = document.getElementById('modal-viagem-observacoes');
+                const targetObs = (document.getElementById('modal-viagem-adubo')?.style.display === 'flex' && obsModal) ? obsModal : obsMain;
+                if (targetObs) {
+                    const prefix = 'Justificativa: ';
+                    const has = (targetObs.value || '').includes(prefix);
+                    targetObs.value = has ? targetObs.value : `${prefix}${justificativa}`;
+                }
+                this.customProdutoInfo = { nome, justificativa };
+                const modal = document.getElementById('modal-produto-outro');
+                if (modal) modal.style.display = 'none';
+            };
+        }
+        // Resumo Executivo (PDF)
+        const btnResumo = document.getElementById('btn-export-resumo-executivo');
+        if (btnResumo) {
+            const newBtn = btnResumo.cloneNode(true);
+            btnResumo.parentNode.replaceChild(newBtn, btnResumo);
+            newBtn.addEventListener('click', async () => {
+                await this.exportResumoExecutivoPDF();
+            });
+        }
+
         // Close Modal Buttons
         const closeBtns = document.querySelectorAll('.close-viagem-adubo-modal');
         closeBtns.forEach(btn => {
@@ -6976,8 +7058,8 @@ forceReloadAllData() {
                     if (os.produtos && Array.isArray(os.produtos) && os.produtos.length > 0) {
                         const prodSelect = document.getElementById('modal-viagem-produto');
                         if (prodSelect) {
-                            prodSelect.innerHTML = '<option value="">Selecione</option>' + 
-                                os.produtos.map(p => `<option value="${p.produto}">${p.produto}</option>`).join('');
+                            const baseOpts = os.produtos.map(p => `<option value="${p.produto}">${p.produto}</option>`).join('');
+                            prodSelect.innerHTML = '<option value="">Selecione</option>' + baseOpts + '<option value="Outro">Outro</option>';
                         }
                     }
                 }
@@ -7278,6 +7360,12 @@ forceReloadAllData() {
                 observacoes: getVal('viagem-observacoes'),
                 bags: this.viagensAduboBagsDraft
             };
+            if (this.customProdutoInfo && this.customProdutoInfo.nome) {
+                if (!payload.observacoes || !payload.observacoes.toLowerCase().includes('justificativa:')) {
+                    if (this.ui) this.ui.showNotification('Informe justificativa para produto “Outro”.', 'warning');
+                    return;
+                }
+            }
 
             // --- Verificação de Limite da OS (Alerta Inteligente) ---
             if (payload.numeroOS && this.osListCache) {
@@ -10693,6 +10781,137 @@ InsumosApp.prototype.exportPDF = function() {
     }
     doc.save(`insumos_${Date.now()}.pdf`);
 };
+
+    InsumosApp.prototype.exportResumoExecutivoPDF = async function() {
+        try {
+            if (!Array.isArray(this.viagensAdubo) || this.viagensAdubo.length === 0) {
+                await this.loadViagensAdubo();
+            }
+            let trips = Array.isArray(this.viagensAdubo) ? this.viagensAdubo.slice() : [];
+            trips = trips.filter(v => (v.transportType || 'adubo') === 'adubo');
+            if (!trips.length) { this.ui.showNotification('Sem viagens de Adubo para o resumo', 'warning'); return; }
+            const { jsPDF } = window.jspdf || {};
+            if (!jsPDF || !window.jspdf) { this.ui.showNotification('Biblioteca PDF não carregada', 'error'); return; }
+            const doc = new jsPDF('p', 'pt', 'a4');
+            const nowStr = new Date().toLocaleDateString('pt-BR');
+            doc.setFontSize(10);
+            doc.text(`Emitido em: ${nowStr}`, 40, 30);
+            doc.setFontSize(16);
+            doc.text('RESUMO EXECUTIVO', 40, 52);
+            const qtyOf = (v) => {
+                const q = v.quantidadeTotal != null ? v.quantidadeTotal : (v.quantidade_total != null ? v.quantidade_total : (v.quantidade != null ? v.quantidade : 0));
+                return typeof q === 'number' ? q : parseFloat(q) || 0;
+            };
+            const totalTrips = trips.length;
+            const totalQty = trips.reduce((a, v) => a + qtyOf(v), 0);
+            const frentesSet = new Set(trips.map(v => String(v.frente || '')).filter(Boolean));
+            doc.setFillColor(240, 243, 245);
+            doc.rect(40, 64, 520, 48, 'F');
+            doc.setFontSize(11);
+            doc.text(`Viagens totais: ${totalTrips}`, 52, 82);
+            doc.text(`Quantidade total: ${this.ui.formatNumber(totalQty, 2)} bags`, 52, 98);
+            doc.text(`Frentes atendidas: ${frentesSet.size}`, 272, 82);
+            const byFrente = {};
+            trips.forEach(v => {
+                const f = v.frente || '—';
+                if (!byFrente[f]) byFrente[f] = { trips: [], products: {} };
+                byFrente[f].trips.push(v);
+                const p = v.produto || '—';
+                const q = qtyOf(v);
+                byFrente[f].products[p] = (byFrente[f].products[p] || 0) + q;
+            });
+            const frenteOrder = Object.keys(byFrente).sort((a, b) => {
+                const ta = byFrente[a].trips.reduce((s, v) => s + qtyOf(v), 0);
+                const tb = byFrente[b].trips.reduce((s, v) => s + qtyOf(v), 0);
+                return tb - ta;
+            });
+            const palette = [
+                [52, 152, 219], [46, 204, 113], [231, 76, 60],
+                [241, 196, 15], [155, 89, 182], [26, 188, 156],
+                [127, 140, 141], [52, 73, 94]
+            ];
+            let startY = 124;
+            for (const f of frenteOrder) {
+                const group = byFrente[f];
+                const sumQty = group.trips.reduce((s, v) => s + qtyOf(v), 0);
+                const tripCount = group.trips.length;
+                doc.setFontSize(13);
+                doc.text(`FRENTE ${f}`, 40, startY);
+                doc.setFontSize(10);
+                doc.text(`Viagens: ${tripCount} | Quantidade: ${this.ui.formatNumber(sumQty, 2)} bags`, 40, startY + 16);
+                const tripHead = ['Data', 'Origem', 'Destino', 'Produto', 'Quantidade'];
+                const tripBody = group.trips.map(v => [
+                    v.data || '',
+                    v.origem || '',
+                    v.destino || '',
+                    v.produto || '',
+                    this.ui.formatNumber(qtyOf(v), 2)
+                ]);
+                if (doc.autoTable) {
+                    doc.autoTable({
+                        head: [tripHead],
+                        body: tripBody,
+                        startY: startY + 28,
+                        styles: { fontSize: 9 },
+                        headStyles: { fillColor: [230, 235, 240], textColor: 20 }
+                    });
+                    startY = doc.lastAutoTable.finalY + 18;
+                } else {
+                    let y = startY + 28;
+                    doc.setFontSize(10);
+                    doc.text(tripHead.join(' | '), 40, y); y += 16;
+                    tripBody.forEach(r => { doc.text(r.join(' | '), 40, y); y += 14; });
+                    startY = y + 12;
+                }
+                const prodRows = Object.keys(group.products).map(p => ({
+                    Produto: p,
+                    Quantidade_bags: group.products[p]
+                })).sort((a, b) => b.Quantidade_bags - a.Quantidade_bags);
+                const prodHead = ['Produto', 'Quantidade (bags)'];
+                const prodBody = prodRows.map(r => [r.Produto, this.ui.formatNumber(r.Quantidade_bags, 2)]);
+                if (doc.autoTable) {
+                    doc.autoTable({
+                        head: [prodHead],
+                        body: prodBody,
+                        startY: startY,
+                        styles: { fontSize: 9 },
+                        headStyles: { fillColor: [230, 235, 240], textColor: 20 }
+                    });
+                    startY = doc.lastAutoTable.finalY + 10;
+                } else {
+                    let y = startY;
+                    doc.setFontSize(10);
+                    doc.text(prodHead.join(' | '), 40, y); y += 16;
+                    prodBody.forEach(r => { doc.text(r.join(' | '), 40, y); y += 14; });
+                    startY = y + 10;
+                }
+                doc.setFontSize(9);
+                doc.text('Proporção no total', 40, startY + 12);
+                const barX = 40, barY = startY + 18, barW = 520, barH = 10;
+                let cursor = barX;
+                const totalForBar = prodRows.reduce((s, r) => s + r.Quantidade_bags, 0) || 1;
+                prodRows.forEach((r, idx) => {
+                    const share = (r.Quantidade_bags / totalForBar);
+                    const segW = Math.max(1, Math.round(barW * share));
+                    const color = palette[idx % palette.length];
+                    doc.setFillColor(color[0], color[1], color[2]);
+                    doc.rect(cursor, barY, segW, barH, 'F');
+                    cursor += segW;
+                });
+                doc.setDrawColor(180);
+                doc.rect(barX, barY, barW, barH);
+                startY = barY + barH + 24;
+                if (startY > 760) {
+                    doc.addPage();
+                    startY = 40;
+                }
+            }
+            doc.save(`resumo_executivo_insumos_${Date.now()}.pdf`);
+        } catch (e) {
+            console.error('Erro ao gerar Resumo Executivo:', e);
+            this.ui.showNotification('Erro ao gerar Resumo Executivo', 'error');
+        }
+    };
 
 InsumosApp.prototype.updateGemasPercent = function(triggerEl) {
     const totalEl = document.getElementById('qual-gemas-total');
