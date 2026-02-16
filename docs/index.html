@@ -529,6 +529,35 @@
                     </tbody>
                 </table>
             </div>
+            <div class="dashboard-wrapper">
+                <div class="chart-card full-width">
+                    <h4 style="margin: 0 0 15px 0; border-bottom: 1px solid var(--border); padding-bottom: 10px;">Resumo por Fazenda e Produto</h4>
+                    <div class="table-container">
+                        <table id="insumos-resumo-table" class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Fazenda</th>
+                                    <th>Produto</th>
+                                    <th>Área Aplicada (ha)</th>
+                                    <th>Dose Recomendada</th>
+                                    <th>Dose Aplicada</th>
+                                    <th>Quantidade</th>
+                                    <th>Diferença</th>
+                                </tr>
+                            </thead>
+                            <tbody id="insumos-resumo-tbody">
+                                <tr>
+                                    <td colspan="7" class="loading">📡 Carregando resumo...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="chart-card full-width">
+                    <h4 style="margin: 0 0 15px 0; border-bottom: 1px solid var(--border); padding-bottom: 10px;">Comparativo Aplicado vs Previsto</h4>
+                    <canvas id="chart-insumos-resumo"></canvas>
+                </div>
+            </div>
         </div>
 
     <!-- Loading -->
