@@ -6513,7 +6513,14 @@ forceReloadAllData() {
                 const val = newSel.value;
                 if (val === 'Outro') {
                     const modal = document.getElementById('modal-produto-outro');
-                    if (modal) modal.style.display = 'flex';
+                    if (modal) {
+                        modal.style.zIndex = '10050';
+                        modal.style.display = 'flex';
+                        setTimeout(() => {
+                            const nomeEl = document.getElementById('outro-produto-nome');
+                            if (nomeEl) nomeEl.focus();
+                        }, 0);
+                    }
                 }
             });
         }
@@ -6525,7 +6532,14 @@ forceReloadAllData() {
                 const val = newSelM.value;
                 if (val === 'Outro') {
                     const modal = document.getElementById('modal-produto-outro');
-                    if (modal) modal.style.display = 'flex';
+                    if (modal) {
+                        modal.style.zIndex = '10050';
+                        modal.style.display = 'flex';
+                        setTimeout(() => {
+                            const nomeEl = document.getElementById('outro-produto-nome');
+                            if (nomeEl) nomeEl.focus();
+                        }, 0);
+                    }
                 }
             });
         }
