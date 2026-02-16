@@ -7913,6 +7913,7 @@ forceReloadAllData() {
         this.ui.renderTable(tbody, data, this.getInsumosRowHTML.bind(this));
         this.updateCharts(data);
         this.loadEstoqueAndRender();
+        this.renderInsumosResumoSection(data);
     }
 
     getInsumosRowHTML(item) {
@@ -7963,6 +7964,106 @@ forceReloadAllData() {
         document.getElementById('fazenda-insumos-filter').value = 'all';
         this.currentFilters.insumos = {};
         this.loadInsumosData();
+    }
+
+    renderInsumosResumoSection(data) {
+        const tbody = document.getElementById('insumos-resumo-tbody');
+        const canvas = document.getElementById('chart-insumos-resumo');
+        if (!tbody) return;
+        const key = (i) => `${i.fazenda || ''}||${i.produto || ''}`;
+        const map = {};
+        data.forEach(i => {
+            const k = key(i);
+            if (!map[k]) {
+                map[k] = {
+                    fazenda: i.fazenda || '',
+                    produto: i.produto || '',
+                    area: 0,
+                    quantidade: 0,
+                    doseRecomSum: 0,
+                    doseRecomWeight: 0
+                };
+            }
+            const m = map[k];
+            const area = parseFloat(i.areaTotalAplicada || 0) || 0;
+            const qtd = parseFloat(i.quantidadeAplicada || 0) || 0;
+            const doseRec = parseFloat(i.doseRecomendada || 0) || 0;
+            m.area += area;
+            m.quantidade += qtd;
+            if (doseRec > 0 && area > 0) {
+                m.doseRecomSum += doseRec * area;
+                m.doseRecomWeight += area;
+            }
+        });
+        const rows = Object.values(map).map(m => {
+            const doseRecom = m.doseRecomWeight > 0 ? (m.doseRecomSum / m.doseRecomWeight) : 0;
+            const doseAplicada = m.area > 0 ? (m.quantidade / m.area) : 0;
+            const previsto = doseRecom * m.area;
+            const difAbs = m.quantidade - previsto;
+            const difPerc = previsto > 0 ? ((m.quantidade / previsto - 1) * 100) : 0;
+            return {
+                fazenda: m.fazenda,
+                produto: m.produto,
+                area: m.area,
+                doseRecom,
+                doseAplicada,
+                quantidade: m.quantidade,
+                difAbs,
+                difPerc
+            };
+        });
+        tbody.innerHTML = rows.length === 0 ? `
+            <tr><td colspan="7" style="text-align:center;">Nenhum dado para o resumo.</td></tr>
+        ` : rows.map(r => {
+            const difClass = this.ui.getDifferenceClass(r.difPerc);
+            return `
+                <tr>
+                    <td>${r.fazenda || '—'}</td>
+                    <td>${r.produto || '—'}</td>
+                    <td>${this.ui.formatNumber(r.area || 0)}</td>
+                    <td>${this.ui.formatNumber(r.doseRecom || 0, 3)}</td>
+                    <td>${this.ui.formatNumber(r.doseAplicada || 0, 3)}</td>
+                    <td>${this.ui.formatNumber(r.quantidade || 0, 3)}</td>
+                    <td class="${difClass}">${this.ui.formatPercentage(r.difPerc || 0)}</td>
+                </tr>
+            `;
+        }).join('');
+        if (canvas && window.Chart) {
+            const byProduto = {};
+            rows.forEach(r => {
+                const p = r.produto || '';
+                if (!byProduto[p]) byProduto[p] = { aplicado: 0, previsto: 0 };
+                byProduto[p].aplicado += r.quantidade || 0;
+                byProduto[p].previsto += (r.doseRecom || 0) * (r.area || 0);
+            });
+            const labels = Object.keys(byProduto);
+            const aplicado = labels.map(l => byProduto[l].aplicado);
+            const previsto = labels.map(l => byProduto[l].previsto);
+            if (canvas._chartInstance) {
+                canvas._chartInstance.destroy();
+            }
+            const ctx = canvas.getContext('2d');
+            const chart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [
+                        { label: 'Aplicado', data: aplicado, backgroundColor: 'rgba(52, 152, 219, 0.6)' },
+                        { label: 'Previsto', data: previsto, backgroundColor: 'rgba(46, 204, 113, 0.6)' }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'top' }
+                    },
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+            canvas._chartInstance = chart;
+        }
     }
 
     async loadSantaIreneData() {
