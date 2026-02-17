@@ -13093,6 +13093,7 @@ InsumosApp.prototype.setupAdminPanel = function() {
     const closePerms = document.querySelectorAll('.close-permissions-modal');
     closePerms.forEach(btn => btn.addEventListener('click', () => {
         if (permModal) permModal.style.display = 'none';
+        this.currentEditingUserId = null;
     }));
 
     const permForm = document.getElementById('permissions-form');
@@ -13187,7 +13188,11 @@ InsumosApp.prototype.handleEditPermissions = function(userId, username, permsStr
     
     this.currentEditingUserId = userId;
     const nameEl = document.getElementById('permissions-user-name');
-    if (nameEl) nameEl.textContent = `Usuário: ${username}`;
+    if (nameEl) {
+        let safeName = '';
+        try { safeName = decodeURIComponent(username); } catch (e) { safeName = username; }
+        nameEl.textContent = `Usuário: ${safeName}`;
+    }
     
     let perms = {};
     try {
@@ -13271,7 +13276,7 @@ InsumosApp.prototype.loadAdminUsers = async function() {
                         </select>
                     </td>
                     <td>
-                        <button class="btn btn-secondary" onclick="window.insumosApp.handleEditPermissions('${u.id}', '${u.username}', '${encodeURIComponent(JSON.stringify(u.permissions || {}))}')" style="padding: 5px 10px; font-size: 0.8em; margin-right: 5px;">🔑 Permissões</button>
+                        <button class="btn btn-secondary" onclick="window.insumosApp.handleEditPermissions('${u.id}', '${encodeURIComponent(u.username || '')}', '${encodeURIComponent(JSON.stringify(u.permissions || {}))}')" style="padding: 5px 10px; font-size: 0.8em; margin-right: 5px;">🔑 Permissões</button>
                         <button class="btn btn-delete-fazenda" onclick="window.insumosApp.handleDeleteUser('${u.id}')" ${isMe ? 'disabled' : ''} style="padding: 5px 10px; font-size: 0.8em;">Excluir</button>
                     </td>
                 `;
