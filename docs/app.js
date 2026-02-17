@@ -13094,6 +13094,8 @@ InsumosApp.prototype.setupAdminPanel = function() {
     closePerms.forEach(btn => btn.addEventListener('click', () => {
         if (permModal) permModal.style.display = 'none';
         this.currentEditingUserId = null;
+        document.body.style.overflow = document.body.dataset.lockScrollPrev || '';
+        delete document.body.dataset.lockScrollPrev;
     }));
 
     const permForm = document.getElementById('permissions-form');
@@ -13213,7 +13215,13 @@ InsumosApp.prototype.handleEditPermissions = function(userId, username, permsStr
         }
     });
 
+    if (!modal.dataset.appended) {
+        document.body.appendChild(modal);
+        modal.dataset.appended = '1';
+    }
     modal.style.display = 'flex';
+    document.body.dataset.lockScrollPrev = document.body.style.overflow || '';
+    document.body.style.overflow = 'hidden';
 };
 
 InsumosApp.prototype.savePermissions = async function() {
@@ -13234,6 +13242,8 @@ InsumosApp.prototype.savePermissions = async function() {
         if (res && res.success) {
             this.ui.showNotification('Permissões salvas!', 'success');
             document.getElementById('permissions-modal').style.display = 'none';
+            document.body.style.overflow = document.body.dataset.lockScrollPrev || '';
+            delete document.body.dataset.lockScrollPrev;
             this.loadAdminUsers();
         } else {
             this.ui.showNotification('Erro ao salvar permissões', 'error');
