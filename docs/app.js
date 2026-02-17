@@ -13305,7 +13305,8 @@ InsumosApp.prototype.handleUpdateRole = async function(id, role) {
     try {
         const res = await this.api.updateUser(id, { role });
         if (res && res.success) {
-            this.ui.showNotification('Permissão atualizada!', 'success');
+            this.ui.showNotification('Role atualizado!', 'success');
+            this.loadAdminUsers();
         } else {
             this.ui.showNotification('Erro ao atualizar permissão.', 'error');
             this.loadAdminUsers(); // Revert changes in UI
