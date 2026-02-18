@@ -1245,6 +1245,7 @@ forceReloadAllData() {
                     await this.loadLiberacoesForSelect();
                     // Populate single-frente based on default quality type (plantio)
                     this.populateSingleFrente('plantio');
+                this.initQualidadePlantioCanaListeners();
                 });
             }
 
@@ -1254,6 +1255,9 @@ forceReloadAllData() {
                 qualTipoSelect.addEventListener('change', () => {
                     this.toggleOperacaoSections();
                     this.populateSingleFrente(qualTipoSelect.value);
+                if (this.isQualidadeMode && qualTipoSelect.value === 'plantio_cana') {
+                    this.initQualidadePlantioCanaListeners();
+                }
                 });
             }
 
@@ -2061,6 +2065,8 @@ forceReloadAllData() {
 
             const now = new Date();
             const dateStr = now.toLocaleString('pt-BR');
+            const currentTab = this.plantioTab || (this.getCurrentTab ? this.getCurrentTab() : 'plantio');
+            const isQualityTab = currentTab === 'qualidade_muda';
 
             // Construir HTML do Relatório
             let html = `
@@ -2080,10 +2086,7 @@ forceReloadAllData() {
                             <span class="report-kpi-value">${kpiEficiencia}</span>
                             <span class="report-kpi-label">Eficiência</span>
                         </div>
-                        <div class="report-kpi-card">
-                            <span class="report-kpi-value">${kpiInsumos}</span>
-                            <span class="report-kpi-label">Insumos Aplicados</span>
-                        </div>
+                        ${!isQualityTab ? `<div class="report-kpi-card"><span class="report-kpi-value">${kpiInsumos}</span><span class="report-kpi-label">Insumos Aplicados</span></div>` : ''}
                         <div class="report-kpi-card">
                             <span class="report-kpi-value">${kpiVolume}</span>
                             <span class="report-kpi-label">Volume Transportado</span>
@@ -2111,14 +2114,17 @@ forceReloadAllData() {
                     <h2>2. Gráficos de Desempenho</h2>
                     <div class="report-charts-grid">
                         ${imgPlantio ? `<div><h3>Plantio Diário</h3><img src="${imgPlantio}" class="report-chart-img"></div>` : ''}
-                        ${imgInsumosTimeline ? `<div><h3>Evolução de Insumos</h3><img src="${imgInsumosTimeline}" class="report-chart-img"></div>` : ''}
+                        ${!isQualityTab && imgInsumosTimeline ? `<div><h3>Evolução de Insumos</h3><img src="${imgInsumosTimeline}" class="report-chart-img"></div>` : ''}
                         ${imgOsStatus ? `<div><h3>Status OS</h3><img src="${imgOsStatus}" class="report-chart-img"></div>` : ''}
-                        ${imgInsumosGlobal ? `<div><h3>Comparativo Insumos</h3><img src="${imgInsumosGlobal}" class="report-chart-img"></div>` : ''}
+                        ${!isQualityTab && imgInsumosGlobal ? `<div><h3>Comparativo Insumos</h3><img src="${imgInsumosGlobal}" class="report-chart-img"></div>` : ''}
                     </div>
                 </div>
                 
                 <div class="page-break"></div>
+            `;
 
+            if (!isQualityTab) {
+                html += `
                 <div class="report-section">
                     <h2>3. Detalhamento de Insumos por Produto</h2>
                     <table class="report-table">
@@ -2132,56 +2138,48 @@ forceReloadAllData() {
                             </tr>
                         </thead>
                         <tbody>
-            `;
+                `;
 
-            // Tabela Insumos
-            if (this.insumosFazendasData) {
-                const products = {};
-                this.insumosFazendasData.forEach(item => {
-                    const p = item.produto || 'Outros';
-                    if (!products[p]) products[p] = { planned: 0, real: 0 };
-                    products[p].planned += parseFloat(item.doseRecomendada || 0) * parseFloat(item.areaTalhao || 0);
-                    products[p].real += parseFloat(item.quantidadeAplicada || 0);
-                });
+                if (this.insumosFazendasData) {
+                    const products = {};
+                    this.insumosFazendasData.forEach(item => {
+                        const p = item.produto || 'Outros';
+                        if (!products[p]) products[p] = { planned: 0, real: 0 };
+                        products[p].planned += parseFloat(item.doseRecomendada || 0) * parseFloat(item.areaTalhao || 0);
+                        products[p].real += parseFloat(item.quantidadeAplicada || 0);
+                    });
 
-                const sortedProducts = Object.entries(products).sort((a, b) => b[1].real - a[1].real);
-                
-                sortedProducts.forEach(([name, data]) => {
-                    const diff = data.real - data.planned;
-                    const diffPerc = data.planned > 0 ? (diff / data.planned) * 100 : 0;
-                    const statusColor = diff > 0 ? '#d32f2f' : '#388e3c'; // Vermelho se gastou mais
+                    const sortedProducts = Object.entries(products).sort((a, b) => b[1].real - a[1].real);
                     
-                    html += `
-                        <tr>
-                            <td>${name}</td>
-                            <td>${data.planned.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
-                            <td>${data.real.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
-                            <td style="color:${statusColor}; font-weight:bold;">${diff.toLocaleString('pt-BR', {minimumFractionDigits: 2})} (${diffPerc.toFixed(1)}%)</td>
-                            <td>${diff > 0 ? 'Excedente' : 'Dentro da Meta'}</td>
-                        </tr>
-                    `;
-                });
-            }
+                    sortedProducts.forEach(([name, data]) => {
+                        const diff = data.real - data.planned;
+                        const diffPerc = data.planned > 0 ? (diff / data.planned) * 100 : 0;
+                        const statusColor = diff > 0 ? '#d32f2f' : '#388e3c'; // Vermelho se gastou mais
+                        
+                        html += `
+                            <tr>
+                                <td>${name}</td>
+                                <td>${data.planned.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                                <td>${data.real.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                                <td style="color:${statusColor}; font-weight:bold;">${diff.toLocaleString('pt-BR', {minimumFractionDigits: 2})} (${diffPerc.toFixed(1)}%)</td>
+                                <td>${diff > 0 ? 'Excedente' : 'Dentro da Meta'}</td>
+                            </tr>
+                        `;
+                    });
+                }
 
-            html += `
+                html += `
                         </tbody>
                     </table>
                 </div>
+                `;
+            }
 
-                <div class="report-section">
-                    <h2>4. Ordens de Serviço (Recentes)</h2>
-                    <table class="report-table">
-                        <thead>
-                            <tr>
-                                <th>Número</th>
-                                <th>Data</th>
-                                <th>Tipo/Descrição</th>
-                                <th>Status</th>
-                                <th>Responsável</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-            `;
+            html += '<div class="report-section">'
+                    + '<h2>' + (!isQualityTab ? '4. ' : '') + 'Ordens de Serviço (Recentes)</h2>'
+                    + '<table class="report-table"><thead><tr>'
+                    + '<th>Número</th><th>Data</th><th>Tipo/Descrição</th><th>Status</th><th>Responsável</th>'
+                    + '</tr></thead><tbody>';
 
             // Tabela OS
             if (this.osListCache) {
@@ -4532,7 +4530,7 @@ forceReloadAllData() {
             if (res.success && res.data) {
                 this.osListCache = res.data; // Cache para edição
                 
-                // Populate Frente dropdown
+                // Populate Frente dropdown (usado em algumas telas legadas)
                 const singleFrente = document.getElementById('single-frente');
                 if (singleFrente) {
                     singleFrente.innerHTML = '<option value="">Selecione</option>';
@@ -4543,6 +4541,15 @@ forceReloadAllData() {
                         option.textContent = frente;
                         singleFrente.appendChild(option);
                     });
+                }
+
+                // Populate select de O.S do modal de Plantio/Qualidade
+                const singleOs = document.getElementById('single-os');
+                if (singleOs) {
+                    singleOs.innerHTML = '<option value="">Selecione a O.S</option>' +
+                        res.data
+                            .map(os => `<option value="${os.numero}">${os.numero} - ${os.fazenda || 'Sem Fazenda'}${os.frente ? ' (' + os.frente + ')' : ''}</option>`)
+                            .join('');
                 }
 
                 if (tbody) {
@@ -5352,7 +5359,7 @@ forceReloadAllData() {
         }
 
         // Validation listeners for visual feedback
-        const requiredIds = ['single-frente', 'plantio-data', 'single-plantio-dia'];
+        const requiredIds = ['single-os', 'plantio-data', 'single-plantio-dia'];
         requiredIds.forEach(id => {
             const el = document.getElementById(id);
             if (el) {
@@ -5371,35 +5378,14 @@ forceReloadAllData() {
             }
         });
 
-        if (singleFrente) {
-            singleFrente.addEventListener('change', async () => {
-                const val = singleFrente.value;
-                
-                // Carregar produtos da OS para o select de insumos
-                await this.loadProdutosDatalist();
-
-                if (singleOs) {
-                    singleOs.innerHTML = '<option value="">Selecione a OS</option>';
-                    if (val && this.osListCache) {
-                        // Comparação robusta (string e trim)
-                        const osList = this.osListCache.filter(o => String(o.frente).trim() === String(val).trim());
-                        
-                        if (osList.length === 0) {
-                            console.warn(`Nenhuma OS encontrada para a frente: "${val}"`);
-                        }
-
-                        osList.forEach(os => {
-                            const opt = document.createElement('option');
-                            opt.value = os.numero;
-                            opt.textContent = `${os.numero} - ${os.fazenda || 'Sem Fazenda'}`;
-                            singleOs.appendChild(opt);
-                        });
-                        
-                        // Sincronizar estoque para a frente selecionada
-                        // (Garante que se tiver estoque cadastrado, ele apareça na tabela abaixo se implementado)
-                        // await this.loadEstoqueByFrente(val); // Futuro: Implementar se necessário tabela de estoque aqui
-                    }
-                }
+        // Preencher lista de O.S diretamente do cache e usar O.S como campo principal
+        if (singleOs && this.osListCache && Array.isArray(this.osListCache)) {
+            singleOs.innerHTML = '<option value=\"\">Selecione a O.S</option>';
+            this.osListCache.forEach(os => {
+                const opt = document.createElement('option');
+                opt.value = os.numero;
+                opt.textContent = `${os.numero} - ${os.fazenda || 'Sem Fazenda'} (${os.frente || ''})`;
+                singleOs.appendChild(opt);
             });
         }
 
@@ -5507,6 +5493,17 @@ forceReloadAllData() {
                         }
                     }
                     
+                    // Preencher Frente automaticamente a partir da OS
+                    const frenteEl = document.getElementById('single-frente');
+                    if (frenteEl && os.frente) {
+                        frenteEl.innerHTML = '';
+                        const opt = document.createElement('option');
+                        opt.value = os.frente;
+                        opt.textContent = os.frente;
+                        frenteEl.appendChild(opt);
+                        frenteEl.value = os.frente;
+                    }
+
                     this.ui.showNotification('Dados da OS preenchidos.', 'info', 1500);
                 } else {
                     console.error('OS selecionada não encontrada no cache:', val);
@@ -5573,13 +5570,7 @@ forceReloadAllData() {
         const plantioCod = document.getElementById('plantio-cod');
         if (plantioFazenda) plantioFazenda.addEventListener('change', () => this.autofillPlantioByFazenda());
         if (plantioCod) plantioCod.addEventListener('change', async () => { this.autofillPlantioByCod(); await this.autofetchFazendaByCodigoApi('plantio-cod'); });
-        const gpsSel = document.getElementById('plantio-gps');
-        const gpsCoords = document.getElementById('gps-coords');
-        if (gpsSel && gpsCoords) {
-            const applyGps = () => { const v = gpsSel.value; gpsCoords.style.display = (v === 'Sim') ? 'grid' : 'none'; };
-            gpsSel.addEventListener('change', applyGps);
-            applyGps();
-        }
+        // GPS removido dos detalhes/relatório a pedido do usuário
         
     }
 
@@ -5885,7 +5876,9 @@ forceReloadAllData() {
                 const q = r.qualidade || {};
                 // Prefer gemasBoasPct or calculate it
                 const gemasViaveis = (q.gemasBoasPct != null) ? `${this.ui.formatNumber(q.gemasBoasPct, 1)}%` : 
-                                   (q.gemasViaveisPerc ? `${this.ui.formatNumber(q.gemasViaveisPerc, 1)}%` : '—');
+                                   (q.gemasViaveisPerc != null) ? `${this.ui.formatNumber(q.gemasViaveisPerc, 1)}%` :
+                                   (typeof q.totalToletesBons === 'number') ? `${this.ui.formatNumber(q.totalToletesBons, 1)}%` :
+                                   '—';
 
                 // Determine Type Label
                 const tipoRaw = r.tipo_operacao || q.tipoOperacao || 'plantio';
@@ -5971,6 +5964,7 @@ forceReloadAllData() {
             const q = r.qualidade || {};
             const tipo = r.tipo_operacao || q.tipoOperacao || 'plantio';
             const hasQualityData = (q.gemasTotal > 0 || q.mudasTotal > 0 || q.mudaTonHa > 0 || q.mudasReboulos > 0);
+            if (tipo === 'plantio_cana') return true;
             return tipo === 'qualidade_muda' || (hasQualityData && tipo !== 'colheita_muda');
         });
 
@@ -5991,16 +5985,24 @@ forceReloadAllData() {
                 : (frentes.length > 0 && frentes[0].variedade ? frentes[0].variedade : '—');
             
             const q = r.qualidade || {};
-            // Prefer gemasBoasPct or calculate it
-            const gemasViaveis = (q.gemasBoasPct != null) ? `${this.ui.formatNumber(q.gemasBoasPct, 1)}%` : 
-                               (q.gemasViaveisPerc ? `${this.ui.formatNumber(q.gemasViaveisPerc, 1)}%` : '—');
+            const tipo = r.tipo_operacao || q.tipoOperacao || 'plantio';
+            let indicador;
+            if (tipo === 'plantio_cana') {
+                indicador = (q.mediaKgHa != null)
+                    ? `${this.ui.formatNumber(q.mediaKgHa, 2)} kg/ha`
+                    : '—';
+            } else {
+                const gemasViaveis = (q.gemasBoasPct != null) ? `${this.ui.formatNumber(q.gemasBoasPct, 1)}%` : 
+                                   (q.gemasViaveisPerc ? `${this.ui.formatNumber(q.gemasViaveisPerc, 1)}%` : '—');
+                indicador = gemasViaveis;
+            }
 
             return `
             <tr>
                 <td>${this.ui.formatDateBR(r.data)}</td>
                 <td>${fazendaFrente}</td>
                 <td>${variedade}</td>
-                <td>${gemasViaveis}</td>
+                <td>${indicador}</td>
                 <td>
                     <div style="display: flex; gap: 5px;">
                         <button class="btn btn-sm btn-secondary" onclick="window.insumosApp.showPlantioDetails('${r.id}')">
@@ -6059,6 +6061,7 @@ forceReloadAllData() {
                     h5 { border-bottom: 2px solid #3498db; padding-bottom: 8px; margin-top: 25px; color: #2c3e50; font-size: 1.1em; }
                     h6 { color: #7f8c8d; margin-top: 15px; border-bottom: 1px solid #eee; }
                     .details-card { margin-bottom: 20px; page-break-inside: avoid; }
+                    .details-card:last-child { margin-bottom: 0; }
                     .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 15px; }
                     .info-item { font-size: 0.95em; }
                     .info-item strong { color: #555; }
@@ -6082,6 +6085,7 @@ forceReloadAllData() {
                     @media print {
                         body { padding: 0; background: white; }
                         .details-card { border: none; padding: 0; margin-bottom: 20px; }
+                        .details-card:last-child { margin-bottom: 0; page-break-after: auto; }
                         button { display: none; }
                         @page { margin: 1.5cm; }
                     }
@@ -6105,6 +6109,233 @@ forceReloadAllData() {
         printWindow.document.close();
     }
 
+    copyQualidadeResumoWhatsApp(id) {
+        const r = (this.plantioDia || []).find(p => String(p.id) === String(id));
+        if (!r || !r.qualidade) return;
+
+        const q = r.qualidade;
+        if (q.tipoOperacao !== 'plantio_cana') return;
+
+        const fmtDate = (d) => {
+            if (!d) return '—';
+            const parts = String(d).split('-');
+            return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : d;
+        };
+
+        const dataStr = fmtDate(r.data);
+        const primeiraFrente = Array.isArray(r.frentes) && r.frentes.length > 0 ? r.frentes[0] : null;
+        const frente = (primeiraFrente && primeiraFrente.frente) || '—';
+        const fazenda = (primeiraFrente && primeiraFrente.fazenda) || q.mudaFazendaOrigem || '—';
+        const plantadora = q.qualEquipamentoPlantadora || '—';
+        const equipamento = q.qualEquipamentoTrator || '—';
+        let distribuidora = '—';
+        if (plantadora !== '—' || equipamento !== '—') {
+            distribuidora = `${plantadora}/${equipamento}`;
+        }
+
+        const distanciaVal = q.distancia || q.mudaDistancia || null;
+        const distanciaStr = distanciaVal ? `${this.ui.formatNumber(Number(distanciaVal) || 0, 0)} m` : '—';
+
+        const horaInicio = q.horaInicio || q.horaRegistro || '—';
+        const horaFim = q.horaFim || '—';
+        const horaStr = `${horaInicio}/${horaFim}`;
+
+        const pesoBrutoTotal = (q.esqPesoBruto || 0) + (q.dirPesoBruto || 0);
+        const pesoLiquidoTotal = (q.esqPesoLiquido || 0) + (q.dirPesoLiquido || 0);
+        const qtdBonsTotal = (q.esqQtdBons || 0) + (q.dirQtdBons || 0);
+        const qtdRuinsTotal = (q.esqQtdRuins || 0) + (q.dirQtdRuins || 0);
+        const pctBonsTotal = typeof q.totalToletesBons === 'number' ? q.totalToletesBons : 0;
+        const pctRuinsTotal = typeof q.totalToletesRuins === 'number' ? q.totalToletesRuins : 0;
+
+        const pesoBonsTotal = (q.esqPesoBons || 0) + (q.dirPesoBons || 0);
+        const pesoRuinsTotal = (q.esqPesoRuins || 0) + (q.dirPesoRuins || 0);
+
+        let tHaTotal = 0;
+        let tHaViavel = 0;
+        let tHaDescarte = 0;
+        const kgHaTotal = typeof q.mediaKgHa === 'number' ? q.mediaKgHa : 0;
+
+        if (kgHaTotal > 0 && pesoLiquidoTotal > 0) {
+            tHaTotal = kgHaTotal / 1000;
+            const pb = Math.max(pesoBonsTotal, 0);
+            const pr = Math.max(pesoRuinsTotal, 0);
+            let propBons = pesoLiquidoTotal > 0 ? pb / pesoLiquidoTotal : 0;
+            let propRuins = pesoLiquidoTotal > 0 ? pr / pesoLiquidoTotal : 0;
+            if (propBons < 0) propBons = 0;
+            if (propRuins < 0) propRuins = 0;
+            const somaProps = propBons + propRuins;
+            if (somaProps > 0) {
+                propBons = propBons / somaProps;
+                propRuins = propRuins / somaProps;
+            }
+            tHaViavel = tHaTotal * propBons;
+            tHaDescarte = tHaTotal - tHaViavel;
+            if (tHaViavel < 0) tHaViavel = 0;
+            if (tHaDescarte < 0) tHaDescarte = 0;
+        }
+
+        let classificacao = 'RUIM';
+        if (pctBonsTotal > 80) classificacao = 'BOM';
+        else if (pctBonsTotal >= 50) classificacao = 'MÉDIO';
+
+        const text =
+`🌱 RELATÓRIO DE QUALIDADE DE MUDA
+📍 Frente: ${frente}
+📅 Data: ${dataStr}
+
+⚖ Peso Bruto: ${this.ui.formatNumber(pesoBrutoTotal||0,2)} kg
+⚖ Peso Líquido: ${this.ui.formatNumber(pesoLiquidoTotal||0,2)} kg
+
+📊 Tonelada por hectare: ${this.ui.formatNumber(q.mediaKgHa||0,2)} kg
+
+🟢 Tolete bom: ${this.ui.formatNumber(qtdBonsTotal||0,0)} (~${this.ui.formatNumber(pctBonsTotal||0,2)}%)
+🔴 Tolete ruim: ${this.ui.formatNumber(qtdRuinsTotal||0,0)} (~${this.ui.formatNumber(pctRuinsTotal||0,2)}%)
+
+🌿 Média de gemas por tolete: ${this.ui.formatNumber(q.mediaGemasPorTolete||0,2)}
+
+📌 Classificação: ${classificacao}
+
+Acima de 80% → BOM
+Entre 50% e 80% → MÉDIO
+Abaixo de 50% → RUIM`;
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(() => {
+                this.ui.showNotification('Resumo copiado para a área de transferência.', 'success');
+            }).catch(() => {
+                window.alert('Não foi possível copiar automaticamente. Selecione e copie o texto manualmente.');
+            });
+        } else {
+            window.prompt('Copie o texto abaixo:', text);
+        }
+    }
+
+    copyQualidadeResumoOperacionalWhatsApp(id, button) {
+        const r = (this.plantioDia || []).find(p => String(p.id) === String(id));
+        if (!r || !r.qualidade) return;
+
+        const q = r.qualidade;
+        if (q.tipoOperacao !== 'plantio_cana') return;
+
+        const fmtDate = (d) => {
+            if (!d) return '—';
+            const parts = String(d).split('-');
+            return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : d;
+        };
+
+        const dataStr = fmtDate(r.data);
+        const primeiraFrente = Array.isArray(r.frentes) && r.frentes.length > 0 ? r.frentes[0] : null;
+        const fazenda = (primeiraFrente && primeiraFrente.fazenda) || q.mudaFazendaOrigem || '—';
+        const frente = (primeiraFrente && primeiraFrente.frente) || q.mudaTalhaoOrigem || '—';
+
+        const plantadora = q.qualEquipamentoPlantadora || '—';
+        const equipamento = q.qualEquipamentoTrator || '—';
+        let distribuidora = '—';
+        if (plantadora !== '—' || equipamento !== '—') {
+            distribuidora = `${plantadora}/${equipamento}`;
+        }
+
+        const distanciaVal = q.distancia || q.mudaDistancia || null;
+        const distanciaStr = distanciaVal ? `${this.ui.formatNumber(Number(distanciaVal) || 0, 0)} m` : '—';
+
+        const horaInicio = q.horaInicio || q.horaRegistro || '—';
+        const horaFim = q.horaFim || '—';
+        const horaStr = `${horaInicio}/${horaFim}`;
+
+        const pesoLiquidoTotal = (q.esqPesoLiquido || 0) + (q.dirPesoLiquido || 0);
+        const pesoBonsTotal = (q.esqPesoBons || 0) + (q.dirPesoBons || 0);
+        const pesoRuinsTotal = (q.esqPesoRuins || 0) + (q.dirPesoRuins || 0);
+        const qtdBonsTotal = (q.esqQtdBons || 0) + (q.dirQtdBons || 0);
+        const qtdRuinsTotal = (q.esqQtdRuins || 0) + (q.dirQtdRuins || 0);
+        const pctBonsTotal = typeof q.totalToletesBons === 'number' ? q.totalToletesBons : 0;
+        const pctRuinsTotal = typeof q.totalToletesRuins === 'number' ? q.totalToletesRuins : 0;
+
+        let tHaTotal = 0;
+        let tHaViavel = 0;
+        let tHaDescarte = 0;
+        const kgHaTotal = typeof q.mediaKgHa === 'number' ? q.mediaKgHa : 0;
+
+        if (kgHaTotal > 0 && pesoLiquidoTotal > 0) {
+            tHaTotal = kgHaTotal / 1000;
+            const pb = Math.max(pesoBonsTotal, 0);
+            const pr = Math.max(pesoRuinsTotal, 0);
+            let propBons = pesoLiquidoTotal > 0 ? pb / pesoLiquidoTotal : 0;
+            let propRuins = pesoLiquidoTotal > 0 ? pr / pesoLiquidoTotal : 0;
+            if (propBons < 0) propBons = 0;
+            if (propRuins < 0) propRuins = 0;
+            const somaProps = propBons + propRuins;
+            if (somaProps > 0) {
+                propBons = propBons / somaProps;
+                propRuins = propRuins / somaProps;
+            }
+            tHaViavel = tHaTotal * propBons;
+            tHaDescarte = tHaTotal - tHaViavel;
+            if (tHaViavel < 0) tHaViavel = 0;
+            if (tHaDescarte < 0) tHaDescarte = 0;
+        }
+
+        let statusLabel = 'RUIM';
+        if (pctBonsTotal > 80) statusLabel = 'BOM';
+        else if (pctBonsTotal >= 50) statusLabel = 'MÉDIO';
+
+        const text =
+`🌱 *QUALIDADE DE MUDA – PLANTIO*
+
+📍 Fazenda: ${fazenda}
+📍 Frente: ${frente}
+
+🚜 Distribuidora: ${distribuidora}
+📏 Distância: ${distanciaStr}
+⏰ Hora: ${horaStr}
+
+⚖ Peso total: ${this.ui.formatNumber(pesoLiquidoTotal||0,2)} kg
+📊 Tonelada por hectare: ${this.ui.formatNumber(tHaTotal||0,2)} T/ha
+
+🟢 Tolete bom: ${this.ui.formatNumber(qtdBonsTotal||0,0)} ~ ${this.ui.formatNumber(pctBonsTotal||0,2)}%
+🔴 Tolete ruim: ${this.ui.formatNumber(qtdRuinsTotal||0,0)} ~ ${this.ui.formatNumber(pctRuinsTotal||0,2)}%
+
+🌿 Gema viável:
+Peso: ${this.ui.formatNumber(pesoBonsTotal||0,2)} kg
+${this.ui.formatNumber(tHaViavel||0,2)} T/ha
+
+🗑 Gema descarte:
+Peso: ${this.ui.formatNumber(pesoRuinsTotal||0,2)} kg
+${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
+
+📌 Status geral: ${statusLabel}`;
+
+        const originalText = button ? button.innerText : null;
+        if (button) {
+            button.disabled = true;
+            button.innerText = '✅ Copiado!';
+        }
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(() => {
+                this.ui.showNotification('✔ Resumo copiado para a área de transferência!', 'success');
+                if (button) {
+                    setTimeout(() => {
+                        button.disabled = false;
+                        button.innerText = originalText;
+                    }, 2500);
+                }
+            }).catch(() => {
+                this.ui.showNotification('Erro ao copiar. Tente novamente.', 'error');
+                window.prompt('Copie o texto abaixo:', text);
+                if (button) {
+                    button.disabled = false;
+                    button.innerText = originalText;
+                }
+            });
+        } else {
+            window.prompt('Copie o texto abaixo:', text);
+            if (button) {
+                button.disabled = false;
+                button.innerText = originalText;
+            }
+        }
+    }
+
     getPlantioDetailsHTML(r) {
         const fmtDate = (d) => {
             if (!d) return '—';
@@ -6117,23 +6348,39 @@ forceReloadAllData() {
         
         const q = r.qualidade||{};
         
-        // Quality Source Info
         const qualitySourceInfo = q.qualitySourceLabel 
             ? `<div class="info-item full-span" style="grid-column: 1 / -1; margin-top: 5px; color: var(--primary);"><strong>🔗 Qualidade Vinculada:</strong> ${q.qualitySourceLabel}</div>`
             : '';
 
-        const frentesRows = (r.frentes||[]).map(f => `
+        const frentesRows = (r.frentes||[]).map(f => {
+            const frenteLabel = f.frente || '—';
+            let fazendaVal = f.fazenda || '';
+            let codVal = (f.cod != null ? f.cod : null);
+
+            if (!fazendaVal && f.frente) {
+                const m = String(f.frente).match(/^(\d+)\s+(.+)$/);
+                if (m) {
+                    if (codVal == null) {
+                        const parsed = parseInt(m[1], 10);
+                        if (!isNaN(parsed)) codVal = parsed;
+                    }
+                    fazendaVal = m[2].trim();
+                }
+            }
+
+            return `
             <tr>
-                <td>${f.frente||'—'}</td>
-                <td>${f.fazenda||'—'}</td>
-                <td>${f.cod!=null?f.cod:'—'}</td>
+                <td>${frenteLabel}</td>
+                <td>${fazendaVal || '—'}</td>
+                <td>${codVal!=null?codVal:'—'}</td>
                 <td>${f.regiao||'—'}</td>
                 <td>${this.ui.formatNumber(f.areaTotal||0)}</td>
                 <td>${this.ui.formatNumber(f.area||0)}</td>
                 <td>${this.ui.formatNumber(f.areaAcumulada||0)}</td>
                 <td>${this.ui.formatNumber(f.plantioDiario||0)}</td>
             </tr>
-        `).join('');
+        `;
+        }).join('');
         
         const insumosRows = (r.insumos||[]).map(i => {
             // Tenta pegar a dose realizada, senão prevista, senão genérica
@@ -6165,6 +6412,35 @@ forceReloadAllData() {
         const rawTipo = r.tipo_operacao || (q.tipoOperacao) || 'plantio';
         const tipoOpLabel = tipoOpMap[rawTipo] || rawTipo;
         const isQualidadeMuda = rawTipo === 'colheita_muda' || rawTipo === 'qualidade_muda';
+        const isNovoPlantioCanaGlobal = (q.tipoOperacao === 'plantio_cana');
+        const hideInsumosSection = isQualidadeMuda || isNovoPlantioCanaGlobal;
+
+        const primeiraFrente = Array.isArray(r.frentes) && r.frentes.length > 0 ? r.frentes[0] : null;
+        let derivedHeaderFazenda = null;
+        if (primeiraFrente) {
+            if (primeiraFrente.fazenda) {
+                derivedHeaderFazenda = primeiraFrente.fazenda;
+            } else if (primeiraFrente.frente) {
+                const m = String(primeiraFrente.frente).match(/^(\d+)\s+(.+)$/);
+                if (m && m[2]) {
+                    derivedHeaderFazenda = m[2].trim();
+                }
+            }
+        }
+        const headerFazenda = derivedHeaderFazenda || q.mudaFazendaOrigem || '—';
+        const headerFrente = (primeiraFrente && primeiraFrente.frente) || q.mudaTalhaoOrigem || '—';
+
+        let statusPlantioCana = null;
+        if (q && q.tipoOperacao === 'plantio_cana') {
+            const pctBons = typeof q.totalToletesBons === 'number' ? q.totalToletesBons : 0;
+            if (pctBons > 80) {
+                statusPlantioCana = { label: 'BOM', emoji: '🟢', color: '#2e7d32' };
+            } else if (pctBons >= 50) {
+                statusPlantioCana = { label: 'MÉDIO', emoji: '🟡', color: '#f9a825' };
+            } else {
+                statusPlantioCana = { label: 'RUIM', emoji: '🔴', color: '#e53935' };
+            }
+        }
 
         let qualitySections = '';
         if (isQualidadeMuda) {
@@ -6205,68 +6481,186 @@ forceReloadAllData() {
             `;
 
         } else {
-            qualitySections += `
-                <!-- Subseção Gemas -->
-                <h6 style="margin: 0 0 5px 0; border-bottom: 1px solid #eee; padding-bottom: 5px;">🧬 Gemas</h6>
-                <div class="quality-grid">
-                    ${qualItem('Amostra', this.ui.formatNumber(q.gemasAmostra||0, 1))}
-                    ${qualItem('Total', this.ui.formatNumber(q.gemasTotal||0))}
-                    ${qualItem('Média/m', this.ui.formatNumber(q.gemasMedia||0, 2))}
-                    ${qualItem('Viáveis', this.ui.formatNumber(q.gemasBoas||0), `(${this.ui.formatNumber(q.gemasBoasPct||0,1)}%)`)}
-                    ${qualItem('Inviáveis', this.ui.formatNumber(q.gemasRuins||0), `(${this.ui.formatNumber(q.gemasRuinsPct||0,1)}%)`)}
-                </div>
-                <!-- Subseção Toletes -->
-                <h6 style="margin: 15px 0 5px 0; border-bottom: 1px solid #eee; padding-bottom: 5px;">🪵 Toletes</h6>
-                <div class="quality-grid">
-                    ${qualItem('Amostra', this.ui.formatNumber(q.toletesAmostra||0, 1))}
-                    ${qualItem('Total', this.ui.formatNumber(q.toletesTotal||0))}
-                    ${qualItem('Média/m', this.ui.formatNumber(q.toletesMedia||0, 2))}
-                    ${qualItem('Bons', this.ui.formatNumber(q.toletesBons||0), `(${this.ui.formatNumber(q.toletesBonsPct||0,1)}%)`)}
-                    ${qualItem('Ruins', this.ui.formatNumber(q.toletesRuins||0), `(${this.ui.formatNumber(q.toletesRuinsPct||0,1)}%)`)}
-                </div>
-                <!-- Subseção Mudas (Plantio) -->
-                <h6 style="margin: 15px 0 5px 0; border-bottom: 1px solid #eee; padding-bottom: 5px;">🌱 Mudas (Plantio)</h6>
-                <div class="quality-grid">
-                    ${qualItem('Amostra', this.ui.formatNumber(q.mudasAmostra||0, 1))}
-                    ${qualItem('Total', this.ui.formatNumber(q.mudasTotal||0))}
-                    ${qualItem('Média/m', this.ui.formatNumber(q.mudasMedia||0, 2))}
-                    ${qualItem('Boas', this.ui.formatNumber(q.mudasBoas||0), `(${this.ui.formatNumber(q.mudasBoasPct||0,1)}%)`)}
-                    ${qualItem('Ruins', this.ui.formatNumber(q.mudasRuins||0), `(${this.ui.formatNumber(q.mudasRuinsPct||0,1)}%)`)}
-                </div>
-                <!-- Subseção Reboulos -->
-                <h6 style="margin: 15px 0 5px 0; border-bottom: 1px solid #eee; padding-bottom: 5px;">🍂 Reboulos</h6>
-                <div class="quality-grid">
-                    ${qualItem('Total', this.ui.formatNumber(q.mudasReboulos||0))}
-                    ${qualItem('Bons', this.ui.formatNumber(q.mudasReboulosBons||0), `(${this.ui.formatNumber(q.mudasReboulosBonsPct||0,1)}%)`)}
-                    ${qualItem('Ruins', this.ui.formatNumber(q.mudasReboulosRuins||0), `(${this.ui.formatNumber(q.mudasReboulosRuinsPct||0,1)}%)`)}
-                </div>
-                <!-- Subseção Consumo de Muda -->
-                <h6 style="margin: 15px 0 5px 0; border-bottom: 1px solid #eee; padding-bottom: 5px;">🚜 Consumo de Muda</h6>
-                <div class="quality-grid">
-                    ${qualItem('Consumo Total', this.ui.formatNumber(q.mudaConsumoTotal||0,2), 'ton')}
-                    ${qualItem('Consumo Acum.', this.ui.formatNumber(q.mudaConsumoAcumulado||0,2), 'ton')}
-                    ${qualItem('Consumo Dia', this.ui.formatNumber(q.mudaConsumoDia||0,2), 'ton')}
-                    ${qualItem('Previsto', this.ui.formatNumber(q.mudaPrevisto||0,2), 'ton')}
-                    ${qualItem('Liberação', q.mudaLiberacaoFazenda||'—')}
-                    ${qualItem('Info Colheita', q.mudaColheitaInfo||'—')}
-                    ${qualItem('Variedade', q.mudaVariedade||'—')}
-                    ${qualItem('Fazenda Origem', q.mudaFazendaOrigem||'—')}
-                    ${qualItem('Talhão Origem', q.mudaTalhaoOrigem||'—')}
-                </div>
-                
-                <!-- Subseção Outros (Plantio) -->
-                <h6 style="margin: 15px 0 5px 0; border-bottom: 1px solid #eee; padding-bottom: 5px;">📏 Outros Indicadores</h6>
-                <div class="quality-grid">
-                    ${qualItem('Muda (ton/ha)', this.ui.formatNumber(q.mudaTonHa||0))}
-                    ${qualItem('Profundidade', this.ui.formatNumber(q.profundidadeCm||0), 'cm')}
-                    ${qualItem('Cobertura', q.cobertura||'—')}
-                    ${qualItem('Espaçamento', q.alinhamento||'—')}
-                    ${qualItem('Chuva', this.ui.formatNumber(q.chuvaMm||0,1), 'mm')}
-                    ${qualItem('Cobrição Dia', this.ui.formatNumber(q.cobricaoDia||0,2))}
-                    ${qualItem('Cobrição Acum.', this.ui.formatNumber(q.cobricaoAcumulada||0,2))}
-                    ${qualItem('Oxifertil', this.ui.formatNumber(q.oxifertilDose||0,2), 'L/ha')}
-                </div>
-            `;
+            const isNovoPlantioCana = (q.tipoOperacao === 'plantio_cana');
+            if (isNovoPlantioCana) {
+                const pctBonsTotal = typeof q.totalToletesBons === 'number' ? q.totalToletesBons : 0;
+                const pctRuinsTotal = typeof q.totalToletesRuins === 'number' ? q.totalToletesRuins : 0;
+                const pesoBonsTotal = (q.esqPesoBons || 0) + (q.dirPesoBons || 0);
+                const pesoRuinsTotal = (q.esqPesoRuins || 0) + (q.dirPesoRuins || 0);
+                const pesoLiquidoTotal = (q.esqPesoLiquido || 0) + (q.dirPesoLiquido || 0);
+                const ruinsHighlight = pctRuinsTotal > 50 ? 'border-color:#e53935; background:rgba(229,57,53,0.08);' : '';
+                const statusColor = statusPlantioCana ? statusPlantioCana.color : '#888';
+                const statusLabel = statusPlantioCana ? statusPlantioCana.label : 'N/A';
+                const statusEmoji = statusPlantioCana ? statusPlantioCana.emoji : 'ℹ️';
+
+                const kgHaTotal = typeof q.mediaKgHa === 'number' ? q.mediaKgHa : 0;
+                let tHaTotal = 0;
+                let tHaViavel = 0;
+                let tHaDescarte = 0;
+                let proporcaoRuins = 0;
+
+                if (kgHaTotal > 0 && pesoLiquidoTotal > 0) {
+                    tHaTotal = kgHaTotal / 1000;
+                    const pb = Math.max(pesoBonsTotal, 0);
+                    const pr = Math.max(pesoRuinsTotal, 0);
+                    let propBons = pesoLiquidoTotal > 0 ? pb / pesoLiquidoTotal : 0;
+                    let propRuins = pesoLiquidoTotal > 0 ? pr / pesoLiquidoTotal : 0;
+
+                    if (propBons < 0) propBons = 0;
+                    if (propRuins < 0) propRuins = 0;
+
+                    const somaProps = propBons + propRuins;
+                    if (somaProps > 0) {
+                        propBons = propBons / somaProps;
+                        propRuins = propRuins / somaProps;
+                    }
+
+                    tHaViavel = tHaTotal * propBons;
+                    tHaDescarte = tHaTotal - tHaViavel;
+                    if (tHaViavel < 0) tHaViavel = 0;
+                    if (tHaDescarte < 0) tHaDescarte = 0;
+
+                    proporcaoRuins = propRuins;
+                }
+
+                let conversaoBg = 'rgba(0,0,0,0.02)';
+                let conversaoBorder = '#ccc';
+                let conversaoAlert = '';
+                if (proporcaoRuins > 0.5) {
+                    conversaoBg = 'rgba(229,57,53,0.08)';
+                    conversaoBorder = '#e53935';
+                    conversaoAlert = '🚨 Alerta crítico: descarte superior a 50% impactando diretamente a produtividade estimada.';
+                } else if (proporcaoRuins > 0.4) {
+                    conversaoBg = 'rgba(249,168,37,0.12)';
+                    conversaoBorder = '#f9a825';
+                    conversaoAlert = '⚠ Atenção: índice de descarte elevado.';
+                }
+
+                qualitySections += `
+                    <div class="details-card" style="padding: 10px;">
+                        <div class="info-grid" style="grid-template-columns: repeat(4, 1fr);">
+                            <div class="info-item"><strong>Fazenda:</strong> ${headerFazenda}</div>
+                            <div class="info-item"><strong>Frente:</strong> ${headerFrente}</div>
+                            <div class="info-item"><strong>Região:</strong> ${(primeiraFrente && primeiraFrente.regiao) || '—'}</div>
+                            <div class="info-item"><strong>Data/Hora:</strong> ${dataStr}${q.horaRegistro ? ' ' + q.horaRegistro : ''}</div>
+                            <div class="info-item"><strong>Operador:</strong> ${q.qualOperador || '—'}</div>
+                            <div class="info-item"><strong>Equipamento:</strong> ${q.qualEquipamentoPlantadora || '—'}</div>
+                            <div class="info-item"><strong>Plantadora:</strong> ${q.qualEquipamentoPlantadora || '—'}</div>
+                        </div>
+                    </div>
+                    <div class="quality-grid" style="margin: 8px 0 12px 0;">
+                        <div class="quality-item" style="grid-column: 1 / -1; border-width: 2px; border-color: ${statusColor}; background: rgba(0,0,0,0.02);">
+                            <div class="label" style="font-weight: 600;">STATUS DA QUALIDADE DA MUDA</div>
+                            <div class="value" style="font-size: 1.4em; margin-top: 4px;">${statusEmoji} ${statusLabel}</div>
+                            <div class="sub-value" style="margin-top: 4px;">
+                                Toletes bons: ${this.ui.formatNumber(pctBonsTotal||0,2)}% · T/ha total: ${this.ui.formatNumber(tHaTotal||0,2)}
+                            </div>
+                        </div>
+                    </div>
+                    <h6 style="margin: 10px 0 5px 0; border-bottom: 1px solid #eee; padding-bottom: 5px;">📋 Comparativo das Linhas da Plantadora</h6>
+                    <div style="overflow-x:auto;">
+                        <table class="details-inner-table">
+                            <thead>
+                                <tr>
+                                    <th>Indicador</th>
+                                    <th>Linha Esquerda</th>
+                                    <th>Linha Direita</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr><td>Peso bruto (kg)</td><td>${this.ui.formatNumber(q.esqPesoBruto||0,2)}</td><td>${this.ui.formatNumber(q.dirPesoBruto||0,2)}</td></tr>
+                                <tr><td>Peso líquido (kg)</td><td>${this.ui.formatNumber(q.esqPesoLiquido||0,2)}</td><td>${this.ui.formatNumber(q.dirPesoLiquido||0,2)}</td></tr>
+                                <tr><td>KG por hectare (kg/ha)</td><td>${this.ui.formatNumber(q.esqKgHa||0,2)}</td><td>${this.ui.formatNumber(q.dirKgHa||0,2)}</td></tr>
+                                <tr><td>Qtd. toletes bons</td><td>${this.ui.formatNumber(q.esqQtdBons||0,0)}</td><td>${this.ui.formatNumber(q.dirQtdBons||0,0)}</td></tr>
+                                <tr><td>Qtd. toletes ruins</td><td>${this.ui.formatNumber(q.esqQtdRuins||0,0)}</td><td>${this.ui.formatNumber(q.dirQtdRuins||0,0)}</td></tr>
+                                <tr><td>Peso bons (kg)</td><td>${this.ui.formatNumber(q.esqPesoBons||0,2)}</td><td>${this.ui.formatNumber(q.dirPesoBons||0,2)}</td></tr>
+                                <tr><td>Peso ruins (kg)</td><td>${this.ui.formatNumber(q.esqPesoRuins||0,2)}</td><td>${this.ui.formatNumber(q.dirPesoRuins||0,2)}</td></tr>
+                                <tr><td>Gemas por tolete</td><td>${this.ui.formatNumber(q.esqGemasBoasPorTolete||0,2)}</td><td>${this.ui.formatNumber(q.dirGemasBoasPorTolete||0,2)}</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <h6 style="margin: 12px 0 6px 0; border-bottom: 1px solid #eee; padding-bottom: 5px;">🌱 Conversão Produtiva das Gemas (T/ha)</h6>
+                    <div class="info-item" style="border-radius: 6px; padding: 8px 10px; background: ${conversaoBg}; border: 1px solid ${conversaoBorder};">
+                        <div><strong>🌿 Gema Viável</strong></div>
+                        <div>Peso: ${this.ui.formatNumber(pesoBonsTotal||0,2)} kg</div>
+                        <div>Produtividade estimada: ${this.ui.formatNumber(tHaViavel||0,2)} T/ha</div>
+                        <div style="margin-top: 6px;"><strong>🗑 Gema Descarte</strong></div>
+                        <div>Peso: ${this.ui.formatNumber(pesoRuinsTotal||0,2)} kg</div>
+                        <div>Impacto estimado: ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha</div>
+                        <div style="margin-top: 6px;"><strong>📊 Total</strong></div>
+                        <div>Produtividade total: ${this.ui.formatNumber(tHaTotal||0,2)} T/ha</div>
+                        ${conversaoAlert ? `<div style="margin-top: 8px; font-weight: 600;">${conversaoAlert}</div>` : ''}
+                    </div>
+                    <h6 style="margin: 12px 0 6px 0; border-bottom: 1px solid #eee; padding-bottom: 5px;">📈 Qualidade Consolidada</h6>
+                    <div class="info-grid" style="grid-template-columns: repeat(2, 1fr);">
+                        <div class="info-item"><strong>Média de gemas por tolete:</strong> ${this.ui.formatNumber(q.mediaGemasPorTolete||0,2)}</div>
+                        <div class="info-item"><strong>Média KG por hectare:</strong> ${this.ui.formatNumber(q.mediaKgHa||0,2)} kg/ha</div>
+                    </div>
+                `;
+            } else {
+                qualitySections += `
+                    <!-- Subseção Gemas -->
+                    <h6 style="margin: 0 0 5px 0; border-bottom: 1px solid #eee; padding-bottom: 5px;">🧬 Gemas</h6>
+                    <div class="quality-grid">
+                        ${qualItem('Amostra', this.ui.formatNumber(q.gemasAmostra||0, 1))}
+                        ${qualItem('Total', this.ui.formatNumber(q.gemasTotal||0))}
+                        ${qualItem('Média/m', this.ui.formatNumber(q.gemasMedia||0, 2))}
+                        ${qualItem('Viáveis', this.ui.formatNumber(q.gemasBoas||0), `(${this.ui.formatNumber(q.gemasBoasPct||0,1)}%)`)}
+                        ${qualItem('Inviáveis', this.ui.formatNumber(q.gemasRuins||0), `(${this.ui.formatNumber(q.gemasRuinsPct||0,1)}%)`)}
+                    </div>
+                    <!-- Subseção Toletes -->
+                    <h6 style="margin: 15px 0 5px 0; border-bottom: 1px solid #eee; padding-bottom: 5px;">🪵 Toletes</h6>
+                    <div class="quality-grid">
+                        ${qualItem('Amostra', this.ui.formatNumber(q.toletesAmostra||0, 1))}
+                        ${qualItem('Total', this.ui.formatNumber(q.toletesTotal||0))}
+                        ${qualItem('Média/m', this.ui.formatNumber(q.toletesMedia||0, 2))}
+                        ${qualItem('Bons', this.ui.formatNumber(q.toletesBons||0), `(${this.ui.formatNumber(q.toletesBonsPct||0,1)}%)`)}
+                        ${qualItem('Ruins', this.ui.formatNumber(q.toletesRuins||0), `(${this.ui.formatNumber(q.toletesRuinsPct||0,1)}%)`)}
+                    </div>
+                    <!-- Subseção Mudas (Plantio) -->
+                    <h6 style="margin: 15px 0 5px 0; border-bottom: 1px solid #eee; padding-bottom: 5px;">🌱 Mudas (Plantio)</h6>
+                    <div class="quality-grid">
+                        ${qualItem('Amostra', this.ui.formatNumber(q.mudasAmostra||0, 1))}
+                        ${qualItem('Total', this.ui.formatNumber(q.mudasTotal||0))}
+                        ${qualItem('Média/m', this.ui.formatNumber(q.mudasMedia||0, 2))}
+                        ${qualItem('Boas', this.ui.formatNumber(q.mudasBoas||0), `(${this.ui.formatNumber(q.mudasBoasPct||0,1)}%)`)}
+                        ${qualItem('Ruins', this.ui.formatNumber(q.mudasRuins||0), `(${this.ui.formatNumber(q.mudasRuinsPct||0,1)}%)`)}
+                    </div>
+                    <!-- Subseção Reboulos -->
+                    <h6 style="margin: 15px 0 5px 0; border-bottom: 1px solid #eee; padding-bottom: 5px;">🍂 Reboulos</h6>
+                    <div class="quality-grid">
+                        ${qualItem('Total', this.ui.formatNumber(q.mudasReboulos||0))}
+                        ${qualItem('Bons', this.ui.formatNumber(q.mudasReboulosBons||0), `(${this.ui.formatNumber(q.mudasReboulosBonsPct||0,1)}%)`)}
+                        ${qualItem('Ruins', this.ui.formatNumber(q.mudasReboulosRuins||0), `(${this.ui.formatNumber(q.mudasReboulosRuinsPct||0,1)}%)`)}
+                    </div>
+                    <!-- Subseção Consumo de Muda -->
+                    <h6 style="margin: 15px 0 5px 0; border-bottom: 1px solid #eee; padding-bottom: 5px;">🚜 Consumo de Muda</h6>
+                    <div class="quality-grid">
+                        ${qualItem('Consumo Total', this.ui.formatNumber(q.mudaConsumoTotal||0,2), 'ton')}
+                        ${qualItem('Consumo Acum.', this.ui.formatNumber(q.mudaConsumoAcumulado||0,2), 'ton')}
+                        ${qualItem('Consumo Dia', this.ui.formatNumber(q.mudaConsumoDia||0,2), 'ton')}
+                        ${qualItem('Previsto', this.ui.formatNumber(q.mudaPrevisto||0,2), 'ton')}
+                        ${qualItem('Liberação', q.mudaLiberacaoFazenda||'—')}
+                        ${qualItem('Info Colheita', q.mudaColheitaInfo||'—')}
+                        ${qualItem('Variedade', q.mudaVariedade||'—')}
+                        ${qualItem('Fazenda Origem', q.mudaFazendaOrigem||'—')}
+                        ${qualItem('Talhão Origem', q.mudaTalhaoOrigem||'—')}
+                    </div>
+                    
+                    <!-- Subseção Outros (Plantio) -->
+                    <h6 style="margin: 15px 0 5px 0; border-bottom: 1px solid #eee; padding-bottom: 5px;">📏 Outros Indicadores</h6>
+                    <div class="quality-grid">
+                        ${qualItem('Muda (ton/ha)', this.ui.formatNumber(q.mudaTonHa||0))}
+                        ${qualItem('Profundidade', this.ui.formatNumber(q.profundidadeCm||0), 'cm')}
+                        ${qualItem('Cobertura', q.cobertura||'—')}
+                        ${qualItem('Espaçamento', q.alinhamento||'—')}
+                        ${qualItem('Chuva', this.ui.formatNumber(q.chuvaMm||0,1), 'mm')}
+                        ${qualItem('Cobrição Dia', this.ui.formatNumber(q.cobricaoDia||0,2))}
+                        ${qualItem('Cobrição Acum.', this.ui.formatNumber(q.cobricaoAcumulada||0,2))}
+                        ${qualItem('Oxifertil', this.ui.formatNumber(q.oxifertilDose||0,2), 'L/ha')}
+                    </div>
+                `;
+            }
         }
 
         return `
@@ -6276,9 +6670,9 @@ forceReloadAllData() {
                     <h5>📋 Informações Gerais</h5>
                     <div class="info-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px;">
                         <div class="info-item"><strong>Operação:</strong> ${tipoOpLabel}</div>
-                        <div class="info-item"><strong>Data:</strong> ${dataStr}</div>
+                        <div class="info-item"><strong>Data/Hora:</strong> ${dataStr}${q.horaRegistro ? ' ' + q.horaRegistro : ''}</div>
                         <div class="info-item"><strong>Responsável:</strong> ${resp}</div>
-                        <div class="info-item"><strong>GPS:</strong> ${q.gps ? '✅ Sim' : '❌ Não'}</div>
+                        <div class="info-item"><strong>Matrícula:</strong> ${q.qualMatricula || '—'}</div>
                         <div class="info-item full-span" style="grid-column: 1 / -1;"><strong>Observações:</strong> ${obs}</div>
                         ${qualitySourceInfo}
                     </div>
@@ -6319,7 +6713,7 @@ forceReloadAllData() {
 
                 <div style="display: flex; gap: 15px; flex-wrap: wrap;">
                     <!-- Seção 3: Insumos (Ocultar se for Qualidade de Muda) -->
-                    ${!isQualidadeMuda ? `
+                    ${!hideInsumosSection ? `
                     <div class="details-card flex-1" style="min-width: 300px;">
                         <h5>🧪 Insumos Aplicados</h5>
                         <div style="overflow-x: auto;">
@@ -6336,6 +6730,14 @@ forceReloadAllData() {
                         <h5>📊 Indicadores & Qualidade</h5>
                         ${qualitySections}
                     </div>
+                </div>
+                </div>
+                <div style="margin-top: 15px; text-align: right;">
+                    ${(q && q.tipoOperacao === 'plantio_cana') ? `
+                    <button class="btn btn-secondary" onclick="window.insumosApp.copyQualidadeResumoOperacionalWhatsApp('${r.id}', this)">
+                        📋 Copiar Resumo para WhatsApp
+                    </button>
+                    ` : ''}
                 </div>
             </div>`;
     }
@@ -11544,7 +11946,7 @@ InsumosApp.prototype.validatePlantioStep = function(step) {
     // Validation for Step 1
     if (step === 1) {
         const dataEl = document.getElementById('plantio-data');
-        const frenteEl = document.getElementById('single-frente');
+        const osEl = document.getElementById('single-os');
         const areaEl = document.getElementById('single-plantio-dia');
         const tipo = document.getElementById('tipo-operacao')?.value;
         let valid = true;
@@ -11555,9 +11957,9 @@ InsumosApp.prototype.validatePlantioStep = function(step) {
             if (msg) msg.style.display = 'block';
             valid = false;
         }
-        if (!frenteEl.value) {
-            frenteEl.classList.add('input-error');
-            const msg = document.getElementById('msg-single-frente');
+        if (!osEl.value) {
+            osEl.classList.add('input-error');
+            const msg = document.getElementById('msg-single-os');
             if (msg) msg.style.display = 'block';
             valid = false;
         }
@@ -11696,10 +12098,17 @@ InsumosApp.prototype.updatePlantioSummary = function() {
     if (sumData && dataEl) {
         const val = dataEl.value;
         if (val) {
-             const parts = val.split('-');
-             if (parts.length === 3) sumData.textContent = `${parts[2]}/${parts[1]}/${parts[0]}`;
+            const horaEl = document.getElementById('plantio-hora');
+            const horaVal = horaEl && horaEl.value ? horaEl.value : '';
+            const parts = val.split('-');
+            if (parts.length === 3) {
+                const base = `${parts[2]}/${parts[1]}/${parts[0]}`;
+                sumData.textContent = horaVal ? `${base} ${horaVal}` : base;
+            } else {
+                sumData.textContent = val;
+            }
         } else {
-             sumData.textContent = '-';
+            sumData.textContent = '-';
         }
     }
     if (sumFrente && frenteEl) {
@@ -11843,10 +12252,8 @@ InsumosApp.prototype.populateSingleFrente = async function(tipo) {
     const select = document.getElementById('single-frente');
     if (!select) return;
 
-    // Map types to categories
     const category = (tipo === 'plantio' || tipo === 'plantio_cana') ? 'plantio' : 'colheita';
     
-    // Check if we already populated for this category to avoid flickering/resetting
     if (select.dataset.loadedType === category && select.options.length > 1) return;
 
     const currentVal = select.value;
@@ -11854,10 +12261,13 @@ InsumosApp.prototype.populateSingleFrente = async function(tipo) {
     
     let options = [];
     if (category === 'plantio') {
-        // Hardcoded plantio frentes
-        options = ["4001", "4002", "4009 Abençoada"];
+        if (this.osListCache && Array.isArray(this.osListCache) && this.osListCache.length > 0) {
+            const frentes = [...new Set(this.osListCache.map(os => os.frente).filter(Boolean))];
+            options = frentes.sort();
+        } else {
+            options = ["4001", "4002", "4009 Abençoada"];
+        }
     } else {
-        // Fetch from liberation data for colheita/qualidade_muda
         if (!this.liberacaoCache) {
              try {
                  const res = await this.api.getLiberacaoColheita();
@@ -11865,7 +12275,6 @@ InsumosApp.prototype.populateSingleFrente = async function(tipo) {
                  else this.liberacaoCache = [];
              } catch(e) { console.error(e); this.liberacaoCache = []; }
         }
-        // Extract unique frentes
         const frentes = [...new Set(this.liberacaoCache.map(l => l.frente).filter(Boolean))];
         options = frentes.sort();
     }
@@ -11964,6 +12373,10 @@ InsumosApp.prototype.loadQualidadeRecords = async function(targetType = null, pr
                 const trator = q.qualEquipamentoTrator || 'N/A';
                 const matricula = q.qualMatricula || 'N/A';
                 const tipoLabel = q.tipoOperacao === 'colheita_muda' ? 'Colheita' : 'Plantio';
+                const qualidadePct = (q.gemasBoasPct != null)
+                    ? `${this.ui.formatNumber(q.gemasBoasPct, 1)}%`
+                    : (q.mudasBoasPct != null ? `${this.ui.formatNumber(q.mudasBoasPct, 1)}%` : 'N/A');
+                const variedade = q.mudaVariedade || rec.frentes?.[0]?.variedade || 'N/A';
                 
                 div.innerHTML = `
                     <div style="font-weight: bold; color: var(--primary);">
@@ -11973,6 +12386,9 @@ InsumosApp.prototype.loadQualidadeRecords = async function(targetType = null, pr
                     <div style="margin-top: 4px;"><strong>Responsável:</strong> ${resp}</div>
                     <div style="margin-top: 2px; font-size: 0.9em; color: #555;">
                         <strong>Trator:</strong> ${trator} | <strong>Op:</strong> ${operador} | <strong>Mat:</strong> ${matricula}
+                    </div>
+                    <div style="margin-top: 2px; font-size: 0.9em; color: #333;">
+                        <strong>Qualidade:</strong> ${qualidadePct} | <strong>Variedade:</strong> ${variedade}
                     </div>
                 `;
 
@@ -12135,6 +12551,7 @@ InsumosApp.prototype.toggleOperacaoSections = function() {
     const secMudas = document.getElementById('sec-mudas');
     const secOutros = document.getElementById('sec-outros');
     const secMudaConsumo = document.getElementById('sec-muda-consumo-card');
+    const secQualPlantioCana = document.getElementById('sec-qualidade-plantio-cana');
     
     // Seções principais
     const secInsumos = document.getElementById('sec-insumos');
@@ -12206,12 +12623,13 @@ InsumosApp.prototype.toggleOperacaoSections = function() {
         
         // Lógica diferenciada baseada no subtipo de qualidade
         if (subTipoQualidade === 'plantio_cana') {
-             // Plantio de Cana: Trator..., Qualidade Plantio (Gemas, Toletes, Outros), Consumo Muda
-            setDisplay(secGemas, true); 
-            setDisplay(secToletes, true);
-            setDisplay(secMudas, false); // Origem & Qualidade Muda (específico de Colheita)
-            setDisplay(secOutros, true);
-            setDisplay(secMudaConsumo, true);
+            // Plantio de Cana: usar apenas a nova estrutura específica
+            setDisplay(secGemas, false); 
+            setDisplay(secToletes, false);
+            setDisplay(secMudas, false);
+            setDisplay(secOutros, false);
+            setDisplay(secMudaConsumo, false);
+            setDisplay(secQualPlantioCana, true);
         } else {
             // Colheita de Muda: Trator..., Origem & Qualidade Muda
             setDisplay(secGemas, false); 
@@ -12219,6 +12637,7 @@ InsumosApp.prototype.toggleOperacaoSections = function() {
             setDisplay(secMudas, true);
             setDisplay(secOutros, false);
             setDisplay(secMudaConsumo, false);
+            setDisplay(secQualPlantioCana, false);
         }
     }
 };
@@ -12248,7 +12667,7 @@ InsumosApp.prototype.resetPlantioForm = function(mode = 'normal') {
 
     const ids = [
         'qual-equipamento-trator', 'qual-equipamento-plantadora', 'qual-operador', 'qual-matricula', 'qual-frota',
-        'plantio-data', 'plantio-responsavel', 'plantio-obs',
+        'plantio-data', 'plantio-hora', 'plantio-responsavel', 'plantio-obs',
         'qual-toletes-total', 'qual-toletes-bons', 'qual-toletes-ruins', 'qual-toletes-amostra',
         'qual-gemas-total', 'qual-gemas-boas', 'qual-gemas-ruins', 'qual-gemas-amostra', 'qual-gemas-media',
         'qual-mudas-total', 'qual-mudas-boas', 'qual-mudas-ruins', 'qual-mudas-amostra', 'qual-mudas-media', 'qual-mudas-reboulos',
@@ -12291,6 +12710,118 @@ InsumosApp.prototype.resetPlantioForm = function(mode = 'normal') {
     this.updatePlantioSummary();
 };
 
+// Qualidade Plantio de Cana: listeners e cálculos
+InsumosApp.prototype.initQualidadePlantioCanaListeners = function() {
+    const isActive = document.getElementById('sec-qualidade-plantio-cana')?.style.display !== 'none';
+    if (!isActive) return;
+    const ids = [
+        'qual-esq-peso-bruto','qual-esq-qtd-bons','qual-esq-qtd-ruins','qual-esq-peso-bons','qual-esq-peso-ruins','qual-esq-gemas-por-tolete',
+        'qual-dir-peso-bruto','qual-dir-qtd-bons','qual-dir-qtd-ruins','qual-dir-peso-bons','qual-dir-peso-ruins','qual-dir-gemas-por-tolete'
+    ];
+    ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (el.__qualCalcHandler) {
+            el.removeEventListener('input', el.__qualCalcHandler);
+        }
+        const handler = () => {
+            this.updateQualidadePlantioCanaCalculations();
+        };
+        el.addEventListener('input', handler);
+        el.__qualCalcHandler = handler;
+    });
+    // Confirmar override manual dos pesos (bons/ruins) por lado
+    const attachManualWeightConfirm = (pref) => {
+        ['peso-bons','peso-ruins'].forEach(suffix => {
+            const el = document.getElementById(`${pref}-${suffix}`);
+            if (!el) return;
+            if (el.__manualConfirmHandler) {
+                el.removeEventListener('change', el.__manualConfirmHandler);
+            }
+            const handler = async () => {
+                // Evita confirmar repetidamente
+                if (el.dataset.manualOverride === 'true') return;
+                const confirmed = await this.showConfirmationModal(
+                    'Confirmar peso real dos toletes',
+                    'Você está informando o peso real dos toletes. Confirmar vai desativar o preenchimento automático para este lado.'
+                );
+                if (confirmed) {
+                    el.dataset.manualOverride = 'true';
+                } else {
+                    // Reverter para cálculo automático
+                    el.dataset.manualOverride = '';
+                    this.updateQualidadePlantioCanaCalculations();
+                }
+            };
+            el.addEventListener('change', handler);
+            el.__manualConfirmHandler = handler;
+        });
+    };
+    attachManualWeightConfirm('qual-esq');
+    attachManualWeightConfirm('qual-dir');
+    this.updateQualidadePlantioCanaCalculations();
+};
+
+InsumosApp.prototype.updateQualidadePlantioCanaCalculations = function() {
+    const bucket = 0.460;
+    const meters = 5;
+    const factor = 6666;
+    const computeSide = (pref) => {
+        const val = (id) => {
+            const el = document.getElementById(`${pref}-${id}`);
+            if (!el) return 0;
+            let v = el.value || '0';
+            v = String(v).replace(',', '.');
+            const num = parseFloat(v);
+            return isNaN(num) ? 0 : num;
+        };
+        const set = (id, v) => {
+            const el = document.getElementById(`${pref}-${id}`);
+            if (el) el.value = isFinite(v) ? Number(v).toFixed(2) : '';
+        };
+        const pesoBruto = val('peso-bruto');
+        const pesoLiquido = Math.max(0, pesoBruto - bucket);
+        set('peso-liquido', pesoLiquido);
+        const kgHa = (pesoLiquido / meters) * factor;
+        set('kg-ha', kgHa);
+        let qtdBons = val('qtd-bons');
+        let qtdRuins = val('qtd-ruins');
+        let pesoBons = val('peso-bons');
+        let pesoRuins = val('peso-ruins');
+        const totalPesoPart = (pesoBons || 0) + (pesoRuins || 0);
+        if (pesoLiquido > 0 && totalPesoPart > 0) {
+            const pctBons = (pesoBons / pesoLiquido) * 100;
+            const pctRuins = (pesoRuins / pesoLiquido) * 100;
+            set('peso-bons-pct', pctBons);
+            set('peso-ruins-pct', pctRuins);
+        } else {
+            set('peso-bons-pct', 0);
+            set('peso-ruins-pct', 0);
+        }
+        const gemasPorTolete = val('gemas-por-tolete');
+        const gemasPor5 = gemasPorTolete / 5;
+        set('gemas-por5', gemasPor5);
+        return { kgHa, qtdBons, qtdRuins, pesoBons, pesoRuins, gemasPorTolete, gemasPor5 };
+    };
+    const esq = computeSide('qual-esq');
+    const dir = computeSide('qual-dir');
+    const mediaKgHa = ((esq.kgHa || 0) + (dir.kgHa || 0)) / 2;
+    const mediaGemas = ((esq.gemasPor5 || 0) + (dir.gemasPor5 || 0)) / 2;
+    const totalBons = (esq.qtdBons || 0) + (dir.qtdBons || 0);
+    const totalRuins = (esq.qtdRuins || 0) + (dir.qtdRuins || 0);
+    const setOut = (id, v) => { const el = document.getElementById(id); if (el) el.value = isFinite(v) ? Number(v).toFixed(2) : ''; };
+    setOut('qual-media-kg-ha', mediaKgHa);
+    setOut('qual-media-gemas-por-tolete', mediaGemas);
+    const totalToletes = totalBons + totalRuins;
+    let pctBons = 0;
+    let pctRuins = 0;
+    if (totalToletes > 0) {
+        pctBons = (totalBons / totalToletes) * 100;
+        pctRuins = (totalRuins / totalToletes) * 100;
+    }
+    setOut('qual-total-toletes-bons', pctBons);
+    setOut('qual-total-toletes-ruins', pctRuins);
+};
 InsumosApp.prototype.handleEditPlantio = async function(id) {
     if (!this.plantioDia) return;
     const record = this.plantioDia.find(r => String(r.id) === String(id));
@@ -12300,7 +12831,8 @@ InsumosApp.prototype.handleEditPlantio = async function(id) {
     const tipoOp = record.tipo_operacao || (record.qualidade && record.qualidade.tipoOperacao) || 'plantio';
     
     // Call reset with correct mode
-    const mode = (tipoOp === 'qualidade_muda') ? 'qualidade' : 'normal';
+    const isQualidadeTipo = (tipoOp === 'qualidade_muda' || tipoOp === 'plantio_cana');
+    const mode = isQualidadeTipo ? 'qualidade' : 'normal';
     this.resetPlantioForm(mode);
 
     // Ensure quality options are loaded before setting values
@@ -12317,13 +12849,19 @@ InsumosApp.prototype.handleEditPlantio = async function(id) {
     const setCheck = (id, val) => { const el = document.getElementById(id); if (el) el.checked = !!val; };
 
     set('plantio-data', record.data);
+    set('plantio-hora', (record.qualidade && record.qualidade.horaRegistro) || '');
     set('plantio-responsavel', record.responsavel);
     set('plantio-obs', record.observacoes);
 
     // Tipo de Operação
-    // Only set if option exists (for plantio/colheita). For qualidade, toggle logic handles it.
-    if (tipoOp !== 'qualidade_muda') {
+    // Only set if option exists (for plantio/colheita). Para qualidade, o select específico é usado.
+    if (!isQualidadeTipo) {
         set('tipo-operacao', tipoOp);
+    } else {
+        const qualTipoSelect = document.getElementById('qualidade-tipo-select');
+        if (qualTipoSelect) {
+            qualTipoSelect.value = tipoOp;
+        }
     }
     
     // Disparar evento para ajustar visibilidade das seções
@@ -12359,6 +12897,7 @@ InsumosApp.prototype.handleEditPlantio = async function(id) {
     set('qual-equipamento-plantadora', q.qualEquipamentoPlantadora);
     set('qual-operador', q.qualOperador);
     set('qual-matricula', q.qualMatricula);
+    set('qual-matricula-header', q.qualMatricula);
 
     set('qual-toletes-total', q.toletesTotal);
     set('qual-toletes-bons', q.toletesBons);
@@ -12468,6 +13007,7 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
     const data = document.getElementById('plantio-data')?.value;
     const responsavel = document.getElementById('plantio-responsavel')?.value;
     const observacoes = document.getElementById('plantio-obs')?.value || '';
+    const horaRegistro = document.getElementById('plantio-hora')?.value || '';
     
     const toletesTotalVal = parseVal('qual-toletes-total');
     const toletesBonsVal = parseVal('qual-toletes-bons');
@@ -12491,67 +13031,130 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
         ? (document.getElementById('qualidade-tipo-select')?.value || 'plantio_cana') // Use specific sub-type in Quality Mode
         : (document.getElementById('tipo-operacao')?.value || 'plantio');
 
-    const qualidade = {
-        gemasTotal: gemasTotalVal,
-        gemasBoas: gemasBoasVal,
-        gemasRuins: gemasRuinsVal,
-        gemasBoasPct: gemasBoasPctVal,
-        gemasRuinsPct: gemasRuinsPctVal,
-        gemasOk: gemasBoasVal,
-        gemasNok: gemasRuinsVal,
-        gemasAmostra: parseVal('qual-gemas-amostra'),
-        gemasMedia: parseVal('qual-gemas-media'),
+    let qualidade;
+    if (this.isQualidadeMode && tipoOperacao === 'plantio_cana') {
+        const valRaw = (id) => {
+            const el = document.getElementById(id);
+            if (!el) return 0;
+            let v = el.value || '0';
+            v = String(v).replace(',', '.');
+            const num = parseFloat(v);
+            return isNaN(num) ? 0 : num;
+        };
+        qualidade = {
+            tipoOperacao: tipoOperacao,
+            // Constantes de amostragem
+            amostraMetragem: 5,
+            espacamentoLinhas: 1.5,
+            pesoBaldeKg: 0.460,
+            // Lado Esquerdo
+            esqPesoBruto: valRaw('qual-esq-peso-bruto'),
+            esqPesoLiquido: valRaw('qual-esq-peso-liquido'),
+            esqKgHa: valRaw('qual-esq-kg-ha'),
+            esqQtdBons: valRaw('qual-esq-qtd-bons'),
+            esqQtdRuins: valRaw('qual-esq-qtd-ruins'),
+            esqPesoBons: valRaw('qual-esq-peso-bons'),
+            esqPesoRuins: valRaw('qual-esq-peso-ruins'),
+            esqPesoBonsPct: valRaw('qual-esq-peso-bons-pct'),
+            esqPesoRuinsPct: valRaw('qual-esq-peso-ruins-pct'),
+            esqGemasBoasPorTolete: valRaw('qual-esq-gemas-por-tolete'),
+            esqGemasBoasPor5: valRaw('qual-esq-gemas-por5'),
+            // Lado Direito
+            dirPesoBruto: valRaw('qual-dir-peso-bruto'),
+            dirPesoLiquido: valRaw('qual-dir-peso-liquido'),
+            dirKgHa: valRaw('qual-dir-kg-ha'),
+            dirQtdBons: valRaw('qual-dir-qtd-bons'),
+            dirQtdRuins: valRaw('qual-dir-qtd-ruins'),
+            dirPesoBons: valRaw('qual-dir-peso-bons'),
+            dirPesoRuins: valRaw('qual-dir-peso-ruins'),
+            dirPesoBonsPct: valRaw('qual-dir-peso-bons-pct'),
+            dirPesoRuinsPct: valRaw('qual-dir-peso-ruins-pct'),
+            dirGemasBoasPorTolete: valRaw('qual-dir-gemas-por-tolete'),
+            dirGemasBoasPor5: valRaw('qual-dir-gemas-por5'),
+            // Resultados finais
+            mediaKgHa: valRaw('qual-media-kg-ha'),
+            mediaGemasPorTolete: valRaw('qual-media-gemas-por-tolete'),
+            totalToletesBons: valRaw('qual-total-toletes-bons'),
+            totalToletesRuins: valRaw('qual-total-toletes-ruins'),
+            totalGemasBoas: valRaw('qual-total-gemas-boas'),
+            mediaGemasPor5: valRaw('qual-media-gemas-por5'),
+            // Equipe e Equipamentos
+            qualEquipamentoTrator: document.getElementById('qual-equipamento-trator')?.value || '',
+            qualEquipamentoPlantadora: document.getElementById('qual-equipamento-plantadora')?.value || '',
+            qualOperador: document.getElementById('qual-operador')?.value || '',
+            qualMatricula: document.getElementById('qual-matricula')?.value || document.getElementById('qual-matricula-header')?.value || '',
+            horaRegistro: horaRegistro
+        };
+    } else {
+        qualidade = {
+            gemasTotal: gemasTotalVal,
+            gemasBoas: gemasBoasVal,
+            gemasRuins: gemasRuinsVal,
+            gemasBoasPct: gemasBoasPctVal,
+            gemasRuinsPct: gemasRuinsPctVal,
+            gemasOk: gemasBoasVal,
+            gemasNok: gemasRuinsVal,
+            gemasAmostra: parseVal('qual-gemas-amostra'),
+            gemasMedia: parseVal('qual-gemas-media'),
+            mudasTotal: mudasTotalVal,
+            mudasBoas: mudasBoasVal,
+            mudasRuins: mudasRuinsVal,
+            mudasBoasPct: mudasBoasPctVal,
+            mudasRuinsPct: mudasRuinsPctVal,
+            mudasAmostra: parseVal('qual-mudas-amostra'),
+            mudasMedia: parseVal('qual-mudas-media'),
+            toletesTotal: toletesTotalVal,
+            toletesBons: toletesBonsVal,
+            toletesRuins: toletesRuinsVal,
+            toletesBonsPct: toletesBonsPctVal,
+            toletesRuinsPct: toletesRuinsPctVal,
+            toletesAmostra: parseVal('qual-toletes-amostra'),
+            toletesMedia: parseVal('qual-toletes-media'),
+            mudaTonHa: parseVal('qual-muda'),
+            profundidadeCm: parseVal('qual-profundidade'),
+            cobertura: document.getElementById('qual-cobertura')?.value || '',
+            alinhamento: document.getElementById('qual-alinhamento')?.value || '',
+            chuvaMm: parseVal('chuva-mm'),
+            oxifertilDose: parseVal('oxifertil-dose'),
+            cobricaoDia: parseVal('cobricao-dia'),
+            cobricaoAcumulada: parseVal('cobricao-acumulada'),
+            mudaConsumoTotal: parseVal('muda-consumo-total'),
+            mudaConsumoAcumulado: parseVal('muda-consumo-acumulado'),
+            mudaConsumoDia: parseVal('muda-consumo-dia'),
+            mudaPrevisto: parseVal('muda-previsto'),
+            mudaLiberacaoFazenda: document.getElementById('qual-muda-liberacao')?.value || document.getElementById('muda-liberacao-fazenda')?.value || '',
+            mudaVariedade: document.getElementById('qual-muda-variedade')?.value || document.getElementById('muda-variedade')?.value || '',
+            mudaColheitaInfo: document.getElementById('muda-colheita-info')?.value || '',
+            mudaFazendaOrigem: document.getElementById('muda-fazenda-origem')?.value || '',
+            mudaTalhaoOrigem: document.getElementById('muda-talhao-origem')?.value || '',
+            mudasReboulos: parseVal('qual-mudas-reboulos'),
+            mudasReboulosBons: parseVal('qual-mudas-reboulos-bons'),
+            mudasReboulosRuins: parseVal('qual-mudas-reboulos-ruins'),
+            mudasReboulosBonsPct: parseVal('qual-mudas-reboulos-bons-pct'),
+            mudasReboulosRuinsPct: parseVal('qual-mudas-reboulos-ruins-pct'),
+            colheitaHectares: parseVal('colheita-hectares'),
+            colheitaTchEstimado: parseVal('colheita-tch-estimado'),
+            colheitaTchReal: parseVal('colheita-tch-real'),
+            qualEquipamentoTrator: document.getElementById('qual-equipamento-trator')?.value || '',
+            qualEquipamentoPlantadora: document.getElementById('qual-equipamento-plantadora')?.value || '',
+            qualOperador: document.getElementById('qual-operador')?.value || '',
+            qualMatricula: document.getElementById('qual-matricula-header')?.value || document.getElementById('qual-matricula')?.value || '',
+            horaRegistro: horaRegistro,
+            qualitySourceId: document.getElementById('selected-qualidade-id')?.value || null,
+            qualitySourceLabel: document.getElementById('selected-qualidade-id')?.dataset.label || null,
+            tipoOperacao: tipoOperacao
+        };
+    }
+    const osKeyForFazenda = document.getElementById('single-os')?.value || '';
+    let osFazendaNome = '';
+    if (osKeyForFazenda && this.osListCache && Array.isArray(this.osListCache)) {
+        const osFromCache = this.osListCache.find(o => String(o.numero).trim() === String(osKeyForFazenda).trim());
+        if (osFromCache && osFromCache.fazenda) {
+            osFazendaNome = osFromCache.fazenda;
+        }
+    }
 
-        mudasTotal: mudasTotalVal,
-        mudasBoas: mudasBoasVal,
-        mudasRuins: mudasRuinsVal,
-        mudasBoasPct: mudasBoasPctVal,
-        mudasRuinsPct: mudasRuinsPctVal,
-        mudasAmostra: parseVal('qual-mudas-amostra'),
-        mudasMedia: parseVal('qual-mudas-media'),
-
-        toletesTotal: toletesTotalVal,
-        toletesBons: toletesBonsVal,
-        toletesRuins: toletesRuinsVal,
-        toletesBonsPct: toletesBonsPctVal,
-        toletesRuinsPct: toletesRuinsPctVal,
-        toletesAmostra: parseVal('qual-toletes-amostra'),
-        toletesMedia: parseVal('qual-toletes-media'),
-        mudaTonHa: parseVal('qual-muda'),
-        profundidadeCm: parseVal('qual-profundidade'),
-        cobertura: document.getElementById('qual-cobertura')?.value || '',
-        alinhamento: document.getElementById('qual-alinhamento')?.value || '',
-        chuvaMm: parseVal('chuva-mm'),
-        gps: !!document.getElementById('plantio-gps')?.checked,
-        oxifertilDose: parseVal('oxifertil-dose'),
-        cobricaoDia: parseVal('cobricao-dia'),
-        cobricaoAcumulada: parseVal('cobricao-acumulada'),
-        mudaConsumoTotal: parseVal('muda-consumo-total'),
-        mudaConsumoAcumulado: parseVal('muda-consumo-acumulado'),
-        mudaConsumoDia: parseVal('muda-consumo-dia'),
-        mudaPrevisto: parseVal('muda-previsto'),
-        mudaLiberacaoFazenda: document.getElementById('qual-muda-liberacao')?.value || document.getElementById('muda-liberacao-fazenda')?.value || '',
-        mudaVariedade: document.getElementById('qual-muda-variedade')?.value || document.getElementById('muda-variedade')?.value || '',
-        mudaColheitaInfo: document.getElementById('muda-colheita-info')?.value || '',
-        mudaFazendaOrigem: document.getElementById('muda-fazenda-origem')?.value || '',
-        mudaTalhaoOrigem: document.getElementById('muda-talhao-origem')?.value || '',
-        mudasReboulos: parseVal('qual-mudas-reboulos'),
-        mudasReboulosBons: parseVal('qual-mudas-reboulos-bons'),
-        mudasReboulosRuins: parseVal('qual-mudas-reboulos-ruins'),
-        mudasReboulosBonsPct: parseVal('qual-mudas-reboulos-bons-pct'),
-        mudasReboulosRuinsPct: parseVal('qual-mudas-reboulos-ruins-pct'),
-        colheitaHectares: parseVal('colheita-hectares'),
-        colheitaTchEstimado: parseVal('colheita-tch-estimado'),
-        colheitaTchReal: parseVal('colheita-tch-real'),
-        qualEquipamentoTrator: document.getElementById('qual-equipamento-trator')?.value || '',
-        qualEquipamentoPlantadora: document.getElementById('qual-equipamento-plantadora')?.value || '',
-        qualOperador: document.getElementById('qual-operador')?.value || '',
-        qualMatricula: document.getElementById('qual-matricula-header')?.value || document.getElementById('qual-matricula')?.value || '',
-        qualitySourceId: document.getElementById('selected-qualidade-id')?.value || null,
-        qualitySourceLabel: document.getElementById('selected-qualidade-id')?.dataset.label || null,
-        tipoOperacao: tipoOperacao // Persist in JSONB to avoid schema issues
-    };
-    let fazendaNome = document.getElementById('single-fazenda')?.value || '';
+    let fazendaNome = osFazendaNome || document.getElementById('single-fazenda')?.value || '';
     const matchCod = fazendaNome.match(/^(\d+)\s*[-–]\s*(.+)$/);
     let codExtraido = null;
     if (matchCod) {
@@ -12631,7 +13234,12 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
             res = await this.api.updatePlantioDia(this.currentPlantioId, payload);
         } else {
             console.log('Criando novo registro');
-            res = await this.api.addPlantioDia(payload);
+            if (navigator.onLine) {
+                res = await this.api.addPlantioDia(payload);
+            } else {
+                await this.saveOfflinePlantio(payload);
+                res = { success: true, offline: true };
+            }
         }
 
         if (res && res.success) {
@@ -12705,10 +13313,75 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
         }
     } catch(e) { 
         console.error('Exceção ao salvar plantio:', e);
-        this.ui.showNotification('Erro ao registrar', 'error'); 
+        // Fallback offline
+        try {
+            await this.saveOfflinePlantio(payload);
+            this.ui.showNotification('Sem conexão. Registro salvo offline e será sincronizado.', 'info');
+        } catch (err) {
+            this.ui.showNotification('Erro ao registrar', 'error'); 
+        }
     }
 };
 
+// Offline storage via IndexedDB
+InsumosApp.prototype.saveOfflinePlantio = async function(payload) {
+    const dbName = 'insumos_offline';
+    const store = 'qualidade_muda';
+    const openDB = () => new Promise((resolve, reject) => {
+        const req = indexedDB.open(dbName, 1);
+        req.onupgradeneeded = () => {
+            const db = req.result;
+            if (!db.objectStoreNames.contains(store)) {
+                db.createObjectStore(store, { keyPath: 'id' });
+            }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+    });
+    const db = await openDB();
+    const tx = db.transaction(store, 'readwrite');
+    const os = tx.objectStore(store);
+    const record = { id: `offline_${Date.now()}`, payload, status: 'pending' };
+    os.put(record);
+    return new Promise((resolve, reject) => {
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => reject(tx.error);
+    });
+};
+
+// Sync when online
+window.addEventListener('online', async () => {
+    try {
+        const dbName = 'insumos_offline';
+        const store = 'qualidade_muda';
+        const openDB = () => new Promise((resolve, reject) => {
+            const req = indexedDB.open(dbName, 1);
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+        });
+        const db = await openDB();
+        const tx = db.transaction(store, 'readwrite');
+        const os = tx.objectStore(store);
+        const getAllReq = os.getAll();
+        getAllReq.onsuccess = async () => {
+            const items = getAllReq.result || [];
+            for (const it of items) {
+                if (it.status === 'pending') {
+                    try {
+                        const api = window.insumosApp?.api || null;
+                        if (api && typeof api.addPlantioDia === 'function') {
+                            const res = await api.addPlantioDia(it.payload);
+                            if (res && res.success) {
+                                it.status = 'synced';
+                                os.put(it);
+                            }
+                        }
+                    } catch(e) { /* ignore and retry later */ }
+                }
+            }
+        };
+    } catch(e) { /* ignore */ }
+});
 InsumosApp.prototype.saveViagemAdubo = async function() {
     const transportType = this.viagemAduboTransportType || 'adubo';
 
@@ -12914,13 +13587,6 @@ InsumosApp.prototype.savePlantioFrente = async function(frenteKey) {
         plantada: parseFloat(document.getElementById(map.plantada)?.value || '0')
     };
     if (!frente.fazenda && !frente.cod) { this.ui.showNotification('Informe a fazenda ou código da frente', 'warning'); return; }
-    const gpsSel = document.getElementById('plantio-gps');
-    const qualidade = { gps: (gpsSel && gpsSel.value === 'Sim') ? 'Sim' : 'Não' };
-    if (qualidade.gps === 'Sim') {
-        qualidade.gps_lat = document.getElementById('gps-lat')?.value || '';
-        qualidade.gps_lon = document.getElementById('gps-lon')?.value || '';
-        qualidade.gps_alt = document.getElementById('gps-alt')?.value ? parseFloat(document.getElementById('gps-alt')?.value) : undefined;
-    }
     const payload = { data, responsavel, observacoes, frentes: [frente], insumos: this.plantioInsumosDraft.slice(), qualidade };
     try {
         const res = await this.api.addPlantioDia(payload);

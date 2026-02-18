@@ -1724,6 +1724,10 @@
                                 <input type="date" id="plantio-data" class="highlight-input">
                                 <div class="validation-msg" id="msg-plantio-data">Data é obrigatória</div>
                             </div>
+                            <div class="form-group">
+                                <label for="plantio-hora">Hora</label>
+                                <input type="time" id="plantio-hora" class="highlight-input">
+                            </div>
                             <div class="form-group hide-in-quality">
                                 <label for="chuva-mm">Chuva (mm)</label>
                                 <input type="number" id="chuva-mm" step="0.1" placeholder="0.0">
@@ -1741,16 +1745,16 @@
                             </div>
                             
                             <div class="form-group" style="grid-column: span 2;">
-                                <label for="single-frente">Frente *</label>
-                                <select id="single-frente" class="highlight-input" style="font-weight:bold;">
-                                    <option value="">Selecione</option>
+                                <label for="single-os">O.S *</label>
+                                <select id="single-os" class="highlight-input" style="font-weight:bold; border-color: var(--secondary);">
+                                    <option value="">Selecione a O.S</option>
                                 </select>
-                                <div class="validation-msg" id="msg-single-frente">Selecione uma frente</div>
+                                <div class="validation-msg" id="msg-single-os">Selecione uma O.S</div>
                             </div>
                             <div class="form-group hide-in-quality" style="grid-column: span 2;">
-                                <label for="single-os">OS do Plantio (Auto)</label>
-                                <select id="single-os" style="border-color: var(--secondary);">
-                                    <option value="">Selecione a Frente primeiro</option>
+                                <label for="single-frente">Frente</label>
+                                <select id="single-frente" class="readonly-field" disabled title="Auto O.S">
+                                    <option value="">Auto pela O.S</option>
                                 </select>
                             </div>
                         </div>
@@ -1919,89 +1923,143 @@
                     <div class="chart-card form-card">
                         <h4 class="section-title">Qualidade de Plantio</h4>
                         
-                        <!-- Seção de IA removida temporariamente -->
-
-                        <!-- Gemas -->
-                        <div class="modal-subsection" id="sec-gemas">
-                            <h5 style="margin: 0 0 8px 0; color: #666; font-weight: 600;">🧬 Gemas</h5>
-                            <div class="modal-form-grid" style="grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));">
-                                <div class="form-group">
-                                    <label for="qual-gemas-amostra">Amostra</label>
-                                    <input type="number" id="qual-gemas-amostra" step="0.1">
-                                </div>
-                                <div class="form-group">
-                                    <label for="qual-gemas-total">Total</label>
-                                    <input type="number" id="qual-gemas-total" step="1">
-                                </div>
-                                <div class="form-group">
-                                    <label for="qual-gemas-media">Média/m</label>
-                                    <input type="number" id="qual-gemas-media" step="0.01" class="readonly-field" readonly>
-                                </div>
-                                <div class="form-group">
-                                    <label for="qual-gemas-boas">Viáveis</label>
-                                    <input type="number" id="qual-gemas-boas" step="1">
-                                </div>
-                                <div class="form-group">
-                                    <label for="qual-gemas-ruins">Inviáveis</label>
-                                    <input type="number" id="qual-gemas-ruins" step="1">
-                                </div>
-                                <div class="form-group">
-                                    <label for="qual-gemas-boas-pct">% Viáveis</label>
-                                    <input type="number" id="qual-gemas-boas-pct" step="0.01" class="readonly-field" readonly>
+                        <!-- Estrutura específica Plantio de Cana -->
+                        <div id="sec-qualidade-plantio-cana">
+                            <div class="modal-subsection" style="margin-bottom: 10px;">
+                                <div class="modal-form-grid" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));">
+                                    <div class="form-group">
+                                        <label>Metragem da amostra</label>
+                                        <input type="text" id="qual-amostra-metragem" value="5 m" readonly class="readonly-field">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Espaçamento entre linhas</label>
+                                        <input type="text" id="qual-amostra-espacamento" value="1,5 m" readonly class="readonly-field">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Peso do balde</label>
+                                        <input type="text" id="qual-peso-balde" value="0,460 kg" readonly class="readonly-field">
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-
-                        <!-- Toletes -->
-                        <div class="modal-subsection" id="sec-toletes">
-                            <h5 style="margin: 0 0 8px 0; color: #666; font-weight: 600;">🪵 Toletes</h5>
-                            <div class="modal-form-grid" style="grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));">
-                                <div class="form-group">
-                                    <label for="qual-toletes-amostra">Amostra</label>
-                                    <input type="number" id="qual-toletes-amostra" step="0.1">
+                            <div class="modal-form-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px;">
+                                <div class="chart-card form-card">
+                                    <h5 style="margin: 0 0 8px 0;">🌱 Lado Esquerdo</h5>
+                                    <div class="modal-form-grid" style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));">
+                                        <div class="form-group">
+                                            <label for="qual-esq-peso-bruto">Peso bruto (kg)</label>
+                                            <input type="number" id="qual-esq-peso-bruto" step="0.001">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="qual-esq-peso-liquido">Peso líquido (kg)</label>
+                                            <input type="number" id="qual-esq-peso-liquido" step="0.001" class="readonly-field" readonly>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="qual-esq-kg-ha">KG por hectare</label>
+                                            <input type="number" id="qual-esq-kg-ha" step="0.01" class="readonly-field" readonly>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="qual-esq-qtd-bons">Qtd. toletes bons</label>
+                                            <input type="number" id="qual-esq-qtd-bons" step="1">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="qual-esq-qtd-ruins">Qtd. toletes ruins</label>
+                                            <input type="number" id="qual-esq-qtd-ruins" step="1">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="qual-esq-peso-bons">Peso toletes bons (kg)</label>
+                                            <input type="number" id="qual-esq-peso-bons" step="0.001">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="qual-esq-peso-ruins">Peso toletes ruins (kg)</label>
+                                            <input type="number" id="qual-esq-peso-ruins" step="0.001">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="qual-esq-peso-bons-pct">% peso toletes bons (sobre peso líquido)</label>
+                                            <input type="number" id="qual-esq-peso-bons-pct" step="0.01" class="readonly-field" readonly>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="qual-esq-peso-ruins-pct">% peso toletes ruins (sobre peso líquido)</label>
+                                            <input type="number" id="qual-esq-peso-ruins-pct" step="0.01" class="readonly-field" readonly>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="qual-esq-gemas-por-tolete">Gemas boas por tolete</label>
+                                            <input type="number" id="qual-esq-gemas-por-tolete" step="0.01">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="qual-esq-gemas-por5">Gemas boas /5 (média lado)</label>
+                                            <input type="number" id="qual-esq-gemas-por5" step="0.01" class="readonly-field" readonly>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="form-group">
-                                    <label for="qual-toletes-total">Total</label>
-                                    <input type="number" id="qual-toletes-total" step="1">
-                                </div>
-                                <div class="form-group">
-                                    <label for="qual-toletes-media">Média/m</label>
-                                    <input type="number" id="qual-toletes-media" step="0.01" class="readonly-field" readonly>
-                                </div>
-                                <div class="form-group">
-                                    <label for="qual-toletes-bons">Bons</label>
-                                    <input type="number" id="qual-toletes-bons" step="1">
-                                </div>
-                                <div class="form-group">
-                                    <label for="qual-toletes-ruins">Ruins</label>
-                                    <input type="number" id="qual-toletes-ruins" step="1">
-                                </div>
-                                <div class="form-group">
-                                    <label for="qual-toletes-bons-pct">% Bons</label>
-                                    <input type="number" id="qual-toletes-bons-pct" step="0.01" class="readonly-field" readonly>
+                                <div class="chart-card form-card">
+                                    <h5 style="margin: 0 0 8px 0;">🌱 Lado Direito</h5>
+                                    <div class="modal-form-grid" style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));">
+                                        <div class="form-group">
+                                            <label for="qual-dir-peso-bruto">Peso bruto (kg)</label>
+                                            <input type="number" id="qual-dir-peso-bruto" step="0.001">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="qual-dir-peso-liquido">Peso líquido (kg)</label>
+                                            <input type="number" id="qual-dir-peso-liquido" step="0.001" class="readonly-field" readonly>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="qual-dir-kg-ha">KG por hectare</label>
+                                            <input type="number" id="qual-dir-kg-ha" step="0.01" class="readonly-field" readonly>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="qual-dir-qtd-bons">Qtd. toletes bons</label>
+                                            <input type="number" id="qual-dir-qtd-bons" step="1">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="qual-dir-qtd-ruins">Qtd. toletes ruins</label>
+                                            <input type="number" id="qual-dir-qtd-ruins" step="1">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="qual-dir-peso-bons">Peso toletes bons (kg)</label>
+                                            <input type="number" id="qual-dir-peso-bons" step="0.001">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="qual-dir-peso-ruins">Peso toletes ruins (kg)</label>
+                                            <input type="number" id="qual-dir-peso-ruins" step="0.001">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="qual-dir-peso-bons-pct">% peso toletes bons (sobre peso líquido)</label>
+                                            <input type="number" id="qual-dir-peso-bons-pct" step="0.01" class="readonly-field" readonly>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="qual-dir-peso-ruins-pct">% peso toletes ruins (sobre peso líquido)</label>
+                                            <input type="number" id="qual-dir-peso-ruins-pct" step="0.01" class="readonly-field" readonly>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="qual-dir-gemas-por-tolete">Gemas boas por tolete</label>
+                                            <input type="number" id="qual-dir-gemas-por-tolete" step="0.01">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="qual-dir-gemas-por5">Gemas boas /5 (média lado)</label>
+                                            <input type="number" id="qual-dir-gemas-por5" step="0.01" class="readonly-field" readonly>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-
-                        <!-- Outros -->
-                        <div id="sec-outros">
-                            <h5 style="margin: 10px 0 5px 0; color: #666;">Outros Indicadores</h5>
-                            <div class="modal-form-grid">
-                                <div class="form-group">
-                                    <label for="qual-muda">Muda (ton/ha)</label>
-                                    <input type="number" id="qual-muda" step="0.01">
-                                </div>
-                                <div class="form-group">
-                                    <label for="qual-profundidade">Profundidade (cm)</label>
-                                    <input type="number" id="qual-profundidade" step="0.1">
-                                </div>
-                                <div class="form-group">
-                                    <label for="qual-cobertura">Cobertura</label>
-                                    <input type="text" id="qual-cobertura">
-                                </div>
-                                <div class="form-group">
-                                    <label for="qual-alinhamento">Espaçamento</label>
-                                    <input type="text" id="qual-alinhamento">
+                            <div class="chart-card form-card" style="margin-top: 12px;">
+                                <h5 style="margin: 0 0 8px 0;">📊 Resumo Final</h5>
+                                <div class="modal-form-grid" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));">
+                                    <div class="form-group">
+                                        <label for="qual-media-kg-ha">Média KG por hectare</label>
+                                        <input type="number" id="qual-media-kg-ha" step="0.01" class="readonly-field" readonly>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="qual-media-gemas-por-tolete">Média gemas por tolete</label>
+                                        <input type="number" id="qual-media-gemas-por-tolete" step="0.01" class="readonly-field" readonly>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="qual-total-toletes-bons">Toletes bons (%)</label>
+                                        <input type="number" id="qual-total-toletes-bons" step="1" class="readonly-field" readonly>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="qual-total-toletes-ruins">Toletes ruins (%)</label>
+                                        <input type="number" id="qual-total-toletes-ruins" step="1" class="readonly-field" readonly>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -2452,7 +2510,7 @@
     <script>
         // Global Error Handler for "Scenario C" (Script loading failures)
         window.onerror = function(msg, url, line, col, error) {
-            alert("Erro Crítico do Sistema:\n" + msg + "\n\nSe o problema persistir, recarregue a página com Ctrl+F5.");
+            alert("Erro Crítico do Sistema:\n" + msg + "\n\nArquivo: " + (url || '-') + "\nLinha: " + (line || '-') + ", Coluna: " + (col || '-') + "\n\nSe o problema persistir, recarregue a página com Ctrl+F5.");
             console.error("Global Error:", {msg, url, line, col, error});
             return false;
         };

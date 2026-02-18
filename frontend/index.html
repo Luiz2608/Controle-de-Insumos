@@ -529,6 +529,35 @@
                     </tbody>
                 </table>
             </div>
+            <div class="dashboard-wrapper">
+                <div class="chart-card full-width">
+                    <h4 style="margin: 0 0 15px 0; border-bottom: 1px solid var(--border); padding-bottom: 10px;">Resumo por Fazenda e Produto</h4>
+                    <div class="table-container">
+                        <table id="insumos-resumo-table" class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Fazenda</th>
+                                    <th>Produto</th>
+                                    <th>Área Aplicada (ha)</th>
+                                    <th>Dose Recomendada</th>
+                                    <th>Dose Aplicada</th>
+                                    <th>Quantidade</th>
+                                    <th>Diferença</th>
+                                </tr>
+                            </thead>
+                            <tbody id="insumos-resumo-tbody">
+                                <tr>
+                                    <td colspan="7" class="loading">📡 Carregando resumo...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="chart-card full-width">
+                    <h4 style="margin: 0 0 15px 0; border-bottom: 1px solid var(--border); padding-bottom: 10px;">Comparativo Aplicado vs Previsto</h4>
+                    <canvas id="chart-insumos-resumo"></canvas>
+                </div>
+            </div>
         </div>
 
     <!-- Loading -->
@@ -744,6 +773,7 @@
                 <div style="display:flex; gap:10px;">
                      <button id="btn-nova-viagem-adubo" class="btn btn-primary">➕ Nova Viagem</button>
                      <button id="btn-toggle-viagens-filters" class="btn btn-secondary">🔍 Filtrar</button>
+                     <button id="btn-export-resumo-executivo" class="btn btn-secondary">📄 Resumo Executivo (PDF)</button>
                 </div>
             </div>
 
@@ -801,12 +831,7 @@
                     </div>
                     <div class="form-group adubo-field">
                         <label for="viagem-frente">Frente</label>
-                        <select id="viagem-frente">
-                            <option value="">Selecione</option>
-                            <option value="4001">4001</option>
-                            <option value="4002">4002</option>
-                            <option value="4009 Abençoada">4009 Abençoada</option>
-                        </select>
+                        <input type="text" id="viagem-frente" placeholder="Ex.: 4001">
                     </div>
                     <div class="form-group">
                         <label for="viagem-codigo-fazenda">Código</label>
@@ -842,6 +867,7 @@
                             <option>10-49-00</option>
                             <option>PEREGRINO</option>
                             <option>NO-NEMA</option>
+                            <option value="Outro">Outro</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -1084,6 +1110,31 @@
             <div class="modal-body"><pre id="import-result-json" class="json-preview"></pre></div>
             <div class="modal-footer">
                 <button class="btn btn-primary" id="btn-confirm-import">Preencher Formulário</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-produto-outro" class="modal" style="display:none; position: fixed; inset: 0; z-index: 12100;">
+        <div class="modal-content" style="max-width: 520px;">
+            <div class="modal-header">
+                <h3>Produto Outro</h3>
+                <button class="close-modal" id="outro-produto-cancel">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="outro-produto-nome">Nome do Produto *</label>
+                        <input type="text" id="outro-produto-nome" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="outro-produto-justificativa">Justificativa *</label>
+                        <textarea id="outro-produto-justificativa" rows="3" required></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="outro-produto-cancel-btn">Cancelar</button>
+                <button class="btn btn-primary" id="outro-produto-confirm">Confirmar</button>
             </div>
         </div>
     </div>
@@ -1673,6 +1724,10 @@
                                 <input type="date" id="plantio-data" class="highlight-input">
                                 <div class="validation-msg" id="msg-plantio-data">Data é obrigatória</div>
                             </div>
+                            <div class="form-group">
+                                <label for="plantio-hora">Hora</label>
+                                <input type="time" id="plantio-hora" class="highlight-input">
+                            </div>
                             <div class="form-group hide-in-quality">
                                 <label for="chuva-mm">Chuva (mm)</label>
                                 <input type="number" id="chuva-mm" step="0.1" placeholder="0.0">
@@ -1690,16 +1745,16 @@
                             </div>
                             
                             <div class="form-group" style="grid-column: span 2;">
-                                <label for="single-frente">Frente *</label>
-                                <select id="single-frente" class="highlight-input" style="font-weight:bold;">
-                                    <option value="">Selecione</option>
+                                <label for="single-os">O.S *</label>
+                                <select id="single-os" class="highlight-input" style="font-weight:bold; border-color: var(--secondary);">
+                                    <option value="">Selecione a O.S</option>
                                 </select>
-                                <div class="validation-msg" id="msg-single-frente">Selecione uma frente</div>
+                                <div class="validation-msg" id="msg-single-os">Selecione uma O.S</div>
                             </div>
                             <div class="form-group hide-in-quality" style="grid-column: span 2;">
-                                <label for="single-os">OS do Plantio (Auto)</label>
-                                <select id="single-os" style="border-color: var(--secondary);">
-                                    <option value="">Selecione a Frente primeiro</option>
+                                <label for="single-frente">Frente</label>
+                                <select id="single-frente" class="readonly-field" disabled title="Auto O.S">
+                                    <option value="">Auto pela O.S</option>
                                 </select>
                             </div>
                         </div>
@@ -1868,30 +1923,7 @@
                     <div class="chart-card form-card">
                         <h4 class="section-title">Qualidade de Plantio</h4>
                         
-                        <!-- AI Analysis Section -->
-                        <div class="ai-analysis-container">
-                            <h5>🤖 Análise de IA (Gemas/Toletes)</h5>
-                            <p>Tire uma foto da amostra no chão para contagem automática.</p>
-                            
-                            <div class="ai-controls">
-                                <div class="ai-actions">
-                                    <input type="file" id="ai-image-input" accept="image/*" capture="environment" style="display: none;">
-                                    <button type="button" class="btn btn-secondary" onclick="document.getElementById('ai-image-input').click()" style="width: 100%; margin-bottom: 5px;">
-                                        📸 Tirar Foto / Upload
-                                    </button>
-                                    <button type="button" class="btn btn-primary" id="btn-analyze-image" style="width: 100%;" disabled>
-                                        ✨ Analisar com IA
-                                    </button>
-                                </div>
-                                <div class="ai-preview-box">
-                                    <img id="ai-image-preview" style="max-width: 100%; max-height: 100%; display: none;">
-                                    <span id="ai-preview-placeholder" class="ai-preview-placeholder">🖼️</span>
-                                </div>
-                            </div>
-                            <div id="ai-loading" class="ai-loading">
-                                ⏳ Processando imagem... <span id="ai-progress">0%</span>
-                            </div>
-                        </div>
+                        <!-- Seção de IA removida temporariamente -->
 
                         <!-- Gemas -->
                         <div class="modal-subsection" id="sec-gemas">
@@ -2245,12 +2277,7 @@
                     </div>
                     <div class="form-group adubo-field">
                         <label for="modal-viagem-frente">Frente</label>
-                        <select id="modal-viagem-frente">
-                            <option value="">Selecione</option>
-                            <option value="4001">4001</option>
-                            <option value="4002">4002</option>
-                            <option value="4009 Abençoada">4009 Abençoada</option>
-                        </select>
+                        <input type="text" id="modal-viagem-frente" placeholder="Ex.: 4001">
                     </div>
                     <div class="form-group">
                         <label for="modal-viagem-codigo-fazenda">Código</label>
@@ -2288,6 +2315,7 @@
                             <option>10-49-00</option>
                             <option>PEREGRINO</option>
                             <option>NO-NEMA</option>
+                            <option value="Outro">Outro</option>
                         </select>
                     </div>
                     <div class="form-group">
