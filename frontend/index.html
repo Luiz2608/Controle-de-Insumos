@@ -1893,10 +1893,7 @@
                         <input type="hidden" id="selected-qualidade-id">
                     </div>
 
-                    <!-- Container Manual (Escondido no modo Plantio, Visível no modo Qualidade) -->
-                    <div id="qualidade-manual-content">
-
-                    <!-- Equipe e Equipamentos (Comum) -->
+                    <!-- Equipe e Equipamentos (Comum - Movido para fora para estar sempre visível) -->
                     <div class="chart-card form-card">
                         <h4 class="section-title">Equipe e Equipamentos</h4>
                         <div class="modal-form-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
@@ -1913,11 +1910,14 @@
                                 <input type="text" id="qual-operador" placeholder="Nome">
                             </div>
                             <div class="form-group">
-                            <label for="qual-matricula">Matrícula</label>
-                            <input type="text" id="qual-matricula" placeholder="Registro">
+                                <label for="qual-matricula">Matrícula</label>
+                                <input type="text" id="qual-matricula" placeholder="Registro">
+                            </div>
                         </div>
                     </div>
-                    </div>
+
+                    <!-- Container Manual (Escondido no modo Plantio, Visível no modo Qualidade) -->
+                    <div id="qualidade-manual-content">
 
                     <!-- Qualidade Muda/Plantio -->
                     <div class="chart-card form-card">
