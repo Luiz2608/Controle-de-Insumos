@@ -488,6 +488,10 @@ class ApiService {
                 return { success: false, message: error.message };
             }
             
+            if (!data || data.length === 0) {
+                return { success: false, message: 'Nenhum usuário atualizado. Verifique se você tem permissão de administrador.' };
+            }
+            
             await this.logAction('UPDATE_USER', { target_user_id: id, updates });
             return { success: true, data: data[0] };
         }

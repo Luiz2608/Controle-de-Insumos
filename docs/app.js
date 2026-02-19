@@ -13910,9 +13910,9 @@ InsumosApp.prototype.savePermissions = async function() {
             document.getElementById('permissions-modal').style.display = 'none';
             document.body.style.overflow = document.body.dataset.lockScrollPrev || '';
             delete document.body.dataset.lockScrollPrev;
-            this.loadAdminUsers();
+            await this.loadAdminUsers(); // Wait for reload
         } else {
-            this.ui.showNotification('Erro ao salvar permissões', 'error');
+            this.ui.showNotification(res.message || 'Erro ao salvar permissões', 'error');
         }
     } catch (e) {
         console.error(e);
@@ -13972,14 +13972,14 @@ InsumosApp.prototype.handleUpdateRole = async function(id, role) {
         const res = await this.api.updateUser(id, { role });
         if (res && res.success) {
             this.ui.showNotification('Role atualizado!', 'success');
-            this.loadAdminUsers();
+            await this.loadAdminUsers();
         } else {
-            this.ui.showNotification('Erro ao atualizar permissão.', 'error');
-            this.loadAdminUsers(); // Revert changes in UI
+            this.ui.showNotification(res.message || 'Erro ao atualizar permissão.', 'error');
+            await this.loadAdminUsers(); // Revert changes in UI
         }
     } catch (e) {
         this.ui.showNotification('Erro de conexão.', 'error');
-        this.loadAdminUsers();
+        await this.loadAdminUsers();
     }
 };
 
