@@ -6670,7 +6670,8 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
                     </div>
                 </div>
 
-                <!-- Seção 1.5: Equipe e Equipamentos -->
+                ${!isNovoPlantioCanaGlobal && rawTipo !== 'plantio' ? `
+                <!-- Seção 1.5: Equipe e Equipamentos (Oculto para Plantio de Cana) -->
                 <div class="details-card full-width">
                     <h5>👷 Equipe e Equipamentos</h5>
                     <div class="info-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
@@ -6680,6 +6681,7 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
                         <div class="info-item"><strong>Matrícula:</strong> ${q.qualMatricula || '—'}</div>
                     </div>
                 </div>
+                ` : ''}
 
                 <!-- Seção 2: Local e Área -->
                 <div class="details-card full-width">
