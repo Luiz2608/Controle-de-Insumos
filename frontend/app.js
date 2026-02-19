@@ -12330,9 +12330,9 @@ InsumosApp.prototype.loadQualidadeRecords = async function(targetType = null, pr
                     const tipo = q.tipoOperacao;
                     
                     if (targetType === 'plantio') {
-                        // Accept 'plantio_cana', 'plantio', 'qualidade_muda' (legacy/fallback) or null
-                        // This fixes the issue where quality records disappear from selection
-                        return (!tipo || tipo === 'plantio_cana' || tipo === 'plantio' || tipo === 'qualidade_muda') && tipo !== 'colheita_muda';
+                        // Accept ONLY 'qualidade_muda' as requested by user
+                        // Previously accepted: 'plantio_cana', 'plantio', 'qualidade_muda', null
+                        return tipo === 'qualidade_muda';
                     } else if (targetType === 'colheita_muda') {
                         return tipo === 'colheita_muda';
                     }
