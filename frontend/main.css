@@ -679,6 +679,42 @@ body {
     color: var(--success) !important;
 }
 
+/* Elevate 'Produto Outro' modal above any other overlays */
+#modal-produto-outro {
+    z-index: 13000 !important;
+}
+#modal-produto-outro .modal-content {
+    position: relative;
+    z-index: 13010 !important;
+}
+
+/* Lower the Nova Viagem modal baseline so 'Outro' stays on top */
+#modal-viagem-adubo {
+    z-index: 10000 !important;
+}
+#modal-viagem-adubo .modal-content {
+    position: relative;
+    z-index: 10005 !important;
+}
+
+/* Permissions modal: always center within viewport */
+#permissions-modal {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 13000 !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+#permissions-modal .modal-content {
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    margin: 0 !important;
+    max-height: 85vh !important;
+    width: min(500px, 95vw) !important;
+}
+
 .fw-bold {
     font-weight: 700 !important;
 }
@@ -975,6 +1011,9 @@ body.dark-mode .text-success {
     .no-print {
         display: none !important;
     }
+    .report-content { padding-bottom: 0 !important; }
+    .report-section:last-child { margin-bottom: 0 !important; page-break-after: auto !important; }
+    .report-footer { margin-top: 10px !important; page-break-inside: avoid !important; }
 }
 /* --- Plantio Details Modal Styles --- */
 .plantio-details-container {

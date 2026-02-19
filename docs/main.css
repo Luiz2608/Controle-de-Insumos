@@ -1011,6 +1011,9 @@ body.dark-mode .text-success {
     .no-print {
         display: none !important;
     }
+    .report-content { padding-bottom: 0 !important; }
+    .report-section:last-child { margin-bottom: 0 !important; page-break-after: auto !important; }
+    .report-footer { margin-top: 10px !important; page-break-inside: avoid !important; }
 }
 /* --- Plantio Details Modal Styles --- */
 .plantio-details-container {

@@ -99,3 +99,30 @@ Get-Content $yesFile | & $sdkmanager --licenses --sdk_root="$androidSdkDir"
 Write-Host "`n=== Iniciando Build do Android ==="
 Set-Location "$baseDir\android"
 .\gradlew.bat assembleDebug
+
+Write-Host "`n=== Verificando APK gerado ==="
+$apkMetadataPath = "$baseDir\android\app\build\outputs\apk\debug\output-metadata.json"
+if (Test-Path $apkMetadataPath) {
+    $meta = Get-Content $apkMetadataPath | ConvertFrom-Json
+    $apkName = $meta.elements[0].outputFile
+    $apkSource = Join-Path "$baseDir\android\app\build\outputs\apk\debug" $apkName
+    if (Test-Path $apkSource) {
+        $apkTargetDir = "$baseDir\dist-apk"
+        if (!(Test-Path $apkTargetDir)) {
+            New-Item -ItemType Directory -Path $apkTargetDir | Out-Null
+        }
+        $apkTarget = Join-Path $apkTargetDir $apkName
+        Copy-Item $apkSource $apkTarget -Force
+        # Atualiza data de modificacao para refletir o build atual
+        try {
+            (Get-Item $apkTarget).LastWriteTime = Get-Date
+        } catch {
+            Write-Host "Nao foi possivel ajustar a data de modificacao do APK, usando padrao do sistema."
+        }
+        Write-Host "APK copiado para: $apkTarget"
+    } else {
+        Write-Host "APK não encontrado em $apkSource. Verifique se o build concluiu sem erros."
+    }
+} else {
+    Write-Host "output-metadata.json não encontrado. Verifique se o build foi executado corretamente."
+}

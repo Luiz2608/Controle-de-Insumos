@@ -1058,6 +1058,9 @@ class InsumosApp {
             await this.ensureApiReady();
             await this.loadStaticData();
             
+            // Garantir que os dados do usuário (role/permissions) estejam atualizados
+            if (this.api) await this.api.me();
+            
             // Verificar autenticação
             if (this.api && this.api.user) {
                 this.hideLoginScreen();

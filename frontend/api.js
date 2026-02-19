@@ -80,11 +80,37 @@ class ApiService {
             this.user = session.user;
             
             // SECURITY: Auto-promote admins
-            if (this.user.email && this.ADMIN_EMAILS.includes(this.user.email.toLowerCase())) {
+            const isHardcodedAdmin = this.user.email && this.ADMIN_EMAILS.includes(this.user.email.toLowerCase());
+
+            if (isHardcodedAdmin) {
                 this.user.role = 'admin';
                 if (!this.user.user_metadata) this.user.user_metadata = {};
                 this.user.user_metadata.role = 'admin';
                 this.ensureAdminRole(this.user);
+            } else {
+                // Fetch updated role from public table
+                try {
+                    const { data: publicUser } = await this.supabase
+                        .from('users')
+                        .select('role, permissions')
+                        .eq('id', this.user.id)
+                        .single();
+                    
+                    if (publicUser) {
+                        if (publicUser.role) {
+                            this.user.role = publicUser.role;
+                            if (!this.user.user_metadata) this.user.user_metadata = {};
+                            this.user.user_metadata.role = publicUser.role;
+                        }
+                        if (publicUser.permissions) {
+                            this.user.permissions = publicUser.permissions;
+                            if (!this.user.user_metadata) this.user.user_metadata = {};
+                            this.user.user_metadata.permissions = publicUser.permissions;
+                        }
+                    }
+                } catch (e) {
+                    console.warn('RecoverSession: Error fetching user role', e);
+                }
             }
 
             localStorage.setItem('authUser', JSON.stringify(this.user));
@@ -114,15 +140,30 @@ class ApiService {
         if (!user || !user.id) return;
         
         try {
+            // Verificar se usuário já existe na tabela pública
+            // Isso é CRÍTICO para não sobrescrever role/permissions definidos pelo admin
+            // com os dados desatualizados do user_metadata do Auth
+            const { data: existingUser } = await this.supabase
+                .from('users')
+                .select('id')
+                .eq('id', user.id)
+                .maybeSingle();
+
             const publicUser = {
                 id: user.id,
                 email: user.email,
                 username: user.user_metadata?.username || user.email.split('@')[0],
                 first_name: user.user_metadata?.first_name || '',
                 last_name: user.user_metadata?.last_name || '',
-                role: user.user_metadata?.role || 'user',
+                // NÃO incluir role aqui por padrão se o usuário já existir!
                 password: 'managed_by_supabase_auth' // Campo obrigatório no esquema legado
             };
+            
+            // Se for novo usuário, define role inicial.
+            // Se já existir, preserva o role que está no banco (que pode ter sido alterado pelo admin)
+            if (!existingUser) {
+                publicUser.role = user.user_metadata?.role || 'user';
+            }
             
             // Use upsert para garantir que o registro exista e esteja atualizado
             const { error } = await this.supabase.from('users').upsert(publicUser);
@@ -326,7 +367,9 @@ class ApiService {
             this.user = session.user;
             
             // Auto-promote Admin se estiver na lista de emails permitidos
-            if (this.user.email && this.ADMIN_EMAILS.includes(this.user.email.toLowerCase())) {
+            const isHardcodedAdmin = this.user.email && this.ADMIN_EMAILS.includes(this.user.email.toLowerCase());
+            
+            if (isHardcodedAdmin) {
                 // Força o role no objeto local
                 this.user.role = 'admin';
                 if (!this.user.user_metadata) this.user.user_metadata = {};
@@ -337,7 +380,7 @@ class ApiService {
             }
 
             // Buscar role atualizado da tabela pública (se não for auto-admin)
-            if (!this.user.role || this.user.role !== 'admin') {
+            if (!isHardcodedAdmin) {
                 try {
                     const { data: publicUser } = await this.supabase
                         .from('users')
@@ -358,7 +401,8 @@ class ApiService {
                         }
                     }
                 } catch (e) {
-                    // Silently fail
+                    // Silently fail or log
+                    console.warn('Erro ao buscar permissões atualizadas:', e);
                 }
             }
 
