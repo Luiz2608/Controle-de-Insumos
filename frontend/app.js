@@ -6585,6 +6585,8 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
                         <div class="info-item"><strong>Média de gemas por tolete:</strong> ${this.ui.formatNumber(q.mediaGemasPorTolete||0,2)}</div>
                         <div class="info-item"><strong>Média Gemas por 5m:</strong> ${this.ui.formatNumber(q.mediaGemasPor5||0,2)}</div>
                         <div class="info-item"><strong>Média KG por hectare:</strong> ${this.ui.formatNumber(q.mediaKgHa||0,2)} kg/ha</div>
+                        <div class="info-item"><strong>Total Toletes Bons (%):</strong> ${this.ui.formatNumber(pctBonsTotal||0,2)}%</div>
+                        <div class="info-item"><strong>Total Toletes Ruins (%):</strong> ${this.ui.formatNumber(pctRuinsTotal||0,2)}%</div>
                     </div>
                 `;
             } else {
@@ -12326,8 +12328,9 @@ InsumosApp.prototype.loadQualidadeRecords = async function(targetType = null, pr
                     const tipo = q.tipoOperacao;
                     
                     if (targetType === 'plantio') {
-                        // Accept ONLY 'qualidade_muda' to ensure clean data selection
-                        return tipo === 'qualidade_muda';
+                        // Accept 'plantio_cana', 'plantio', 'qualidade_muda' (legacy/fallback) or null
+                        // This fixes the issue where quality records disappear from selection
+                        return (!tipo || tipo === 'plantio_cana' || tipo === 'plantio' || tipo === 'qualidade_muda') && tipo !== 'colheita_muda';
                     } else if (targetType === 'colheita_muda') {
                         return tipo === 'colheita_muda';
                     }
