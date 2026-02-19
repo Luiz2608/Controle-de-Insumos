@@ -5817,8 +5817,8 @@ forceReloadAllData() {
                         <th>Data</th>
                         <th>Tipo</th>
                         <th>Fazenda / Frente</th>
-                        <th>Variedade</th>
-                        <th>% Viáveis</th>
+                        <th>Frota / Hora</th>
+                        <th>Status</th>
                         <th>Ações</th>
                     </tr>
                 `;
@@ -5871,17 +5871,41 @@ forceReloadAllData() {
                 const frentes = (r.frentes||[]);
                 const fazendaFrente = frentes.length > 0 ? `${frentes[0].fazenda || ''} / ${frentes[0].frente || ''}` : '—';
                 
-                // Try to find variety
-                const variedade = (r.qualidade && r.qualidade.mudaVariedade) 
-                    ? r.qualidade.mudaVariedade 
-                    : (frentes.length > 0 && frentes[0].variedade ? frentes[0].variedade : '—');
-                
                 const q = r.qualidade || {};
+
+                // Frota / Hora
+                const trator = q.qualEquipamentoTrator || '';
+                const plantadora = q.qualEquipamentoPlantadora || '';
+                const frota = (trator || plantadora) ? `${trator}${plantadora ? ' / ' + plantadora : ''}` : '—';
+                
+                // Tenta pegar a hora do registro (se existir) ou do created_at
+                let hora = '—';
+                if (q.horaRegistro) {
+                    hora = q.horaRegistro;
+                } else if (r.created_at) {
+                    try {
+                        const dateObj = new Date(r.created_at);
+                        hora = dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                    } catch (e) {}
+                }
+                const frotaHora = `<div>${frota}</div><div style="font-size: 0.8em; color: #888;">${hora}</div>`;
+
+                // Status
                 // Prefer gemasBoasPct or calculate it
-                const gemasViaveis = (q.gemasBoasPct != null) ? `${this.ui.formatNumber(q.gemasBoasPct, 1)}%` : 
-                                   (q.gemasViaveisPerc != null) ? `${this.ui.formatNumber(q.gemasViaveisPerc, 1)}%` :
-                                   (typeof q.totalToletesBons === 'number') ? `${this.ui.formatNumber(q.totalToletesBons, 1)}%` :
-                                   '—';
+                const pct = (q.gemasBoasPct != null) ? parseFloat(q.gemasBoasPct) : 
+                           (q.gemasViaveisPerc != null) ? parseFloat(q.gemasViaveisPerc) :
+                           (typeof q.totalToletesBons === 'number' && q.gemasTotal > 0) ? (q.totalToletesBons / q.gemasTotal * 100) : null;
+                
+                let statusBadge = '<span class="badge badge-secondary">—</span>';
+                if (pct !== null) {
+                    let colorClass = 'badge-danger'; // Ruim
+                    let label = 'Ruim';
+                    if (pct >= 90) { colorClass = 'badge-success'; label = 'Ótimo'; }
+                    else if (pct >= 80) { colorClass = 'badge-info'; label = 'Bom'; }
+                    else if (pct >= 70) { colorClass = 'badge-warning'; label = 'Regular'; }
+                    
+                    statusBadge = `<span class="badge ${colorClass}" title="${this.ui.formatNumber(pct, 1)}% Viáveis">${label}</span>`;
+                }
 
                 // Determine Type Label
                 const tipoRaw = r.tipo_operacao || q.tipoOperacao || 'plantio';
@@ -5898,8 +5922,8 @@ forceReloadAllData() {
                     <td>${this.ui.formatDateBR(r.data)}</td>
                     <td><span class="badge ${badgeClass}">${tipoLabel}</span></td>
                     <td>${fazendaFrente}</td>
-                    <td>${variedade}</td>
-                    <td>${gemasViaveis}</td>
+                    <td>${frotaHora}</td>
+                    <td>${statusBadge}</td>
                     <td>
                         <div style="display: flex; gap: 5px;">
                             <button class="btn btn-sm btn-secondary" onclick="window.insumosApp.showPlantioDetails('${r.id}')">
