@@ -1058,6 +1058,9 @@ class InsumosApp {
             await this.ensureApiReady();
             await this.loadStaticData();
             
+            // Garantir que os dados do usuário (role/permissions) estejam atualizados
+            if (this.api) await this.api.me();
+            
             // Verificar autenticação
             if (this.api && this.api.user) {
                 this.hideLoginScreen();
@@ -5358,7 +5361,7 @@ forceReloadAllData() {
             activeTab.style.borderBottomColor = 'var(--primary)';
         }
 
-        // Validation listeners for visual feedback
+        // Validation listeners para feedback visual (O.S agora é obrigatória)
         const requiredIds = ['single-os', 'plantio-data', 'single-plantio-dia'];
         requiredIds.forEach(id => {
             const el = document.getElementById(id);
@@ -6149,20 +6152,6 @@ forceReloadAllData() {
         const dataStr = fmtDate(r.data);
         const primeiraFrente = Array.isArray(r.frentes) && r.frentes.length > 0 ? r.frentes[0] : null;
         const frente = (primeiraFrente && primeiraFrente.frente) || '—';
-        const fazenda = (primeiraFrente && primeiraFrente.fazenda) || q.mudaFazendaOrigem || '—';
-        const plantadora = q.qualEquipamentoPlantadora || '—';
-        const equipamento = q.qualEquipamentoTrator || '—';
-        let distribuidora = '—';
-        if (plantadora !== '—' || equipamento !== '—') {
-            distribuidora = `${plantadora}/${equipamento}`;
-        }
-
-        const distanciaVal = q.distancia || q.mudaDistancia || null;
-        const distanciaStr = distanciaVal ? `${this.ui.formatNumber(Number(distanciaVal) || 0, 0)} m` : '—';
-
-        const horaInicio = q.horaInicio || q.horaRegistro || '—';
-        const horaFim = q.horaFim || '—';
-        const horaStr = `${horaInicio}/${horaFim}`;
 
         const pesoBrutoTotal = (q.esqPesoBruto || 0) + (q.dirPesoBruto || 0);
         const pesoLiquidoTotal = (q.esqPesoLiquido || 0) + (q.dirPesoLiquido || 0);
@@ -6170,33 +6159,6 @@ forceReloadAllData() {
         const qtdRuinsTotal = (q.esqQtdRuins || 0) + (q.dirQtdRuins || 0);
         const pctBonsTotal = typeof q.totalToletesBons === 'number' ? q.totalToletesBons : 0;
         const pctRuinsTotal = typeof q.totalToletesRuins === 'number' ? q.totalToletesRuins : 0;
-
-        const pesoBonsTotal = (q.esqPesoBons || 0) + (q.dirPesoBons || 0);
-        const pesoRuinsTotal = (q.esqPesoRuins || 0) + (q.dirPesoRuins || 0);
-
-        let tHaTotal = 0;
-        let tHaViavel = 0;
-        let tHaDescarte = 0;
-        const kgHaTotal = typeof q.mediaKgHa === 'number' ? q.mediaKgHa : 0;
-
-        if (kgHaTotal > 0 && pesoLiquidoTotal > 0) {
-            tHaTotal = kgHaTotal / 1000;
-            const pb = Math.max(pesoBonsTotal, 0);
-            const pr = Math.max(pesoRuinsTotal, 0);
-            let propBons = pesoLiquidoTotal > 0 ? pb / pesoLiquidoTotal : 0;
-            let propRuins = pesoLiquidoTotal > 0 ? pr / pesoLiquidoTotal : 0;
-            if (propBons < 0) propBons = 0;
-            if (propRuins < 0) propRuins = 0;
-            const somaProps = propBons + propRuins;
-            if (somaProps > 0) {
-                propBons = propBons / somaProps;
-                propRuins = propRuins / somaProps;
-            }
-            tHaViavel = tHaTotal * propBons;
-            tHaDescarte = tHaTotal - tHaViavel;
-            if (tHaViavel < 0) tHaViavel = 0;
-            if (tHaDescarte < 0) tHaDescarte = 0;
-        }
 
         let classificacao = 'RUIM';
         if (pctBonsTotal > 80) classificacao = 'BOM';
@@ -6372,6 +6334,7 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
         
         const q = r.qualidade||{};
         
+        // Quality Source Info
         const qualitySourceInfo = q.qualitySourceLabel 
             ? `<div class="info-item full-span" style="grid-column: 1 / -1; margin-top: 5px; color: var(--primary);"><strong>🔗 Qualidade Vinculada:</strong> ${q.qualitySourceLabel}</div>`
             : '';
@@ -6567,9 +6530,10 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
                             <div class="info-item"><strong>Frente:</strong> ${headerFrente}</div>
                             <div class="info-item"><strong>Região:</strong> ${(primeiraFrente && primeiraFrente.regiao) || '—'}</div>
                             <div class="info-item"><strong>Data/Hora:</strong> ${dataStr}${q.horaRegistro ? ' ' + q.horaRegistro : ''}</div>
-                            <div class="info-item"><strong>Operador:</strong> ${q.qualOperador || '—'}</div>
-                            <div class="info-item"><strong>Equipamento:</strong> ${q.qualEquipamentoPlantadora || '—'}</div>
+                            <div class="info-item"><strong>Trator:</strong> ${q.qualEquipamentoTrator || '—'}</div>
                             <div class="info-item"><strong>Plantadora:</strong> ${q.qualEquipamentoPlantadora || '—'}</div>
+                            <div class="info-item"><strong>Operador:</strong> ${q.qualOperador || '—'}</div>
+                            <div class="info-item"><strong>Matrícula:</strong> ${q.qualMatricula || '—'}</div>
                         </div>
                     </div>
                     <div class="quality-grid" style="margin: 8px 0 12px 0;">
@@ -6600,6 +6564,7 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
                                 <tr><td>Peso bons (kg)</td><td>${this.ui.formatNumber(q.esqPesoBons||0,2)}</td><td>${this.ui.formatNumber(q.dirPesoBons||0,2)}</td></tr>
                                 <tr><td>Peso ruins (kg)</td><td>${this.ui.formatNumber(q.esqPesoRuins||0,2)}</td><td>${this.ui.formatNumber(q.dirPesoRuins||0,2)}</td></tr>
                                 <tr><td>Gemas por tolete</td><td>${this.ui.formatNumber(q.esqGemasBoasPorTolete||0,2)}</td><td>${this.ui.formatNumber(q.dirGemasBoasPorTolete||0,2)}</td></tr>
+                                <tr><td>Gemas por 5m</td><td>${this.ui.formatNumber(q.esqGemasBoasPor5||0,2)}</td><td>${this.ui.formatNumber(q.dirGemasBoasPor5||0,2)}</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -6616,8 +6581,9 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
                         ${conversaoAlert ? `<div style="margin-top: 8px; font-weight: 600;">${conversaoAlert}</div>` : ''}
                     </div>
                     <h6 style="margin: 12px 0 6px 0; border-bottom: 1px solid #eee; padding-bottom: 5px;">📈 Qualidade Consolidada</h6>
-                    <div class="info-grid" style="grid-template-columns: repeat(2, 1fr);">
+                    <div class="info-grid" style="grid-template-columns: repeat(3, 1fr);">
                         <div class="info-item"><strong>Média de gemas por tolete:</strong> ${this.ui.formatNumber(q.mediaGemasPorTolete||0,2)}</div>
+                        <div class="info-item"><strong>Média Gemas por 5m:</strong> ${this.ui.formatNumber(q.mediaGemasPor5||0,2)}</div>
                         <div class="info-item"><strong>Média KG por hectare:</strong> ${this.ui.formatNumber(q.mediaKgHa||0,2)} kg/ha</div>
                     </div>
                 `;
@@ -12360,9 +12326,8 @@ InsumosApp.prototype.loadQualidadeRecords = async function(targetType = null, pr
                     const tipo = q.tipoOperacao;
                     
                     if (targetType === 'plantio') {
-                        // Accept 'plantio_cana', 'plantio', 'qualidade_muda' (legacy/fallback) or null
-                        // Explicitly exclude colheita_muda
-                        return (!tipo || tipo === 'plantio_cana' || tipo === 'plantio' || tipo === 'qualidade_muda') && tipo !== 'colheita_muda';
+                        // Accept ONLY 'qualidade_muda' to ensure clean data selection
+                        return tipo === 'qualidade_muda';
                     } else if (targetType === 'colheita_muda') {
                         return tipo === 'colheita_muda';
                     }

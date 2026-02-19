@@ -6530,9 +6530,10 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
                             <div class="info-item"><strong>Frente:</strong> ${headerFrente}</div>
                             <div class="info-item"><strong>Região:</strong> ${(primeiraFrente && primeiraFrente.regiao) || '—'}</div>
                             <div class="info-item"><strong>Data/Hora:</strong> ${dataStr}${q.horaRegistro ? ' ' + q.horaRegistro : ''}</div>
-                            <div class="info-item"><strong>Operador:</strong> ${q.qualOperador || '—'}</div>
-                            <div class="info-item"><strong>Equipamento:</strong> ${q.qualEquipamentoPlantadora || '—'}</div>
+                            <div class="info-item"><strong>Trator:</strong> ${q.qualEquipamentoTrator || '—'}</div>
                             <div class="info-item"><strong>Plantadora:</strong> ${q.qualEquipamentoPlantadora || '—'}</div>
+                            <div class="info-item"><strong>Operador:</strong> ${q.qualOperador || '—'}</div>
+                            <div class="info-item"><strong>Matrícula:</strong> ${q.qualMatricula || '—'}</div>
                         </div>
                     </div>
                     <div class="quality-grid" style="margin: 8px 0 12px 0;">
@@ -6563,6 +6564,7 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
                                 <tr><td>Peso bons (kg)</td><td>${this.ui.formatNumber(q.esqPesoBons||0,2)}</td><td>${this.ui.formatNumber(q.dirPesoBons||0,2)}</td></tr>
                                 <tr><td>Peso ruins (kg)</td><td>${this.ui.formatNumber(q.esqPesoRuins||0,2)}</td><td>${this.ui.formatNumber(q.dirPesoRuins||0,2)}</td></tr>
                                 <tr><td>Gemas por tolete</td><td>${this.ui.formatNumber(q.esqGemasBoasPorTolete||0,2)}</td><td>${this.ui.formatNumber(q.dirGemasBoasPorTolete||0,2)}</td></tr>
+                                <tr><td>Gemas por 5m</td><td>${this.ui.formatNumber(q.esqGemasBoasPor5||0,2)}</td><td>${this.ui.formatNumber(q.dirGemasBoasPor5||0,2)}</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -6579,8 +6581,9 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
                         ${conversaoAlert ? `<div style="margin-top: 8px; font-weight: 600;">${conversaoAlert}</div>` : ''}
                     </div>
                     <h6 style="margin: 12px 0 6px 0; border-bottom: 1px solid #eee; padding-bottom: 5px;">📈 Qualidade Consolidada</h6>
-                    <div class="info-grid" style="grid-template-columns: repeat(2, 1fr);">
+                    <div class="info-grid" style="grid-template-columns: repeat(3, 1fr);">
                         <div class="info-item"><strong>Média de gemas por tolete:</strong> ${this.ui.formatNumber(q.mediaGemasPorTolete||0,2)}</div>
+                        <div class="info-item"><strong>Média Gemas por 5m:</strong> ${this.ui.formatNumber(q.mediaGemasPor5||0,2)}</div>
                         <div class="info-item"><strong>Média KG por hectare:</strong> ${this.ui.formatNumber(q.mediaKgHa||0,2)} kg/ha</div>
                     </div>
                 `;
@@ -12323,9 +12326,8 @@ InsumosApp.prototype.loadQualidadeRecords = async function(targetType = null, pr
                     const tipo = q.tipoOperacao;
                     
                     if (targetType === 'plantio') {
-                        // Accept 'plantio_cana', 'plantio', 'qualidade_muda' (legacy/fallback) or null
-                        // Explicitly exclude colheita_muda
-                        return (!tipo || tipo === 'plantio_cana' || tipo === 'plantio' || tipo === 'qualidade_muda') && tipo !== 'colheita_muda';
+                        // Accept ONLY 'qualidade_muda' to ensure clean data selection
+                        return tipo === 'qualidade_muda';
                     } else if (targetType === 'colheita_muda') {
                         return tipo === 'colheita_muda';
                     }
