@@ -3730,65 +3730,40 @@ forceReloadAllData() {
         console.log('Iniciando processamento do arquivo:', file.name, file.type);
         if (!file) return;
 
-        this.ui.showNotification('Processando arquivo da OS...', 'info', 3000);
+        this.ui.showNotification('Lendo arquivo PDF...', 'info', 3000);
 
         try {
             let content = '';
-            let inlineData = null; // Para imagem ou PDF convertido em imagem
+            let inlineData = null; 
 
-            // Configurar Worker do PDF.js se necessário (importante para renderização)
-            if (window.pdfjsLib && !window.pdfjsLib.GlobalWorkerOptions.workerSrc) {
-                window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-            }
-            
             console.log('Tipo do arquivo:', file.type);
 
             if (file.type === 'application/pdf') {
-                if (!window.pdfjsLib) {
-                    this.ui.showNotification('Leitor de PDF não carregado', 'error');
-                    console.error('pdfjsLib não encontrado');
-                    return;
-                }
-                
+                // NOVA LÓGICA: Ler PDF diretamente como Base64 e enviar para Gemini
+                // Isso evita problemas de conversão local e usa o parser nativo da IA
                 try {
-                    const buffer = await file.arrayBuffer();
-                    const loadingTask = window.pdfjsLib.getDocument({ data: buffer });
-                    const pdf = await loadingTask.promise;
-                    
-                    // Tentar extrair texto primeiro
-                    let fullText = '';
-                    for (let pageNum = 1; pageNum <= Math.min(pdf.numPages, 3); pageNum++) {
-                        const page = await pdf.getPage(pageNum);
-                        const textContent = await page.getTextContent();
-                        const strings = textContent.items.map(item => item.str);
-                        fullText += strings.join(' ') + '\n';
-                    }
+                    const base64 = await new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                            const result = reader.result;
+                            // O resultado vem como "data:application/pdf;base64,....."
+                            // Precisamos apenas da parte após a vírgula
+                            if (typeof result === 'string') {
+                                const parts = result.split(',');
+                                resolve(parts.length > 1 ? parts[1] : result);
+                            } else {
+                                reject(new Error('Falha ao ler arquivo como Base64'));
+                            }
+                        };
+                        reader.onerror = (err) => reject(err);
+                        reader.readAsDataURL(file);
+                    });
 
-                    console.log('Texto extraído (chars):', fullText.length);
-
-                    // Lógica de Fallback: Se tiver pouco texto (< 50 chars), renderizar como imagem
-                    if (fullText.replace(/\s/g, '').length < 50) {
-                        console.warn('PDF com pouco texto detectado. Convertendo página 1 para imagem...');
-                        this.ui.showNotification('PDF escaneado detectado. Lendo como imagem...', 'info', 2000);
-
-                        const page = await pdf.getPage(1);
-                        const viewport = page.getViewport({ scale: 2.0 }); // Alta resolução
-                        const canvas = document.createElement('canvas');
-                        const context = canvas.getContext('2d');
-                        canvas.height = viewport.height;
-                        canvas.width = viewport.width;
-
-                        await page.render({ canvasContext: context, viewport: viewport }).promise;
-                        
-                        // Converter canvas para base64 (JPEG para reduzir tamanho)
-                        const base64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
-                        inlineData = { mime_type: 'image/jpeg', data: base64 };
-                    } else {
-                        content = fullText;
-                    }
-                } catch (pdfErr) {
-                    console.error('Erro no processamento do PDF:', pdfErr);
-                    this.ui.showNotification('Erro ao ler PDF.', 'error');
+                    inlineData = { mime_type: 'application/pdf', data: base64 };
+                    this.ui.showNotification('PDF lido. Enviando para análise...', 'info', 2000);
+                } catch (readErr) {
+                    console.error('Erro ao ler arquivo PDF:', readErr);
+                    this.ui.showNotification('Erro ao ler o arquivo PDF.', 'error');
                     return;
                 }
 
@@ -3803,7 +3778,7 @@ forceReloadAllData() {
                 inlineData = { mime_type: file.type, data: content };
                 content = ''; // Limpar content texto pois usaremos inlineData
             } else {
-                this.ui.showNotification('Formato não suportado. Use PDF ou Imagem.', 'error');
+                this.ui.showNotification('Formato não suportado. Use PDF.', 'error');
                 console.error('Formato não suportado:', file.type);
                 return;
             }
