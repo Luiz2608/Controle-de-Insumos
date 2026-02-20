@@ -3850,12 +3850,15 @@ forceReloadAllData() {
             `;
 
             // Usar gemini-2.0-flash (versão mais recente e robusta)
-            // Se falhar, você pode reverter para gemini-1.5-flash
             const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + geminiKey;
             
             // Montar payload com verificação rigorosa
-            const parts = [{ text: prompt }];
+            const parts = [];
             
+            // 1. Adicionar o prompt de texto como a primeira parte
+            parts.push({ text: prompt });
+            
+            // 2. Adicionar o conteúdo (texto extraído ou imagem) como segunda parte
             if (content && content.length > 0) {
                 // Modo Texto (Preferencial para PDF extraído)
                 parts.push({ text: content });
@@ -3884,8 +3887,13 @@ forceReloadAllData() {
                 throw new Error('Nenhum conteúdo (texto ou imagem) extraído para envio.');
             }
 
+            // O Gemini espera que "parts" seja um array de objetos dentro de "contents"
+            // Exemplo correto: contents: [{ role: "user", parts: [{ text: "..." }, { inline_data: ... }] }]
             const requestBody = {
-                contents: [{ parts: parts }],
+                contents: [{ 
+                    role: "user",
+                    parts: parts 
+                }],
                 generationConfig: {
                     response_mime_type: 'application/json'
                 }
@@ -3893,7 +3901,10 @@ forceReloadAllData() {
             
             console.log('Gemini Request Body (Structure):', JSON.stringify({
                 ...requestBody,
-                contents: [{ parts: parts.map(p => p.text ? { text: p.text.substring(0, 50) + '...' } : { inline_data: 'BASE64_DATA' }) }]
+                contents: [{ 
+                    role: "user",
+                    parts: parts.map(p => p.text ? { text: p.text.substring(0, 50) + '...' } : { inline_data: 'BASE64_DATA' }) 
+                }]
             }));
 
             let response;
