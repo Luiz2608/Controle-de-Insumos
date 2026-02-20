@@ -3960,7 +3960,16 @@ forceReloadAllData() {
                 console.warn('Fallback para gemini-1.5-flash após 2s...');
                 await new Promise(r => setTimeout(r, 2000));
                 
-                result = await tryGemini('gemini-1.5-flash');
+                // FIX: gemini-1.5-flash-latest é o nome correto em v1beta se o alias falhar, mas vamos tentar o pro
+                // ou melhor: gemini-1.5-flash geralmente funciona, mas pode ser problema de região/v1beta
+                // Tentaremos gemini-1.5-flash-latest
+                result = await tryGemini('gemini-1.5-flash-latest');
+                
+                // Se falhar novamente, tenta o 1.5-pro (mais lento mas pode ter cota)
+                if (!result.ok) {
+                     console.warn('Fallback secundário para gemini-1.5-pro...');
+                     result = await tryGemini('gemini-1.5-pro');
+                }
             }
 
             if (!result.ok) {
