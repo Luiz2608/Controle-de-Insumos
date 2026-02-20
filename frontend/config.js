@@ -1,7 +1,9 @@
 const SUPABASE_URL = 'https://hgwfbbwdnncrofofqtso.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_s-7JLyKsL2q995jQMdXYHw_KQwuSXPQ';
 
-const GEMINI_API_KEY = 'AIzaSyAfZFWzD2uyYo00VZgTfqmggIgzlAaG_M4';
+// A chave API foi removida do código fonte por segurança.
+// Ela será solicitada ao usuário na interface e salva no navegador.
+const GEMINI_API_KEY = ''; 
 
 
 const isLocalBackend = false; 

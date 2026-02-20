@@ -56,6 +56,51 @@ class InsumosApp {
         
         this.initPlantioModalIA();
         this.initTheme();
+        this.initApiKeyConfig();
+    }
+
+    initApiKeyConfig() {
+        const modal = document.getElementById('api-key-modal');
+        const input = document.getElementById('gemini-api-key-input');
+        const saveBtn = document.getElementById('save-api-key-btn');
+        const cancelBtn = document.getElementById('cancel-api-key-btn');
+        const configBtn = document.getElementById('config-api-key-btn');
+
+        // Carregar chave salva
+        const savedKey = localStorage.getItem('GEMINI_API_KEY');
+        if (savedKey) {
+            window.API_CONFIG.geminiKey = savedKey;
+        }
+
+        // Abrir modal se clicar no botão de configuração
+        if (configBtn) {
+            configBtn.addEventListener('click', () => {
+                if (modal) modal.style.display = 'flex';
+                if (input) input.value = window.API_CONFIG.geminiKey || '';
+            });
+        }
+
+        // Salvar chave
+        if (saveBtn && input) {
+            saveBtn.addEventListener('click', () => {
+                const key = input.value.trim();
+                if (key) {
+                    localStorage.setItem('GEMINI_API_KEY', key);
+                    window.API_CONFIG.geminiKey = key;
+                    if (this.ui) this.ui.showNotification('Chave API salva com sucesso!', 'success');
+                    if (modal) modal.style.display = 'none';
+                } else {
+                    if (this.ui) this.ui.showNotification('Por favor, insira uma chave válida.', 'error');
+                }
+            });
+        }
+
+        // Cancelar
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', () => {
+                if (modal) modal.style.display = 'none';
+            });
+        }
     }
 
     initPlantioModalIA() {
@@ -3804,15 +3849,18 @@ forceReloadAllData() {
                 return;
             }
 
-            // Chamar Gemini - Versão atualizada para gemini-1.5-pro
-            // IMPORTANTE: Manter gemini-1.5-pro pois é o mais estável para documentos
-            let geminiKey = (window.API_CONFIG && window.API_CONFIG.geminiKey) || localStorage.getItem('geminiApiKey') || '';
+            // Chamar Gemini
+            let geminiKey = window.API_CONFIG.geminiKey || localStorage.getItem('GEMINI_API_KEY');
+            
             if (!geminiKey || geminiKey.trim().length < 20) {
-                geminiKey = await this.askGeminiKey();
-            }
-
-            if (!geminiKey || geminiKey.length < 20) {
-                this.ui.showNotification('Chave API necessária.', 'error');
+                // Tentar abrir o modal se a chave não existir
+                const modal = document.getElementById('api-key-modal');
+                if (modal) {
+                    modal.style.display = 'flex';
+                    this.ui.showNotification('Configure sua Chave API para continuar.', 'warning');
+                } else {
+                    this.ui.showNotification('Chave API não configurada.', 'error');
+                }
                 return;
             }
 
