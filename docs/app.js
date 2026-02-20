@@ -3946,40 +3946,58 @@ forceReloadAllData() {
                 }
             };
 
-            // Estratégia: Tenta 2.0-flash -> Se 429, espera e tenta 1.5-flash -> Se falhar, avisa.
-            let result = await tryGemini('gemini-2.0-flash');
+            // Estratégia de Fallback Robusta (v52)
+            // Tenta modelos em ordem de capacidade/custo. Se um falhar (429 ou 404), tenta o próximo.
+            const modelChain = [
+                'gemini-2.0-flash',       // 1. Mais rápido e capaz (mas rate limited)
+                'gemini-1.5-flash',       // 2. Standard Flash
+                'gemini-1.5-flash-002',   // 3. Versão específica (estável)
+                'gemini-1.5-flash-001',   // 4. Versão anterior (estável)
+                'gemini-1.5-pro-002',     // 5. Pro (mais lento, mas pode ter cota)
+                'gemini-1.5-pro-latest'   // 6. Último recurso
+            ];
 
-            if (!result.ok && result.status === 429) {
-                // Feedback visual de espera
-                loadingOverlay.innerHTML = `
-                    <div style="font-size:40px;">⏳</div>
-                    <div style="font-size:24px;font-weight:bold;margin-bottom:10px;">Muitos acessos...</div>
-                    <div style="font-size:16px;opacity:0.8;">Trocando servidor de IA. Aguarde...</div>
-                `;
+            let lastError = null;
+            let successResult = null;
+
+            for (const model of modelChain) {
+                // Feedback visual se não for a primeira tentativa
+                if (model !== modelChain[0]) {
+                    loadingOverlay.innerHTML = `
+                        <div style="font-size:40px;">🔄</div>
+                        <div style="font-size:24px;font-weight:bold;margin-bottom:10px;">Tentando outro servidor...</div>
+                        <div style="font-size:16px;opacity:0.8;">Modelo: ${model}</div>
+                    `;
+                    await new Promise(r => setTimeout(r, 1500)); // Pequena pausa para UI
+                }
+
+                const result = await tryGemini(model);
                 
-                console.warn('Fallback para gemini-1.5-flash após 2s...');
-                await new Promise(r => setTimeout(r, 2000));
+                if (result.ok) {
+                    successResult = result;
+                    break; // Sucesso!
+                }
                 
-                // FIX: gemini-1.5-flash-latest é o nome correto em v1beta se o alias falhar, mas vamos tentar o pro
-                // ou melhor: gemini-1.5-flash geralmente funciona, mas pode ser problema de região/v1beta
-                // Tentaremos gemini-1.5-flash-latest
-                result = await tryGemini('gemini-1.5-flash-latest');
+                // Se falhou, loga e continua
+                console.warn(`Falha no modelo ${model}: ${result.status} - ${result.error}`);
+                lastError = result;
                 
-                // Se falhar novamente, tenta o 1.5-pro (mais lento mas pode ter cota)
-                if (!result.ok) {
-                     console.warn('Fallback secundário para gemini-1.5-pro...');
-                     result = await tryGemini('gemini-1.5-pro');
+                // Se o erro não for 429 nem 404 (ex: 400 Bad Request), talvez não adiante tentar outros
+                // Mas vamos tentar todos por segurança, a menos que seja erro de chave (403)
+                if (result.status === 403 || (result.error && result.error.includes('API_KEY'))) {
+                    throw new Error('Chave de API inválida ou sem permissão.');
                 }
             }
 
-            if (!result.ok) {
-                if (result.status === 429) {
-                     throw new Error('Limite de uso da IA atingido (Cota Gratuita). Aguarde 1 minuto e tente novamente.');
+            if (!successResult) {
+                // Se chegou aqui, todos falharam
+                if (lastError && lastError.status === 429) {
+                     throw new Error('Todos os servidores de IA estão ocupados (Cota Excedida). Aguarde 1 minuto.');
                 }
-                throw new Error(`Erro na API (${result.status}): ${result.error}`);
+                throw new Error(`Falha em todos os modelos de IA. Último erro: ${lastError ? lastError.error : 'Desconhecido'}`);
             }
 
-            const data = result.data;
+            const data = successResult.data;
             console.log('Resposta Gemini recebida:', data);
 
             // 7. Extração JSON
