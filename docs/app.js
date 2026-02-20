@@ -133,18 +133,53 @@ class InsumosApp {
             imageInput.addEventListener('change', (e) => {
                 if (e.target.files && e.target.files[0]) {
                     const file = e.target.files[0];
-                    const reader = new FileReader();
+                    console.log('Arquivo selecionado no input:', file.name, file.type);
                     
-                    reader.onload = (evt) => {
-                        if (preview) {
-                            preview.src = evt.target.result;
-                            preview.style.display = 'block';
-                        }
-                        if (placeholder) placeholder.style.display = 'none';
-                        if (analyzeBtn) analyzeBtn.disabled = false;
-                    };
-                    
-                    reader.readAsDataURL(file);
+                    // Se for imagem, mostrar preview
+                    if (file.type.startsWith('image/')) {
+                        const reader = new FileReader();
+                        reader.onload = (evt) => {
+                            if (preview) {
+                                preview.src = evt.target.result;
+                                preview.style.display = 'block';
+                            }
+                            if (placeholder) placeholder.style.display = 'none';
+                        };
+                        reader.readAsDataURL(file);
+                    } else if (file.type === 'application/pdf') {
+                         // Se for PDF, mostrar ícone ou aviso
+                         if (preview) preview.style.display = 'none';
+                         if (placeholder) {
+                             placeholder.style.display = 'block';
+                             placeholder.innerHTML = '📄 PDF Selecionado:<br>' + file.name;
+                         }
+                    }
+
+                    // Habilitar botão de análise
+                    if (analyzeBtn) {
+                        analyzeBtn.disabled = false;
+                        // Opcional: Auto-click para agilizar (se desejar)
+                        // analyzeBtn.click(); 
+                    }
+                }
+            });
+        }
+
+        // Adicionar Listener Manual para o botão de análise de O.S. (Upload de OS)
+        // Este é um botão separado do modal de análise de plantio
+        const osUploadBtn = document.getElementById('btn-upload-os');
+        const osFileInput = document.getElementById('os-file-input');
+
+        if (osUploadBtn && osFileInput) {
+            osUploadBtn.addEventListener('click', () => {
+                osFileInput.click();
+            });
+
+            osFileInput.addEventListener('change', (e) => {
+                if (e.target.files && e.target.files[0]) {
+                    const file = e.target.files[0];
+                    console.log('Arquivo de O.S. selecionado:', file.name);
+                    this.handleOSFile(file);
                 }
             });
         }
