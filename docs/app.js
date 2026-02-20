@@ -3849,9 +3849,8 @@ forceReloadAllData() {
                 Se algum campo não for encontrado, use null.
             `;
 
-            // Usar gemini-1.5-flash (versão rápida e estável, pedida pelo usuário)
-            // Voltando para 1.5 pois o 2.0 pode estar instável ou requerendo formato diferente
-            const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + geminiKey;
+            // Usar gemini-2.0-flash (MANDATÓRIO: Versão mais recente e capaz)
+            const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + geminiKey;
             
             // Montar payload com verificação rigorosa
             const parts = [];
@@ -3888,8 +3887,9 @@ forceReloadAllData() {
                 throw new Error('Nenhum conteúdo (texto ou imagem) extraído para envio.');
             }
 
-            // Simplificação do payload: Remover 'role' e 'system_instruction' se houver
-            // Apenas contents com parts
+            // Estrutura de payload para Gemini 2.0 (Simples e Direta)
+            // A API v1beta aceita "contents" como lista de objetos com "parts"
+            // Não é obrigatório "role" para o primeiro turno, mas a estrutura deve ser limpa.
             const requestBody = {
                 contents: [{ 
                     parts: parts 
