@@ -5323,6 +5323,36 @@ forceReloadAllData() {
     async setupLegacyListeners() {
         if (this.legacyListenersAttached) return;
         console.log('setupLegacyListeners started');
+
+        // Shift Selectors Logic
+        const shiftBtns = document.querySelectorAll('.shift-btn');
+        shiftBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault(); // Prevent form submission if inside form
+                const parent = btn.closest('.shift-selector');
+                if (!parent) return;
+                
+                // Toggle classes
+                parent.querySelectorAll('.shift-btn').forEach(b => {
+                    b.classList.remove('active', 'btn-primary');
+                    b.classList.add('btn-secondary');
+                    // Remove active style manually if needed, but classes should handle it
+                });
+                
+                btn.classList.add('active', 'btn-primary');
+                btn.classList.remove('btn-secondary');
+                
+                // Update hidden input
+                const input = parent.querySelector('input[type="hidden"]');
+                const val = btn.getAttribute('data-shift');
+                if (input) {
+                    input.value = val;
+                    // Trigger change event if needed
+                    input.dispatchEvent(new Event('change'));
+                }
+            });
+        });
+
         const estoqueFrenteFilter = document.getElementById('estoque-frente-filter');
         const estoqueProdutoFilter = document.getElementById('estoque-produto-filter');
         if (estoqueFrenteFilter) {
@@ -6233,22 +6263,24 @@ forceReloadAllData() {
                 
                 const q = r.qualidade || {};
 
-                // Frota / Hora
+                // Frota / Turno
                 const trator = q.qualEquipamentoTrator || '';
                 const plantadora = q.qualEquipamentoPlantadora || '';
                 const frota = (trator || plantadora) ? `${trator}${plantadora ? ' / ' + plantadora : ''}` : '—';
                 
-                // Tenta pegar a hora do registro (se existir) ou do created_at
-                let hora = '—';
-                if (q.horaRegistro) {
-                    hora = q.horaRegistro;
+                // Tenta pegar o turno ou a hora (fallback)
+                let turnoOuHora = '—';
+                if (r.turno) {
+                    turnoOuHora = `Turno ${r.turno}`;
+                } else if (q.horaRegistro) {
+                    turnoOuHora = q.horaRegistro;
                 } else if (r.created_at) {
                     try {
                         const dateObj = new Date(r.created_at);
-                        hora = dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                        turnoOuHora = dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
                     } catch (e) {}
                 }
-                const frotaHora = `<div>${frota}</div><div style="font-size: 0.8em; color: #888;">${hora}</div>`;
+                const frotaHora = `<div>${frota}</div><div style="font-size: 0.8em; color: #888;">${turnoOuHora}</div>`;
 
                 // Status
                 // Prefer gemasBoasPct or calculate it
@@ -6584,9 +6616,27 @@ Abaixo de 50% → RUIM`;
         const distanciaVal = q.distancia || q.mudaDistancia || null;
         const distanciaStr = distanciaVal ? `${this.ui.formatNumber(Number(distanciaVal) || 0, 0)} m` : '—';
 
-        const horaInicio = q.horaInicio || q.horaRegistro || '—';
-        const horaFim = q.horaFim || '—';
-        const horaStr = `${horaInicio}/${horaFim}`;
+        // Tenta pegar o turno ou a hora (fallback)
+        let turnoOuHora = '—';
+        if (r.turno) {
+            turnoOuHora = `Turno ${r.turno}`;
+        } else if (q.horaRegistro) {
+            // Verifica se horaRegistro já é um turno
+            if (q.horaRegistro.toLowerCase().includes('turno')) {
+                turnoOuHora = q.horaRegistro;
+            } else {
+                turnoOuHora = q.horaRegistro;
+            }
+        } else if (r.created_at) {
+            try {
+                const dateObj = new Date(r.created_at);
+                turnoOuHora = dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+            } catch (e) {}
+        }
+
+        const horaInicio = q.horaInicio || turnoOuHora || '—';
+        const horaFim = q.horaFim || '';
+        const horaStr = horaFim ? `${horaInicio}/${horaFim}` : horaInicio;
 
         const pesoLiquidoTotal = (q.esqPesoLiquido || 0) + (q.dirPesoLiquido || 0);
         const pesoBonsTotal = (q.esqPesoBons || 0) + (q.dirPesoBons || 0);
@@ -6698,6 +6748,24 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
         const qualitySourceInfo = q.qualitySourceLabel 
             ? `<div class="info-item full-span" style="grid-column: 1 / -1; margin-top: 5px; color: var(--primary);"><strong>🔗 Qualidade Vinculada:</strong> ${q.qualitySourceLabel}</div>`
             : '';
+
+        // Tenta pegar o turno ou a hora (fallback)
+        let turnoOuHora = '—';
+        if (r.turno) {
+            turnoOuHora = `Turno ${r.turno}`;
+        } else if (q.horaRegistro) {
+            // Verifica se horaRegistro já é um turno
+            if (q.horaRegistro.toLowerCase().includes('turno')) {
+                turnoOuHora = q.horaRegistro;
+            } else {
+                turnoOuHora = q.horaRegistro;
+            }
+        } else if (r.created_at) {
+            try {
+                const dateObj = new Date(r.created_at);
+                turnoOuHora = dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+            } catch (e) {}
+        }
 
         const frentesRows = (r.frentes||[]).map(f => {
             const frenteLabel = f.frente || '—';
@@ -6889,7 +6957,7 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
                             <div class="info-item"><strong>Fazenda:</strong> ${headerFazenda}</div>
                             <div class="info-item"><strong>Frente:</strong> ${headerFrente}</div>
                             <div class="info-item"><strong>Região:</strong> ${(primeiraFrente && primeiraFrente.regiao) || '—'}</div>
-                            <div class="info-item"><strong>Data/Hora:</strong> ${dataStr}${q.horaRegistro ? ' ' + q.horaRegistro : ''}</div>
+                            <div class="info-item"><strong>Data/Hora:</strong> ${dataStr}${turnoOuHora ? ' (' + turnoOuHora + ')' : ''}</div>
                             <div class="info-item"><strong>Trator:</strong> ${q.qualEquipamentoTrator || '—'}</div>
                             <div class="info-item"><strong>Plantadora:</strong> ${q.qualEquipamentoPlantadora || '—'}</div>
                             <div class="info-item"><strong>Operador:</strong> ${q.qualOperador || '—'}</div>
@@ -7022,7 +7090,7 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
                     <h5>📋 Informações Gerais</h5>
                     <div class="info-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px;">
                         <div class="info-item"><strong>Operação:</strong> ${tipoOpLabel}</div>
-                        <div class="info-item"><strong>Data/Hora:</strong> ${dataStr}${q.horaRegistro ? ' ' + q.horaRegistro : ''}</div>
+                        <div class="info-item"><strong>Data/Hora:</strong> ${dataStr}${turnoOuHora ? ' (' + turnoOuHora + ')' : ''}</div>
                         <div class="info-item"><strong>Responsável:</strong> ${resp}</div>
                         <div class="info-item"><strong>Matrícula:</strong> ${q.qualMatricula || '—'}</div>
                         <div class="info-item full-span" style="grid-column: 1 / -1;"><strong>Observações:</strong> ${obs}</div>
@@ -13145,7 +13213,7 @@ InsumosApp.prototype.resetPlantioForm = function(mode = 'normal') {
 
     const ids = [
         'qual-equipamento-trator', 'qual-equipamento-plantadora', 'qual-operador', 'qual-matricula', 'qual-frota',
-        'plantio-data', 'plantio-hora', 'plantio-responsavel', 'plantio-obs',
+        'plantio-data', 'plantio-hora', 'plantio-turno', 'plantio-responsavel', 'plantio-obs',
         'qual-toletes-total', 'qual-toletes-bons', 'qual-toletes-ruins', 'qual-toletes-amostra',
         'qual-gemas-total', 'qual-gemas-boas', 'qual-gemas-ruins', 'qual-gemas-amostra', 'qual-gemas-media',
         'qual-mudas-total', 'qual-mudas-boas', 'qual-mudas-ruins', 'qual-mudas-amostra', 'qual-mudas-media', 'qual-mudas-reboulos',
@@ -13166,6 +13234,20 @@ InsumosApp.prototype.resetPlantioForm = function(mode = 'normal') {
             if (msgEl) msgEl.style.display = 'none';
         }
     });
+
+    // Reset Turno Buttons to Default (A)
+    const turnoBtns = document.querySelectorAll('.shift-selector .shift-btn');
+    turnoBtns.forEach(b => {
+        if (b.dataset.shift === 'A') {
+            b.classList.add('active', 'btn-primary');
+            b.classList.remove('btn-secondary');
+        } else {
+            b.classList.remove('active', 'btn-primary');
+            b.classList.add('btn-secondary');
+        }
+    });
+    const turnoInput = document.getElementById('plantio-turno');
+    if (turnoInput) turnoInput.value = 'A';
 
     // Clear hidden inputs not in the list
     const hiddenQualId = document.getElementById('selected-qualidade-id');
@@ -13485,7 +13567,10 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
     const data = document.getElementById('plantio-data')?.value;
     const responsavel = document.getElementById('plantio-responsavel')?.value;
     const observacoes = document.getElementById('plantio-obs')?.value || '';
-    const horaRegistro = document.getElementById('plantio-hora')?.value || '';
+    
+    // Captura Turno ou Hora
+    const turnoInput = document.getElementById('plantio-turno');
+    const horaRegistro = turnoInput ? `Turno ${turnoInput.value}` : (document.getElementById('plantio-hora')?.value || '');
     
     const toletesTotalVal = parseVal('qual-toletes-total');
     const toletesBonsVal = parseVal('qual-toletes-bons');
