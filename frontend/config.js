@@ -1,7 +1,7 @@
 const SUPABASE_URL = 'https://hgwfbbwdnncrofofqtso.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_s-7JLyKsL2q995jQMdXYHw_KQwuSXPQ';
 
-const GEMINI_API_KEY = 'AIzaSyC2hHNdbxhhvnJhXSAUbzwn73viGnpFwqA';
+const GEMINI_API_KEY = 'AIzaSyAfZFWzD2uyYo00VZgTfqmggIgzlAaG_M4';
 
 
 const isLocalBackend = false; 
