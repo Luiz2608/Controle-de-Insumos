@@ -57,6 +57,10 @@ class InsumosApp {
         this.initPlantioModalIA();
         this.initTheme();
         this.initApiKeyConfig();
+
+        // EXPOSE APP GLOBALLY (FIX "app is not defined")
+        window.app = this;
+        window.insumosApp = this;
     }
 
     initApiKeyConfig() {
@@ -14268,7 +14272,7 @@ InsumosApp.prototype.loadSystemSettings = async function() {
 };
 
 InsumosApp.prototype.setupVersionCheck = async function() {
-    console.log('Versão do Frontend: FIX-54-SORT-COMPOSTO');
+    console.log('Versão do Frontend: FIX-55-APP-GLOBAL-THEME');
     let lastKnownUpdate = null;
     
     const checkUpdate = async () => {
