@@ -239,9 +239,7 @@ class ApiService {
             }
 
             // SECURITY: Auto-promote admins
-            const isHardcodedAdmin = this.user.email && this.ADMIN_EMAILS.includes(this.user.email.toLowerCase());
-            
-            if (isHardcodedAdmin) {
+            if (this.user.email && this.ADMIN_EMAILS.includes(this.user.email.toLowerCase())) {
                 this.user.role = 'admin';
                 if (!this.user.user_metadata) this.user.user_metadata = {};
                 this.user.user_metadata.role = 'admin';

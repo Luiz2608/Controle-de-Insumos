@@ -8419,6 +8419,18 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
 
 
  
+    sortViagensAdubo(key) {
+        if (!this.viagensAduboSort) this.viagensAduboSort = { key: null, dir: 'asc' };
+        
+        if (this.viagensAduboSort.key === key) {
+            this.viagensAduboSort.dir = this.viagensAduboSort.dir === 'asc' ? 'desc' : 'asc';
+        } else {
+            this.viagensAduboSort.key = key;
+            this.viagensAduboSort.dir = 'asc';
+        }
+        this.renderViagensAdubo();
+    }
+
     renderViagensAdubo() {
         const tbody = document.getElementById('viagens-adubo-table-body');
         const theadTr = document.querySelector('#viagens-adubo-table thead tr');
@@ -8432,9 +8444,10 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
         const currentType = this.viagemAduboTransportType || 'adubo';
         data = data.filter(v => (v.transportType || 'adubo') === currentType);
 
-        // Update Headers
+        // Update Headers (Preserving Sort Clicks)
         if (theadTr) {
             if (currentType === 'composto') {
+                // Legacy Composto View within Adubo Tab (Should be deprecated but keeping for safety)
                 theadTr.innerHTML = `
                     <th>Data</th>
                     <th>Fazenda</th>
@@ -8446,24 +8459,19 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
                     <th>Ações</th>
                 `;
             } else {
+                // Standard Adubo View - Sync with index.html onclicks
                 theadTr.innerHTML = `
-                    <th>Data</th>
-                    <th>Frente</th>
-                    <th>Fazenda</th>
-                    <th>Produto</th>
-                    <th>Quantidade</th>
-                    <th>Unidade</th>
-                    <th>Motorista</th>
-                    <th>Caminhão</th>
+                    <th onclick="app.sortViagensAdubo('data')" style="cursor: pointer;">Data ↕</th>
+                    <th onclick="app.sortViagensAdubo('frente')" style="cursor: pointer;">Frente ↕</th>
+                    <th onclick="app.sortViagensAdubo('fazenda')" style="cursor: pointer;">Fazenda ↕</th>
+                    <th onclick="app.sortViagensAdubo('produto')" style="cursor: pointer;">Produto ↕</th>
+                    <th onclick="app.sortViagensAdubo('quantidadeTotal')" style="cursor: pointer;">Quantidade ↕</th>
+                    <th onclick="app.sortViagensAdubo('unidade')" style="cursor: pointer;">Unidade ↕</th>
+                    <th onclick="app.sortViagensAdubo('motorista')" style="cursor: pointer;">Motorista ↕</th>
+                    <th onclick="app.sortViagensAdubo('caminhao')" style="cursor: pointer;">Caminhão ↕</th>
                     <th>Ações</th>
                 `;
             }
-        }
-
-        if (filters.tipo && filters.tipo !== currentType) {
-             // If filter explicitly set and differs (shouldn't happen with new logic but safe to keep), respect filter? 
-             // Actually, let's enforce the tab selection.
-             // data = data.filter(v => (v.transportType || 'adubo') === filters.tipo);
         }
         
         if (filters.data) {
@@ -8489,6 +8497,47 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
             const f = filters.lacre.toLowerCase();
             data = data.filter(v => Array.isArray(v.bags) && v.bags.some(b => norm(b.lacre).includes(f)));
         }
+
+        // Sort Logic
+        if (this.viagensAduboSort && this.viagensAduboSort.key) {
+            const { key, dir } = this.viagensAduboSort;
+            data.sort((a, b) => {
+                let va = a[key];
+                let vb = b[key];
+                
+                // Map complex keys if needed
+                if (key === 'quantidadeTotal') {
+                     va = va != null ? va : (a.quantidade_total != null ? a.quantidade_total : 0);
+                     vb = vb != null ? vb : (b.quantidade_total != null ? b.quantidade_total : 0);
+                }
+
+                // Numeric check
+                // Remove format chars if string number
+                const parse = (val) => {
+                    if (typeof val === 'number') return val;
+                    if (!val) return 0;
+                    return parseFloat(String(val).replace(/[^\d.-]/g, ''));
+                };
+
+                const na = parse(va);
+                const nb = parse(vb);
+                
+                // Check if both are valid numbers (and not just empty strings converted to 0 if original was text)
+                // Heuristic: if key is qty/amount, treat as number. Else try string.
+                const isNumericField = ['quantidadeTotal', 'quantidade_total', 'quantidade'].includes(key);
+                
+                if (isNumericField || (!isNaN(na) && !isNaN(nb) && typeof va !== 'string')) {
+                    return dir === 'asc' ? na - nb : nb - na;
+                }
+
+                va = String(va || '').toLowerCase();
+                vb = String(vb || '').toLowerCase();
+                if (va < vb) return dir === 'asc' ? -1 : 1;
+                if (va > vb) return dir === 'asc' ? 1 : -1;
+                return 0;
+            });
+        }
+
         if (!data.length) {
             const colspan = currentType === 'composto' ? 8 : 9;
             tbody.innerHTML = `
@@ -8506,7 +8555,6 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
                  const previsto = parseFloat(v.totalPrevisto || v.total_previsto || 0);
                  const realizado = parseFloat(v.totalRealizado || v.total_realizado || 0);
                  const diff = realizado - previsto;
-                 const diffClass = diff > 0 ? 'text-success' : (diff < 0 ? 'text-danger' : '');
                  const diffSign = diff > 0 ? '+' : '';
 
                  return `
@@ -8527,7 +8575,7 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
             } else {
                 return `
                     <tr>
-                        <td>${v.data}</td>
+                        <td>${this.ui.formatDateBR(v.data)}</td>
                         <td>${v.frente || ''}</td>
                         <td>${v.fazenda || ''}</td>
                         <td>${v.produto || ''}</td>
@@ -9234,18 +9282,166 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
     // TRANSPORTE DE COMPOSTO (NEW MODULE)
     // =========================================================
 
-    loadTransporteComposto() {
+    async loadTransporteComposto() {
         const viewAdubo = document.getElementById('view-adubo-mode');
         const viewComposto = document.getElementById('view-composto-mode');
         if (viewAdubo) viewAdubo.style.display = 'none';
         if (viewComposto) viewComposto.style.display = 'block';
 
-        this.renderTransporteComposto();
+        const tbody = document.getElementById('transporte-composto-body');
+        if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="loading">📡 Carregando dados...</td></tr>';
+
+        try {
+            // Fetch data from Supabase (Main OS and Daily Items for calc)
+            const [res, resDaily] = await Promise.all([
+                this.api.getTransporteComposto(),
+                this.api.getAllTransporteDiario()
+            ]);
+
+            if (res && res.success && Array.isArray(res.data)) {
+                let list = res.data;
+                const dailyItems = (resDaily && resDaily.success) ? resDaily.data : [];
+                
+                // Calculate totals per OS
+                const totals = {};
+                dailyItems.forEach(d => {
+                    const oid = d.os_id; 
+                    if (!totals[oid]) totals[oid] = 0;
+                    totals[oid] += (parseFloat(d.quantidade) || 0);
+                });
+
+                // Attach 'realizado' to each item for sorting/filtering
+                this.transporteCompostoData = list.map(item => {
+                    const meta = parseFloat(item.quantidade) || 0;
+                    const realizado = totals[item.id] || 0;
+                    return {
+                        ...item,
+                        realizado: realizado,
+                        restante: meta - realizado
+                    };
+                });
+
+                this.renderTransporteComposto();
+            } else {
+                if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="color:red;">Erro ao carregar dados.</td></tr>';
+            }
+        } catch (err) {
+            console.error(err);
+            if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="color:red;">Erro de conexão.</td></tr>';
+        }
         
         if (!this._compostoListenersSet) {
             this.setupCompostoListeners();
             this._compostoListenersSet = true;
         }
+    }
+
+    sortTransporteComposto(key) {
+        if (!this.compostoSort) this.compostoSort = { key: null, dir: 'asc' };
+        
+        if (this.compostoSort.key === key) {
+            this.compostoSort.dir = this.compostoSort.dir === 'asc' ? 'desc' : 'asc';
+        } else {
+            this.compostoSort.key = key;
+            this.compostoSort.dir = 'asc';
+        }
+        this.renderTransporteComposto();
+    }
+
+    renderTransporteComposto() {
+        const tbody = document.getElementById('transporte-composto-body');
+        const tfootMeta = document.getElementById('total-composto-meta');
+        const tfootRealizado = document.getElementById('total-composto-realizado');
+        const tfootRestante = document.getElementById('total-composto-restante');
+        
+        if (!tbody) return;
+        
+        let list = this.transporteCompostoData || [];
+
+        // Filter
+        const search = document.getElementById('composto-search-os')?.value.toLowerCase();
+        const status = document.getElementById('composto-filter-status')?.value;
+        
+        if (search) list = list.filter(i => String(i.numero_os).toLowerCase().includes(search));
+        if (status) list = list.filter(i => i.status === status);
+
+        // Sort
+        if (this.compostoSort && this.compostoSort.key) {
+            const { key, dir } = this.compostoSort;
+            list.sort((a, b) => {
+                let va = a[key];
+                let vb = b[key];
+                
+                // Handle specific types/nulls
+                if (va == null) va = '';
+                if (vb == null) vb = '';
+                
+                // Numeric sort for specific fields
+                if (['quantidade', 'realizado', 'restante', 'numero_os'].includes(key)) {
+                    va = parseFloat(va) || 0;
+                    vb = parseFloat(vb) || 0;
+                } else {
+                    va = String(va).toLowerCase();
+                    vb = String(vb).toLowerCase();
+                }
+
+                if (va < vb) return dir === 'asc' ? -1 : 1;
+                if (va > vb) return dir === 'asc' ? 1 : -1;
+                return 0;
+            });
+        }
+
+        if (list.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;">Nenhum registro encontrado.</td></tr>';
+            if (tfootMeta) tfootMeta.textContent = '0.000';
+            if (tfootRealizado) tfootRealizado.textContent = '0.000';
+            if (tfootRestante) tfootRestante.textContent = '0.000';
+            return;
+        }
+
+        // Calculate Totals for visible rows
+        let totalMeta = 0;
+        let totalRealizado = 0;
+        let totalRestante = 0;
+
+        tbody.innerHTML = list.map(item => {
+            const meta = parseFloat(item.quantidade) || 0;
+            const realizado = parseFloat(item.realizado) || 0;
+            const restante = parseFloat(item.restante) || 0;
+            
+            totalMeta += meta;
+            totalRealizado += realizado;
+            totalRestante += restante;
+
+            // Color logic
+            let restColor = '#d35400';
+            if (restante < -0.01) restColor = 'red';
+            else if (Math.abs(restante) < 0.01 && meta > 0) restColor = 'green';
+
+            return `
+            <tr>
+                <td>${item.numero_os || '-'}</td>
+                <td>${this.ui.formatDateBR(item.data_abertura)}</td>
+                <td>${item.fazenda || '-'} / ${item.frente || '-'}</td>
+                <td>${item.produto || '-'}</td>
+                <td>${this.ui.formatNumber(meta, 3)}</td>
+                <td style="color: blue; font-weight: bold;">${this.ui.formatNumber(realizado, 3)}</td>
+                <td style="color: ${restColor}; font-weight: bold;">${this.ui.formatNumber(restante, 3)}</td>
+                <td><span class="badge ${item.status === 'ABERTO' ? 'badge-warning' : 'badge-success'}">${item.status}</span></td>
+                <td style="white-space: nowrap;">
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-sm btn-secondary btn-view-composto" data-id="${item.id}" title="Ver Detalhes">Detalhes</button>
+                        <button class="btn btn-sm btn-secondary btn-edit-composto" data-id="${item.id}" title="Editar">✏️</button>
+                        <button class="btn btn-sm btn-danger btn-delete-composto" data-id="${item.id}" title="Excluir">🗑️</button>
+                    </div>
+                </td>
+            </tr>
+        `}).join('');
+
+        // Update Footer
+        if (tfootMeta) tfootMeta.textContent = this.ui.formatNumber(totalMeta, 3);
+        if (tfootRealizado) tfootRealizado.textContent = this.ui.formatNumber(totalRealizado, 3);
+        if (tfootRestante) tfootRestante.textContent = this.ui.formatNumber(totalRestante, 3);
     }
 
     setupCompostoListeners() {
@@ -10457,79 +10653,7 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
         }
     }
 
-    async renderTransporteComposto() {
-        const tbody = document.getElementById('transporte-composto-body');
-        if (!tbody) return;
-        
-        tbody.innerHTML = '<tr><td colspan="8" class="loading">Carregando...</td></tr>';
-
-        try {
-            // Fetch data from Supabase (Main OS and Daily Items for calc)
-            const [res, resDaily] = await Promise.all([
-                this.api.getTransporteComposto(),
-                this.api.getAllTransporteDiario()
-            ]);
-
-            if (res && res.success && Array.isArray(res.data)) {
-                let list = res.data;
-                const dailyItems = (resDaily && resDaily.success) ? resDaily.data : [];
-                
-                // Calculate totals per OS
-                const totals = {};
-                dailyItems.forEach(d => {
-                    // Ensure we match types (os_id is usually uuid or int)
-                    const oid = d.os_id; 
-                    if (!totals[oid]) totals[oid] = 0;
-                    totals[oid] += (parseFloat(d.quantidade) || 0);
-                });
-
-                // Filter
-                const search = document.getElementById('composto-search-os')?.value.toLowerCase();
-                const status = document.getElementById('composto-filter-status')?.value;
-                
-                if (search) list = list.filter(i => String(i.numero_os).toLowerCase().includes(search));
-                if (status) list = list.filter(i => i.status === status);
-
-                if (list.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">Nenhum registro encontrado.</td></tr>';
-                    return;
-                }
-
-                tbody.innerHTML = list.map(item => {
-                    const meta = parseFloat(item.quantidade) || 0;
-                    const realizado = totals[item.id] || 0;
-                    const restante = meta - realizado;
-                    // Color logic: Red if negative (over limit), Green if exactly 0 (complete), Orange if positive (pending)
-                    let restColor = '#d35400';
-                    if (restante < -0.01) restColor = 'red';
-                    else if (Math.abs(restante) < 0.01 && meta > 0) restColor = 'green';
-
-                    return `
-                    <tr>
-                        <td>${item.numero_os || '-'}</td>
-                        <td>${this.ui.formatDateBR(item.data_abertura)}</td>
-                        <td>${item.fazenda || '-'} / ${item.frente || '-'}</td>
-                        <td>${item.produto || '-'}</td>
-                        <td>${this.ui.formatNumber(meta, 3)}</td>
-                        <td style="color: ${restColor}; font-weight: bold;">${this.ui.formatNumber(restante, 3)}</td>
-                        <td><span class="badge ${item.status === 'ABERTO' ? 'badge-warning' : 'badge-success'}">${item.status}</span></td>
-                        <td style="white-space: nowrap;">
-                            <div style="display: flex; gap: 8px;">
-                                <button class="btn btn-sm btn-secondary btn-view-composto" data-id="${item.id}" title="Ver Detalhes">Detalhes</button>
-                                <button class="btn btn-sm btn-secondary btn-edit-composto" data-id="${item.id}" title="Editar">✏️</button>
-                                <button class="btn btn-sm btn-danger btn-delete-composto" data-id="${item.id}" title="Excluir">🗑️</button>
-                            </div>
-                        </td>
-                    </tr>
-                `}).join('');
-            } else {
-                tbody.innerHTML = '<tr><td colspan="8" style="color:red;">Erro ao carregar dados.</td></tr>';
-            }
-        } catch (err) {
-            console.error(err);
-            tbody.innerHTML = '<tr><td colspan="8" style="color:red;">Erro de conexão.</td></tr>';
-        }
-    }
+    // renderTransporteComposto() movido para cima e refatorado.
     
     // Global helpers for onclick
     toggleCompostoFields(readOnly) {
@@ -14144,6 +14268,7 @@ InsumosApp.prototype.loadSystemSettings = async function() {
 };
 
 InsumosApp.prototype.setupVersionCheck = async function() {
+    console.log('Versão do Frontend: FIX-54-SORT-COMPOSTO');
     let lastKnownUpdate = null;
     
     const checkUpdate = async () => {
