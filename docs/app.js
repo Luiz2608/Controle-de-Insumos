@@ -538,7 +538,7 @@ class InsumosApp {
                         '- Não inclua comentários, texto explicativo nem campos extras, apenas o JSON.'
                     ].join('\n');
 
-                    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + geminiKey;
+                    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + geminiKey;
                     
                     const response = await fetch(url, {
                         method: 'POST',
@@ -3852,7 +3852,7 @@ forceReloadAllData() {
                 Se algum campo não for encontrado, use null.
             `;
 
-            const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + geminiKey;
+            const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + geminiKey;
             
             // Montar payload
             const parts = [{ text: prompt }];
