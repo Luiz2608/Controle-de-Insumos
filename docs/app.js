@@ -60,6 +60,7 @@ class InsumosApp {
     }
 
     initApiKeyConfig() {
+        console.log('Inicializando configuração de API Key...');
         const modal = document.getElementById('api-key-modal');
         const input = document.getElementById('gemini-api-key-input');
         const saveBtn = document.getElementById('save-api-key-btn');
@@ -69,15 +70,21 @@ class InsumosApp {
         // Carregar chave salva
         const savedKey = localStorage.getItem('GEMINI_API_KEY');
         if (savedKey) {
+            console.log('Chave API encontrada no LocalStorage.');
             window.API_CONFIG.geminiKey = savedKey;
+        } else {
+            console.log('Nenhuma chave API encontrada. Usuário precisará configurar.');
         }
 
         // Abrir modal se clicar no botão de configuração
         if (configBtn) {
             configBtn.addEventListener('click', () => {
+                console.log('Botão de configurar API Key clicado.');
                 if (modal) modal.style.display = 'flex';
                 if (input) input.value = window.API_CONFIG.geminiKey || '';
             });
+        } else {
+            console.warn('Botão #config-api-key-btn não encontrado no DOM.');
         }
 
         // Salvar chave
@@ -87,6 +94,7 @@ class InsumosApp {
                 if (key) {
                     localStorage.setItem('GEMINI_API_KEY', key);
                     window.API_CONFIG.geminiKey = key;
+                    console.log('Nova chave API salva.');
                     if (this.ui) this.ui.showNotification('Chave API salva com sucesso!', 'success');
                     if (modal) modal.style.display = 'none';
                 } else {
@@ -99,6 +107,15 @@ class InsumosApp {
         if (cancelBtn) {
             cancelBtn.addEventListener('click', () => {
                 if (modal) modal.style.display = 'none';
+            });
+        }
+        
+        // Fechar se clicar fora
+        if (modal) {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.style.display = 'none';
+                }
             });
         }
     }
