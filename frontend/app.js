@@ -8465,14 +8465,14 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
             } else {
                 // Standard Adubo View - Sync with index.html onclicks
                 theadTr.innerHTML = `
-                    <th onclick="app.sortViagensAdubo('data')" style="cursor: pointer;">Data ↕</th>
-                    <th onclick="app.sortViagensAdubo('frente')" style="cursor: pointer;">Frente ↕</th>
-                    <th onclick="app.sortViagensAdubo('fazenda')" style="cursor: pointer;">Fazenda ↕</th>
-                    <th onclick="app.sortViagensAdubo('produto')" style="cursor: pointer;">Produto ↕</th>
-                    <th onclick="app.sortViagensAdubo('quantidadeTotal')" style="cursor: pointer;">Quantidade ↕</th>
-                    <th onclick="app.sortViagensAdubo('unidade')" style="cursor: pointer;">Unidade ↕</th>
-                    <th onclick="app.sortViagensAdubo('motorista')" style="cursor: pointer;">Motorista ↕</th>
-                    <th onclick="app.sortViagensAdubo('caminhao')" style="cursor: pointer;">Caminhão ↕</th>
+                    <th onclick="app.sortViagensAdubo('data')" style="cursor: pointer;">Data</th>
+                    <th onclick="app.sortViagensAdubo('frente')" style="cursor: pointer;">Frente</th>
+                    <th onclick="app.sortViagensAdubo('fazenda')" style="cursor: pointer;">Fazenda</th>
+                    <th onclick="app.sortViagensAdubo('produto')" style="cursor: pointer;">Produto</th>
+                    <th onclick="app.sortViagensAdubo('quantidadeTotal')" style="cursor: pointer;">Quantidade</th>
+                    <th onclick="app.sortViagensAdubo('unidade')" style="cursor: pointer;">Unidade</th>
+                    <th onclick="app.sortViagensAdubo('motorista')" style="cursor: pointer;">Motorista</th>
+                    <th onclick="app.sortViagensAdubo('caminhao')" style="cursor: pointer;">Caminhão</th>
                     <th>Ações</th>
                 `;
             }
@@ -14272,7 +14272,7 @@ InsumosApp.prototype.loadSystemSettings = async function() {
 };
 
 InsumosApp.prototype.setupVersionCheck = async function() {
-    console.log('Versão do Frontend: FIX-55-APP-GLOBAL-THEME');
+    console.log('Versão do Frontend: FIX-56-REMOVE-ARROWS');
     let lastKnownUpdate = null;
     
     const checkUpdate = async () => {
