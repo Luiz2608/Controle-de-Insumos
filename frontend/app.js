@@ -3915,20 +3915,62 @@ forceReloadAllData() {
                 }]
             };
 
-            // 6. Chamada Fetch
+            // 6. Chamada Fetch (Com Fallback e Retry)
             console.log('Enviando para Gemini...');
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
+            
+            // Função auxiliar para tentar uma chamada
+            const tryGemini = async (model, retryCount = 0) => {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`;
+                console.log(`Tentando modelo: ${model} (Tentativa ${retryCount + 1})`);
+                
+                try {
+                    const res = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
 
-            if (!response.ok) {
-                const errText = await response.text();
-                throw new Error(`Erro API Gemini (${response.status}): ${errText}`);
+                    if (res.status === 429) {
+                        console.warn(`Erro 429 (Cota excedida) no modelo ${model}.`);
+                        return { ok: false, status: 429, error: await res.text() };
+                    }
+                    
+                    if (!res.ok) {
+                        const txt = await res.text();
+                        return { ok: false, status: res.status, error: txt };
+                    }
+
+                    return { ok: true, data: await res.json() };
+                } catch (e) {
+                    return { ok: false, status: 0, error: e.message };
+                }
+            };
+
+            // Estratégia: Tenta 2.0-flash -> Se 429, espera e tenta 1.5-flash -> Se falhar, avisa.
+            let result = await tryGemini('gemini-2.0-flash');
+
+            if (!result.ok && result.status === 429) {
+                // Feedback visual de espera
+                loadingOverlay.innerHTML = `
+                    <div style="font-size:40px;">⏳</div>
+                    <div style="font-size:24px;font-weight:bold;margin-bottom:10px;">Muitos acessos...</div>
+                    <div style="font-size:16px;opacity:0.8;">Trocando servidor de IA. Aguarde...</div>
+                `;
+                
+                console.warn('Fallback para gemini-1.5-flash após 2s...');
+                await new Promise(r => setTimeout(r, 2000));
+                
+                result = await tryGemini('gemini-1.5-flash');
             }
 
-            const data = await response.json();
+            if (!result.ok) {
+                if (result.status === 429) {
+                     throw new Error('Limite de uso da IA atingido (Cota Gratuita). Aguarde 1 minuto e tente novamente.');
+                }
+                throw new Error(`Erro na API (${result.status}): ${result.error}`);
+            }
+
+            const data = result.data;
             console.log('Resposta Gemini recebida:', data);
 
             // 7. Extração JSON
@@ -3957,9 +3999,23 @@ forceReloadAllData() {
 
         } catch (error) {
             console.error('ERRO FATAL:', error);
-            alert('Erro ao processar: ' + error.message);
-            loadingOverlay.innerHTML = '<div style="font-size:40px;">❌</div><div style="font-size:24px;">Erro</div><div style="font-size:16px;">' + error.message + '</div>';
-            setTimeout(() => loadingOverlay.remove(), 4000);
+            // Mensagem amigável se for erro de cota
+            let userMsg = error.message || 'Erro desconhecido';
+            
+            if (userMsg.includes('Limite de uso') || userMsg.includes('429')) {
+                 userMsg = 'Limite de uso da IA atingido. Aguarde 1 minuto e tente novamente.';
+            }
+
+            alert('Atenção: ' + userMsg);
+            
+            if (loadingOverlay) {
+                loadingOverlay.innerHTML = `
+                    <div style="font-size:40px;">⚠️</div>
+                    <div style="font-size:24px;font-weight:bold;margin-bottom:10px;">Atenção</div>
+                    <div style="font-size:16px;padding:0 20px;">${userMsg}</div>
+                `;
+                setTimeout(() => loadingOverlay.remove(), 5000);
+            }
         }
     }
 
