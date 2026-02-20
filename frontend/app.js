@@ -3856,6 +3856,8 @@ forceReloadAllData() {
                             const base64 = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
                             console.log('Conversão para Base64 concluída. Tamanho:', base64.length);
                             inlineData = { mime_type: 'image/jpeg', data: base64 };
+                            // IMPORTANTE: Garantir que content seja vazio para não conflitar
+                            content = ''; 
                         } catch (renderErr) {
                             console.error('Erro crítico na renderização do PDF:', renderErr);
                             this.ui.showNotification('Falha ao renderizar PDF escaneado. Tente uma imagem direta.', 'error');
@@ -3942,6 +3944,10 @@ forceReloadAllData() {
             parts.push({ text: prompt });
             
             // 2. Adicionar o conteúdo (texto extraído ou imagem) como segunda parte
+            console.log('Preparando payload Gemini...');
+            console.log('Content (Texto):', content ? content.length : 'Vazio');
+            console.log('InlineData (Imagem):', inlineData ? 'Presente' : 'Ausente');
+
             if (content && content.length > 0) {
                 // Modo Texto (Preferencial para PDF extraído)
                 parts.push({ text: content });
@@ -3967,9 +3973,12 @@ forceReloadAllData() {
                 });
                 console.log('Enviando payload como IMAGEM. Tipo:', inlineData.mime_type, 'Tamanho:', cleanBase64.length);
             } else {
+                console.error('ERRO CRÍTICO: Nenhum conteúdo extraído para enviar.');
+                this.ui.showNotification('Erro: Nenhum conteúdo legível encontrado.', 'error');
                 throw new Error('Nenhum conteúdo (texto ou imagem) extraído para envio.');
             }
-
+            
+            console.log('Iniciando chamada fetch para Gemini API...');
             // Estrutura de payload para Gemini 2.0 (Simples e Direta)
             // A API v1beta aceita "contents" como lista de objetos com "parts"
             // Não é obrigatório "role" para o primeiro turno, mas a estrutura deve ser limpa.
