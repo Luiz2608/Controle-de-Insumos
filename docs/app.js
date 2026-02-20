@@ -3849,8 +3849,9 @@ forceReloadAllData() {
                 Se algum campo não for encontrado, use null.
             `;
 
-            // Usar gemini-2.0-flash (versão mais recente e robusta)
-            const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + geminiKey;
+            // Usar gemini-1.5-flash (versão rápida e estável, pedida pelo usuário)
+            // Voltando para 1.5 pois o 2.0 pode estar instável ou requerendo formato diferente
+            const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + geminiKey;
             
             // Montar payload com verificação rigorosa
             const parts = [];
@@ -3887,11 +3888,10 @@ forceReloadAllData() {
                 throw new Error('Nenhum conteúdo (texto ou imagem) extraído para envio.');
             }
 
-            // O Gemini espera que "parts" seja um array de objetos dentro de "contents"
-            // Exemplo correto: contents: [{ role: "user", parts: [{ text: "..." }, { inline_data: ... }] }]
+            // Simplificação do payload: Remover 'role' e 'system_instruction' se houver
+            // Apenas contents com parts
             const requestBody = {
                 contents: [{ 
-                    role: "user",
                     parts: parts 
                 }],
                 generationConfig: {
@@ -3902,7 +3902,6 @@ forceReloadAllData() {
             console.log('Gemini Request Body (Structure):', JSON.stringify({
                 ...requestBody,
                 contents: [{ 
-                    role: "user",
                     parts: parts.map(p => p.text ? { text: p.text.substring(0, 50) + '...' } : { inline_data: 'BASE64_DATA' }) 
                 }]
             }));
@@ -3977,7 +3976,19 @@ forceReloadAllData() {
                     if (response.status === 503) {
                         this.ui.showNotification('Serviço de IA indisponível (sobrecarga). Tente novamente em 1 minuto.', 'error', 6000);
                     } else {
-                        this.ui.showNotification(`Erro na IA (${response.status}). Verifique sua chave ou tente novamente.`, 'error');
+                        // Tentar ler o corpo do erro para dar mais detalhes
+                        try {
+                            const errorBody = await response.json();
+                            console.error('Detalhes do Erro Gemini:', JSON.stringify(errorBody, null, 2));
+                            if (errorBody.error && errorBody.error.message) {
+                                this.ui.showNotification(`Erro na IA: ${errorBody.error.message}`, 'error', 5000);
+                            } else {
+                                this.ui.showNotification(`Erro na IA (${response.status}). Verifique console.`, 'error');
+                            }
+                        } catch (e) {
+                            console.error('Erro ao ler corpo da resposta de erro:', e);
+                            this.ui.showNotification(`Erro na IA (${response.status}).`, 'error');
+                        }
                     }
                 } else {
                     this.ui.showNotification('Falha de conexão com a IA.', 'error');
