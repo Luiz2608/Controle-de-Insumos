@@ -3824,6 +3824,146 @@ forceReloadAllData() {
     }
 
     async handleOSFile(file) {
+        console.log('Iniciando processamento do arquivo (NOVO FLUXO):', file.name, file.type);
+        if (!file) return;
+
+        // 1. UI Feedback IMEDIATO (Loading Overlay Simples e Infalível)
+        // Remove anterior se existir
+        const existingOverlay = document.getElementById('simple-loading-overlay');
+        if (existingOverlay) existingOverlay.remove();
+
+        const loadingOverlay = document.createElement('div');
+        loadingOverlay.id = 'simple-loading-overlay';
+        loadingOverlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);color:white;display:flex;flex-direction:column;justify-content:center;align-items:center;z-index:99999;font-family:sans-serif;text-align:center;';
+        loadingOverlay.innerHTML = `
+            <div style="font-size:40px;margin-bottom:20px;">🤖</div>
+            <div style="font-size:24px;font-weight:bold;margin-bottom:10px;">Processando com IA...</div>
+            <div style="font-size:16px;opacity:0.8;">Isso pode levar alguns segundos.</div>
+        `;
+        document.body.appendChild(loadingOverlay);
+
+        try {
+            // 2. Leitura do Arquivo (FileReader - API Nativa)
+            const base64Data = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const result = reader.result;
+                    // Remove prefixo data:*/*;base64,
+                    const base64 = result.split(',')[1]; 
+                    resolve(base64);
+                };
+                reader.onerror = (err) => reject(new Error('Falha ao ler arquivo: ' + err.message));
+                reader.readAsDataURL(file);
+            });
+
+            console.log('Arquivo lido. Tamanho Base64:', base64Data.length);
+
+            // 3. Determinar MimeType
+            let mimeType = file.type;
+            if (!mimeType) {
+                if (file.name.toLowerCase().endsWith('.pdf')) mimeType = 'application/pdf';
+                else if (file.name.toLowerCase().endsWith('.jpg') || file.name.toLowerCase().endsWith('.jpeg')) mimeType = 'image/jpeg';
+                else if (file.name.toLowerCase().endsWith('.png')) mimeType = 'image/png';
+                else mimeType = 'application/pdf'; // Default fallback
+            }
+            console.log('MimeType definido:', mimeType);
+
+            // 4. Obter API Key
+            let geminiKey = window.API_CONFIG ? window.API_CONFIG.geminiKey : null;
+            if (!geminiKey) geminiKey = localStorage.getItem('GEMINI_API_KEY');
+
+            if (!geminiKey || geminiKey.length < 20) {
+                alert('Chave API Gemini não encontrada! Configure no menu de configurações.');
+                throw new Error('Chave API ausente.');
+            }
+
+            // 5. Payload Gemini
+            const payload = {
+                contents: [{
+                    parts: [
+                        { text: `
+                            EXTRAÇÃO DE DADOS DE OS AGRÍCOLA
+                            Analise o documento (PDF/Imagem) e retorne APENAS um JSON válido.
+                            
+                            Campos obrigatórios:
+                            - numero (string)
+                            - status (string)
+                            - abertura (YYYY-MM-DD)
+                            - inicioPrev (YYYY-MM-DD)
+                            - finalPrev (YYYY-MM-DD)
+                            - respAplicacao (string)
+                            - empresa (string)
+                            - frente (string)
+                            - processo (string)
+                            - subprocesso (string)
+                            - fazenda (string - formato 'CÓDIGO - NOME' se possível)
+                            - setor (string)
+                            - areaTotal (number)
+                            - talhoes (array de objetos: talhao, area, proprietario, fundo)
+                            - produtos (array de objetos: produto, doseRec, unidade, qtdTotal)
+                            
+                            Retorne NULL para campos não encontrados.
+                            NÃO USE MARKDOWN. RETORNE APENAS O JSON PURO.
+                        `},
+                        {
+                            inline_data: {
+                                mime_type: mimeType,
+                                data: base64Data
+                            }
+                        }
+                    ]
+                }]
+            };
+
+            // 6. Chamada Fetch
+            console.log('Enviando para Gemini...');
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const errText = await response.text();
+                throw new Error(`Erro API Gemini (${response.status}): ${errText}`);
+            }
+
+            const data = await response.json();
+            console.log('Resposta Gemini recebida:', data);
+
+            // 7. Extração JSON
+            if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
+                let text = data.candidates[0].content.parts[0].text;
+                // Limpeza agressiva
+                text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+                
+                const firstBrace = text.indexOf('{');
+                const lastBrace = text.lastIndexOf('}');
+                
+                if (firstBrace >= 0 && lastBrace >= 0) {
+                    const jsonStr = text.substring(firstBrace, lastBrace + 1);
+                    const json = JSON.parse(jsonStr);
+                    this.fillOSForm(json);
+                    
+                    // Sucesso visual
+                    loadingOverlay.innerHTML = '<div style="font-size:40px;">✅</div><div style="font-size:24px;">Sucesso!</div>';
+                    setTimeout(() => loadingOverlay.remove(), 1500);
+                } else {
+                    throw new Error('JSON não encontrado na resposta da IA.');
+                }
+            } else {
+                throw new Error('Resposta da IA vazia.');
+            }
+
+        } catch (error) {
+            console.error('ERRO FATAL:', error);
+            alert('Erro ao processar: ' + error.message);
+            loadingOverlay.innerHTML = '<div style="font-size:40px;">❌</div><div style="font-size:24px;">Erro</div><div style="font-size:16px;">' + error.message + '</div>';
+            setTimeout(() => loadingOverlay.remove(), 4000);
+        }
+    }
+
+    async handleOSFileOld(file) {
         console.log('Iniciando processamento do arquivo:', file.name, file.type);
         if (!file) return;
 
