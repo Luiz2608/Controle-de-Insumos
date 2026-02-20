@@ -3739,31 +3739,52 @@ forceReloadAllData() {
             console.log('Tipo do arquivo:', file.type);
 
             if (file.type === 'application/pdf') {
-                // NOVA LÓGICA: Ler PDF diretamente como Base64 e enviar para Gemini
-                // Isso evita problemas de conversão local e usa o parser nativo da IA
+                // FALLBACK: Extrair texto localmente para evitar erro 400 de payload
+                if (!window.pdfjsLib) {
+                     this.ui.showNotification('Leitor de PDF não carregado', 'error');
+                     return;
+                }
+                
                 try {
-                    const base64 = await new Promise((resolve, reject) => {
-                        const reader = new FileReader();
-                        reader.onload = () => {
-                            const result = reader.result;
-                            // O resultado vem como "data:application/pdf;base64,....."
-                            // Precisamos apenas da parte após a vírgula
-                            if (typeof result === 'string') {
-                                const parts = result.split(',');
-                                resolve(parts.length > 1 ? parts[1] : result);
-                            } else {
-                                reject(new Error('Falha ao ler arquivo como Base64'));
-                            }
-                        };
-                        reader.onerror = (err) => reject(err);
-                        reader.readAsDataURL(file);
-                    });
+                    const buffer = await file.arrayBuffer();
+                    const loadingTask = window.pdfjsLib.getDocument({ data: buffer });
+                    const pdf = await loadingTask.promise;
+                    
+                    let fullText = '';
+                    for (let pageNum = 1; pageNum <= Math.min(pdf.numPages, 5); pageNum++) {
+                        const page = await pdf.getPage(pageNum);
+                        const textContent = await page.getTextContent();
+                        const strings = textContent.items.map(item => item.str);
+                        fullText += strings.join(' ') + '\n';
+                    }
 
-                    inlineData = { mime_type: 'application/pdf', data: base64 };
-                    this.ui.showNotification('PDF lido. Enviando para análise...', 'info', 2000);
-                } catch (readErr) {
-                    console.error('Erro ao ler arquivo PDF:', readErr);
-                    this.ui.showNotification('Erro ao ler o arquivo PDF.', 'error');
+                    console.log('Texto extraído (chars):', fullText.length);
+
+                    // Se tiver texto suficiente, enviar como TEXTO (mais seguro contra erro 400)
+                    if (fullText.replace(/\s/g, '').length > 50) {
+                        content = fullText;
+                        this.ui.showNotification('Texto extraído do PDF. Enviando...', 'info', 2000);
+                    } else {
+                        // Se for imagem escaneada, converter para imagem compactada
+                        console.warn('PDF escaneado detectado. Convertendo para imagem compactada...');
+                        this.ui.showNotification('PDF escaneado. Convertendo...', 'info', 2000);
+
+                        const page = await pdf.getPage(1);
+                        const viewport = page.getViewport({ scale: 1.5 }); // Escala menor para reduzir tamanho
+                        const canvas = document.createElement('canvas');
+                        const context = canvas.getContext('2d');
+                        canvas.height = viewport.height;
+                        canvas.width = viewport.width;
+
+                        await page.render({ canvasContext: context, viewport: viewport }).promise;
+                        
+                        // JPEG quality 0.7 para reduzir payload
+                        const base64 = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
+                        inlineData = { mime_type: 'image/jpeg', data: base64 };
+                    }
+                } catch (pdfErr) {
+                    console.error('Erro no processamento do PDF:', pdfErr);
+                    this.ui.showNotification('Erro ao processar PDF.', 'error');
                     return;
                 }
 
