@@ -3827,11 +3827,15 @@ forceReloadAllData() {
                 Se algum campo não for encontrado, use null.
             `;
 
-            const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + geminiKey;
+            const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=' + geminiKey;
             
             // Montar payload
             const parts = [{ text: prompt }];
             if (inlineData) {
+                // Ensure base64 data is clean (no newlines)
+                if (inlineData.data) {
+                    inlineData.data = inlineData.data.replace(/[\r\n]+/g, '');
+                }
                 parts.push({ inline_data: inlineData });
             } else {
                 parts.push({ text: content });
