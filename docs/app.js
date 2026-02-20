@@ -3855,6 +3855,9 @@ forceReloadAllData() {
                     content = ''; // Garantir que não envie texto duplicado
                     
                     this.ui.showNotification('PDF pronto para envio.', 'info', 2000);
+                    
+                    // FORÇAR SAÍDA DO BLOCO TRY-CATCH DO PDF PARA CONTINUAR O FLUXO
+                    // Se não houver erro, o código deve continuar naturalmente após o if/else if/else
 
                 } catch (pdfErr) {
                     console.error('Erro no processamento do PDF:', pdfErr);
@@ -3938,15 +3941,14 @@ forceReloadAllData() {
             // 2. Adicionar o conteúdo (texto extraído ou imagem) como segunda parte
             console.log('Preparando payload Gemini...');
             console.log('Content (Texto):', content ? content.length : 'Vazio');
-            console.log('InlineData (Imagem):', inlineData ? 'Presente' : 'Ausente');
+            console.log('InlineData (Imagem/PDF):', inlineData ? (inlineData.mime_type + ' - Tamanho: ' + (inlineData.data ? inlineData.data.length : 0)) : 'Ausente');
 
             if (content && content.length > 0) {
                 // Modo Texto (Preferencial para PDF extraído)
                 parts.push({ text: content });
                 console.log('Enviando payload como TEXTO. Tamanho:', content.length);
             } else if (inlineData && inlineData.data) {
-                // Modo Imagem (Fallback para escaneados)
-                // Limpeza extra do base64
+                // Modo Imagem/PDF (Base64)
                 let cleanBase64 = inlineData.data.replace(/[\r\n\s]+/g, '');
                 
                 // Verificar se é válido (básico)
@@ -3963,7 +3965,7 @@ forceReloadAllData() {
                         data: cleanBase64
                     } 
                 });
-                console.log('Enviando payload como IMAGEM. Tipo:', inlineData.mime_type, 'Tamanho:', cleanBase64.length);
+                console.log('Enviando payload como IMAGEM/PDF. Tipo:', inlineData.mime_type, 'Tamanho:', cleanBase64.length);
             } else {
                 console.error('ERRO CRÍTICO: Nenhum conteúdo extraído para enviar.');
                 this.ui.showNotification('Erro: Nenhum conteúdo legível encontrado.', 'error');
@@ -3971,22 +3973,18 @@ forceReloadAllData() {
             }
             
             console.log('Iniciando chamada fetch para Gemini API...');
-            // Estrutura de payload para Gemini 2.0 (Simples e Direta)
-            // A API v1beta aceita "contents" como lista de objetos com "parts"
-            // Não é obrigatório "role" para o primeiro turno, mas a estrutura deve ser limpa.
+            
             const requestBody = {
                 contents: [{ 
                     parts: parts 
-                }],
-                generationConfig: {
-                    response_mime_type: 'application/json'
-                }
+                }]
             };
             
-            console.log('Gemini Request Body (Structure):', JSON.stringify({
-                ...requestBody,
+            console.log('URL da Requisição:', url);
+            // ATENÇÃO: Não logar o body inteiro se for muito grande, mas a estrutura sim
+            console.log('Gemini Request Body (Simplified):', JSON.stringify({
                 contents: [{ 
-                    parts: parts.map(p => p.text ? { text: p.text.substring(0, 50) + '...' } : { inline_data: 'BASE64_DATA' }) 
+                    parts: parts.map(p => p.text ? { text: p.text.substring(0, 50) + '...' } : { inline_data: 'BASE64_DATA (' + (p.inline_data.data ? p.inline_data.data.length : 0) + ' chars)' }) 
                 }]
             }));
 
@@ -3994,11 +3992,14 @@ forceReloadAllData() {
             const maxRetries = 3;
             for (let i = 0; i < maxRetries; i++) {
                 try {
+                    console.log(`Tentativa ${i+1}/${maxRetries}...`);
                     response = await fetch(url, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(requestBody)
                     });
+                    
+                    console.log(`Resposta da Tentativa ${i+1}: Status ${response.status} ${response.statusText}`);
 
                     if (response.ok) break; // Sucesso, sai do loop
                     
