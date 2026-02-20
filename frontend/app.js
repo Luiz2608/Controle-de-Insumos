@@ -3801,72 +3801,29 @@ forceReloadAllData() {
             console.log('Tipo do arquivo:', file.type);
 
             if (file.type === 'application/pdf') {
-                // FALLBACK: Extrair texto localmente para evitar erro 400 de payload
-                if (!window.pdfjsLib) {
-                     this.ui.showNotification('Leitor de PDF não carregado', 'error');
-                     return;
-                }
-                
                 try {
-                    const buffer = await file.arrayBuffer();
-                    const loadingTask = window.pdfjsLib.getDocument({ data: buffer });
-                    const pdf = await loadingTask.promise;
+                    console.log('Arquivo PDF detectado. Preparando envio direto...');
                     
-                    let fullText = '';
-                    for (let pageNum = 1; pageNum <= Math.min(pdf.numPages, 5); pageNum++) {
-                        const page = await pdf.getPage(pageNum);
-                        const textContent = await page.getTextContent();
-                        const strings = textContent.items.map(item => item.str);
-                        fullText += strings.join(' ') + '\n';
-                    }
+                    // Converter PDF diretamente para Base64 sem renderizar
+                    const base64 = await new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve(reader.result.split(',')[1]); // Remove o prefixo data:application/pdf;base64,
+                        reader.onerror = reject;
+                        reader.readAsDataURL(file);
+                    });
 
-                    console.log('Texto extraído (chars):', fullText.length);
+                    console.log('PDF convertido para Base64. Tamanho:', base64.length);
+                    
+                    // Configurar inlineData como application/pdf
+                    // Gemini 1.5 e 2.0 suportam application/pdf nativamente
+                    inlineData = { mime_type: 'application/pdf', data: base64 };
+                    content = ''; // Garantir que não envie texto duplicado
+                    
+                    this.ui.showNotification('PDF pronto para envio.', 'info', 2000);
 
-                    // Se tiver texto suficiente, enviar como TEXTO (mais seguro contra erro 400)
-                    if (fullText.replace(/\s/g, '').length > 50) {
-                        content = fullText;
-                        this.ui.showNotification('Texto extraído do PDF. Enviando...', 'info', 2000);
-                    } else {
-                        // Se for imagem escaneada, converter para imagem compactada
-                        console.warn('PDF escaneado detectado. Convertendo para imagem compactada...');
-                        this.ui.showNotification('PDF escaneado. Convertendo...', 'info', 2000);
-
-                        try {
-                            const page = await pdf.getPage(1);
-                            console.log('Página 1 carregada. Viewport...', page);
-                            const viewport = page.getViewport({ scale: 1.5 }); // Escala menor para reduzir tamanho
-                            const canvas = document.createElement('canvas');
-                            const context = canvas.getContext('2d');
-                            canvas.height = viewport.height;
-                            canvas.width = viewport.width;
-
-                            console.log('Renderizando página no canvas...');
-                            
-                            // Timeout de segurança para renderização (5 segundos)
-                            const renderTask = page.render({ canvasContext: context, viewport: viewport });
-                            
-                            await Promise.race([
-                                renderTask.promise,
-                                new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout na renderização do PDF')), 5000))
-                            ]);
-                            
-                            console.log('Renderização concluída. Convertendo para JPEG...');
-                            
-                            // JPEG quality 0.7 para reduzir payload
-                            const base64 = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
-                            console.log('Conversão para Base64 concluída. Tamanho:', base64.length);
-                            inlineData = { mime_type: 'image/jpeg', data: base64 };
-                            // IMPORTANTE: Garantir que content seja vazio para não conflitar
-                            content = ''; 
-                        } catch (renderErr) {
-                            console.error('Erro crítico na renderização do PDF:', renderErr);
-                            this.ui.showNotification('Falha ao renderizar PDF escaneado. Tente uma imagem direta.', 'error');
-                            return; // Interrompe para não travar
-                        }
-                    }
                 } catch (pdfErr) {
                     console.error('Erro no processamento do PDF:', pdfErr);
-                    this.ui.showNotification('Erro ao processar PDF.', 'error');
+                    this.ui.showNotification('Erro ao ler arquivo PDF.', 'error');
                     return;
                 }
 
