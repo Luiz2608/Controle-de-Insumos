@@ -5577,6 +5577,7 @@ forceReloadAllData() {
                     if (res && res.success) {
                         this.ui.showNotification('Viagem excluída', 'success', 1500);
                         await this.loadViagensAdubo();
+                        await this.loadTransporteComposto();
                     } else {
                         this.ui.showNotification('Erro ao excluir viagem', 'error');
                     }
@@ -8158,9 +8159,6 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
     }
 
     async saveViagemAdubo(isModal = false) {
-        // console.warn('!!! saveViagemAdubo CALLED !!!', { isModal });
-        alert('DEBUG: Entrou no saveViagemAdubo. isModal: ' + isModal);
-        
         // UI Feedback for Modal Button
         let btnSaveModal = null;
         let originalText = '';
@@ -8180,14 +8178,21 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
                 return el ? el.value : '';
             };
 
+            const transportType = this.viagemAduboTransportType || 'adubo';
+
             const data = getVal('viagem-data');
             const fazenda = getVal('viagem-fazenda');
-            const produto = getVal('viagem-produto');
+            let produto = getVal('viagem-produto');
+            let unidade = getVal('viagem-unidade');
+            
+            if (transportType === 'composto') {
+                produto = 'COMPOSTO';
+                unidade = 't';
+            }
+
             const qtdStr = getVal('viagem-quantidade-total');
             const quantidadeTotalNum = parseFloat((qtdStr || '').toString().replace(',', '.'));
             
-            alert(`DEBUG VALORES:\nData: ${data}\nFazenda: ${fazenda}\nProduto: ${produto}\nQtd: ${qtdStr} -> ${quantidadeTotalNum}`);
-
             // Reset errors
             ['viagem-data', 'viagem-fazenda', 'viagem-produto', 'viagem-quantidade-total'].forEach(id => {
                 const el = document.getElementById(prefix + id);
@@ -8201,16 +8206,14 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
                 if (!produto) { missing.push('Produto'); document.getElementById(prefix + 'viagem-produto')?.classList.add('input-error'); }
                 if (isNaN(quantidadeTotalNum)) { missing.push('Quantidade'); document.getElementById(prefix + 'viagem-quantidade-total')?.classList.add('input-error'); }
                 
-                alert('DEBUG: Falta campos: ' + missing.join(', '));
-                console.warn('Campos obrigatórios ausentes:', missing);
                 if (this.ui && this.ui.showNotification) {
                     this.ui.showNotification(`Preencha os campos obrigatórios: ${missing.join(', ')}`, 'warning');
                 }
-                return; // Will go to finally
+                return;
             }
      
             const payload = {
-                transportType: 'adubo',
+                transportType: transportType,
                 data: data,
                 numeroOS: getVal('viagem-adubo-os'),
                 frente: getVal('viagem-frente'),
@@ -8219,7 +8222,7 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
                 destino: getVal('viagem-destino'),
                 produto: produto,
                 quantidadeTotal: quantidadeTotalNum,
-                unidade: getVal('viagem-unidade'),
+                unidade: unidade,
                 caminhao: getVal('viagem-caminhao'),
                 carreta1: getVal('viagem-carreta1'),
                 carreta2: getVal('viagem-carreta2'),
@@ -8227,8 +8230,13 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
                 documentoMotorista: getVal('viagem-documento-motorista'),
                 transportadora: getVal('viagem-transportadora'),
                 observacoes: getVal('viagem-observacoes'),
-                bags: this.viagensAduboBagsDraft
+                bags: (transportType === 'adubo' && Array.isArray(this.viagensAduboBagsDraft)) ? this.viagensAduboBagsDraft.slice() : [],
+                dataAberturaOS: getVal('viagem-abertura-os'),
+                dataFechamentoOS: getVal('viagem-fechamento-os'),
+                totalPrevisto: getVal('viagem-previsto') ? parseFloat(getVal('viagem-previsto')) : null,
+                totalRealizado: getVal('viagem-realizado') ? parseFloat(getVal('viagem-realizado')) : null
             };
+
             if (this.customProdutoInfo && this.customProdutoInfo.nome) {
                 if (!payload.observacoes || !payload.observacoes.toLowerCase().includes('justificativa:')) {
                     if (this.ui) this.ui.showNotification('Informe justificativa para produto “Outro”.', 'warning');
@@ -8257,22 +8265,13 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
                         
                         if (newTotal > predicted) {
                             const msg = `ATENÇÃO: A quantidade total acumulada (${this.ui.formatNumber(newTotal, 3)}) excederá o valor previsto na OS (${this.ui.formatNumber(predicted, 3)}).\n\nPrevisto: ${this.ui.formatNumber(predicted, 3)}\nAcumulado Anterior: ${this.ui.formatNumber(existingTotal, 3)}\nNovo Lançamento: ${this.ui.formatNumber(payload.quantidadeTotal, 3)}\n\nDeseja continuar?`;
-                            if (!confirm(msg)) {
-                                if (btnSaveModal) {
-                                   btnSaveModal.innerText = originalText;
-                                   btnSaveModal.disabled = false;
-                                }
-                                return;
-                            }
+                            if (!confirm(msg)) return;
                         }
                     }
                 }
             }
             // --------------------------------------------------------
             
-            console.log('Transport Type:', payload.transportType);
-            console.log('Raw Data:', { data, produto, transportType: payload.transportType, quantidadeTotal: quantidadeTotalNum, fazenda });
-
             let res;
             if (this.currentViagemAduboId) {
                 res = await this.api.updateViagemAdubo(this.currentViagemAduboId, payload);
@@ -8298,11 +8297,13 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
 
                 const modal = document.getElementById('modal-viagem-adubo');
                 if (modal) modal.style.display = 'none';
-                this.loadViagensAdubo();
+                await this.loadViagensAdubo();
+                await this.loadTransporteComposto(); // Sync Parent OS List
                 
                 // Clear main form if saved from main form
                 if (!isModal) {
-                    // Logic to clear main form fields could go here if needed
+                    const ids = ['viagem-data','viagem-frente','viagem-fazenda','viagem-origem','viagem-destino','viagem-produto','viagem-quantidade-total','viagem-unidade','viagem-caminhao','viagem-carreta1','viagem-carreta2','viagem-motorista','viagem-documento-motorista','viagem-transportadora','viagem-observacoes','viagem-os','viagem-abertura-os','viagem-fechamento-os','viagem-previsto','viagem-realizado'];
+                    ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
                 }
             } else {
                 throw new Error(res.message);
@@ -8324,7 +8325,8 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
             const res = await this.api.deleteViagemAdubo(id);
             if (res.success) {
                 if (this.ui) this.ui.showNotification('Viagem excluída com sucesso!', 'success');
-                this.loadViagensAdubo();
+                await this.loadViagensAdubo();
+                await this.loadTransporteComposto();
             } else {
                 throw new Error(res.message);
             }
@@ -13754,6 +13756,7 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
 
     const payload = {
         data, responsavel, observacoes,
+        hora: horaRegistro,
         // tipo_operacao e colheita_hectares removidos do root para evitar erro de coluna inexistente
         // Eles já estão salvos dentro do objeto 'qualidade' (ver acima)
         frentes: [frente],
@@ -13945,112 +13948,7 @@ window.addEventListener('online', async () => {
         };
     } catch(e) { /* ignore */ }
 });
-InsumosApp.prototype.saveViagemAdubo = async function() {
-    const transportType = this.viagemAduboTransportType || 'adubo';
 
-    const data = document.getElementById('viagem-data')?.value || '';
-    const frente = document.getElementById('viagem-frente')?.value || '';
-    const fazenda = document.getElementById('viagem-fazenda')?.value || '';
-    const origem = document.getElementById('viagem-origem')?.value || '';
-    const destino = document.getElementById('viagem-destino')?.value || '';
-    
-    // Conditional Fields
-    let produto = document.getElementById('viagem-produto')?.value || '';
-    let unidade = document.getElementById('viagem-unidade')?.value || '';
-    if (transportType === 'composto') {
-        produto = 'COMPOSTO';
-        unidade = 't';
-    }
-
-    const quantidadeRaw = document.getElementById('viagem-quantidade-total')?.value || '';
-    
-    const caminhao = document.getElementById('viagem-caminhao')?.value || '';
-    const carreta1 = document.getElementById('viagem-carreta1')?.value || '';
-    const carreta2 = document.getElementById('viagem-carreta2')?.value || '';
-    const motorista = document.getElementById('viagem-motorista')?.value || '';
-    const documentoMotorista = document.getElementById('viagem-documento-motorista')?.value || '';
-    const transportadora = document.getElementById('viagem-transportadora')?.value || '';
-    const observacoes = document.getElementById('viagem-observacoes')?.value || '';
-    
-    // Novos campos Composto
-    const numeroOS = document.getElementById('viagem-os')?.value || '';
-    const dataAberturaOS = document.getElementById('viagem-abertura-os')?.value || '';
-    const dataFechamentoOS = document.getElementById('viagem-fechamento-os')?.value || '';
-    const totalPrevisto = document.getElementById('viagem-previsto')?.value || '';
-    const totalRealizado = document.getElementById('viagem-realizado')?.value || '';
-
-    if (!data || !produto) {
-        this.ui.showNotification('Informe data e produto da viagem', 'warning');
-        return;
-    }
-    const quantidadeVal = quantidadeRaw ? parseFloat(quantidadeRaw) : 0;
-    const quantidadeTotal = isNaN(quantidadeVal) ? 0 : quantidadeVal;
-    
-    const payload = {
-        transportType,
-        data,
-        frente,
-        fazenda,
-        origem,
-        destino,
-        produto,
-        quantidadeTotal,
-        unidade,
-        caminhao,
-        carreta1,
-        carreta2,
-        motorista,
-        documentoMotorista,
-        transportadora,
-        observacoes,
-        bags: (transportType === 'adubo' && Array.isArray(this.viagensAduboBagsDraft)) ? this.viagensAduboBagsDraft.slice() : [],
-        // Novos campos
-        numeroOS,
-        dataAberturaOS,
-        dataFechamentoOS,
-        totalPrevisto: totalPrevisto ? parseFloat(totalPrevisto) : null,
-        totalRealizado: totalRealizado ? parseFloat(totalRealizado) : null
-    };
-    try {
-        const res = await this.api.addViagemAdubo(payload);
-        if (res && res.success) {
-            this.ui.showNotification('Viagem de adubo registrada', 'success', 1500);
-            this.viagensAduboBagsDraft = [];
-            if (typeof this.renderBagsDraft === 'function') this.renderBagsDraft();
-            const ids = [
-                'viagem-data',
-                'viagem-frente',
-                'viagem-fazenda',
-                'viagem-origem',
-                'viagem-destino',
-                'viagem-produto',
-                'viagem-quantidade-total',
-                'viagem-unidade',
-                'viagem-caminhao',
-                'viagem-carreta1',
-                'viagem-carreta2',
-                'viagem-motorista',
-                'viagem-documento-motorista',
-                'viagem-transportadora',
-                'viagem-observacoes',
-                'viagem-os',
-                'viagem-abertura-os',
-                'viagem-fechamento-os',
-                'viagem-previsto',
-                'viagem-realizado'
-            ];
-            ids.forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.value = '';
-            });
-            await this.loadViagensAdubo();
-        } else {
-            this.ui.showNotification('Erro ao registrar viagem', 'error');
-        }
-    } catch(e) {
-        this.ui.showNotification('Erro ao registrar viagem', 'error');
-    }
-};
 
 InsumosApp.prototype.autofillPlantioByFazenda = function() {
     const fazendaEl = document.getElementById('plantio-fazenda');
