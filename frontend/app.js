@@ -3849,8 +3849,9 @@ forceReloadAllData() {
                 Se algum campo não for encontrado, use null.
             `;
 
-            // Usar gemini-1.5-flash (versão rápida e estável, pedida pelo usuário)
-            const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + geminiKey;
+            // Usar gemini-2.0-flash (versão mais recente e robusta)
+            // Se falhar, você pode reverter para gemini-1.5-flash
+            const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + geminiKey;
             
             // Montar payload com verificação rigorosa
             const parts = [{ text: prompt }];
