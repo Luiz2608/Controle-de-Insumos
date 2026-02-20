@@ -3739,31 +3739,52 @@ forceReloadAllData() {
             console.log('Tipo do arquivo:', file.type);
 
             if (file.type === 'application/pdf') {
-                // NOVA LÓGICA: Ler PDF diretamente como Base64 e enviar para Gemini
-                // Isso evita problemas de conversão local e usa o parser nativo da IA
+                // FALLBACK: Extrair texto localmente para evitar erro 400 de payload
+                if (!window.pdfjsLib) {
+                     this.ui.showNotification('Leitor de PDF não carregado', 'error');
+                     return;
+                }
+                
                 try {
-                    const base64 = await new Promise((resolve, reject) => {
-                        const reader = new FileReader();
-                        reader.onload = () => {
-                            const result = reader.result;
-                            // O resultado vem como "data:application/pdf;base64,....."
-                            // Precisamos apenas da parte após a vírgula
-                            if (typeof result === 'string') {
-                                const parts = result.split(',');
-                                resolve(parts.length > 1 ? parts[1] : result);
-                            } else {
-                                reject(new Error('Falha ao ler arquivo como Base64'));
-                            }
-                        };
-                        reader.onerror = (err) => reject(err);
-                        reader.readAsDataURL(file);
-                    });
+                    const buffer = await file.arrayBuffer();
+                    const loadingTask = window.pdfjsLib.getDocument({ data: buffer });
+                    const pdf = await loadingTask.promise;
+                    
+                    let fullText = '';
+                    for (let pageNum = 1; pageNum <= Math.min(pdf.numPages, 5); pageNum++) {
+                        const page = await pdf.getPage(pageNum);
+                        const textContent = await page.getTextContent();
+                        const strings = textContent.items.map(item => item.str);
+                        fullText += strings.join(' ') + '\n';
+                    }
 
-                    inlineData = { mime_type: 'application/pdf', data: base64 };
-                    this.ui.showNotification('PDF lido. Enviando para análise...', 'info', 2000);
-                } catch (readErr) {
-                    console.error('Erro ao ler arquivo PDF:', readErr);
-                    this.ui.showNotification('Erro ao ler o arquivo PDF.', 'error');
+                    console.log('Texto extraído (chars):', fullText.length);
+
+                    // Se tiver texto suficiente, enviar como TEXTO (mais seguro contra erro 400)
+                    if (fullText.replace(/\s/g, '').length > 50) {
+                        content = fullText;
+                        this.ui.showNotification('Texto extraído do PDF. Enviando...', 'info', 2000);
+                    } else {
+                        // Se for imagem escaneada, converter para imagem compactada
+                        console.warn('PDF escaneado detectado. Convertendo para imagem compactada...');
+                        this.ui.showNotification('PDF escaneado. Convertendo...', 'info', 2000);
+
+                        const page = await pdf.getPage(1);
+                        const viewport = page.getViewport({ scale: 1.5 }); // Escala menor para reduzir tamanho
+                        const canvas = document.createElement('canvas');
+                        const context = canvas.getContext('2d');
+                        canvas.height = viewport.height;
+                        canvas.width = viewport.width;
+
+                        await page.render({ canvasContext: context, viewport: viewport }).promise;
+                        
+                        // JPEG quality 0.7 para reduzir payload
+                        const base64 = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
+                        inlineData = { mime_type: 'image/jpeg', data: base64 };
+                    }
+                } catch (pdfErr) {
+                    console.error('Erro no processamento do PDF:', pdfErr);
+                    this.ui.showNotification('Erro ao processar PDF.', 'error');
                     return;
                 }
 
@@ -3783,7 +3804,8 @@ forceReloadAllData() {
                 return;
             }
 
-            // Chamar Gemini
+            // Chamar Gemini - Versão atualizada para gemini-1.5-pro
+            // IMPORTANTE: Manter gemini-1.5-pro pois é o mais estável para documentos
             let geminiKey = (window.API_CONFIG && window.API_CONFIG.geminiKey) || localStorage.getItem('geminiApiKey') || '';
             if (!geminiKey || geminiKey.trim().length < 20) {
                 geminiKey = await this.askGeminiKey();
@@ -3798,9 +3820,9 @@ forceReloadAllData() {
 
             const prompt = `
                 Você é um assistente especializado em extração de dados de Ordens de Serviço (OS) Agrícolas.
-                Analise o documento fornecido (imagem ou texto) e extraia os dados para preencher o formulário.
+                Analise o documento fornecido e extraia os dados para preencher o formulário.
                 
-                ATENÇÃO: Retorne APENAS um JSON válido. Não use Markdown (\`\`\`json). Não inclua explicações.
+                ATENÇÃO: Retorne APENAS um JSON válido. Não use Markdown (\`\`\`json).
                 
                 Estrutura do JSON:
                 {
@@ -3827,14 +3849,39 @@ forceReloadAllData() {
                 Se algum campo não for encontrado, use null.
             `;
 
-            const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + geminiKey;
+            // Usar gemini-2.0-flash (versão mais recente e robusta)
+            // Se falhar, você pode reverter para gemini-1.5-flash
+            const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + geminiKey;
             
-            // Montar payload
+            // Montar payload com verificação rigorosa
             const parts = [{ text: prompt }];
-            if (inlineData) {
-                parts.push({ inline_data: inlineData });
-            } else {
+            
+            if (content && content.length > 0) {
+                // Modo Texto (Preferencial para PDF extraído)
                 parts.push({ text: content });
+                console.log('Enviando payload como TEXTO. Tamanho:', content.length);
+            } else if (inlineData && inlineData.data) {
+                // Modo Imagem (Fallback para escaneados)
+                // Limpeza extra do base64
+                let cleanBase64 = inlineData.data.replace(/[\r\n\s]+/g, '');
+                
+                // Verificar se é válido (básico)
+                if (cleanBase64.length % 4 !== 0) {
+                    console.warn('Base64 pode estar inválido (padding incorreto). Tentando corrigir...');
+                    while (cleanBase64.length % 4 !== 0) {
+                        cleanBase64 += '=';
+                    }
+                }
+
+                parts.push({ 
+                    inline_data: {
+                        mime_type: inlineData.mime_type,
+                        data: cleanBase64
+                    } 
+                });
+                console.log('Enviando payload como IMAGEM. Tipo:', inlineData.mime_type, 'Tamanho:', cleanBase64.length);
+            } else {
+                throw new Error('Nenhum conteúdo (texto ou imagem) extraído para envio.');
             }
 
             const requestBody = {
@@ -3843,6 +3890,11 @@ forceReloadAllData() {
                     response_mime_type: 'application/json'
                 }
             };
+            
+            console.log('Gemini Request Body (Structure):', JSON.stringify({
+                ...requestBody,
+                contents: [{ parts: parts.map(p => p.text ? { text: p.text.substring(0, 50) + '...' } : { inline_data: 'BASE64_DATA' }) }]
+            }));
 
             let response;
             const maxRetries = 3;
