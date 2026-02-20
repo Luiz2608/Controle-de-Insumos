@@ -3831,18 +3831,36 @@ forceReloadAllData() {
                         console.warn('PDF escaneado detectado. Convertendo para imagem compactada...');
                         this.ui.showNotification('PDF escaneado. Convertendo...', 'info', 2000);
 
-                        const page = await pdf.getPage(1);
-                        const viewport = page.getViewport({ scale: 1.5 }); // Escala menor para reduzir tamanho
-                        const canvas = document.createElement('canvas');
-                        const context = canvas.getContext('2d');
-                        canvas.height = viewport.height;
-                        canvas.width = viewport.width;
+                        try {
+                            const page = await pdf.getPage(1);
+                            console.log('Página 1 carregada. Viewport...', page);
+                            const viewport = page.getViewport({ scale: 1.5 }); // Escala menor para reduzir tamanho
+                            const canvas = document.createElement('canvas');
+                            const context = canvas.getContext('2d');
+                            canvas.height = viewport.height;
+                            canvas.width = viewport.width;
 
-                        await page.render({ canvasContext: context, viewport: viewport }).promise;
-                        
-                        // JPEG quality 0.7 para reduzir payload
-                        const base64 = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
-                        inlineData = { mime_type: 'image/jpeg', data: base64 };
+                            console.log('Renderizando página no canvas...');
+                            
+                            // Timeout de segurança para renderização (5 segundos)
+                            const renderTask = page.render({ canvasContext: context, viewport: viewport });
+                            
+                            await Promise.race([
+                                renderTask.promise,
+                                new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout na renderização do PDF')), 5000))
+                            ]);
+                            
+                            console.log('Renderização concluída. Convertendo para JPEG...');
+                            
+                            // JPEG quality 0.7 para reduzir payload
+                            const base64 = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
+                            console.log('Conversão para Base64 concluída. Tamanho:', base64.length);
+                            inlineData = { mime_type: 'image/jpeg', data: base64 };
+                        } catch (renderErr) {
+                            console.error('Erro crítico na renderização do PDF:', renderErr);
+                            this.ui.showNotification('Falha ao renderizar PDF escaneado. Tente uma imagem direta.', 'error');
+                            return; // Interrompe para não travar
+                        }
                     }
                 } catch (pdfErr) {
                     console.error('Erro no processamento do PDF:', pdfErr);
