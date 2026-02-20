@@ -3946,15 +3946,14 @@ forceReloadAllData() {
                 }
             };
 
-            // Estratégia de Fallback Robusta (v52)
-            // Tenta modelos em ordem de capacidade/custo. Se um falhar (429 ou 404), tenta o próximo.
+            // Estratégia de Fallback (v53 - Atualizado para Gemini 2.5)
+            // Prioriza a série 2.5 (atual) e mantém 2.0 como fallback legado.
             const modelChain = [
-                'gemini-2.0-flash',       // 1. Mais rápido e capaz (mas rate limited)
-                'gemini-1.5-flash',       // 2. Standard Flash
-                'gemini-1.5-flash-002',   // 3. Versão específica (estável)
-                'gemini-1.5-flash-001',   // 4. Versão anterior (estável)
-                'gemini-1.5-pro-002',     // 5. Pro (mais lento, mas pode ter cota)
-                'gemini-1.5-pro-latest'   // 6. Último recurso
+                'gemini-2.5-flash',       // 1. Novo padrão (rápido e capaz)
+                'gemini-2.5-pro',         // 2. Mais inteligente (se flash falhar)
+                'gemini-2.5-flash-lite',  // 3. Otimizado para custo/velocidade
+                'gemini-2.0-flash',       // 4. Fallback legado (funcional até jun/26)
+                'gemini-2.0-pro-exp',     // 5. Experimental antigo
             ];
 
             let lastError = null;
