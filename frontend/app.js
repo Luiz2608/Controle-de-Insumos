@@ -3804,7 +3804,8 @@ forceReloadAllData() {
                 return;
             }
 
-            // Chamar Gemini
+            // Chamar Gemini - Versão atualizada para gemini-1.5-pro
+            // IMPORTANTE: Manter gemini-1.5-pro pois é o mais estável para documentos
             let geminiKey = (window.API_CONFIG && window.API_CONFIG.geminiKey) || localStorage.getItem('geminiApiKey') || '';
             if (!geminiKey || geminiKey.trim().length < 20) {
                 geminiKey = await this.askGeminiKey();
@@ -3819,9 +3820,9 @@ forceReloadAllData() {
 
             const prompt = `
                 Você é um assistente especializado em extração de dados de Ordens de Serviço (OS) Agrícolas.
-                Analise o documento fornecido (imagem ou texto) e extraia os dados para preencher o formulário.
+                Analise o documento fornecido e extraia os dados para preencher o formulário.
                 
-                ATENÇÃO: Retorne APENAS um JSON válido. Não use Markdown (\`\`\`json). Não inclua explicações.
+                ATENÇÃO: Retorne APENAS um JSON válido. Não use Markdown (\`\`\`json).
                 
                 Estrutura do JSON:
                 {
@@ -3848,18 +3849,38 @@ forceReloadAllData() {
                 Se algum campo não for encontrado, use null.
             `;
 
+            // Usar gemini-1.5-pro (versão estável mais recente)
             const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=' + geminiKey;
             
-            // Montar payload
+            // Montar payload com verificação rigorosa
             const parts = [{ text: prompt }];
-            if (inlineData) {
-                // Ensure base64 data is clean (no newlines)
-                if (inlineData.data) {
-                    inlineData.data = inlineData.data.replace(/[\r\n]+/g, '');
-                }
-                parts.push({ inline_data: inlineData });
-            } else {
+            
+            if (content && content.length > 0) {
+                // Modo Texto (Preferencial para PDF extraído)
                 parts.push({ text: content });
+                console.log('Enviando payload como TEXTO. Tamanho:', content.length);
+            } else if (inlineData && inlineData.data) {
+                // Modo Imagem (Fallback para escaneados)
+                // Limpeza extra do base64
+                let cleanBase64 = inlineData.data.replace(/[\r\n\s]+/g, '');
+                
+                // Verificar se é válido (básico)
+                if (cleanBase64.length % 4 !== 0) {
+                    console.warn('Base64 pode estar inválido (padding incorreto). Tentando corrigir...');
+                    while (cleanBase64.length % 4 !== 0) {
+                        cleanBase64 += '=';
+                    }
+                }
+
+                parts.push({ 
+                    inline_data: {
+                        mime_type: inlineData.mime_type,
+                        data: cleanBase64
+                    } 
+                });
+                console.log('Enviando payload como IMAGEM. Tipo:', inlineData.mime_type, 'Tamanho:', cleanBase64.length);
+            } else {
+                throw new Error('Nenhum conteúdo (texto ou imagem) extraído para envio.');
             }
 
             const requestBody = {
@@ -3868,6 +3889,11 @@ forceReloadAllData() {
                     response_mime_type: 'application/json'
                 }
             };
+            
+            console.log('Gemini Request Body (Structure):', JSON.stringify({
+                ...requestBody,
+                contents: [{ parts: parts.map(p => p.text ? { text: p.text.substring(0, 50) + '...' } : { inline_data: 'BASE64_DATA' }) }]
+            }));
 
             let response;
             const maxRetries = 3;
