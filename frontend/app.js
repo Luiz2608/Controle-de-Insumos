@@ -624,7 +624,6 @@ class InsumosApp {
             this.ui.showNotification('Erro ao atualizar fazenda', 'error');
         }
     }
-    }
 
     async deleteCadastroFazenda(codigo) {
         if (!codigo) return;
