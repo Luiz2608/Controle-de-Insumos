@@ -1,3 +1,1 @@
-Adicionar colunas aos previews de Plantio e Colheita:
-- Plantio de Cana: Adicionado 'Plantio Dia' e 'Cobrição'.
-- Colheita de Muda: Adicionado 'Qtd Colhida', 'TCH' e 'TON/Hectare'.
+Remover símbolo R$ de toda a aplicação e corrigir coluna de toneladas totais na Colheita

@@ -6359,7 +6359,7 @@ forceReloadAllData() {
                         <th>Frentes</th>
                         <th>Qtd. Colhida (t)</th>
                         <th>TCH</th>
-                        <th>t/ha</th>
+                        <th>Toneladas Totais</th>
                         <th>Ações</th>
                     </tr>
                 `;
@@ -6487,8 +6487,7 @@ forceReloadAllData() {
                 const resumoFrentes = (r.frentes||[]).map(f => `${f.frente}: ${f.fazenda||'—'}${f.regiao?(' / '+f.regiao):''}`).join(' | ');
                 const qtdColhida = this.ui.formatNumber(r.colheita_toneladas_totais || 0, 2);
                 const tch = this.ui.formatNumber(r.colheita_tch_real || 0, 2);
-                // "TON/Hectare" requested, which is TCH. Showing TCH again or maybe they meant Hectares? 
-                // Let's assume they want the calculation TCH again as explicitly requested "TON/Hectare".
+                const tonTotais = this.ui.formatNumber(r.colheita_toneladas_totais || 0, 2);
                 
                 return `
                 <tr>
@@ -6496,7 +6495,7 @@ forceReloadAllData() {
                     <td>${resumoFrentes}</td>
                     <td>${qtdColhida} t</td>
                     <td>${tch}</td>
-                    <td>${tch}</td>
+                    <td>${tonTotais} t</td>
                     <td>
                         <div style="display: flex; gap: 5px;">
                             <button class="btn btn-sm btn-secondary" onclick="window.insumosApp.showPlantioDetails('${r.id}')">
