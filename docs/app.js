@@ -335,7 +335,23 @@ class InsumosApp {
         const mudaDia = mudaDiaInput && mudaDiaInput.value ? parseFloat(mudaDiaInput.value) : 0;
         const cobricaoDia = cobricaoDiaInput && cobricaoDiaInput.value ? parseFloat(cobricaoDiaInput.value) : 0;
         
-        const newPlantioAcum = (this.tempFazendaStats.plantioAcumulado || 0) + plantioDia;
+        // Ajuste para Edição: Subtrair valor original do acumulado base
+        let basePlantio = this.tempFazendaStats.plantioAcumulado || 0;
+        if (this.currentPlantioId && this.plantioDiarioData) {
+             const original = this.plantioDiarioData.find(p => String(p.id) === String(this.currentPlantioId));
+             if (original) {
+                 let originalArea = parseFloat(original.area_plantada || 0);
+                 if (originalArea === 0 && original.frentes && Array.isArray(original.frentes) && original.frentes.length > 0) {
+                     // Tenta pegar do primeiro item de frentes (comum no modo single)
+                     const f = original.frentes[0];
+                     originalArea = parseFloat(f.plantioDiario || f.plantada || 0);
+                 }
+                 // Subtrai valor original para não duplicar na soma visual
+                 basePlantio = Math.max(0, basePlantio - originalArea);
+             }
+        }
+
+        const newPlantioAcum = basePlantio + plantioDia;
         const newMudaAcum = (this.tempFazendaStats.mudaAcumulada || 0) + mudaDia;
         const newCobricaoAcum = (this.tempFazendaStats.cobricaoAcumulada || 0) + cobricaoDia;
         
@@ -13526,6 +13542,42 @@ InsumosApp.prototype.handleEditPlantio = async function(id) {
         set('single-area-total', f.areaTotal);
         set('single-area-acumulada', f.areaAcumulada);
         set('single-plantio-dia', f.plantioDiario);
+
+        // --- FIX: Carregar stats atualizados da fazenda para cálculo correto do acumulado na edição ---
+        if (f.cod) {
+             this.api.getFazendaByCodigo(f.cod).then(res => {
+                 if (res && res.success && res.data) {
+                     this.tempFazendaStats = {
+                        plantioAcumulado: res.data.plantio_acumulado || 0,
+                        mudaAcumulada: res.data.muda_acumulada || 0,
+                        cobricaoAcumulada: res.data.cobricao_acumulada || 0
+                     };
+                     console.log('Stats da fazenda carregados para edição:', this.tempFazendaStats);
+                 }
+             }).catch(e => console.error('Erro ao buscar stats fazenda edit:', e));
+        }
+    }
+
+    // --- FIX: Restaurar Turno ---
+    const savedHora = record.hora || (record.qualidade && record.qualidade.horaRegistro) || '';
+    if (savedHora) {
+        let shift = 'A';
+        if (savedHora.includes('B')) shift = 'B';
+        else if (savedHora.toLowerCase().includes('geral')) shift = 'Geral';
+        
+        const turnoInput = document.getElementById('plantio-turno');
+        if (turnoInput) turnoInput.value = shift;
+        
+        const btns = document.querySelectorAll('.shift-selector .shift-btn');
+        btns.forEach(b => {
+            if (b.dataset.shift === shift) {
+                b.classList.add('active', 'btn-primary');
+                b.classList.remove('btn-secondary');
+            } else {
+                b.classList.remove('active', 'btn-primary');
+                b.classList.add('btn-secondary');
+            }
+        });
     }
 
     // Insumos

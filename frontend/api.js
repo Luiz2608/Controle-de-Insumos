@@ -1297,7 +1297,9 @@ class ApiService {
         this.checkConfig();
         const item = {
             ...payload,
-            id: payload.id || Date.now()
+            id: payload.id || Date.now(),
+            hora: payload.hora,
+            created_at: new Date()
         };
         const { data, error } = await this.supabase.from('plantio_diario').insert([item]).select();
         if (error) throw error;
