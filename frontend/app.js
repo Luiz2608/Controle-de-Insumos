@@ -537,27 +537,93 @@ class InsumosApp {
         const mudaAcumEl = document.getElementById('cadastro-fazenda-muda-acumulada');
         const cobricaoAcumEl = document.getElementById('cadastro-fazenda-cobricao-acumulada');
         const obsEl = document.getElementById('cadastro-fazenda-observacoes');
-        if (codigoEl) codigoEl.value = item.codigo ?? '';
-        if (nomeEl) nomeEl.value = item.nome ?? '';
-        if (regiaoEl) regiaoEl.value = item.regiao ?? '';
-        if (areaTotalEl) areaTotalEl.value = item.area_total != null ? String(item.area_total) : '';
-        if (plantioAcumEl) plantioAcumEl.value = item.plantio_acumulado != null ? String(item.plantio_acumulado) : '';
-        if (mudaAcumEl) mudaAcumEl.value = item.muda_acumulada != null ? String(item.muda_acumulada) : '';
-        if (cobricaoAcumEl) cobricaoAcumEl.value = item.cobricao_acumulada != null ? String(item.cobricao_acumulada) : '';
-        if (obsEl) obsEl.value = item.observacoes ?? '';
-        
         console.log('Dados carregados para edição:', item);
 
-        this.cadastroEditCodigo = item.codigo;
-        const saveBtn = document.getElementById('cadastro-fazenda-save');
-        if (saveBtn) {
-             saveBtn.textContent = '💾 Atualizar Fazenda';
-             // Remover listener anterior se houver (para evitar múltiplos clicks se a função for chamada várias vezes, 
-             // embora aqui seja apenas configuração visual, o listener real está no init)
-             // Mas espere, o listener de salvar está em handleCadastroActions e chama saveCadastroFazenda.
-             // O problema pode ser que this.cadastroEditCodigo não está persistindo ou sendo lido corretamente no save.
-             console.log('Modo de edição ativado para código:', this.cadastroEditCodigo);
+        // Open dedicated edit modal
+        const editModal = document.getElementById('fazenda-edit-modal');
+        if (editModal) {
+            editModal.style.display = 'flex';
+            
+            // Populate fields in the new modal
+            const setVal = (id, val) => { 
+                const el = document.getElementById(id); 
+                if(el) el.value = val; 
+            };
+            
+            setVal('edit-fazenda-codigo', item.codigo ?? '');
+            setVal('edit-fazenda-nome', item.nome ?? '');
+            setVal('edit-fazenda-regiao', item.regiao ?? '');
+            setVal('edit-fazenda-area-total', item.area_total != null ? String(item.area_total) : '');
+            setVal('edit-fazenda-plantio-acumulado', item.plantio_acumulado != null ? String(item.plantio_acumulado) : '');
+            setVal('edit-fazenda-muda-acumulada', item.muda_acumulada != null ? String(item.muda_acumulada) : '');
+            setVal('edit-fazenda-cobricao-acumulada', item.cobricao_acumulada != null ? String(item.cobricao_acumulada) : '');
+            setVal('edit-fazenda-observacoes', item.observacoes ?? '');
+
+            this.cadastroEditCodigo = item.codigo;
+            
+            // Setup Save Button
+            const saveBtn = document.getElementById('fazenda-edit-save');
+            const newSaveBtn = saveBtn.cloneNode(true);
+            saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+            
+            newSaveBtn.addEventListener('click', async () => {
+                await this.saveFazendaFromEditModal();
+            });
+
+            // Setup Close/Cancel Buttons
+            const closeBtn = document.getElementById('fazenda-edit-close');
+            const cancelBtn = document.getElementById('fazenda-edit-cancel');
+            
+            const closeHandler = () => { editModal.style.display = 'none'; };
+            
+            if(closeBtn) closeBtn.onclick = closeHandler;
+            if(cancelBtn) cancelBtn.onclick = closeHandler;
         }
+    }
+
+    async saveFazendaFromEditModal() {
+        await this.ensureApiReady();
+        const codigo = this.cadastroEditCodigo;
+        if (!codigo) return;
+
+        const getVal = (id) => document.getElementById(id)?.value || '';
+        const getNum = (id) => parseFloat(document.getElementById(id)?.value) || 0;
+
+        const payload = {
+            codigo: codigo, // Keep original code
+            nome: getVal('edit-fazenda-nome'),
+            regiao: getVal('edit-fazenda-regiao'),
+            areaTotal: getNum('edit-fazenda-area-total'),
+            plantioAcumulado: getNum('edit-fazenda-plantio-acumulado'),
+            mudaAcumulada: getNum('edit-fazenda-muda-acumulada'),
+            cobricaoAcumulada: getNum('edit-fazenda-cobricao-acumulada'),
+            observacoes: getVal('edit-fazenda-observacoes')
+        };
+
+        if (!payload.nome) {
+            this.ui.showNotification('Nome da fazenda é obrigatório', 'warning');
+            return;
+        }
+
+        try {
+            const res = await this.api.updateFazenda(codigo, payload);
+            if (res && res.success) {
+                this.ui.showNotification('Fazenda atualizada com sucesso', 'success', 2000);
+                document.getElementById('fazenda-edit-modal').style.display = 'none';
+                
+                // Refresh list
+                const cadResp = await this.api.getFazendas();
+                if (cadResp && cadResp.success && Array.isArray(cadResp.data)) {
+                    this.renderCadastroFazendas(cadResp.data);
+                }
+            } else {
+                this.ui.showNotification('Erro ao atualizar fazenda', 'error');
+            }
+        } catch (e) {
+            console.error(e);
+            this.ui.showNotification('Erro ao atualizar fazenda', 'error');
+        }
+    }
     }
 
     async deleteCadastroFazenda(codigo) {

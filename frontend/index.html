@@ -1504,6 +1504,56 @@
         </div>
     </div>
 
+    <!-- Modal Edição de Fazenda (Pop-up dedicado) -->
+    <div id="fazenda-edit-modal" class="modal" style="display:none; z-index: 10600;">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3>✏️ Editar Fazenda</h3>
+                <button class="close-modal" id="fazenda-edit-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="edit-fazenda-codigo">Código da Fazenda</label>
+                        <input type="text" id="edit-fazenda-codigo" readonly style="background-color: #f0f0f0;">
+                    </div>
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label for="edit-fazenda-nome">Nome da Fazenda</label>
+                        <input type="text" id="edit-fazenda-nome">
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-fazenda-regiao">Código da Região</label>
+                        <input type="text" id="edit-fazenda-regiao">
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-fazenda-area-total">Área total (ha)</label>
+                        <input type="number" id="edit-fazenda-area-total" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-fazenda-plantio-acumulado">Plantio acumulado (ha)</label>
+                        <input type="number" id="edit-fazenda-plantio-acumulado" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-fazenda-muda-acumulada">Muda acumulada</label>
+                        <input type="number" id="edit-fazenda-muda-acumulada" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-fazenda-cobricao-acumulada">Cobrição acumulada (ha)</label>
+                        <input type="number" id="edit-fazenda-cobricao-acumulada" step="0.01">
+                    </div>
+                    <div class="form-group" style="grid-column: span 3;">
+                        <label for="edit-fazenda-observacoes">Observações</label>
+                        <input type="text" id="edit-fazenda-observacoes">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="fazenda-edit-cancel">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="fazenda-edit-save">💾 Salvar Alterações</button>
+            </div>
+        </div>
+    </div>
+
     <div id="fazenda-import-modal" class="modal" style="display:none;">
         <div class="modal-content" style="max-width: 700px;">
             <div class="modal-header">
