@@ -1,1 +1,0 @@
-Remover símbolo R$ de toda a aplicação e corrigir coluna de toneladas totais na Colheita

@@ -6357,7 +6357,7 @@ forceReloadAllData() {
                     <tr>
                         <th>Data</th>
                         <th>Frentes</th>
-                        <th>Qtd. Colhida (t)</th>
+                        <th>Hectares Colhidos</th>
                         <th>TCH</th>
                         <th>Toneladas Totais</th>
                         <th>Ações</th>
@@ -6485,7 +6485,8 @@ forceReloadAllData() {
                 </tr>`;
             } else if (currentTab === 'colheita_muda') {
                 const resumoFrentes = (r.frentes||[]).map(f => `${f.frente}: ${f.fazenda||'—'}${f.regiao?(' / '+f.regiao):''}`).join(' | ');
-                const qtdColhida = this.ui.formatNumber(r.colheita_toneladas_totais || 0, 2);
+                const q = r.qualidade || {};
+                const qtdColhida = this.ui.formatNumber(r.colheita_hectares || q.colheitaHectares || 0, 2);
                 const tch = this.ui.formatNumber(r.colheita_tch_real || 0, 2);
                 const tonTotais = this.ui.formatNumber(r.colheita_toneladas_totais || 0, 2);
                 
@@ -6493,7 +6494,7 @@ forceReloadAllData() {
                 <tr>
                     <td>${this.ui.formatDateBR(r.data)}</td>
                     <td>${resumoFrentes}</td>
-                    <td>${qtdColhida} t</td>
+                    <td>${qtdColhida} ha</td>
                     <td>${tch}</td>
                     <td>${tonTotais} t</td>
                     <td>
@@ -13666,6 +13667,7 @@ InsumosApp.prototype.handleEditPlantio = async function(id) {
     set('colheita-hectares', q.colheitaHectares);
     set('colheita-tch-estimado', q.colheitaTchEstimado);
     set('colheita-tch-real', q.colheitaTchReal);
+    set('colheita-toneladas-totais', q.colheitaTonTotais);
 
     set('qual-mudas-total', q.mudasTotal);
     set('qual-mudas-boas', q.mudasBoas);
@@ -13928,6 +13930,7 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
             colheitaHectares: parseVal('colheita-hectares'),
             colheitaTchEstimado: parseVal('colheita-tch-estimado'),
             colheitaTchReal: parseVal('colheita-tch-real'),
+            colheitaTonTotais: parseVal('colheita-toneladas-totais'),
             qualEquipamentoTrator: document.getElementById('qual-equipamento-trator')?.value || '',
             qualEquipamentoPlantadora: document.getElementById('qual-equipamento-plantadora')?.value || '',
             qualOperador: document.getElementById('qual-operador')?.value || '',
