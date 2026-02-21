@@ -5056,7 +5056,16 @@ forceReloadAllData() {
                 this.osListCache = res.data; // Cache para edição
                 
                 // Populate Frente dropdown (usado em algumas telas legadas)
-                const singleFrente = document.getElementById('single-frente');
+                const adminRecalcBtn = document.getElementById('admin-recalc-stats-btn');
+        if (adminRecalcBtn) {
+            adminRecalcBtn.addEventListener('click', () => {
+                if (confirm('Tem certeza? Isso irá recalcular os totais acumulados de TODAS as fazendas com base no histórico de lançamentos. Isso pode levar alguns segundos.')) {
+                    this.recalculateAllFarmStats();
+                }
+            });
+        }
+
+        const singleFrente = document.getElementById('single-frente');
                 if (singleFrente) {
                     singleFrente.innerHTML = '<option value="">Selecione</option>';
                     const frentes = [...new Set(res.data.map(os => os.frente).filter(Boolean))].sort();
@@ -5103,6 +5112,153 @@ forceReloadAllData() {
         } catch (e) {
             console.error('Erro ao carregar lista de OS:', e);
             if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="error">Erro de conexão.</td></tr>';
+        }
+    }
+
+    async recalculateAllFarmStats() {
+        const progressEl = document.getElementById('recalc-progress');
+        if (progressEl) {
+            progressEl.style.display = 'block';
+            progressEl.textContent = 'Iniciando recálculo...';
+        }
+
+        try {
+            console.log('🔄 Iniciando recálculo total de estatísticas das fazendas...');
+            
+            // 1. Carregar TODOS os dados necessários
+            const [fazendasRes, plantioRes] = await Promise.all([
+                this.api.getFazendas(),
+                this.api.getPlantioDia()
+            ]);
+
+            if (!fazendasRes.success || !plantioRes.success) {
+                throw new Error('Falha ao carregar dados iniciais.');
+            }
+
+            const fazendas = fazendasRes.data || [];
+            const plantios = plantioRes.data || [];
+
+            console.log(`Encontradas ${fazendas.length} fazendas e ${plantios.length} registros de plantio.`);
+
+            let processedCount = 0;
+            const totalFazendas = fazendas.length;
+
+            // 2. Iterar sobre cada fazenda
+            for (const fazenda of fazendas) {
+                const codFazenda = String(fazenda.codigo).trim();
+                const nomeFazenda = (fazenda.fazenda || '').trim().toLowerCase();
+
+                // 3. Filtrar registros de plantio desta fazenda
+                const registrosFazenda = plantios.filter(p => {
+                    // Verificar Frentes (Array ou Objeto Único legado)
+                    let frentes = [];
+                    if (Array.isArray(p.frentes)) {
+                        frentes = p.frentes;
+                    } else if (typeof p.frentes === 'string') {
+                         try { frentes = JSON.parse(p.frentes); } catch(e) {}
+                    }
+                    
+                    if (!Array.isArray(frentes)) return false;
+
+                    return frentes.some(f => {
+                        const fCod = String(f.cod || '').trim();
+                        const fNome = (f.fazenda || '').trim().toLowerCase();
+                        
+                        // Match por Código (mais seguro) ou Nome
+                        if (codFazenda && fCod === codFazenda) return true;
+                        if (nomeFazenda && fNome === nomeFazenda) return true;
+                        
+                        return false;
+                    });
+                });
+
+                // 4. Calcular Totais
+                let totalPlantio = 0;
+                let totalMuda = 0;
+                let totalCobricao = 0;
+
+                registrosFazenda.forEach(p => {
+                    let frentes = Array.isArray(p.frentes) ? p.frentes : [];
+                    if (typeof p.frentes === 'string') {
+                         try { frentes = JSON.parse(p.frentes); } catch(e) {}
+                    }
+
+                    // Somar área das frentes que pertencem a esta fazenda
+                    frentes.forEach(f => {
+                        const fCod = String(f.cod || '').trim();
+                        const fNome = (f.fazenda || '').trim().toLowerCase();
+                        const isMatch = (codFazenda && fCod === codFazenda) || (nomeFazenda && fNome === nomeFazenda);
+                        
+                        if (isMatch) {
+                            // Área Plantada
+                            const area = parseFloat(f.plantioDiario || f.plantada || 0);
+                            totalPlantio += area;
+                        }
+                    });
+
+                    // Somar Qualidade (Muda/Cobrição) se houver
+                    // A qualidade geralmente é por registro (dia), assumindo que o registro é para a fazenda
+                    // Se o registro tiver múltiplas frentes de fazendas diferentes, isso pode ser impreciso,
+                    // mas o sistema atual parece ser 1 registro = 1 frente principal.
+                    if (p.qualidade) {
+                         // Verificar se o registro pertence majoritariamente a esta fazenda (pela primeira frente)
+                         const mainFrente = frentes[0];
+                         if (mainFrente) {
+                             const fCod = String(mainFrente.cod || '').trim();
+                             const fNome = (mainFrente.fazenda || '').trim().toLowerCase();
+                             const isMatch = (codFazenda && fCod === codFazenda) || (nomeFazenda && fNome === nomeFazenda);
+                             
+                             if (isMatch) {
+                                 totalMuda += parseFloat(p.qualidade.mudaConsumoDia || 0);
+                                 totalCobricao += parseFloat(p.qualidade.cobricaoDia || p.qualidade.cobricao_dia || 0);
+                             }
+                         }
+                    }
+                });
+
+                // 5. Atualizar Fazenda
+                // Arredondar para evitar dízimas
+                totalPlantio = Math.round(totalPlantio * 100) / 100;
+                totalMuda = Math.round(totalMuda * 100) / 100;
+                totalCobricao = Math.round(totalCobricao * 100) / 100;
+
+                // Verificar se precisa atualizar (evitar chamadas desnecessárias)
+                const currentPlantio = parseFloat(fazenda.plantio_acumulado || 0);
+                const currentMuda = parseFloat(fazenda.muda_acumulada || 0);
+                const currentCobricao = parseFloat(fazenda.cobricao_acumulada || 0);
+
+                if (Math.abs(totalPlantio - currentPlantio) > 0.01 || 
+                    Math.abs(totalMuda - currentMuda) > 0.01 || 
+                    Math.abs(totalCobricao - currentCobricao) > 0.01) {
+                    
+                    console.log(`Atualizando Fazenda ${fazenda.fazenda} (${codFazenda}): Plantio ${currentPlantio}->${totalPlantio}, Muda ${currentMuda}->${totalMuda}`);
+                    
+                    await this.api.updateFazenda(fazenda.codigo, {
+                        plantioAcumulado: totalPlantio,
+                        mudaAcumulada: totalMuda,
+                        cobricaoAcumulada: totalCobricao
+                    });
+                }
+
+                processedCount++;
+                if (progressEl) progressEl.textContent = `Processando... ${processedCount}/${totalFazendas}`;
+            }
+
+            if (progressEl) {
+                progressEl.textContent = 'Concluído!';
+                setTimeout(() => progressEl.style.display = 'none', 3000);
+            }
+            
+            this.ui.showNotification('Recálculo de estatísticas concluído com sucesso!', 'success');
+            
+            // Recarregar caches
+            const newFazendas = await this.api.getFazendas();
+            if (newFazendas.success) this.cadastroFazendas = newFazendas.data;
+
+        } catch (e) {
+            console.error('Erro no recálculo:', e);
+            this.ui.showNotification('Erro ao recalcular estatísticas: ' + e.message, 'error');
+            if (progressEl) progressEl.textContent = 'Erro!';
         }
     }
 
