@@ -6021,51 +6021,6 @@ forceReloadAllData() {
             this.updateAccumulatedStats();
         });
 
-        // Manual Update Button Listener
-        const btnUpdateAccum = document.getElementById('btn-update-accumulated');
-        if (btnUpdateAccum) {
-            btnUpdateAccum.addEventListener('click', (e) => {
-                e.preventDefault();
-                console.log('Botão Atualizar Acumulados clicado. Recalculando...');
-                
-                // Visual Feedback
-                const originalText = btnUpdateAccum.textContent;
-                btnUpdateAccum.textContent = '🔄 Atualizando...';
-                btnUpdateAccum.disabled = true;
-
-                // Forçar recarregamento das estatísticas da fazenda se possível
-                const cod = document.getElementById('single-cod')?.value;
-                if (cod) {
-                    this.api.getFazendaByCodigo(cod).then(res => {
-                        if (res && res.success && res.data) {
-                            this.tempFazendaStats = {
-                                plantioAcumulado: res.data.plantio_acumulado || 0,
-                                mudaAcumulada: res.data.muda_acumulada || 0,
-                                cobricaoAcumulada: res.data.cobricao_acumulada || 0
-                            };
-                            this.updateAccumulatedStats();
-                            this.ui.showNotification('Dados atualizados com sucesso.', 'success');
-                        } else {
-                            // Se falhar API, tenta atualizar com o que tem
-                            this.updateAccumulatedStats();
-                            this.ui.showNotification('Recálculo local realizado.', 'info');
-                        }
-                    }).catch(() => {
-                        this.updateAccumulatedStats();
-                        this.ui.showNotification('Recálculo local realizado (Erro API).', 'warning');
-                    }).finally(() => {
-                         btnUpdateAccum.textContent = originalText;
-                         btnUpdateAccum.disabled = false;
-                    });
-                } else {
-                    this.updateAccumulatedStats();
-                    this.ui.showNotification('Recálculo local realizado.', 'info');
-                    btnUpdateAccum.textContent = originalText;
-                    btnUpdateAccum.disabled = false;
-                }
-            });
-        }
-
         const toletesTotal = document.getElementById('qual-toletes-total');
         const toletesBons = document.getElementById('qual-toletes-bons');
         const toletesRuins = document.getElementById('qual-toletes-ruins');
