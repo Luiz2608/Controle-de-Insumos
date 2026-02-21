@@ -1,1 +1,1 @@
-Corrigir erro 400 ao salvar fazenda: remover campo cobricao_acumulada inexistente no banco
+Reativar campo cobricao_acumulada para salvar no banco de dados
