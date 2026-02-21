@@ -14150,14 +14150,50 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
             
             if (frente.cod && tipoOperacao !== 'colheita_muda') {
                 try {
-                    const updates = {
-                        plantioAcumulado: frente.areaAcumulada
-                    };
-                    if (qualidade) {
-                         updates.mudaAcumulada = qualidade.mudaConsumoAcumulado;
-                         updates.cobricaoAcumulada = qualidade.cobricaoAcumulada;
+                    // Fetch current farm data to ensure accurate base values
+                    const fazendaRes = await this.api.getFazendaByCodigo(frente.cod);
+                    if (fazendaRes && fazendaRes.success && fazendaRes.data) {
+                        const currentFazenda = fazendaRes.data;
+                        
+                        // Calculate deltas
+                        const newPlantioDia = frente.plantioDiario || 0;
+                        const oldPlantioDia = this.currentPlantioId ? (this.originalPlantioValue || 0) : 0;
+                        const deltaPlantio = newPlantioDia - oldPlantioDia;
+
+                        const updates = {
+                            plantioAcumulado: (currentFazenda.plantio_acumulado || 0) + deltaPlantio
+                        };
+
+                        if (qualidade) {
+                             const newMudaDia = qualidade.mudaConsumoDia || 0;
+                             const oldMudaDia = this.currentPlantioId ? (this.originalMudaValue || 0) : 0;
+                             const deltaMuda = newMudaDia - oldMudaDia;
+
+                             const newCobricaoDia = qualidade.cobricaoDia || 0;
+                             const oldCobricaoDia = this.currentPlantioId ? (this.originalCobricaoValue || 0) : 0;
+                             const deltaCobricao = newCobricaoDia - oldCobricaoDia;
+
+                             updates.mudaAcumulada = (currentFazenda.muda_acumulada || 0) + deltaMuda;
+                             updates.cobricaoAcumulada = (currentFazenda.cobricao_acumulada || 0) + deltaCobricao;
+                        }
+                        
+                        // Prevent negative values
+                        updates.plantioAcumulado = Math.max(0, updates.plantioAcumulado);
+                        if (updates.mudaAcumulada !== undefined) updates.mudaAcumulada = Math.max(0, updates.mudaAcumulada);
+                        if (updates.cobricaoAcumulada !== undefined) updates.cobricaoAcumulada = Math.max(0, updates.cobricaoAcumulada);
+
+                        await this.api.updateFazenda(frente.cod, updates);
+                    } else {
+                         // Fallback: use frontend calculated values if fetch fails
+                         const updates = {
+                            plantioAcumulado: frente.areaAcumulada
+                         };
+                         if (qualidade) {
+                             updates.mudaAcumulada = qualidade.mudaConsumoAcumulado;
+                             updates.cobricaoAcumulada = qualidade.cobricaoAcumulada;
+                         }
+                         await this.api.updateFazenda(frente.cod, updates);
                     }
-                    await this.api.updateFazenda(frente.cod, updates);
                     // Atualiza cache de fazendas
                     const cadResp = await this.api.getFazendas();
                     if (cadResp && cadResp.success && Array.isArray(cadResp.data)) {
