@@ -14353,9 +14353,19 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
                         const oldPlantioDia = this.currentPlantioId ? (this.originalPlantioValue || 0) : 0;
                         const deltaPlantio = newPlantioDia - oldPlantioDia;
 
-                        const updates = {
-                            plantioAcumulado: (currentFazenda.plantio_acumulado || 0) + deltaPlantio
-                        };
+                        const updates = {};
+                        
+                        // Check if accumulated values were manually edited
+                        // If manually edited, we use the value directly instead of calculating delta
+                        const manualPlantioAcum = document.getElementById('single-area-acumulada');
+                        const manualMudaAcum = document.getElementById('muda-consumo-acumulado');
+                        const manualCobricaoAcum = document.getElementById('cobricao-acumulada');
+
+                        if (manualPlantioAcum && manualPlantioAcum.value !== "" && !manualPlantioAcum.readOnly) {
+                             updates.plantioAcumulado = parseFloat(manualPlantioAcum.value);
+                        } else {
+                             updates.plantioAcumulado = (currentFazenda.plantio_acumulado || 0) + deltaPlantio;
+                        }
 
                         if (qualidade) {
                              const newMudaDia = qualidade.mudaConsumoDia || 0;
@@ -14366,8 +14376,17 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
                              const oldCobricaoDia = this.currentPlantioId ? (this.originalCobricaoValue || 0) : 0;
                              const deltaCobricao = newCobricaoDia - oldCobricaoDia;
 
-                             updates.mudaAcumulada = (currentFazenda.muda_acumulada || 0) + deltaMuda;
-                             updates.cobricaoAcumulada = (currentFazenda.cobricao_acumulada || 0) + deltaCobricao;
+                             if (manualMudaAcum && manualMudaAcum.value !== "" && !manualMudaAcum.readOnly) {
+                                 updates.mudaAcumulada = parseFloat(manualMudaAcum.value);
+                             } else {
+                                 updates.mudaAcumulada = (currentFazenda.muda_acumulada || 0) + deltaMuda;
+                             }
+                             
+                             if (manualCobricaoAcum && manualCobricaoAcum.value !== "" && !manualCobricaoAcum.readOnly) {
+                                 updates.cobricaoAcumulada = parseFloat(manualCobricaoAcum.value);
+                             } else {
+                                 updates.cobricaoAcumulada = (currentFazenda.cobricao_acumulada || 0) + deltaCobricao;
+                             }
                         }
                         
                         // Prevent negative values
