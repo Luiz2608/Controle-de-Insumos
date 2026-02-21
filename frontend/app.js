@@ -308,15 +308,21 @@ class InsumosApp {
                 const f = res.data;
                 this.tempFazendaStats = {
                     plantioAcumulado: f.plantio_acumulado || 0,
-                    mudaAcumulada: f.muda_acumulada || 0
+                    mudaAcumulada: f.muda_acumulada || 0,
+                    cobricaoAcumulada: f.cobricao_acumulada || 0
                 };
                 const set = (id, val) => { const t = document.getElementById(id); if (t) t.value = val; };
                 set('single-fazenda', f.nome || '');
                 set('single-regiao', f.regiao || '');
                 set('single-area-total', String(f.area_total || 0));
                 set('single-area-acumulada', String(f.plantio_acumulado || 0));
+                
                 const mEl = document.getElementById('muda-consumo-acumulado');
                 if (mEl) mEl.value = String(f.muda_acumulada || 0);
+                
+                const cEl = document.getElementById('cobricao-acumulada');
+                if (cEl) cEl.value = String(f.cobricao_acumulada || 0);
+
                 this.updateAccumulatedStats();
             } else {
                 this.ui.showNotification('Fazenda não encontrada', 'warning', 2000);
@@ -331,14 +337,23 @@ class InsumosApp {
         const mudaDiaInput = document.getElementById('muda-consumo-dia');
         const cobricaoDiaInput = document.getElementById('cobricao-dia');
         
-        const plantioDia = plantioDiaInput && plantioDiaInput.value ? parseFloat(plantioDiaInput.value) : 0;
-        const mudaDia = mudaDiaInput && mudaDiaInput.value ? parseFloat(mudaDiaInput.value) : 0;
-        const cobricaoDia = cobricaoDiaInput && cobricaoDiaInput.value ? parseFloat(cobricaoDiaInput.value) : 0;
+        // Helper para tratar inputs numéricos
+        const getVal = (el) => el && el.value ? parseFloat(el.value.replace(',', '.')) : 0;
+        
+        const plantioDia = getVal(plantioDiaInput);
+        const mudaDia = getVal(mudaDiaInput);
+        const cobricaoDia = getVal(cobricaoDiaInput);
         
         // Ajuste para Edição: Subtrair valor original do acumulado base
         let basePlantio = this.tempFazendaStats.plantioAcumulado || 0;
+        let baseMuda = this.tempFazendaStats.mudaAcumulada || 0;
+        let baseCobricao = this.tempFazendaStats.cobricaoAcumulada || 0;
+        
         if (this.currentPlantioId) {
              let originalArea = 0;
+             let originalMuda = 0;
+             let originalCobricao = 0;
+             
              // Prioritize value stored during edit initialization
              if (this.originalPlantioValue) {
                  originalArea = this.originalPlantioValue;
@@ -347,19 +362,26 @@ class InsumosApp {
                  if (original) {
                      originalArea = parseFloat(original.area_plantada || 0);
                      if (originalArea === 0 && original.frentes && Array.isArray(original.frentes) && original.frentes.length > 0) {
-                         // Tenta pegar do primeiro item de frentes (comum no modo single)
                          const f = original.frentes[0];
                          originalArea = parseFloat(f.plantioDiario || f.plantada || 0);
                      }
+                     
+                     // Extrair valores originais de muda e cobricao
+                     const q = original.qualidade || {};
+                     originalMuda = parseFloat(q.mudaConsumoDia || 0);
+                     originalCobricao = parseFloat(q.cobricaoDia || original.cobricaoDia || 0);
                  }
              }
+             
              // Subtrai valor original para não duplicar na soma visual
              basePlantio = Math.max(0, basePlantio - originalArea);
+             baseMuda = Math.max(0, baseMuda - originalMuda);
+             baseCobricao = Math.max(0, baseCobricao - originalCobricao);
         }
 
         const newPlantioAcum = basePlantio + plantioDia;
-        const newMudaAcum = (this.tempFazendaStats.mudaAcumulada || 0) + mudaDia;
-        const newCobricaoAcum = (this.tempFazendaStats.cobricaoAcumulada || 0) + cobricaoDia;
+        const newMudaAcum = baseMuda + mudaDia;
+        const newCobricaoAcum = baseCobricao + cobricaoDia;
         
         const plantioAcumEl = document.getElementById('single-area-acumulada');
         const mudaAcumEl = document.getElementById('muda-consumo-acumulado');
