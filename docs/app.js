@@ -13693,10 +13693,10 @@ InsumosApp.prototype.handleEditPlantio = async function(id) {
     set('qual-gemas-amostra', q.gemasAmostra);
     set('qual-gemas-media', q.gemasMedia);
 
-    set('colheita-hectares', q.colheitaHectares);
-    set('colheita-tch-estimado', q.colheitaTchEstimado);
-    set('colheita-tch-real', q.colheitaTchReal);
-    set('colheita-toneladas-totais', q.colheitaTonTotais);
+    set('colheita-hectares', record.colheita_hectares || q.colheitaHectares);
+    set('colheita-tch-estimado', record.colheita_tch_estimado || q.colheitaTchEstimado);
+    set('colheita-tch-real', record.colheita_tch_real || q.colheitaTchReal);
+    set('colheita-toneladas-totais', record.colheita_toneladas_totais || q.colheitaTonTotais);
 
     set('qual-mudas-total', q.mudasTotal);
     set('qual-mudas-boas', q.mudasBoas);
