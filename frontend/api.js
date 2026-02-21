@@ -943,6 +943,7 @@ class ApiService {
             area_total: payload.areaTotal || payload.area_total,
             plantio_acumulado: payload.plantioAcumulado || payload.plantio_acumulado,
             muda_acumulada: payload.mudaAcumulada || payload.muda_acumulada,
+            cobricao_acumulada: payload.cobricaoAcumulada || payload.cobricao_acumulada,
             observacoes: obs
         };
 
@@ -966,6 +967,7 @@ class ApiService {
         if (payload.areaTotal !== undefined) updates.area_total = payload.areaTotal;
         if (payload.plantioAcumulado !== undefined) updates.plantio_acumulado = payload.plantioAcumulado;
         if (payload.mudaAcumulada !== undefined) updates.muda_acumulada = payload.mudaAcumulada;
+        if (payload.cobricaoAcumulada !== undefined) updates.cobricao_acumulada = payload.cobricaoAcumulada;
         
         // Handle talhoes preservation in observacoes
         if (payload.observacoes !== undefined || payload.talhoes !== undefined) {

@@ -431,6 +431,7 @@ class InsumosApp {
             'cadastro-fazenda-area-total',
             'cadastro-fazenda-plantio-acumulado',
             'cadastro-fazenda-muda-acumulada',
+            'cadastro-fazenda-cobricao-acumulada',
             'cadastro-fazenda-observacoes'
         ];
         ids.forEach(id => {
@@ -460,6 +461,7 @@ class InsumosApp {
         const areaTotalEl = document.getElementById('cadastro-fazenda-area-total');
         const plantioAcumEl = document.getElementById('cadastro-fazenda-plantio-acumulado');
         const mudaAcumEl = document.getElementById('cadastro-fazenda-muda-acumulada');
+        const cobricaoAcumEl = document.getElementById('cadastro-fazenda-cobricao-acumulada');
         const obsEl = document.getElementById('cadastro-fazenda-observacoes');
 
         const codigo = codigoEl && codigoEl.value ? codigoEl.value.trim() : '';
@@ -468,6 +470,7 @@ class InsumosApp {
         const areaTotal = areaTotalEl && areaTotalEl.value ? parseFloat(areaTotalEl.value) : 0;
         const plantioAcumulado = plantioAcumEl && plantioAcumEl.value ? parseFloat(plantioAcumEl.value) : 0;
         const mudaAcumulada = mudaAcumEl && mudaAcumEl.value ? parseFloat(mudaAcumEl.value) : 0;
+        const cobricaoAcumulada = cobricaoAcumEl && cobricaoAcumEl.value ? parseFloat(cobricaoAcumEl.value) : 0;
         const observacoes = obsEl && obsEl.value ? obsEl.value.trim() : '';
 
         if (!codigo || !nome) {
@@ -482,6 +485,7 @@ class InsumosApp {
             areaTotal,
             plantioAcumulado,
             mudaAcumulada,
+            cobricaoAcumulada,
             observacoes
         };
 
@@ -528,6 +532,7 @@ class InsumosApp {
         const areaTotalEl = document.getElementById('cadastro-fazenda-area-total');
         const plantioAcumEl = document.getElementById('cadastro-fazenda-plantio-acumulado');
         const mudaAcumEl = document.getElementById('cadastro-fazenda-muda-acumulada');
+        const cobricaoAcumEl = document.getElementById('cadastro-fazenda-cobricao-acumulada');
         const obsEl = document.getElementById('cadastro-fazenda-observacoes');
         if (codigoEl) codigoEl.value = item.codigo ?? '';
         if (nomeEl) nomeEl.value = item.nome ?? '';
@@ -535,6 +540,7 @@ class InsumosApp {
         if (areaTotalEl) areaTotalEl.value = item.area_total != null ? String(item.area_total) : '';
         if (plantioAcumEl) plantioAcumEl.value = item.plantio_acumulado != null ? String(item.plantio_acumulado) : '';
         if (mudaAcumEl) mudaAcumEl.value = item.muda_acumulada != null ? String(item.muda_acumulada) : '';
+        if (cobricaoAcumEl) cobricaoAcumEl.value = item.cobricao_acumulada != null ? String(item.cobricao_acumulada) : '';
         if (obsEl) obsEl.value = item.observacoes ?? '';
         this.cadastroEditCodigo = item.codigo;
         const saveBtn = document.getElementById('cadastro-fazenda-save');
