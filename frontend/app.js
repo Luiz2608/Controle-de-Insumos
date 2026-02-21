@@ -5840,8 +5840,12 @@ forceReloadAllData() {
             this.updateAccumulatedStats();
             this.renderInsumosDraft();
         });
-        if (mudaConsumoDia) mudaConsumoDia.addEventListener('input', () => this.updateAccumulatedStats());
-        if (cobricaoDia) cobricaoDia.addEventListener('input', () => this.updateAccumulatedStats());
+        if (mudaConsumoDia) mudaConsumoDia.addEventListener('input', () => {
+            this.updateAccumulatedStats();
+        });
+        if (cobricaoDia) cobricaoDia.addEventListener('input', () => {
+            this.updateAccumulatedStats();
+        });
 
         const toletesTotal = document.getElementById('qual-toletes-total');
         const toletesBons = document.getElementById('qual-toletes-bons');
@@ -13753,6 +13757,9 @@ InsumosApp.prototype.handleEditPlantio = async function(id) {
                         cobricaoAcumulada: res.data.cobricao_acumulada || 0
                      };
                      console.log('Stats da fazenda carregados para edição:', this.tempFazendaStats);
+                     
+                     // Force update UI with loaded stats
+                     this.updateAccumulatedStats();
                  }
              }).catch(e => console.error('Erro ao buscar stats fazenda edit:', e));
         }
