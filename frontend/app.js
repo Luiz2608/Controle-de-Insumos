@@ -473,6 +473,9 @@ class InsumosApp {
         const cobricaoAcumulada = cobricaoAcumEl && cobricaoAcumEl.value ? parseFloat(cobricaoAcumEl.value) : 0;
         const observacoes = obsEl && obsEl.value ? obsEl.value.trim() : '';
 
+        // DEBUG: Log values before save
+        console.log('Salvando Fazenda:', { codigo, nome, regiao, areaTotal, plantioAcumulado, mudaAcumulada, cobricaoAcumulada, observacoes });
+
         if (!codigo || !nome) {
             this.ui.showNotification('Informe código e nome da fazenda', 'warning');
             return;
@@ -542,9 +545,19 @@ class InsumosApp {
         if (mudaAcumEl) mudaAcumEl.value = item.muda_acumulada != null ? String(item.muda_acumulada) : '';
         if (cobricaoAcumEl) cobricaoAcumEl.value = item.cobricao_acumulada != null ? String(item.cobricao_acumulada) : '';
         if (obsEl) obsEl.value = item.observacoes ?? '';
+        
+        console.log('Dados carregados para edição:', item);
+
         this.cadastroEditCodigo = item.codigo;
         const saveBtn = document.getElementById('cadastro-fazenda-save');
-        if (saveBtn) saveBtn.textContent = '💾 Atualizar Fazenda';
+        if (saveBtn) {
+             saveBtn.textContent = '💾 Atualizar Fazenda';
+             // Remover listener anterior se houver (para evitar múltiplos clicks se a função for chamada várias vezes, 
+             // embora aqui seja apenas configuração visual, o listener real está no init)
+             // Mas espere, o listener de salvar está em handleCadastroActions e chama saveCadastroFazenda.
+             // O problema pode ser que this.cadastroEditCodigo não está persistindo ou sendo lido corretamente no save.
+             console.log('Modo de edição ativado para código:', this.cadastroEditCodigo);
+        }
     }
 
     async deleteCadastroFazenda(codigo) {
@@ -1128,21 +1141,37 @@ class InsumosApp {
         }
         const tabela = document.getElementById('cadastro-fazendas-table');
         if (tabela) {
-            tabela.addEventListener('click', (e) => {
-                const editBtn = e.target.closest('.btn-edit-fazenda');
-                const deleteBtn = e.target.closest('.btn-delete-fazenda');
-                const usePlantioBtn = e.target.closest('.btn-use-fazenda-plantio');
-                if (editBtn) {
-                    const codigo = editBtn.getAttribute('data-codigo');
-                    this.editCadastroFazenda(codigo);
-                } else if (deleteBtn) {
-                    const codigo = deleteBtn.getAttribute('data-codigo');
-                    this.deleteCadastroFazenda(codigo);
-                } else if (usePlantioBtn) {
-                    const codigo = usePlantioBtn.getAttribute('data-codigo');
-                    this.useFazendaInPlantio(codigo);
-                }
-            });
+            // Remove listener anterior se existir para evitar duplicação (boa prática, embora cloneNode já limpe)
+            // Mas aqui estamos usando cloneNode no tbody ou listener na tabela?
+            // O código original usava tabela.addEventListener.
+            // Vamos mudar para tbody para ficar consistente com o resto do app e garantir que funcione para elementos dinâmicos.
+            
+            const tbody = document.getElementById('cadastro-fazendas-body');
+            if (tbody) {
+                // Clonar para limpar listeners antigos
+                const newTbody = tbody.cloneNode(true);
+                tbody.parentNode.replaceChild(newTbody, tbody);
+                
+                newTbody.addEventListener('click', (e) => {
+                    const target = e.target;
+                    // Check for buttons or their icons/children
+                    const editBtn = target.closest('.btn-edit-fazenda');
+                    const deleteBtn = target.closest('.btn-delete-fazenda');
+                    const usePlantioBtn = target.closest('.btn-use-fazenda-plantio');
+
+                    if (editBtn) {
+                        const codigo = editBtn.getAttribute('data-codigo');
+                        console.log('Edit Fazenda Clicked, codigo:', codigo);
+                        this.editCadastroFazenda(codigo);
+                    } else if (deleteBtn) {
+                        const codigo = deleteBtn.getAttribute('data-codigo');
+                        this.deleteCadastroFazenda(codigo);
+                    } else if (usePlantioBtn) {
+                        const codigo = usePlantioBtn.getAttribute('data-codigo');
+                        this.useFazendaInPlantio(codigo);
+                    }
+                });
+            }
         }
 
         // 8. Table Delegated Events (View/Edit/Delete)
