@@ -5797,6 +5797,23 @@ forceReloadAllData() {
         const singlePlantioDia = document.getElementById('single-plantio-dia');
         const mudaConsumoDia = document.getElementById('muda-consumo-dia');
         const cobricaoDia = document.getElementById('cobricao-dia');
+        
+        // TCH Calculation
+        const colheitaHectares = document.getElementById('colheita-hectares');
+        const colheitaTchReal = document.getElementById('colheita-tch-real');
+        const colheitaTonTotais = document.getElementById('colheita-toneladas-totais');
+
+        const updateTchTotal = () => {
+            if (colheitaHectares && colheitaTchReal && colheitaTonTotais) {
+                const ha = parseFloat(colheitaHectares.value) || 0;
+                const tch = parseFloat(colheitaTchReal.value) || 0;
+                const total = ha * tch;
+                colheitaTonTotais.value = total.toFixed(2);
+            }
+        };
+
+        if (colheitaHectares) colheitaHectares.addEventListener('input', updateTchTotal);
+        if (colheitaTchReal) colheitaTchReal.addEventListener('input', updateTchTotal);
         if (singlePlantioDia) singlePlantioDia.addEventListener('input', () => {
             this.updateAccumulatedStats();
             this.renderInsumosDraft();
@@ -13006,11 +13023,14 @@ InsumosApp.prototype.loadQualidadeRecords = async function(targetType = null, pr
                     const tipo = q.tipoOperacao;
                     
                     if (targetType === 'plantio') {
-                        // Accept ONLY 'qualidade_muda' as requested by user
-                        // Previously accepted: 'plantio_cana', 'plantio', 'qualidade_muda', null
-                        return tipo === 'qualidade_muda';
+                        // Accept ONLY 'qualidade_muda' or 'plantio_cana' as requested by user
+                        // But ensure we exclude normal plantio records (which have type 'plantio')
+                        return tipo === 'qualidade_muda' || tipo === 'plantio_cana';
                     } else if (targetType === 'colheita_muda') {
-                        return tipo === 'colheita_muda';
+                        // For Colheita, only show records that have quality metrics
+                        // This excludes normal production records which will have minimal or null quality object
+                        // Check for key quality fields like mudasReboulos or similar
+                        return tipo === 'colheita_muda' && (q.mudasReboulos != null || q.gemasBoasPct != null);
                     }
                     return true;
                 });
@@ -13914,16 +13934,38 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
     // const tipoOperacao = document.getElementById('tipo-operacao')?.value || 'plantio';
     // Se for colheita_muda, pegar do input específico, senão 0
     const colheitaHa = parseVal('colheita-hectares');
+    const colheitaTchEst = parseVal('colheita-tch-estimado');
+    const colheitaTchReal = parseVal('colheita-tch-real');
+    const colheitaTonTotais = parseVal('colheita-toneladas-totais');
 
     const payload = {
         data, responsavel, observacoes,
         hora: horaRegistro,
-        // tipo_operacao e colheita_hectares removidos do root para evitar erro de coluna inexistente
-        // Eles já estão salvos dentro do objeto 'qualidade' (ver acima)
+        // Campos movidos para o root (requer atualização no banco de dados)
+        tipo_operacao: this.isQualidadeMode ? 'qualidade_muda' : tipoOperacao,
+        colheita_hectares: colheitaHa,
+        colheita_tch_estimado: colheitaTchEst,
+        colheita_tch_real: colheitaTchReal,
+        colheita_toneladas_totais: colheitaTonTotais,
         frentes: [frente],
         insumos: this.plantioInsumosDraft.slice(),
         qualidade
     };
+
+    // Remove auto-generated quality for Normal Colheita to prevent "ghost" quality records
+    if (!this.isQualidadeMode && tipoOperacao === 'colheita_muda') {
+        const linkedId = document.getElementById('selected-qualidade-id')?.value;
+        if (linkedId) {
+             // Keep minimal link if user explicitly selected a quality
+             payload.qualidade = { 
+                 qualitySourceId: linkedId, 
+                 tipoOperacao: 'colheita_muda'
+             };
+        } else {
+             // No quality record generated
+             payload.qualidade = null;
+        }
+    }
     
     // Auto-Aggregation Logic for Quality Mode
     if (this.isQualidadeMode && !this.currentPlantioId) {
@@ -13976,7 +14018,7 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
                 try {
                     await this.api.updateFazenda(frente.cod, {
                         plantioAcumulado: frente.areaAcumulada,
-                        mudaAcumulada: qualidade.mudaConsumoAcumulado
+                        mudaAcumulada: qualidade ? qualidade.mudaConsumoAcumulado : 0
                     });
                     // Atualiza cache de fazendas
                     const cadResp = await this.api.getFazendas();

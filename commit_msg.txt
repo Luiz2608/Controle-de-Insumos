@@ -1,1 +1,5 @@
-Reativar campo cobricao_acumulada para salvar no banco de dados
+Correções em Plantio e Colheita:
+- Corrigir filtro de Qualidade no Plantio para mostrar apenas registros da aba Qualidade
+- Remover geração automática de Qualidade ao lançar Colheita de Muda (usar colunas root)
+- Implementar cálculo automático de TCH e Toneladas Totais na Colheita
+- Adicionar campos de TCH e Toneladas na interface e no payload de salvamento
