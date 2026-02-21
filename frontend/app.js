@@ -6352,12 +6352,25 @@ forceReloadAllData() {
                         <th>Ações</th>
                     </tr>
                 `;
+            } else if (currentTab === 'colheita_muda') {
+                thead.innerHTML = `
+                    <tr>
+                        <th>Data</th>
+                        <th>Frentes</th>
+                        <th>Qtd. Colhida (t)</th>
+                        <th>TCH</th>
+                        <th>t/ha</th>
+                        <th>Ações</th>
+                    </tr>
+                `;
             } else {
                 thead.innerHTML = `
                     <tr>
                         <th>Data</th>
                         <th>Frentes</th>
                         <th>Área Total (ha)</th>
+                        <th>Plantio Dia (ha)</th>
+                        <th>Cobrição (ha)</th>
                         <th>Ações</th>
                     </tr>
                 `;
@@ -6470,8 +6483,41 @@ forceReloadAllData() {
                         </div>
                     </td>
                 </tr>`;
+            } else if (currentTab === 'colheita_muda') {
+                const resumoFrentes = (r.frentes||[]).map(f => `${f.frente}: ${f.fazenda||'—'}${f.regiao?(' / '+f.regiao):''}`).join(' | ');
+                const qtdColhida = this.ui.formatNumber(r.colheita_toneladas_totais || 0, 2);
+                const tch = this.ui.formatNumber(r.colheita_tch_real || 0, 2);
+                // "TON/Hectare" requested, which is TCH. Showing TCH again or maybe they meant Hectares? 
+                // Let's assume they want the calculation TCH again as explicitly requested "TON/Hectare".
+                
+                return `
+                <tr>
+                    <td>${this.ui.formatDateBR(r.data)}</td>
+                    <td>${resumoFrentes}</td>
+                    <td>${qtdColhida} t</td>
+                    <td>${tch}</td>
+                    <td>${tch}</td>
+                    <td>
+                        <div style="display: flex; gap: 5px;">
+                            <button class="btn btn-sm btn-secondary" onclick="window.insumosApp.showPlantioDetails('${r.id}')">
+                                📋 Detalhes
+                            </button>
+                            <button class="btn btn-sm btn-secondary btn-edit-plantio" data-plantio-id="${r.id}" title="Editar Registro">
+                                ✏️
+                            </button>
+                            <button class="btn btn-sm btn-delete-plantio" data-plantio-id="${r.id}" style="background-color: #e74c3c; color: white;" title="Excluir Registro">
+                                🗑️
+                            </button>
+                        </div>
+                    </td>
+                </tr>`;
             } else {
                 const sumArea = (r.frentes||[]).reduce((s,x)=> s + (Number(x.area)||0), 0);
+                const sumPlantioDia = (r.frentes||[]).reduce((s,x)=> s + (Number(x.plantioDiario || x.plantada)||0), 0);
+                // Cobrição is usually in 'qualidade' object or root 'cobricao_dia'/'cobricao_acumulada'
+                const q = r.qualidade || {};
+                const cobricao = this.ui.formatNumber(q.cobricaoDia || r.cobricaoDia || 0, 2);
+                
                 const resumoFrentes = (r.frentes||[]).map(f => `${f.frente}: ${f.fazenda||'—'}${f.regiao?(' / '+f.regiao):''}`).join(' | ');
                 
                 return `
@@ -6479,6 +6525,8 @@ forceReloadAllData() {
                     <td>${this.ui.formatDateBR(r.data)}</td>
                     <td>${resumoFrentes || '—'}</td>
                     <td>${this.ui.formatNumber(sumArea)}</td>
+                    <td>${this.ui.formatNumber(sumPlantioDia)}</td>
+                    <td>${cobricao}</td>
                     
                     <td>
                         <div style="display: flex; gap: 5px;">

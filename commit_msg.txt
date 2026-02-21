@@ -1,1 +1,3 @@
-Corrigir filtro da tabela Qualidade de Muda para excluir registros de produção de colheita (colheita_muda)
+Adicionar colunas aos previews de Plantio e Colheita:
+- Plantio de Cana: Adicionado 'Plantio Dia' e 'Cobrição'.
+- Colheita de Muda: Adicionado 'Qtd Colhida', 'TCH' e 'TON/Hectare'.
