@@ -337,18 +337,24 @@ class InsumosApp {
         
         // Ajuste para Edição: Subtrair valor original do acumulado base
         let basePlantio = this.tempFazendaStats.plantioAcumulado || 0;
-        if (this.currentPlantioId && this.plantioDiarioData) {
-             const original = this.plantioDiarioData.find(p => String(p.id) === String(this.currentPlantioId));
-             if (original) {
-                 let originalArea = parseFloat(original.area_plantada || 0);
-                 if (originalArea === 0 && original.frentes && Array.isArray(original.frentes) && original.frentes.length > 0) {
-                     // Tenta pegar do primeiro item de frentes (comum no modo single)
-                     const f = original.frentes[0];
-                     originalArea = parseFloat(f.plantioDiario || f.plantada || 0);
+        if (this.currentPlantioId) {
+             let originalArea = 0;
+             // Prioritize value stored during edit initialization
+             if (this.originalPlantioValue) {
+                 originalArea = this.originalPlantioValue;
+             } else if (this.plantioDiarioData) {
+                 const original = this.plantioDiarioData.find(p => String(p.id) === String(this.currentPlantioId));
+                 if (original) {
+                     originalArea = parseFloat(original.area_plantada || 0);
+                     if (originalArea === 0 && original.frentes && Array.isArray(original.frentes) && original.frentes.length > 0) {
+                         // Tenta pegar do primeiro item de frentes (comum no modo single)
+                         const f = original.frentes[0];
+                         originalArea = parseFloat(f.plantioDiario || f.plantada || 0);
+                     }
                  }
-                 // Subtrai valor original para não duplicar na soma visual
-                 basePlantio = Math.max(0, basePlantio - originalArea);
              }
+             // Subtrai valor original para não duplicar na soma visual
+             basePlantio = Math.max(0, basePlantio - originalArea);
         }
 
         const newPlantioAcum = basePlantio + plantioDia;
@@ -13208,6 +13214,7 @@ InsumosApp.prototype.toggleOperacaoSections = function() {
 
 InsumosApp.prototype.resetPlantioForm = function(mode = 'normal') {
     this.currentPlantioId = null;
+    this.originalPlantioValue = 0; // Reset original value
     this.plantioInsumosDraft = [];
     this.renderInsumosDraft();
     
@@ -13542,6 +13549,7 @@ InsumosApp.prototype.handleEditPlantio = async function(id) {
         set('single-area-total', f.areaTotal);
         set('single-area-acumulada', f.areaAcumulada);
         set('single-plantio-dia', f.plantioDiario);
+        this.originalPlantioValue = parseFloat(f.plantioDiario || f.plantada || 0);
 
         // --- FIX: Carregar stats atualizados da fazenda para cálculo correto do acumulado na edição ---
         if (f.cod) {
