@@ -1,1 +1,1 @@
-Corrigir erro de sintaxe no app.js: remover chave extra
+Corrigir erro 400 ao salvar fazenda: remover campo cobricao_acumulada inexistente no banco
