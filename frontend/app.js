@@ -6028,6 +6028,11 @@ forceReloadAllData() {
                 e.preventDefault();
                 console.log('Botão Atualizar Acumulados clicado. Recalculando...');
                 
+                // Visual Feedback
+                const originalText = btnUpdateAccum.textContent;
+                btnUpdateAccum.textContent = '🔄 Atualizando...';
+                btnUpdateAccum.disabled = true;
+
                 // Forçar recarregamento das estatísticas da fazenda se possível
                 const cod = document.getElementById('single-cod')?.value;
                 if (cod) {
@@ -6048,10 +6053,15 @@ forceReloadAllData() {
                     }).catch(() => {
                         this.updateAccumulatedStats();
                         this.ui.showNotification('Recálculo local realizado (Erro API).', 'warning');
+                    }).finally(() => {
+                         btnUpdateAccum.textContent = originalText;
+                         btnUpdateAccum.disabled = false;
                     });
                 } else {
                     this.updateAccumulatedStats();
                     this.ui.showNotification('Recálculo local realizado.', 'info');
+                    btnUpdateAccum.textContent = originalText;
+                    btnUpdateAccum.disabled = false;
                 }
             });
         }
@@ -6287,6 +6297,20 @@ forceReloadAllData() {
                 const item = this.findFazendaByName(nome);
                 if (item) {
                     this.applyCadastroFazendaToPlantio(item);
+                    
+                    // Forçar recarregamento das estatísticas atuais da API para evitar cache antigo
+                    if (item.codigo) {
+                        this.api.getFazendaByCodigo(item.codigo).then(res => {
+                             if (res && res.success && res.data) {
+                                 this.tempFazendaStats = {
+                                     plantioAcumulado: res.data.plantio_acumulado || 0,
+                                     mudaAcumulada: res.data.muda_acumulada || 0,
+                                     cobricaoAcumulada: res.data.cobricao_acumulada || 0
+                                 };
+                                 this.updateAccumulatedStats();
+                             }
+                        });
+                    }
                     return;
                 }
             }
@@ -6302,7 +6326,20 @@ forceReloadAllData() {
             } else {
                 this.autofillRowByCod('single-fazenda', 'single-cod'); 
             }
-            await this.autofetchFazendaByCodigoApi('single-cod');
+            
+            // Forçar recarregamento das estatísticas atuais da API para evitar cache antigo
+            if (singleCod.value) {
+                this.api.getFazendaByCodigo(singleCod.value).then(res => {
+                     if (res && res.success && res.data) {
+                         this.tempFazendaStats = {
+                             plantioAcumulado: res.data.plantio_acumulado || 0,
+                             mudaAcumulada: res.data.muda_acumulada || 0,
+                             cobricaoAcumulada: res.data.cobricao_acumulada || 0
+                         };
+                         this.updateAccumulatedStats();
+                     }
+                });
+            }
         });
         
         const loginBtn = document.getElementById('login-btn');
