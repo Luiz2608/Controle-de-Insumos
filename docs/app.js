@@ -13756,7 +13756,7 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
 
     const payload = {
         data, responsavel, observacoes,
-        hora: horaRegistro,
+        // 'hora' removido pois não existe na tabela. Será salvo dentro do JSON 'qualidade'.
         // tipo_operacao e colheita_hectares removidos do root para evitar erro de coluna inexistente
         // Eles já estão salvos dentro do objeto 'qualidade' (ver acima)
         frentes: [frente],
