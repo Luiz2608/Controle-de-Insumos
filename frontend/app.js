@@ -331,7 +331,22 @@ class InsumosApp {
     }
 
     updateAccumulatedStats() {
-        if (!this.tempFazendaStats) return;
+        if (!this.tempFazendaStats) {
+            // Tenta recuperar do cache global se tempFazendaStats estiver vazio
+            // Isso pode acontecer se a página for recarregada ou em certas navegações
+            const cod = document.getElementById('single-cod')?.value;
+            if (cod && this.cadastroFazendas) {
+                const fazenda = this.cadastroFazendas.find(f => String(f.codigo) === String(cod));
+                if (fazenda) {
+                    this.tempFazendaStats = {
+                        plantioAcumulado: fazenda.plantio_acumulado || 0,
+                        mudaAcumulada: fazenda.muda_acumulada || 0,
+                        cobricaoAcumulada: fazenda.cobricao_acumulada || 0
+                    };
+                }
+            }
+            if (!this.tempFazendaStats) return;
+        }
         
         const plantioDiaInput = document.getElementById('single-plantio-dia');
         const mudaDiaInput = document.getElementById('muda-consumo-dia');
@@ -345,9 +360,9 @@ class InsumosApp {
         const cobricaoDia = getVal(cobricaoDiaInput);
         
         // Ajuste para Edição: Subtrair valor original do acumulado base
-        let basePlantio = this.tempFazendaStats.plantioAcumulado || 0;
-        let baseMuda = this.tempFazendaStats.mudaAcumulada || 0;
-        let baseCobricao = this.tempFazendaStats.cobricaoAcumulada || 0;
+        let basePlantio = parseFloat(this.tempFazendaStats.plantioAcumulado || 0);
+        let baseMuda = parseFloat(this.tempFazendaStats.mudaAcumulada || 0);
+        let baseCobricao = parseFloat(this.tempFazendaStats.cobricaoAcumulada || 0);
         
         if (this.currentPlantioId) {
              let originalArea = 0;
@@ -5849,6 +5864,41 @@ forceReloadAllData() {
         if (cobricaoDia) cobricaoDia.addEventListener('input', () => {
             this.updateAccumulatedStats();
         });
+
+        // Manual Update Button Listener
+        const btnUpdateAccum = document.getElementById('btn-update-accumulated');
+        if (btnUpdateAccum) {
+            btnUpdateAccum.addEventListener('click', (e) => {
+                e.preventDefault();
+                console.log('Botão Atualizar Acumulados clicado. Recalculando...');
+                
+                // Forçar recarregamento das estatísticas da fazenda se possível
+                const cod = document.getElementById('single-cod')?.value;
+                if (cod) {
+                    this.api.getFazendaByCodigo(cod).then(res => {
+                        if (res && res.success && res.data) {
+                            this.tempFazendaStats = {
+                                plantioAcumulado: res.data.plantio_acumulado || 0,
+                                mudaAcumulada: res.data.muda_acumulada || 0,
+                                cobricaoAcumulada: res.data.cobricao_acumulada || 0
+                            };
+                            this.updateAccumulatedStats();
+                            this.ui.showNotification('Dados atualizados com sucesso.', 'success');
+                        } else {
+                            // Se falhar API, tenta atualizar com o que tem
+                            this.updateAccumulatedStats();
+                            this.ui.showNotification('Recálculo local realizado.', 'info');
+                        }
+                    }).catch(() => {
+                        this.updateAccumulatedStats();
+                        this.ui.showNotification('Recálculo local realizado (Erro API).', 'warning');
+                    });
+                } else {
+                    this.updateAccumulatedStats();
+                    this.ui.showNotification('Recálculo local realizado.', 'info');
+                }
+            });
+        }
 
         const toletesTotal = document.getElementById('qual-toletes-total');
         const toletesBons = document.getElementById('qual-toletes-bons');
