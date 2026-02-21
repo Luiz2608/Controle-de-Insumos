@@ -355,9 +355,12 @@ class InsumosApp {
              let originalCobricao = 0;
              
              // Prioritize value stored during edit initialization
-             if (this.originalPlantioValue) {
-                 originalArea = this.originalPlantioValue;
-             } else if (this.plantioDiarioData) {
+             if (this.originalPlantioValue != null) originalArea = this.originalPlantioValue;
+             if (this.originalMudaValue != null) originalMuda = this.originalMudaValue;
+             if (this.originalCobricaoValue != null) originalCobricao = this.originalCobricaoValue;
+             
+             // Fallback to searching in data list if not stored
+             if (this.originalPlantioValue == null && this.plantioDiarioData) {
                  const original = this.plantioDiarioData.find(p => String(p.id) === String(this.currentPlantioId));
                  if (original) {
                      originalArea = parseFloat(original.area_plantada || 0);
@@ -368,8 +371,8 @@ class InsumosApp {
                      
                      // Extrair valores originais de muda e cobricao
                      const q = original.qualidade || {};
-                     originalMuda = parseFloat(q.mudaConsumoDia || 0);
-                     originalCobricao = parseFloat(q.cobricaoDia || original.cobricaoDia || 0);
+                     if (this.originalMudaValue == null) originalMuda = parseFloat(q.mudaConsumoDia || 0);
+                     if (this.originalCobricaoValue == null) originalCobricao = parseFloat(q.cobricaoDia || original.cobricaoDia || 0);
                  }
              }
              
@@ -13746,6 +13749,8 @@ InsumosApp.prototype.handleEditPlantio = async function(id) {
         set('single-area-acumulada', f.areaAcumulada);
         set('single-plantio-dia', f.plantioDiario);
         this.originalPlantioValue = parseFloat(f.plantioDiario || f.plantada || 0);
+        this.originalMudaValue = parseFloat(q.mudaConsumoDia || 0);
+        this.originalCobricaoValue = parseFloat(q.cobricaoDia || 0);
 
         // --- FIX: Carregar stats atualizados da fazenda para cálculo correto do acumulado na edição ---
         if (f.cod) {
@@ -14093,12 +14098,16 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
         if (res && res.success) {
             this.ui.showNotification(this.currentPlantioId ? 'Registro atualizado' : 'Dia de plantio registrado', 'success', 1500);
             
-            if (frente.cod) {
+            if (frente.cod && tipoOperacao !== 'colheita_muda') {
                 try {
-                    await this.api.updateFazenda(frente.cod, {
-                        plantioAcumulado: frente.areaAcumulada,
-                        mudaAcumulada: qualidade ? qualidade.mudaConsumoAcumulado : 0
-                    });
+                    const updates = {
+                        plantioAcumulado: frente.areaAcumulada
+                    };
+                    if (qualidade) {
+                         updates.mudaAcumulada = qualidade.mudaConsumoAcumulado;
+                         updates.cobricaoAcumulada = qualidade.cobricaoAcumulada;
+                    }
+                    await this.api.updateFazenda(frente.cod, updates);
                     // Atualiza cache de fazendas
                     const cadResp = await this.api.getFazendas();
                     if (cadResp && cadResp.success && Array.isArray(cadResp.data)) {
