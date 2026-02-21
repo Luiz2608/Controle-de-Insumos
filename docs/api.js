@@ -908,6 +908,18 @@ class ApiService {
         return { success: true, data: parsedData };
     }
 
+    async getFazendaByCodigo(codigo) {
+        this.checkConfig();
+        const { data, error } = await this.supabase
+            .from('fazendas')
+            .select('*')
+            .eq('codigo', codigo)
+            .single();
+        // Não lançar erro se não encontrar, apenas retornar null data
+        if (error && error.code !== 'PGRST116') throw error; 
+        return { success: true, data };
+    }
+
     async getProdutos() {
         // Retornando estático como no backend original, ou poderia buscar do banco
         return { success: true, data: ["CALCARIO OXIFERTIL", "LANEX 800 WG (REGENTE)", "BIOZYME", "04-30-10"] };
