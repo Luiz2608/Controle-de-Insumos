@@ -13215,6 +13215,7 @@ InsumosApp.prototype.toggleOperacaoSections = function() {
 InsumosApp.prototype.resetPlantioForm = function(mode = 'normal') {
     this.currentPlantioId = null;
     this.originalPlantioValue = 0; // Reset original value
+    this.tempFazendaStats = null; // Limpar stats temporários para evitar valores residuais
     this.plantioInsumosDraft = [];
     this.renderInsumosDraft();
     
