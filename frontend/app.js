@@ -14377,7 +14377,10 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
                     if (cadResp && cadResp.success && Array.isArray(cadResp.data)) {
                         this.renderCadastroFazendas(cadResp.data);
                     }
-                } catch(e) { console.error('Erro ao atualizar fazenda:', e); }
+                } catch(e) { 
+                    console.error('Erro ao atualizar fazenda:', e);
+                    this.ui.showNotification('Aviso: Erro ao atualizar totais da fazenda', 'warning');
+                }
             }
             
             // Salvar insumos na tabela insumos_fazendas para o dashboard
