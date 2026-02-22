@@ -353,7 +353,11 @@ class InsumosApp {
         const cobricaoDiaInput = document.getElementById('cobricao-dia');
         
         // Helper para tratar inputs numéricos
-        const getVal = (el) => el && el.value ? parseFloat(el.value.replace(',', '.')) : 0;
+        const getVal = (el) => {
+            if (!el || !el.value) return 0;
+            const val = parseFloat(el.value.replace(',', '.'));
+            return isNaN(val) ? 0 : val;
+        };
         
         const plantioDia = getVal(plantioDiaInput);
         const mudaDia = getVal(mudaDiaInput);
@@ -361,8 +365,13 @@ class InsumosApp {
         
         // Ajuste para Edição: Subtrair valor original do acumulado base
         let basePlantio = parseFloat(this.tempFazendaStats.plantioAcumulado || 0);
+        if (isNaN(basePlantio)) basePlantio = 0;
+
         let baseMuda = parseFloat(this.tempFazendaStats.mudaAcumulada || 0);
+        if (isNaN(baseMuda)) baseMuda = 0;
+
         let baseCobricao = parseFloat(this.tempFazendaStats.cobricaoAcumulada || 0);
+        if (isNaN(baseCobricao)) baseCobricao = 0;
         
         if (this.currentPlantioId) {
              let originalArea = 0;
@@ -14023,9 +14032,11 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
     const parseVal = (id) => {
         const el = document.getElementById(id);
         if (!el) return 0;
-        let val = el.value || '0';
+        let val = el.value;
+        if (!val || typeof val === 'string' && val.trim() === '') return 0;
         if (typeof val === 'string') val = val.replace(',', '.');
-        return parseFloat(val);
+        const num = parseFloat(val);
+        return isNaN(num) ? 0 : num;
     };
 
     const data = document.getElementById('plantio-data')?.value;
@@ -14423,6 +14434,13 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
         }
     } catch(e) { 
         console.error('Exceção ao salvar plantio:', e);
+        if (e.response && e.response.data) {
+            console.error('Detalhes do erro API:', e.response.data);
+            this.ui.showNotification(`Erro API: ${e.response.data.message || JSON.stringify(e.response.data)}`, 'error', 5000);
+        } else {
+            this.ui.showNotification(`Erro ao salvar: ${e.message || 'Verifique os dados'}`, 'error');
+        }
+
         // Fallback offline
         try {
             await this.saveOfflinePlantio(payload);
