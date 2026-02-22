@@ -871,7 +871,7 @@ class ApiService {
 
     async getFazendas() {
         this.checkConfig();
-        const { data, error } = await this.supabase.from('fazendas').select('codigo, nome, regiao, area_total, plantio_acumulado, muda_acumulada, observacoes');
+        const { data, error } = await this.supabase.from('fazendas').select('codigo, nome, regiao, area_total, plantio_acumulado, muda_acumulada, cobricao_acumulada, observacoes');
         if (error) throw error;
         
         const parsedData = data.map(f => {
