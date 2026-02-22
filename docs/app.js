@@ -516,10 +516,10 @@ class InsumosApp {
         const codigo = codigoEl && codigoEl.value ? codigoEl.value.trim() : '';
         const nome = nomeEl && nomeEl.value ? nomeEl.value.trim() : '';
         const regiao = regiaoEl && regiaoEl.value ? regiaoEl.value.trim() : '';
-        const areaTotal = areaTotalEl && areaTotalEl.value ? parseFloat(areaTotalEl.value) : 0;
-        const plantioAcumulado = plantioAcumEl && plantioAcumEl.value ? parseFloat(plantioAcumEl.value) : 0;
-        const mudaAcumulada = mudaAcumEl && mudaAcumEl.value ? parseFloat(mudaAcumEl.value) : 0;
-        const cobricaoAcumulada = cobricaoAcumEl && cobricaoAcumEl.value ? parseFloat(cobricaoAcumEl.value) : 0;
+        const areaTotal = areaTotalEl && areaTotalEl.value ? parseFloat(areaTotalEl.value.replace(',', '.')) : 0;
+        const plantioAcumulado = plantioAcumEl && plantioAcumEl.value ? parseFloat(plantioAcumEl.value.replace(',', '.')) : 0;
+        const mudaAcumulada = mudaAcumEl && mudaAcumEl.value ? parseFloat(mudaAcumEl.value.replace(',', '.')) : 0;
+        const cobricaoAcumulada = cobricaoAcumEl && cobricaoAcumEl.value ? parseFloat(cobricaoAcumEl.value.replace(',', '.')) : 0;
         const observacoes = obsEl && obsEl.value ? obsEl.value.trim() : '';
 
         // DEBUG: Log values before save
@@ -636,7 +636,15 @@ class InsumosApp {
         if (!codigo) return;
 
         const getVal = (id) => document.getElementById(id)?.value || '';
-        const getNum = (id) => parseFloat(document.getElementById(id)?.value) || 0;
+        const getNum = (id) => {
+            const el = document.getElementById(id);
+            if (!el) return 0;
+            let val = el.value;
+            if (!val) return 0;
+            if (typeof val === 'string') val = val.replace(',', '.');
+            const num = parseFloat(val);
+            return isNaN(num) ? 0 : num;
+        };
 
         const payload = {
             codigo: codigo, // Keep original code
