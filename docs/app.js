@@ -3879,52 +3879,38 @@ forceReloadAllData() {
         const osFazendaInput = document.getElementById('os-fazenda');
 
         if (osCodFazendaInput && osFazendaInput) {
-                    const bindSplit = () => {
-                        const val = osFazendaInput.value;
-                        // Regex ajustado para não consumir caracteres acentuados como separadores
-                        // Captura: (Digitos) + (Espaços/Hifens/Pontos opcionais) + (Resto do texto)
-                        const match = val.match(/^(\d+)\s*[-–—.]?\s*(.+)$/);
-                        if (match) {
-                            // Se encontrar padrão "1387 - Nome", separa
-                            osCodFazendaInput.value = match[1];
-                            osFazendaInput.value = match[2].trim();
-                            // Dispara verificação de existência
-                            checkFazendaExists();
-                        }
-                    };
-
-            const checkFazendaExists = () => {
-                const codigo = osCodFazendaInput.value ? parseInt(osCodFazendaInput.value) : null;
-                const nome = osFazendaInput.value.trim();
-                if (!codigo && !nome) return;
-
-                const normalize = (s) => (s || '').trim().toLowerCase().replace(/\s+/g, ' ');
-                const nomeNorm = normalize(nome);
-
-                const exists = this.cadastroFazendas && this.cadastroFazendas.find(f => {
-                    const fNomeNorm = normalize(f.nome);
-                    const matchName = nome && fNomeNorm === nomeNorm;
-                    const matchCode = codigo && String(f.codigo) === String(codigo);
-                    return matchName || matchCode;
-                });
-
-                if (exists) {
-                    this.ui.showNotification(`Fazenda já cadastrada: ${exists.nome} (Cód: ${exists.codigo})`, 'success');
-                    if (!osCodFazendaInput.value && exists.codigo) {
-                        osCodFazendaInput.value = exists.codigo;
+            // [ALTERADO] Lógica simplificada para Select
+            osFazendaInput.addEventListener('change', () => {
+                const idx = osFazendaInput.selectedIndex;
+                if (idx >= 0) {
+                    const opt = osFazendaInput.options[idx];
+                    if (opt && opt.dataset.codigo) {
+                        osCodFazendaInput.value = opt.dataset.codigo;
+                    } else {
+                        osCodFazendaInput.value = '';
                     }
-                    // Se o nome estiver diferente (ex: "Fazenda X" vs "X"), atualiza para o oficial
-                    if (exists.nome && exists.nome !== osFazendaInput.value) {
-                         // Opcional: Atualizar para o nome oficial? Pode ser intrusivo.
-                         // osFazendaInput.value = exists.nome;
-                    }
-                } else {
-                    this.ui.showNotification('Fazenda não cadastrada. Será necessário cadastrar ao salvar.', 'warning');
                 }
-            };
+            });
 
-            osFazendaInput.addEventListener('input', bindSplit);
-            osFazendaInput.addEventListener('blur', checkFazendaExists);
+            // Sincronização reversa (Código -> Select)
+            const checkFazendaExists = () => {
+                const codigo = osCodFazendaInput.value;
+                if (!codigo) return;
+                
+                // Encontrar opção pelo código
+                for (let i = 0; i < osFazendaInput.options.length; i++) {
+                    const opt = osFazendaInput.options[i];
+                    if (opt.dataset.codigo === codigo) {
+                        osFazendaInput.selectedIndex = i;
+                        return;
+                    }
+                }
+                // Se não encontrar, pode limpar ou avisar. 
+                // Manter comportamento antigo de aviso se desejado, mas agora é select.
+                this.ui.showNotification('Código de fazenda não encontrado na lista.', 'warning');
+                osFazendaInput.value = ""; // Limpar seleção se código inválido
+            };
+            
             osCodFazendaInput.addEventListener('blur', checkFazendaExists);
         }
 
@@ -4513,16 +4499,33 @@ forceReloadAllData() {
         set('os-frente', data.frente);
         set('os-processo', data.processo);
         set('os-subprocesso', data.subprocesso);
+
+        // Preencher Select de Fazendas
+        const fazendaEl = document.getElementById('os-fazenda');
+        if (fazendaEl) {
+            fazendaEl.innerHTML = '<option value="">Selecione...</option>';
+            if (this.cadastroFazendas && Array.isArray(this.cadastroFazendas)) {
+                // Ordenar alfabeticamente
+                const sorted = [...this.cadastroFazendas].sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
+                sorted.forEach(f => {
+                    const opt = document.createElement('option');
+                    opt.value = f.nome; // Mantém nome como valor para compatibilidade
+                    opt.textContent = `${f.codigo} - ${f.nome}`;
+                    opt.dataset.codigo = f.codigo;
+                    fazendaEl.appendChild(opt);
+                });
+            }
+        }
+        
         set('os-fazenda', data.fazenda);
         
-        // Disparar evento input para ativar a lógica de split e verificação de fazenda
-        const fazendaEl = document.getElementById('os-fazenda');
+        // Atualizar código se houver fazenda selecionada
         if (fazendaEl && data.fazenda) {
-            fazendaEl.dispatchEvent(new Event('input', { bubbles: true }));
-            // Forçar blur para garantir que a verificação de existência ocorra mesmo se o split falhar
-            setTimeout(() => {
-                fazendaEl.dispatchEvent(new Event('blur', { bubbles: true }));
-            }, 100);
+             const selected = Array.from(fazendaEl.options).find(o => o.value === data.fazenda);
+             if (selected && selected.dataset.codigo) {
+                 const codEl = document.getElementById('os-cod-fazenda');
+                 if (codEl && !codEl.value) codEl.value = selected.dataset.codigo;
+             }
         }
 
         set('os-setor', data.setor);
