@@ -883,6 +883,10 @@
                         <label for="viagem-destino">Destino</label>
                         <input type="text" id="viagem-destino" placeholder="Ex.: Talhão 1">
                     </div>
+                    <div class="form-group adubo-field">
+                        <label for="viagem-area-aplicada">Área Aplicada (ha)</label>
+                        <input type="number" id="viagem-area-aplicada" step="0.01" placeholder="0.00">
+                    </div>
                     <div class="form-group">
                         <label for="viagem-produto">Produto</label>
                         <select id="viagem-produto">
@@ -2408,6 +2412,10 @@
                         <label for="modal-viagem-destino">Destino</label>
                         <input type="text" id="modal-viagem-destino" placeholder="Ex.: Talhão 1">
                     </div>
+                    <div class="form-group adubo-field">
+                        <label for="modal-viagem-area-aplicada">Área Aplicada (ha)</label>
+                        <input type="number" id="modal-viagem-area-aplicada" step="0.01" placeholder="0.00">
+                    </div>
                     <div class="form-group">
                         <label for="modal-viagem-produto">Produto</label>
                         <select id="modal-viagem-produto">
@@ -2681,6 +2689,7 @@
                 fazenda: fazenda,
                 origem: getVal('viagem-origem'),
                 destino: getVal('viagem-destino'),
+                areaAplicada: parseFloat(getVal('viagem-area-aplicada')?.replace(',', '.') || 0), // Novo campo
                 produto: produto,
                 quantidadeTotal: quantidadeTotalNum,
                 unidade: getVal('viagem-unidade'),

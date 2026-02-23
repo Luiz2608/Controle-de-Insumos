@@ -5793,6 +5793,45 @@ forceReloadAllData() {
 
         const viagemCodEl = document.getElementById('viagem-codigo-fazenda');
         const viagemFazEl = document.getElementById('viagem-fazenda');
+        
+        // Auto-fill logic for Viagem Adubo
+        if (viagemFazEl) {
+            // Populate select on load or when cadastroFazendas changes
+            const populateViagemFazendas = () => {
+                viagemFazEl.innerHTML = '<option value="">Selecione a Fazenda</option>';
+                if (this.cadastroFazendas && Array.isArray(this.cadastroFazendas)) {
+                    const sorted = [...this.cadastroFazendas].sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
+                    sorted.forEach(f => {
+                        const opt = document.createElement('option');
+                        opt.value = f.nome;
+                        opt.textContent = `${f.codigo} - ${f.nome}`;
+                        opt.dataset.codigo = f.codigo;
+                        viagemFazEl.appendChild(opt);
+                    });
+                }
+            };
+            
+            // Initial population attempt
+            populateViagemFazendas();
+            
+            // Re-populate when switching to Adubo tab if needed
+            const btnAdubo = document.getElementById('btn-adubo');
+            if (btnAdubo) {
+                btnAdubo.addEventListener('click', populateViagemFazendas);
+            }
+
+            // Sync Code on Change
+            viagemFazEl.addEventListener('change', () => {
+                const selected = viagemFazEl.options[viagemFazEl.selectedIndex];
+                if (selected && selected.dataset.codigo) {
+                    // Update code field if exists (assuming simple input for now or select)
+                    // If viagem-codigo-fazenda is input:
+                    const codInput = document.getElementById('viagem-codigo-fazenda');
+                    if (codInput) codInput.value = selected.dataset.codigo;
+                }
+            });
+        }
+        
         if (viagemCodEl) viagemCodEl.addEventListener('change', () => this.autofillRowByCod('viagem-fazenda', 'viagem-codigo-fazenda'));
 
         document.addEventListener('click', (e) => {
@@ -10492,22 +10531,34 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
 
     async populateCompostoFazendas() {
         const select = document.getElementById('composto-fazenda');
+        const codigoInput = document.getElementById('composto-fazenda-codigo');
         if (!select) return;
 
         const currentValue = select.value; // Preserve current value
 
         try {
-            const res = await this.api.getFazendas();
-            if (res && res.success && Array.isArray(res.data)) {
+            // Use cached fazendas if available, otherwise fetch
+            let fazendas = [];
+            if (this.cadastroFazendas && this.cadastroFazendas.length > 0) {
+                fazendas = this.cadastroFazendas;
+            } else {
+                const res = await this.api.getFazendas();
+                if (res && res.success && Array.isArray(res.data)) {
+                    fazendas = res.data;
+                    this.cadastroFazendas = fazendas; // Update cache
+                }
+            }
+
+            if (fazendas.length > 0) {
                 // Keep the first option
                 select.innerHTML = '<option value="">Selecione a Fazenda...</option>';
                 
-                const fazendas = res.data.sort((a, b) => a.nome.localeCompare(b.nome));
+                const sorted = [...fazendas].sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
                 
-                fazendas.forEach(f => {
+                sorted.forEach(f => {
                     const opt = document.createElement('option');
                     opt.value = f.nome;
-                    opt.textContent = f.nome;
+                    opt.textContent = `${f.codigo} - ${f.nome}`;
                     opt.dataset.codigo = f.codigo;
                     select.appendChild(opt);
                 });
@@ -10529,6 +10580,39 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
             }
         } catch (e) {
             console.error('Erro ao popular fazendas:', e);
+        }
+
+        // Listener para preencher código automaticamente
+        // Remover listener anterior para evitar duplicidade (embora addEventListener não duplique se for a mesma função, aqui são anônimas)
+        // Uma abordagem melhor seria usar uma propriedade do elemento para guardar a função, mas por simplicidade:
+        const newSelect = select.cloneNode(true);
+        select.parentNode.replaceChild(newSelect, select);
+        
+        newSelect.addEventListener('change', () => {
+            const selected = newSelect.options[newSelect.selectedIndex];
+            if (selected && selected.dataset.codigo && codigoInput) {
+                codigoInput.value = selected.dataset.codigo;
+            } else if (codigoInput) {
+                codigoInput.value = '';
+            }
+        });
+
+        // Listener reverso (Código -> Select)
+        if (codigoInput) {
+            const newCodigoInput = codigoInput.cloneNode(true);
+            codigoInput.parentNode.replaceChild(newCodigoInput, codigoInput);
+
+            newCodigoInput.addEventListener('blur', () => {
+                const code = newCodigoInput.value;
+                if (code) {
+                    for (let i = 0; i < newSelect.options.length; i++) {
+                        if (newSelect.options[i].dataset.codigo === code) {
+                            newSelect.selectedIndex = i;
+                            break;
+                        }
+                    }
+                }
+            });
         }
     }
 
