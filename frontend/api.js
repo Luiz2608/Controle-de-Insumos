@@ -1682,18 +1682,18 @@ class ApiService {
         }
 
         // Sanitize Empty Strings to Null for other optional fields
-        ['responsavel_aplicacao', 'empresa', 'frente', 'atividade_agricola', 'fazenda', 'fazenda_codigo', 'codigo_fundo_agricola'].forEach(field => {
+        ['responsavel_aplicacao', 'empresa', 'frente', 'atividade_agricola', 'fazenda', 'fazenda_codigo'].forEach(field => {
             if (item[field] === '') item[field] = null;
         });
 
         // Remove frontend-only fields that don't exist in the database table
-        // CORREÇÃO: Mapear fazenda_codigo para codigo_fundo_agricola antes de deletar
-        if (item.fazenda_codigo !== undefined && item.fazenda_codigo !== null) {
-            item.codigo_fundo_agricola = String(item.fazenda_codigo);
-        }
+        // CORREÇÃO: O campo 'codigo_fundo_agricola' NÃO existe no banco segundo o erro
+        // O campo correto para o código da fazenda deve ser 'fazenda_codigo' ou similar
         
-        if (item.fazenda_codigo !== undefined) delete item.fazenda_codigo;
-        // if (item.codigo_fundo_agricola !== undefined) delete item.codigo_fundo_agricola; // REMOVIDO: Este campo existe no banco
+        // Se o banco espera 'fazenda_codigo', mantemos. Se não, removemos.
+        // O erro diz: Could not find the 'codigo_fundo_agricola' column
+        
+        if (item.codigo_fundo_agricola !== undefined) delete item.codigo_fundo_agricola;
         
         // 1. Save Main OS
         const { data, error } = await this.supabase
