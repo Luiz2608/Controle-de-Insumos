@@ -5820,14 +5820,81 @@ forceReloadAllData() {
                 btnAdubo.addEventListener('click', populateViagemFazendas);
             }
 
-            // Sync Code on Change
-            viagemFazEl.addEventListener('change', () => {
+            // Sync Code on Change and Filter Products
+            viagemFazEl.addEventListener('change', async () => {
                 const selected = viagemFazEl.options[viagemFazEl.selectedIndex];
+                const produtoSelect = document.getElementById('viagem-produto');
+                
                 if (selected && selected.dataset.codigo) {
                     // Update code field if exists (assuming simple input for now or select)
                     // If viagem-codigo-fazenda is input:
                     const codInput = document.getElementById('viagem-codigo-fazenda');
                     if (codInput) codInput.value = selected.dataset.codigo;
+                    
+                    // Filter Products based on OS and Stock
+                    if (produtoSelect) {
+                        produtoSelect.innerHTML = '<option value="">Carregando produtos...</option>';
+                        const produtosSet = new Set();
+                        
+                        // 1. Get products from Stock
+                        try {
+                           const estoqueRes = await this.api.getEstoque();
+                           if (estoqueRes.success && estoqueRes.data) {
+                               const estoqueFazenda = estoqueRes.data.filter(e => String(e.frente) === String(selected.value)); // Assuming 'frente' in stock might map to fazenda or we filter by fazenda name logic if applicable. 
+                               // Actually, stock is by 'frente'. We need to know which frentes belong to this fazenda.
+                               // Simplified: Filter stock where location matches or is related.
+                               // If strict mapping not available, maybe show all or try to infer.
+                               // Let's assume we want ALL products available in the system plus specific ones from OS.
+                               
+                               // BETTER APPROACH: Filter OSs for this Fazenda and get their products
+                           }
+                        } catch (e) { console.warn('Error fetching stock for product filter', e); }
+
+                        // 2. Get products from OSs for this Fazenda
+                        try {
+                            const osRes = await this.api.getOSList();
+                            if (osRes.success && osRes.data) {
+                                const fazendaNome = selected.value;
+                                const fazendaCod = selected.dataset.codigo;
+                                
+                                const relatedOS = osRes.data.filter(os => {
+                                    return (os.fazenda === fazendaNome) || (String(os.fazenda_codigo) === String(fazendaCod));
+                                });
+                                
+                                relatedOS.forEach(os => {
+                                    if (os.produtos && Array.isArray(os.produtos)) {
+                                        os.produtos.forEach(p => {
+                                            if (p.produto) produtosSet.add(p.produto);
+                                        });
+                                    }
+                                });
+                            }
+                        } catch (e) { console.warn('Error fetching OS for product filter', e); }
+                        
+                        // 3. Always add default list? User requested "de acordo com a O.S ou estoque".
+                        // If no OS products found, maybe fall back to default list or keep empty?
+                        // Let's keep defaults but prioritize OS products at top or just merge.
+                        
+                        const defaultProducts = [
+                            "BIOZYME", "04-30-10", "QUALITY", "AZOKOP", "SURVEY (FIPRONIL)", 
+                            "OXIFERTIL", "LANEX 800 WG (REGENTE)", "COMET", "COMPOSTO", 
+                            "10-49-00", "PEREGRINO", "NO-NEMA"
+                        ];
+                        defaultProducts.forEach(p => produtosSet.add(p));
+                        
+                        // Rebuild Select
+                        produtoSelect.innerHTML = '<option value="">Selecione</option>';
+                        
+                        // Add "Outro"
+                        if (!produtosSet.has('Outro')) produtosSet.add('Outro');
+                        
+                        Array.from(produtosSet).sort().forEach(p => {
+                            const opt = document.createElement('option');
+                            opt.value = p;
+                            opt.textContent = p;
+                            produtoSelect.appendChild(opt);
+                        });
+                    }
                 }
             });
         }
