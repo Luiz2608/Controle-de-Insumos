@@ -13191,14 +13191,7 @@ InsumosApp.prototype.goToPlantioStep = function(step) {
 
 InsumosApp.prototype.updatePlantioSummary = function() {
     const dataEl = document.getElementById('plantio-data');
-    const frenteEl = document.getElementById('single-frente');
-    const areaEl = document.getElementById('single-plantio-dia');
-    const custoEl = document.getElementById('insumos-total-gasto');
-
     const sumData = document.getElementById('summary-data');
-    const sumFrente = document.getElementById('summary-frente');
-    const sumArea = document.getElementById('summary-area');
-    const sumCusto = document.getElementById('summary-custo');
 
     if (sumData && dataEl) {
         const val = dataEl.value;
@@ -13215,29 +13208,6 @@ InsumosApp.prototype.updatePlantioSummary = function() {
         } else {
             sumData.textContent = '-';
         }
-    }
-    if (sumFrente && frenteEl) {
-        const val = frenteEl.value;
-        sumFrente.textContent = val || '-';
-    }
-    if (sumArea && areaEl) {
-        const val = parseFloat((areaEl.value || '0').replace(',', '.'));
-        sumArea.textContent = val.toFixed(2);
-    }
-    if (sumCusto) {
-         const valEl = document.getElementById('val-total-gasto');
-         if (valEl) {
-             sumCusto.textContent = valEl.textContent;
-         } else if (custoEl) {
-             // Fallback for initial state or if structure differs
-             const text = custoEl.textContent;
-             if (text.includes(':')) {
-                 const val = text.split(':')[1].trim().split('\n')[0]; // Take first line only
-                 sumCusto.textContent = val;
-             } else {
-                 sumCusto.textContent = '0.000';
-             }
-         }
     }
 };
 
