@@ -6183,9 +6183,6 @@ forceReloadAllData() {
 
         if (singleOs) {
             singleOs.addEventListener('change', async () => {
-                // Atualizar lista de produtos com base na OS selecionada
-                await this.loadProdutosDatalist();
-
                 const val = singleOs.value;
                 if (!val || !this.osListCache) return;
                 
@@ -6297,6 +6294,9 @@ forceReloadAllData() {
                     }
 
                     this.ui.showNotification('Dados da OS preenchidos.', 'info', 1500);
+                    
+                    // Atualizar lista de produtos com base na OS selecionada e Fazenda preenchida
+                    await this.loadProdutosDatalist();
                 } else {
                     console.error('OS selecionada não encontrada no cache:', val);
                 }
@@ -12780,12 +12780,16 @@ InsumosApp.prototype.addInsumoRow = async function() {
     let dosePrev = parseInput('insumo-dose-prevista');
     const qtdTotal = parseInput('insumo-qtd-total');
     const areaDia = parseInput('single-plantio-dia');
+    const areaAplicada = parseInput('insumo-area-aplicada'); // New Field
     
     if (!produto) { this.ui.showNotification('Selecione o produto', 'warning'); return; }
     
     let doseReal = 0;
-    if (areaDia > 0) {
-        doseReal = qtdTotal / areaDia;
+    // Use Area Aplicada specific for this insumo if provided, otherwise fallback to daily area
+    const areaCalc = areaAplicada > 0 ? areaAplicada : areaDia;
+    
+    if (areaCalc > 0) {
+        doseReal = qtdTotal / areaCalc;
     } else {
         // Se não tiver área, permite adicionar mas avisa ou calcula como 0
         // Não vamos bloquear, pois o usuário pode preencher a área depois
@@ -12826,12 +12830,13 @@ InsumosApp.prototype.addInsumoRow = async function() {
         produto, 
         dosePrevista: dosePrev, 
         doseRealizada: doseReal,
-        qtdTotal: qtdTotal
+        qtdTotal: qtdTotal,
+        areaAplicada: areaAplicada // Save field
     });
     this.renderInsumosDraft();
     
     // Limpar campos
-    ['insumo-produto', 'insumo-dose-prevista', 'insumo-qtd-total'].forEach(id => { 
+    ['insumo-produto', 'insumo-dose-prevista', 'insumo-qtd-total', 'insumo-area-aplicada'].forEach(id => { 
         const el = document.getElementById(id); 
         if (el) el.value = ''; 
     });
@@ -12856,11 +12861,13 @@ InsumosApp.prototype.renderInsumosDraft = function() {
         let gasto = 0;
         let doseReal = r.doseRealizada;
         
-        // Se tiver qtdTotal armazenado, recalcula doseReal com base na área atual
+        // Se tiver qtdTotal armazenado, recalcula doseReal com base na área atual (ou específica)
         if (r.qtdTotal !== undefined) {
              gasto = r.qtdTotal;
-             if (areaDia > 0) {
-                 doseReal = r.qtdTotal / areaDia;
+             const areaCalc = (r.areaAplicada > 0) ? r.areaAplicada : areaDia;
+             
+             if (areaCalc > 0) {
+                 doseReal = r.qtdTotal / areaCalc;
              } else {
                  doseReal = 0;
              }
@@ -12868,10 +12875,12 @@ InsumosApp.prototype.renderInsumosDraft = function() {
              r.doseRealizada = doseReal; 
         } else {
              // Compatibilidade com registros antigos
-             gasto = r.doseRealizada * areaDia;
+             const areaCalc = (r.areaAplicada > 0) ? r.areaAplicada : areaDia;
+             gasto = r.doseRealizada * areaCalc;
         }
 
-        const previsto = r.dosePrevista * areaDia;
+        const areaCalc = (r.areaAplicada > 0) ? r.areaAplicada : areaDia;
+        const previsto = r.dosePrevista * areaCalc;
         totalGasto += gasto;
         totalPrevistoDia += previsto;
 
@@ -12894,6 +12903,7 @@ InsumosApp.prototype.renderInsumosDraft = function() {
             <td>${r.produto}</td>
             <td>${this.ui.formatNumber(r.dosePrevista||0, 3)}</td>
             <td>${this.ui.formatNumber(doseReal||0, 3)}</td>
+            <td>${this.ui.formatNumber(r.areaAplicada||0, 2)}</td>
             <td>${this.ui.formatNumber(previsto||0, 3)}</td>
             <td>${this.ui.formatNumber(gasto||0, 3)}</td>
             <td><button class="btn btn-sm btn-delete-insumo-row" data-idx="${idx}" style="color:red;">🗑️</button></td>
@@ -12914,9 +12924,10 @@ InsumosApp.prototype.loadProdutosDatalist = async function() {
     try {
         const frenteKey = document.getElementById('single-frente')?.value || '';
         const osKey = document.getElementById('single-os')?.value || '';
+        const fazendaKey = document.getElementById('single-fazenda')?.value || ''; // Filter by Farm
         let osProdutos = [];
         
-        console.log(`[loadProdutosDatalist] Frente: ${frenteKey}, OS: ${osKey}`);
+        console.log(`[loadProdutosDatalist] Frente: ${frenteKey}, OS: ${osKey}, Fazenda: ${fazendaKey}`);
 
         // 1. Tentar pegar da OS selecionada (via Cache)
         if (osKey && this.osListCache) {
@@ -12936,6 +12947,34 @@ InsumosApp.prototype.loadProdutosDatalist = async function() {
                 osProdutos = osRes.data.produtos.map(p => p.produto).filter(p => p);
             } else {
                 console.warn('[loadProdutosDatalist] Nenhum produto encontrado na API para a frente:', frenteKey);
+            }
+        }
+
+        // 3. Buscar produtos do ESTOQUE da Fazenda/Frente e MERGEAR com a lista
+        if (fazendaKey || frenteKey) {
+            try {
+                // Fetch stock items filtered by Fazenda or Frente
+                const stockRes = await this.api.getEstoque(); // Get all and filter in memory to be safe with name variations
+                if (stockRes && stockRes.success && Array.isArray(stockRes.data)) {
+                    const stockProducts = stockRes.data
+                        .filter(item => {
+                            const loc = (item.frente || '').toUpperCase().trim();
+                            const faz = (fazendaKey || '').toUpperCase().trim();
+                            const fre = (frenteKey || '').toUpperCase().trim();
+                            // Match Fazenda Name OR Frente Code
+                            return (faz && loc === faz) || (fre && loc === fre);
+                        })
+                        .map(item => item.produto)
+                        .filter(Boolean);
+                    
+                    if (stockProducts.length > 0) {
+                        console.log('[loadProdutosDatalist] Produtos do Estoque:', stockProducts);
+                        // Merge and deduplicate
+                        osProdutos = [...new Set([...osProdutos, ...stockProducts])];
+                    }
+                }
+            } catch (err) {
+                console.error('Erro ao buscar estoque para filtro de produtos:', err);
             }
         }
         
@@ -13621,6 +13660,7 @@ InsumosApp.prototype.toggleOperacaoSections = function() {
     const secOutros = document.getElementById('sec-outros');
     const secMudaConsumo = document.getElementById('sec-muda-consumo-card');
     const secQualPlantioCana = document.getElementById('sec-qualidade-plantio-cana');
+    const secQualPlantioCanaFields = document.getElementById('qualidade-plantio-cana-fields');
     
     // Seções principais
     const secInsumos = document.getElementById('sec-insumos');
@@ -13677,6 +13717,7 @@ InsumosApp.prototype.toggleOperacaoSections = function() {
         setDisplay(secMudas, false);
         setDisplay(secOutros, true);
         setDisplay(secMudaConsumo, true);
+        setDisplay(secQualPlantioCanaFields, false);
     } else if (tipo === 'colheita_muda') {
         setDisplay(secInsumos, false);
         setDisplay(secColheitaProducao, true); // Campos de colheita (hectares, tch)
@@ -13686,6 +13727,7 @@ InsumosApp.prototype.toggleOperacaoSections = function() {
         setDisplay(secMudas, false);
         setDisplay(secOutros, false);
         setDisplay(secMudaConsumo, false);
+        setDisplay(secQualPlantioCanaFields, false);
     } else if (tipo === 'qualidade_muda') {
         setDisplay(secInsumos, false);
         setDisplay(secColheitaProducao, false);
@@ -13699,6 +13741,7 @@ InsumosApp.prototype.toggleOperacaoSections = function() {
             setDisplay(secOutros, false);
             setDisplay(secMudaConsumo, false);
             setDisplay(secQualPlantioCana, true);
+            setDisplay(secQualPlantioCanaFields, true);
         } else {
             // Colheita de Muda: Trator..., Origem & Qualidade Muda
             setDisplay(secGemas, false); 
@@ -13707,6 +13750,7 @@ InsumosApp.prototype.toggleOperacaoSections = function() {
             setDisplay(secOutros, false);
             setDisplay(secMudaConsumo, false);
             setDisplay(secQualPlantioCana, false);
+            setDisplay(secQualPlantioCanaFields, false);
         }
     }
 };
@@ -13748,7 +13792,12 @@ InsumosApp.prototype.resetPlantioForm = function(mode = 'normal') {
         'muda-liberacao-fazenda', 'muda-variedade', 'qual-muda-liberacao', 'qual-muda-variedade', 'muda-colheita-info', 'muda-fazenda-origem', 'muda-talhao-origem',
         'colheita-hectares', 'colheita-tch-estimado', 'colheita-tch-real',
         'single-frente', 'single-fazenda', 'single-cod', 'single-regiao',
-        'single-area', 'single-plantada', 'single-area-total', 'single-area-acumulada', 'single-plantio-dia'
+        'single-area', 'single-plantada', 'single-area-total', 'single-area-acumulada', 'single-plantio-dia',
+        'qual-esq-peso-bruto', 'qual-esq-peso-liquido', 'qual-esq-kg-ha', 'qual-esq-qtd-bons', 'qual-esq-qtd-ruins', 
+        'qual-esq-peso-bons', 'qual-esq-peso-ruins', 'qual-esq-peso-bons-pct', 'qual-esq-peso-ruins-pct', 'qual-esq-gemas-por-tolete', 'qual-esq-gemas-por5',
+        'qual-dir-peso-bruto', 'qual-dir-peso-liquido', 'qual-dir-kg-ha', 'qual-dir-qtd-bons', 'qual-dir-qtd-ruins', 
+        'qual-dir-peso-bons', 'qual-dir-peso-ruins', 'qual-dir-peso-bons-pct', 'qual-dir-peso-ruins-pct', 'qual-dir-gemas-por-tolete', 'qual-dir-gemas-por5',
+        'qual-media-kg-ha', 'qual-media-gemas-por-tolete', 'qual-total-toletes-bons', 'qual-total-toletes-ruins', 'qual-total-gemas-boas', 'qual-media-gemas-por5'
     ];
     ids.forEach(id => {
         const el = document.getElementById(id);
@@ -14008,6 +14057,40 @@ InsumosApp.prototype.handleEditPlantio = async function(id) {
 
     set('qual-muda', q.mudaTonHa);
     set('qual-profundidade', q.profundidadeCm);
+    
+    // Restore Qualidade Plantio de Cana Specific Fields
+    if (tipoOp === 'plantio_cana' || q.tipoOperacao === 'plantio_cana') {
+        set('qual-esq-peso-bruto', q.esqPesoBruto);
+        set('qual-esq-peso-liquido', q.esqPesoLiquido);
+        set('qual-esq-kg-ha', q.esqKgHa);
+        set('qual-esq-qtd-bons', q.esqQtdBons);
+        set('qual-esq-qtd-ruins', q.esqQtdRuins);
+        set('qual-esq-peso-bons', q.esqPesoBons);
+        set('qual-esq-peso-ruins', q.esqPesoRuins);
+        set('qual-esq-peso-bons-pct', q.esqPesoBonsPct);
+        set('qual-esq-peso-ruins-pct', q.esqPesoRuinsPct);
+        set('qual-esq-gemas-por-tolete', q.esqGemasBoasPorTolete);
+        set('qual-esq-gemas-por5', q.esqGemasBoasPor5);
+        
+        set('qual-dir-peso-bruto', q.dirPesoBruto);
+        set('qual-dir-peso-liquido', q.dirPesoLiquido);
+        set('qual-dir-kg-ha', q.dirKgHa);
+        set('qual-dir-qtd-bons', q.dirQtdBons);
+        set('qual-dir-qtd-ruins', q.dirQtdRuins);
+        set('qual-dir-peso-bons', q.dirPesoBons);
+        set('qual-dir-peso-ruins', q.dirPesoRuins);
+        set('qual-dir-peso-bons-pct', q.dirPesoBonsPct);
+        set('qual-dir-peso-ruins-pct', q.dirPesoRuinsPct);
+        set('qual-dir-gemas-por-tolete', q.dirGemasBoasPorTolete);
+        set('qual-dir-gemas-por5', q.dirGemasBoasPor5);
+        
+        set('qual-media-kg-ha', q.mediaKgHa);
+        set('qual-media-gemas-por-tolete', q.mediaGemasPorTolete);
+        set('qual-total-toletes-bons', q.totalToletesBons);
+        set('qual-total-toletes-ruins', q.totalToletesRuins);
+        set('qual-total-gemas-boas', q.totalGemasBoas);
+        set('qual-media-gemas-por5', q.mediaGemasPor5);
+    }
     set('qual-cobertura', q.cobertura);
     set('qual-alinhamento', q.alinhamento);
     set('chuva-mm', q.chuvaMm);
