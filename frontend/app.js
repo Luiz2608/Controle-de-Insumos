@@ -8017,7 +8017,7 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
             });
         }
 
-        // Bags Table Delegated Events (Delete Row)
+        // Bags Table Delegated Events (Delete Row / Toggle Devolvido)
         const bagsBody = document.getElementById('bags-table-body');
         if (bagsBody) {
             bagsBody.onclick = (e) => {
@@ -8029,11 +8029,17 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
                         this.viagensAduboBagsDraft.splice(idx, 1);
                         this.renderBagsDraft();
                     }
+                } else if (target.classList.contains('bag-devolvido-checkbox')) {
+                    const idx = parseInt(target.getAttribute('data-idx'));
+                    if (!isNaN(idx) && this.viagensAduboBagsDraft[idx]) {
+                        this.viagensAduboBagsDraft[idx].devolvido = target.checked;
+                        // No need to re-render full draft for a simple checkbox toggle unless we want to sync other tables
+                    }
                 }
             };
         }
 
-        // Modal Bags Table Delegated Events (Delete Row)
+        // Modal Bags Table Delegated Events (Delete Row / Toggle Devolvido)
         const modalBagsBody = document.getElementById('modal-bags-table-body');
         if (modalBagsBody) {
             modalBagsBody.onclick = (e) => {
@@ -8044,6 +8050,11 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
                     if (!isNaN(idx)) {
                         this.viagensAduboBagsDraft.splice(idx, 1);
                         this.renderBagsDraft();
+                    }
+                } else if (target.classList.contains('bag-devolvido-checkbox')) {
+                    const idx = parseInt(target.getAttribute('data-idx'));
+                    if (!isNaN(idx) && this.viagensAduboBagsDraft[idx]) {
+                        this.viagensAduboBagsDraft[idx].devolvido = target.checked;
                     }
                 }
             };
@@ -9189,19 +9200,25 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
         const identEl = document.getElementById(prefix + 'bag-identificacao');
         const lacreEl = document.getElementById(prefix + 'bag-lacre');
         const obsEl = document.getElementById(prefix + 'bag-observacoes');
+        const devolvidoEl = document.getElementById(prefix + 'bag-devolvido');
+
         const identificacao = identEl && identEl.value ? identEl.value.trim() : '';
         const lacre = lacreEl && lacreEl.value ? lacreEl.value.trim() : '';
         const observacoes = obsEl && obsEl.value ? obsEl.value.trim() : '';
+        const devolvido = devolvidoEl ? devolvidoEl.checked : false;
+
         if (!identificacao) {
             if (this.ui && this.ui.showNotification) this.ui.showNotification('Informe identificação do bag', 'warning');
             return;
         }
         if (!Array.isArray(this.viagensAduboBagsDraft)) this.viagensAduboBagsDraft = [];
-        this.viagensAduboBagsDraft.push({ identificacao, lacre, observacoes });
+        this.viagensAduboBagsDraft.push({ identificacao, lacre, observacoes, devolvido });
         this.renderBagsDraft();
+        
         if (identEl) identEl.value = '';
         if (lacreEl) lacreEl.value = '';
         if (obsEl) obsEl.value = '';
+        if (devolvidoEl) devolvidoEl.checked = false;
     }
 
     renderBagsDraft() {
@@ -9220,11 +9237,17 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
             }
             tbody.innerHTML = this.viagensAduboBagsDraft.map((b, idx) => {
                 const actionTd = isViewMode ? '<td></td>' : `<td><button class="btn btn-delete-bag-row" data-idx="${idx}">🗑️</button></td>`;
+                const devolvidoChecked = b.devolvido ? 'checked' : '';
+                const devolvidoDisabled = isViewMode ? 'disabled' : '';
+                
                 return `
                     <tr>
                         <td>${b.identificacao || ''}</td>
                         <td>${b.lacre || ''}</td>
                         <td>${b.observacoes || ''}</td>
+                        <td style="text-align: center;">
+                            <input type="checkbox" class="bag-devolvido-checkbox" data-idx="${idx}" ${devolvidoChecked} ${devolvidoDisabled} style="width: 18px; height: 18px; cursor: ${isViewMode ? 'default' : 'pointer'};">
+                        </td>
                         ${actionTd}
                     </tr>
                 `;
@@ -9288,17 +9311,20 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
                         <th>Peso</th>
                         <th>Lacre</th>
                         <th>Observações</th>
+                        <th style="text-align: center;">Devolvido</th>
                     </tr>
                 </thead>
                 <tbody>
                     ${bags.map(b => {
                         const p = typeof b.peso === 'number' ? b.peso : parseFloat(b.peso) || 0;
+                        const devolvidoIcon = b.devolvido ? '✅' : '❌';
                         return `
                             <tr>
                                 <td>${b.identificacao || ''}</td>
                                 <td>${this.ui.formatNumber(p, 3)}</td>
                                 <td>${b.lacre || ''}</td>
                                 <td>${b.observacoes || ''}</td>
+                                <td style="text-align: center;">${devolvidoIcon}</td>
                             </tr>
                         `;
                     }).join('')}
