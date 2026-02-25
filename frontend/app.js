@@ -6675,10 +6675,8 @@ forceReloadAllData() {
             } else if (currentTab === 'colheita_muda') {
                 return tipo === 'colheita_muda';
             } else if (currentTab === 'qualidade_muda') {
-                // Show only records explicitly marked as quality or plantio (if quality is part of it)
-                // BUT EXCLUDE those that are 'colheita_muda' to avoid duplication,
-                // as colheita records should stay in the Colheita tab.
-                return tipo === 'qualidade_muda' || tipo === 'plantio_cana' || tipo === 'plantio';
+                // Show ONLY records explicitly marked as quality
+                return tipo === 'qualidade_muda';
             }
             return false;
         });
