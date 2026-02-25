@@ -15341,6 +15341,28 @@ InsumosApp.prototype.updateCurrentUserUI = function() {
     } else if (!currentActiveViagem && firstVisibleViagem) {
         firstVisibleViagem.click();
     }
+
+    // Apply Button Permissions (Main Panel Action Buttons)
+    const btnOS = document.getElementById('btn-os');
+    const btnFazendas = document.getElementById('btn-open-fazendas-modal');
+    const btnLiberacao = document.getElementById('btn-liberacao-colheita');
+    const btnNovoPlantio = document.getElementById('btn-novo-lancamento');
+    const btnNovaQualidade = document.getElementById('btn-nova-qualidade-muda');
+
+    const checkBtn = (el, permKey) => {
+        if (!el) return;
+        if (canSeeAll || userPerms[permKey]) {
+            el.style.display = ''; // Default
+        } else {
+            el.style.display = 'none';
+        }
+    };
+
+    checkBtn(btnOS, 'btn_os');
+    checkBtn(btnFazendas, 'btn_fazendas');
+    checkBtn(btnLiberacao, 'btn_liberacao');
+    checkBtn(btnNovoPlantio, 'btn_novo_plantio');
+    checkBtn(btnNovaQualidade, 'btn_nova_qualidade');
 };
 InsumosApp.prototype.showLoginScreen = function() {
     const el = document.getElementById('login-screen');
