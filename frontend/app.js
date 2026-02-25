@@ -257,6 +257,10 @@ class InsumosApp {
         this.renderInsumosGlobalChart();
         this.renderInsumosTimelineChart();
         this.renderEstoqueGeralChart();
+        this.renderProductDetailsCharts();
+        this.renderLogisticsCharts();
+        this.renderColheitaCharts();
+        this.renderQualidadeCharts();
     }
 
     populateDashboardFilters() {
@@ -3219,6 +3223,13 @@ forceReloadAllData() {
     }
 
     getCommonChartOptions(overrides = {}) {
+        const isDark = document.body.classList.contains('dark-mode');
+        const textColor = isDark ? '#e0e0e0' : '#666';
+        const gridColor = isDark ? '#333' : '#f1f5f9';
+        const tooltipBg = isDark ? 'rgba(30, 30, 30, 0.98)' : 'rgba(255, 255, 255, 0.98)';
+        const tooltipTitle = isDark ? '#ffffff' : '#1e293b';
+        const tooltipBody = isDark ? '#cccccc' : '#475569';
+
         const defaults = {
             responsive: true,
             maintainAspectRatio: false,
@@ -3230,14 +3241,14 @@ forceReloadAllData() {
                         pointStyle: 'circle',
                         font: { family: "'Inter', sans-serif", size: 12 },
                         padding: 20,
-                        color: '#666'
+                        color: textColor
                     }
                 },
                 tooltip: {
-                    backgroundColor: 'rgba(255, 255, 255, 0.98)',
-                    titleColor: '#1e293b',
-                    bodyColor: '#475569',
-                    borderColor: 'rgba(0,0,0,0.05)',
+                    backgroundColor: tooltipBg,
+                    titleColor: tooltipTitle,
+                    bodyColor: tooltipBody,
+                    borderColor: isDark ? '#444' : 'rgba(0,0,0,0.05)',
                     borderWidth: 1,
                     padding: 12,
                     cornerRadius: 8,
@@ -3252,13 +3263,13 @@ forceReloadAllData() {
                 y: {
                     beginAtZero: true,
                     grid: { 
-                        color: '#f1f5f9', 
+                        color: gridColor, 
                         borderDash: [4, 4],
                         drawBorder: false
                     },
                     ticks: { 
                         font: { family: "'Inter', sans-serif", size: 11 }, 
-                        color: '#94a3b8',
+                        color: isDark ? '#888' : '#94a3b8',
                         padding: 8
                     },
                     border: { display: false }
@@ -3267,7 +3278,7 @@ forceReloadAllData() {
                     grid: { display: false },
                     ticks: { 
                         font: { family: "'Inter', sans-serif", size: 11 }, 
-                        color: '#94a3b8',
+                        color: isDark ? '#888' : '#94a3b8',
                         autoSkip: true,
                         maxRotation: 0
                     },
@@ -6688,7 +6699,7 @@ forceReloadAllData() {
             
             const colSpan = currentTab === 'qualidade_muda' ? 6 : 4;
 
-            tbody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align: center; padding: 20px; color: #666;">Nenhum registro de ${label} encontrado.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align: center; padding: 20px; color: var(--text-light);">Nenhum registro de ${label} encontrado.</td></tr>`;
             return;
         }
 
@@ -6862,7 +6873,7 @@ forceReloadAllData() {
         console.log(`Found ${filteredRows.length} quality records.`);
 
         if (filteredRows.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 20px; color: #666;">Nenhum registro de Qualidade encontrado.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 20px; color: var(--text-light);">Nenhum registro de Qualidade encontrado.</td></tr>`;
             return;
         }
 
@@ -6985,7 +6996,7 @@ forceReloadAllData() {
             <body>
                 <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #eee; padding-bottom: 20px;">
                     <h2 style="margin: 0;">Relatório de Operação Agrícola</h2>
-                    <p style="color: #7f8c8d; margin: 5px 0 0 0;">Gerado em: ${new Date().toLocaleString('pt-BR')}</p>
+                    <p style="color: var(--text-light); margin: 5px 0 0 0;">Gerado em: ${new Date().toLocaleString('pt-BR')}</p>
                 </div>
                 ${content}
                 <script>
@@ -11448,7 +11459,7 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
                 const list = res.data || [];
                 
                 if (list.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#888;">Nenhum lançamento.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-light);">Nenhum lançamento.</td></tr>';
                     if (tfootTotal) tfootTotal.textContent = '0.000';
                     return;
                 }
@@ -15388,7 +15399,7 @@ InsumosApp.prototype.handlePrintReport = async function() {
 
     // Construir HTML do Relatório
     let html = `
-        <div class="report-controls no-print" style="position: sticky; top: 0; background: #fff; padding: 10px; border-bottom: 1px solid #ccc; display: flex; justify-content: space-between; align-items: center; z-index: 1000;">
+        <div class="report-controls no-print" style="position: sticky; top: 0; background: var(--surface); padding: 10px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; z-index: 1000;">
             <h2 style="margin:0;">Visualização de Impressão</h2>
             <button onclick="document.getElementById('report-print-container').style.display='none'" class="btn btn-secondary" style="background-color: #e74c3c; color: white;">❌ Fechar</button>
         </div>
@@ -15446,7 +15457,7 @@ InsumosApp.prototype.handlePrintReport = async function() {
             </div>
         </div>
         
-        <div class="report-footer" style="margin-top: 50px; border-top: 1px solid #ccc; padding-top: 10px; font-size: 0.8em; text-align: center; color: #777;">
+        <div class="report-footer" style="margin-top: 50px; border-top: 1px solid var(--border); padding-top: 10px; font-size: 0.8em; text-align: center; color: var(--text-light);">
             <p>Sistema de Gestão Agrícola - Relatório Impresso</p>
         </div>
         </div> <!-- Fim .report-content -->

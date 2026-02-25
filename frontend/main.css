@@ -991,6 +991,52 @@ input.readonly-input, select.readonly-input {
     font-weight: 500;
 }
 
+/* Theme Support Classes */
+.header-container-theme {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 15px;
+    border-radius: 8px;
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow) !important;
+    color: var(--text);
+}
+
+.summary-block-theme {
+    display: flex;
+    gap: 20px;
+    padding: 10px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    font-size: 0.9em;
+    align-items: center;
+    justify-content: space-around;
+    background-color: var(--surface);
+    border: 1px solid var(--border) !important;
+    color: var(--text);
+}
+
+/* Specific component theme fixes */
+body.dark-mode .data-table {
+    background-color: var(--surface);
+}
+
+body.dark-mode .filters {
+    background-color: var(--surface);
+    border-color: var(--border);
+}
+
+body.dark-mode .modal-footer {
+    border-top-color: var(--border) !important;
+}
+
+body.dark-mode #viagem-detail-body th {
+    background-color: var(--table-header-bg);
+}
+
 /* Input Error Highlighting */
 .input-error,
 body.dark-mode input.input-error,

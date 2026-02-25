@@ -206,7 +206,7 @@
                             <p style="margin-bottom: 15px;">Configurações e Manutenção do Sistema.</p>
                             
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                                <div style="padding: 20px; border: 1px solid #ddd; border-radius: 8px; text-align: center; background-color: #f9f9f9;">
+                                <div style="padding: 20px; border: 1px solid var(--border); border-radius: 8px; text-align: center; background-color: var(--surface);">
                                     <h4 style="margin-top:0;">🚀 Controle de Versão</h4>
                                     <p style="color: #666; font-size: 0.9em; margin: 10px 0 20px 0;">
                                         Ao forçar uma atualização, todos os usuários conectados serão notificados e suas páginas serão recarregadas automaticamente para receber a nova versão.
@@ -244,7 +244,7 @@
                                 <label><input type="checkbox" name="perm_plantio" value="plantio-dia"> Plantio</label>
                             </div>
                             <!-- Sub-abas Plantio -->
-                            <div class="form-group" style="margin-left: 20px; border-left: 2px solid #eee; padding-left: 10px;">
+                            <div class="form-group" style="margin-left: 20px; border-left: 2px solid var(--border); padding-left: 10px;">
                                 <label style="font-size: 0.9em; color: #555;"><input type="checkbox" name="perm_sub_plantio" value="sub_plantio"> ↳ Plantio de Cana</label>
                             </div>
                             <div class="form-group" style="margin-left: 20px; border-left: 2px solid #eee; padding-left: 10px;">
@@ -800,7 +800,7 @@
         <!-- View ADUBO -->
         <div id="view-adubo-mode">
             <!-- Header e Botões (Novo Layout Padronizado) -->
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" class="header-container-theme">
+            <div class="header-container-theme">
                 <h4 style="margin:0;">Gerenciamento de Transporte de Adubo</h4>
                 <div style="display:flex; gap:10px;">
                      <button id="btn-nova-viagem-adubo" class="btn btn-primary">➕ Nova Viagem</button>
@@ -1046,7 +1046,7 @@
     <div id="view-composto-mode" style="display:none;">
         
         <!-- Header e Botões -->
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" class="header-container-theme">
+        <div class="header-container-theme">
             <h4 style="margin:0;">Gerenciamento de Transporte de Composto</h4>
             <div style="display:flex; gap:10px;">
                  <button class="btn btn-primary" id="btn-novo-lancamento-composto">➕ Novo Transporte (Composto)</button>
@@ -1056,7 +1056,7 @@
         </div>
         
         <!-- Debug Area for PDF Import -->
-        <div id="import-debug-area" style="display:none; margin-bottom: 15px; background: #f8f9fa; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+        <div id="import-debug-area" style="display:none; margin-bottom: 15px; background: var(--surface); padding: 10px; border: 1px solid var(--border); border-radius: 4px;">
             <p id="import-status-msg" style="margin: 0; font-size: 14px; font-weight: bold;"></p>
         </div>
 
@@ -1375,7 +1375,7 @@
 
                         <!-- Transporte Diário de Composto (REMOVIDO: Funcionalidade movida para a aba principal de Transporte de Composto) -->
                         <!-- 
-                        <h5 style="margin: 15px 0 5px 0; border-top: 1px solid #eee; padding-top: 15px;">Transporte Diário de Composto</h5>
+                        <h5 style="margin: 15px 0 5px 0; border-top: 1px solid var(--border); padding-top: 15px;">Transporte Diário de Composto</h5>
                         <div id="os-transporte-container" style="display:none;">
                             <div class="form-grid" style="grid-template-columns: auto auto auto auto; align-items: end; margin-bottom: 10px;">
                                 <div class="form-group">
@@ -1609,7 +1609,7 @@
                     </div>
                 </div>
 
-                <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+                <hr style="margin: 20px 0; border: 0; border-top: 1px solid var(--border);">
 
                 <h4>Metas Definidas</h4>
                 <div class="table-container">
@@ -2452,7 +2452,7 @@
                 <h5 style="margin: 20px 0 10px 0; border-top: 1px solid #eee; padding-top: 15px;">Transportes Diários</h5>
                 
                 <!-- Summary Block -->
-                <div class="summary-block-theme" style="display: flex; gap: 20px; padding: 10px; border-radius: 4px; margin-bottom: 10px; font-size: 0.9em; align-items: center; justify-content: space-around; border: 1px solid #ddd;">
+                <div class="summary-block-theme">
                     <div><strong>Meta da O.S.:</strong> <span id="summary-composto-meta">0.000</span> t</div>
                     <div><strong>Realizado:</strong> <span id="summary-composto-realizado" style="color: blue;">0.000</span> t</div>
                     <div><strong>Restante:</strong> <span id="summary-composto-restante" style="font-weight: bold;">0.000</span> t</div>
@@ -2655,7 +2655,7 @@
                     </div>
                 </div>
             </div>
-            <div class="modal-footer" style="margin-top: 15px; display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid #eee; padding-top: 15px;">
+            <div class="modal-footer" style="margin-top: 15px; display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid var(--border); padding-top: 15px;">
                      <button type="button" class="btn btn-secondary" id="modal-btn-print-viagem-adubo" title="Imprimir Detalhes">🖨️ Imprimir</button>
                      <button type="button" class="btn btn-secondary close-viagem-adubo-modal">Cancelar</button>
                      <button type="button" id="btn-save-viagem-fix" class="btn btn-primary" style="position: relative; z-index: 10000; cursor: pointer;" onclick="window.forceSaveViagemAdubo(true)">💾 Registrar Viagem</button>
