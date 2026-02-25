@@ -6675,10 +6675,10 @@ forceReloadAllData() {
             } else if (currentTab === 'colheita_muda') {
                 return tipo === 'colheita_muda';
             } else if (currentTab === 'qualidade_muda') {
-                // Show all quality related records: 'qualidade_muda', 'plantio_cana'
-                // EXCLUDE 'colheita_muda' unless it has significant quality data (legacy records)
-                const hasQualityData = (q.gemasTotal > 0 || q.mudasTotal > 0 || q.mudaTonHa > 0 || q.mudasReboulos > 0);
-                return tipo === 'qualidade_muda' || tipo === 'plantio_cana' || (tipo === 'colheita_muda' && hasQualityData);
+                // Show only records explicitly marked as quality or plantio (if quality is part of it)
+                // BUT EXCLUDE those that are 'colheita_muda' to avoid duplication,
+                // as colheita records should stay in the Colheita tab.
+                return tipo === 'qualidade_muda' || tipo === 'plantio_cana' || tipo === 'plantio';
             }
             return false;
         });
