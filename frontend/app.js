@@ -8112,8 +8112,8 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
         });
 
         // Hide/Show Buttons based on mode
-        // const btnSave = document.getElementById('btn-save-viagem-fix');
-        // if (btnSave) btnSave.style.display = isView ? 'none' : 'inline-block';
+        const btnSave = document.getElementById('btn-save-viagem-fix');
+        if (btnSave) btnSave.style.display = isView ? 'none' : 'inline-block';
         // Now handled by .view-mode CSS and step logic
 
         const btnAddBag = document.getElementById('modal-bag-add-btn');
@@ -9231,12 +9231,22 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
         const renderTo = (tbodyId, isViewMode) => {
             const tbody = document.getElementById(tbodyId);
             if (!tbody) return;
+
+            // Hide/Show Actions Header
+            const table = tbody.closest('table');
+            if (table) {
+                const actionsHeader = table.querySelector('thead th:last-child');
+                if (actionsHeader && actionsHeader.textContent.trim() === 'Ações') {
+                    actionsHeader.style.display = isViewMode ? 'none' : 'table-cell';
+                }
+            }
+
             if (!Array.isArray(this.viagensAduboBagsDraft) || !this.viagensAduboBagsDraft.length) {
                 tbody.innerHTML = '';
                 return;
             }
             tbody.innerHTML = this.viagensAduboBagsDraft.map((b, idx) => {
-                const actionTd = isViewMode ? '<td></td>' : `<td><button class="btn btn-delete-bag-row" data-idx="${idx}">🗑️</button></td>`;
+                const actionTd = isViewMode ? '' : `<td><button class="btn btn-delete-bag-row" data-idx="${idx}">🗑️</button></td>`;
                 const devolvidoChecked = b.devolvido ? 'checked' : '';
                 const devolvidoDisabled = isViewMode ? 'disabled' : '';
                 
