@@ -7317,7 +7317,11 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
         };
         const rawTipo = r.tipo_operacao || (q.tipoOperacao) || 'plantio';
         const tipoOpLabel = tipoOpMap[rawTipo] || rawTipo;
-        const isPlantioCanaComplex = (q.tipoOperacao === 'plantio_cana');
+        
+        // FIX: Se o tipo for qualidade_muda mas tiver os campos do plantio_cana, tratar como plantio_cana
+        const hasComplexFields = q.mediaKgHa != null || q.esqPesoLiquido != null || q.totalToletesBons != null;
+        const isPlantioCanaComplex = (q.tipoOperacao === 'plantio_cana' || (rawTipo === 'qualidade_muda' && hasComplexFields));
+        
         const isQualidadeMudaGeneric = (rawTipo === 'colheita_muda' || rawTipo === 'qualidade_muda') && !isPlantioCanaComplex;
         const isNovoPlantioCanaGlobal = isPlantioCanaComplex;
         const hideInsumosSection = isQualidadeMudaGeneric || isNovoPlantioCanaGlobal;
@@ -7400,34 +7404,40 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
                 const statusLabel = statusPlantioCana ? statusPlantioCana.label : 'N/A';
                 const statusEmoji = statusPlantioCana ? statusPlantioCana.emoji : 'ℹ️';
 
-                const kgHaTotal = typeof q.mediaKgHa === 'number' ? q.mediaKgHa : 0;
+                const kgHaTotal = typeof q.mediaKgHa === 'number' ? q.mediaKgHa : (typeof q.mudaTonHa === 'number' ? q.mudaTonHa * 1000 : 0);
                 let tHaTotal = 0;
                 let tHaViavel = 0;
                 let tHaDescarte = 0;
                 let proporcaoRuins = 0;
 
-                if (kgHaTotal > 0 && pesoLiquidoTotal > 0) {
+                if (kgHaTotal > 0) {
                     tHaTotal = kgHaTotal / 1000;
-                    const pb = Math.max(pesoBonsTotal, 0);
-                    const pr = Math.max(pesoRuinsTotal, 0);
-                    let propBons = pesoLiquidoTotal > 0 ? pb / pesoLiquidoTotal : 0;
-                    let propRuins = pesoLiquidoTotal > 0 ? pr / pesoLiquidoTotal : 0;
+                    
+                    if (pesoLiquidoTotal > 0) {
+                        const pb = Math.max(pesoBonsTotal, 0);
+                        const pr = Math.max(pesoRuinsTotal, 0);
+                        let propBons = pb / pesoLiquidoTotal;
+                        let propRuins = pr / pesoLiquidoTotal;
 
-                    if (propBons < 0) propBons = 0;
-                    if (propRuins < 0) propRuins = 0;
+                        const somaProps = propBons + propRuins;
+                        if (somaProps > 0) {
+                            propBons = propBons / somaProps;
+                            propRuins = propRuins / somaProps;
+                        }
 
-                    const somaProps = propBons + propRuins;
-                    if (somaProps > 0) {
-                        propBons = propBons / somaProps;
-                        propRuins = propRuins / somaProps;
+                        tHaViavel = tHaTotal * propBons;
+                        tHaDescarte = tHaTotal - tHaViavel;
+                        proporcaoRuins = propRuins;
+                    } else if (pctBonsTotal > 0 || pctRuinsTotal > 0) {
+                        // Fallback para quando não tem peso mas tem porcentagem de toletes
+                        const propBons = pctBonsTotal / 100;
+                        tHaViavel = tHaTotal * propBons;
+                        tHaDescarte = tHaTotal - tHaViavel;
+                        proporcaoRuins = pctRuinsTotal / 100;
                     }
-
-                    tHaViavel = tHaTotal * propBons;
-                    tHaDescarte = tHaTotal - tHaViavel;
+                    
                     if (tHaViavel < 0) tHaViavel = 0;
                     if (tHaDescarte < 0) tHaDescarte = 0;
-
-                    proporcaoRuins = propRuins;
                 }
 
                 let conversaoBg = 'rgba(0,0,0,0.02)';
