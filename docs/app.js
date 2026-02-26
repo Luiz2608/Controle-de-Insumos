@@ -7317,9 +7317,10 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
         };
         const rawTipo = r.tipo_operacao || (q.tipoOperacao) || 'plantio';
         const tipoOpLabel = tipoOpMap[rawTipo] || rawTipo;
-        const isQualidadeMuda = rawTipo === 'colheita_muda' || rawTipo === 'qualidade_muda';
-        const isNovoPlantioCanaGlobal = (q.tipoOperacao === 'plantio_cana');
-        const hideInsumosSection = isQualidadeMuda || isNovoPlantioCanaGlobal;
+        const isPlantioCanaComplex = (q.tipoOperacao === 'plantio_cana');
+        const isQualidadeMudaGeneric = (rawTipo === 'colheita_muda' || rawTipo === 'qualidade_muda') && !isPlantioCanaComplex;
+        const isNovoPlantioCanaGlobal = isPlantioCanaComplex;
+        const hideInsumosSection = isQualidadeMudaGeneric || isNovoPlantioCanaGlobal;
 
         const primeiraFrente = Array.isArray(r.frentes) && r.frentes.length > 0 ? r.frentes[0] : null;
         let derivedHeaderFazenda = null;
@@ -7337,7 +7338,7 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
         const headerFrente = (primeiraFrente && primeiraFrente.frente) || q.mudaTalhaoOrigem || '—';
 
         let statusPlantioCana = null;
-        if (q && q.tipoOperacao === 'plantio_cana') {
+        if (isPlantioCanaComplex) {
             const pctBons = typeof q.totalToletesBons === 'number' ? q.totalToletesBons : 0;
             if (pctBons > 80) {
                 statusPlantioCana = { label: 'BOM', emoji: '🟢', color: '#2e7d32' };
@@ -7349,7 +7350,7 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
         }
 
         let qualitySections = '';
-        if (isQualidadeMuda) {
+        if (isQualidadeMudaGeneric) {
              qualitySections += `
                 <!-- Subseção Colheita/Qualidade -->
                 <h6 style="margin: 0 0 5px 0; border-bottom: 1px solid #eee; padding-bottom: 5px;">🌾 Dados da Qualidade/Colheita</h6>
@@ -7387,7 +7388,7 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
             `;
 
         } else {
-            const isNovoPlantioCana = (q.tipoOperacao === 'plantio_cana');
+            const isNovoPlantioCana = isPlantioCanaComplex;
             if (isNovoPlantioCana) {
                 const pctBonsTotal = typeof q.totalToletesBons === 'number' ? q.totalToletesBons : 0;
                 const pctRuinsTotal = typeof q.totalToletesRuins === 'number' ? q.totalToletesRuins : 0;
@@ -14328,8 +14329,11 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
             qualMatricula: document.getElementById('qual-matricula')?.value || document.getElementById('qual-matricula-header')?.value || '',
             horaRegistro: horaRegistro,
             // Fallback for indicators used in summary/badges
-            gemasTotal: 1, // At least 1 to avoid div by zero in status calculation
-            gemasBoasPct: valRaw('qual-total-toletes-bons') || 0 
+            gemasTotal: valRaw('qual-total-gemas-boas') || 1, 
+            gemasBoas: valRaw('qual-total-gemas-boas') || 0,
+            gemasBoasPct: valRaw('qual-total-toletes-bons') || 0,
+            toletesBons: valRaw('qual-total-toletes-bons') || 0,
+            toletesRuins: valRaw('qual-total-toletes-ruins') || 0
         };
     } else {
         qualidade = {
