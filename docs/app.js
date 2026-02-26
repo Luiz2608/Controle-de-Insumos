@@ -7028,6 +7028,8 @@ forceReloadAllData() {
         const primeiraFrente = Array.isArray(r.frentes) && r.frentes.length > 0 ? r.frentes[0] : null;
         const frente = (primeiraFrente && primeiraFrente.frente) || '—';
 
+        const pesoBaldeEsq = q.esqPesoBalde || q.pesoBaldeKg || 0.460;
+        const pesoBaldeDir = q.dirPesoBalde || q.pesoBaldeKg || 0.460;
         const pesoBrutoTotal = (q.esqPesoBruto || 0) + (q.dirPesoBruto || 0);
         const pesoLiquidoTotal = (q.esqPesoLiquido || 0) + (q.dirPesoLiquido || 0);
         const qtdBonsTotal = (q.esqQtdBons || 0) + (q.dirQtdBons || 0);
@@ -7044,6 +7046,7 @@ forceReloadAllData() {
 📍 Frente: ${frente}
 📅 Data: ${dataStr}
 
+⚖ Peso do Balde: ${this.ui.formatNumber(pesoBaldeEsq,3)}kg / ${this.ui.formatNumber(pesoBaldeDir,3)}kg
 ⚖ Peso Bruto: ${this.ui.formatNumber(pesoBrutoTotal||0,2)} kg
 ⚖ Peso Líquido: ${this.ui.formatNumber(pesoLiquidoTotal||0,2)} kg
 
@@ -7467,6 +7470,7 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
                                 </tr>
                             </thead>
                             <tbody>
+                                <tr><td>Peso do balde (kg)</td><td>${this.ui.formatNumber(q.esqPesoBalde || q.pesoBaldeKg || 0.460, 3)}</td><td>${this.ui.formatNumber(q.dirPesoBalde || q.pesoBaldeKg || 0.460, 3)}</td></tr>
                                 <tr><td>Peso bruto (kg)</td><td>${this.ui.formatNumber(q.esqPesoBruto||0,2)}</td><td>${this.ui.formatNumber(q.dirPesoBruto||0,2)}</td></tr>
                                 <tr><td>Peso líquido (kg)</td><td>${this.ui.formatNumber(q.esqPesoLiquido||0,2)}</td><td>${this.ui.formatNumber(q.dirPesoLiquido||0,2)}</td></tr>
                                 <tr><td>KG por hectare (kg/ha)</td><td>${this.ui.formatNumber(q.esqKgHa||0,2)}</td><td>${this.ui.formatNumber(q.dirKgHa||0,2)}</td></tr>
@@ -13808,9 +13812,9 @@ InsumosApp.prototype.resetPlantioForm = function(mode = 'normal') {
         'colheita-hectares', 'colheita-tch-estimado', 'colheita-tch-real',
         'single-frente', 'single-fazenda', 'single-cod', 'single-regiao',
         'single-area', 'single-plantada', 'single-area-total', 'single-area-acumulada', 'single-plantio-dia',
-        'qual-esq-peso-bruto', 'qual-esq-peso-liquido', 'qual-esq-kg-ha', 'qual-esq-qtd-bons', 'qual-esq-qtd-ruins', 
+        'qual-esq-peso-balde', 'qual-esq-peso-bruto', 'qual-esq-peso-liquido', 'qual-esq-kg-ha', 'qual-esq-qtd-bons', 'qual-esq-qtd-ruins', 
         'qual-esq-peso-bons', 'qual-esq-peso-ruins', 'qual-esq-peso-bons-pct', 'qual-esq-peso-ruins-pct', 'qual-esq-gemas-por-tolete', 'qual-esq-gemas-por5',
-        'qual-dir-peso-bruto', 'qual-dir-peso-liquido', 'qual-dir-kg-ha', 'qual-dir-qtd-bons', 'qual-dir-qtd-ruins', 
+        'qual-dir-peso-balde', 'qual-dir-peso-bruto', 'qual-dir-peso-liquido', 'qual-dir-kg-ha', 'qual-dir-qtd-bons', 'qual-dir-qtd-ruins', 
         'qual-dir-peso-bons', 'qual-dir-peso-ruins', 'qual-dir-peso-bons-pct', 'qual-dir-peso-ruins-pct', 'qual-dir-gemas-por-tolete', 'qual-dir-gemas-por5',
         'qual-media-kg-ha', 'qual-media-gemas-por-tolete', 'qual-total-toletes-bons', 'qual-total-toletes-ruins', 'qual-total-gemas-boas', 'qual-media-gemas-por5'
     ];
@@ -13912,7 +13916,6 @@ InsumosApp.prototype.initQualidadePlantioCanaListeners = function() {
 };
 
 InsumosApp.prototype.updateQualidadePlantioCanaCalculations = function() {
-    const bucket = 0.460;
     const meters = 5;
     const factor = 6666;
     const computeSide = (pref) => {
@@ -13928,6 +13931,7 @@ InsumosApp.prototype.updateQualidadePlantioCanaCalculations = function() {
             const el = document.getElementById(`${pref}-${id}`);
             if (el) el.value = isFinite(v) ? Number(v).toFixed(2) : '';
         };
+        const bucket = val('peso-balde') || 0.460;
         const pesoBruto = val('peso-bruto');
         const pesoLiquido = Math.max(0, pesoBruto - bucket);
         set('peso-liquido', pesoLiquido);
@@ -14075,6 +14079,7 @@ InsumosApp.prototype.handleEditPlantio = async function(id) {
     
     // Restore Qualidade Plantio de Cana Specific Fields
     if (tipoOp === 'plantio_cana' || q.tipoOperacao === 'plantio_cana') {
+        set('qual-esq-peso-balde', q.esqPesoBalde || q.pesoBaldeKg || 0.460);
         set('qual-esq-peso-bruto', q.esqPesoBruto);
         set('qual-esq-peso-liquido', q.esqPesoLiquido);
         set('qual-esq-kg-ha', q.esqKgHa);
@@ -14087,6 +14092,7 @@ InsumosApp.prototype.handleEditPlantio = async function(id) {
         set('qual-esq-gemas-por-tolete', q.esqGemasBoasPorTolete);
         set('qual-esq-gemas-por5', q.esqGemasBoasPor5);
         
+        set('qual-dir-peso-balde', q.dirPesoBalde || q.pesoBaldeKg || 0.460);
         set('qual-dir-peso-bruto', q.dirPesoBruto);
         set('qual-dir-peso-liquido', q.dirPesoLiquido);
         set('qual-dir-kg-ha', q.dirKgHa);
@@ -14277,8 +14283,8 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
             // Constantes de amostragem
             amostraMetragem: 5,
             espacamentoLinhas: 1.5,
-            pesoBaldeKg: 0.460,
             // Lado Esquerdo
+            esqPesoBalde: valRaw('qual-esq-peso-balde'),
             esqPesoBruto: valRaw('qual-esq-peso-bruto'),
             esqPesoLiquido: valRaw('qual-esq-peso-liquido'),
             esqKgHa: valRaw('qual-esq-kg-ha'),
@@ -14291,6 +14297,7 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
             esqGemasBoasPorTolete: valRaw('qual-esq-gemas-por-tolete'),
             esqGemasBoasPor5: valRaw('qual-esq-gemas-por5'),
             // Lado Direito
+            dirPesoBalde: valRaw('qual-dir-peso-balde'),
             dirPesoBruto: valRaw('qual-dir-peso-bruto'),
             dirPesoLiquido: valRaw('qual-dir-peso-liquido'),
             dirKgHa: valRaw('qual-dir-kg-ha'),
