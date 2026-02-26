@@ -6732,9 +6732,14 @@ forceReloadAllData() {
 
                 // Status
                 // Prefer gemasBoasPct or calculate it
-                const pct = (q.gemasBoasPct != null) ? parseFloat(q.gemasBoasPct) : 
+                let pct = null;
+                if (q.tipoOperacao === 'plantio_cana' && typeof q.totalToletesBons === 'number') {
+                    pct = q.totalToletesBons;
+                } else {
+                    pct = (q.gemasBoasPct != null) ? parseFloat(q.gemasBoasPct) : 
                            (q.gemasViaveisPerc != null) ? parseFloat(q.gemasViaveisPerc) :
                            (typeof q.totalToletesBons === 'number' && q.gemasTotal > 0) ? (q.totalToletesBons / q.gemasTotal * 100) : null;
+                }
                 
                 let statusBadge = '<span class="badge badge-secondary">—</span>';
                 if (pct !== null) {
@@ -14321,7 +14326,10 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
             qualEquipamentoPlantadora: document.getElementById('qual-equipamento-plantadora')?.value || '',
             qualOperador: document.getElementById('qual-operador')?.value || '',
             qualMatricula: document.getElementById('qual-matricula')?.value || document.getElementById('qual-matricula-header')?.value || '',
-            horaRegistro: horaRegistro
+            horaRegistro: horaRegistro,
+            // Fallback for indicators used in summary/badges
+            gemasTotal: 1, // At least 1 to avoid div by zero in status calculation
+            gemasBoasPct: valRaw('qual-total-toletes-bons') || 0 
         };
     } else {
         qualidade = {
