@@ -1375,7 +1375,7 @@ class InsumosApp {
     initTheme() {
         const saved = localStorage.getItem('theme') || 'light';
         const isDark = saved === 'dark';
-        document.body.classList.toggle('theme-dark', isDark);
+        document.body.classList.toggle('dark-mode', isDark);
     }
 
     // Adicione esta função à classe InsumosApp
@@ -5785,6 +5785,29 @@ forceReloadAllData() {
 
 
 
+        const btnControleBags = document.getElementById('btn-controle-bags');
+        if (btnControleBags) {
+            btnControleBags.addEventListener('click', () => this.toggleBagsControlView());
+        }
+
+        const bagsControlSearch = document.getElementById('bags-control-search');
+        if (bagsControlSearch) {
+            bagsControlSearch.addEventListener('input', () => this.renderBagsControl());
+        }
+
+        const bagsControlFilterStatus = document.getElementById('bags-control-filter-status');
+        if (bagsControlFilterStatus) {
+            bagsControlFilterStatus.addEventListener('change', () => this.renderBagsControl());
+        }
+
+        const btnRefreshBagsControl = document.getElementById('btn-refresh-bags-control');
+        if (btnRefreshBagsControl) {
+            btnRefreshBagsControl.addEventListener('click', async () => {
+                await this.loadViagensAdubo();
+                this.renderBagsControl();
+            });
+        }
+
         if (viagensApplyBtn) viagensApplyBtn.addEventListener('click', () => this.applyViagensFilters());
         if (viagensResetBtn) viagensResetBtn.addEventListener('click', () => this.resetViagensFilters());
         if (viagemSaveBtn) viagemSaveBtn.addEventListener('click', async () => { await this.saveViagemAdubo(); });
@@ -8153,6 +8176,7 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
 
         this.currentViagemAduboId = id;
         this.viagensAduboBagsDraft = [];
+        this.customProdutoInfo = null; // Clear any previous custom product info
 
         if (id) {
             // Edit/View Mode
@@ -8441,12 +8465,25 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
                     if (os.produtos && Array.isArray(os.produtos) && os.produtos.length > 0) {
                         const prodSelect = document.getElementById('modal-viagem-produto');
                         if (prodSelect) {
+                            const currentVal = prodSelect.value;
                             const baseOpts = os.produtos.map(p => `<option value="${p.produto}">${p.produto}</option>`).join('');
                             prodSelect.innerHTML = '<option value="">Selecione</option>' + baseOpts + '<option value="Outro">Outro</option>';
+                            
+                            // Keep selection if it was a standard product or "Outro"
+                            if (currentVal) prodSelect.value = currentVal;
                         }
                     }
                 }
             };
+        }
+
+        const prodSelect = document.getElementById('modal-viagem-produto');
+        if (prodSelect) {
+            prodSelect.addEventListener('change', () => {
+                if (prodSelect.value !== 'Outro') {
+                    this.customProdutoInfo = null;
+                }
+            });
         }
 
         const setupSync = (fazendaId, codigoId) => {
@@ -8812,6 +8849,7 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
                 if (modal) modal.style.display = 'none';
                 await this.loadViagensAdubo();
                 await this.loadTransporteComposto(); // Sync Parent OS List
+                this.customProdutoInfo = null; // Clear custom product info after success
                 
                 // Clear main form if saved from main form
                 if (!isModal) {
@@ -9223,6 +9261,142 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
             lacre: ''
         };
         this.renderViagensAdubo();
+    }
+
+    toggleBagsControlView() {
+        const view = document.getElementById('view-bags-control');
+        const table = document.getElementById('viagens-adubo-table-container');
+        if (!view || !table) return;
+
+        const isHidden = view.style.display === 'none';
+        view.style.display = isHidden ? 'block' : 'none';
+        table.style.display = isHidden ? 'none' : 'block';
+
+        const btn = document.getElementById('btn-controle-bags');
+        if (btn) {
+            btn.classList.toggle('btn-primary', isHidden);
+            btn.classList.toggle('btn-secondary', !isHidden);
+            btn.textContent = isHidden ? '📋 Voltar para Viagens' : '🎒 Controle de Bags';
+        }
+
+        if (isHidden) {
+            this.renderBagsControl();
+        }
+    }
+
+    async renderBagsControl() {
+        const tbody = document.getElementById('bags-control-table-body');
+        if (!tbody) return;
+
+        const searchTerm = (document.getElementById('bags-control-search')?.value || '').toLowerCase();
+        const filterStatus = document.getElementById('bags-control-filter-status')?.value;
+
+        tbody.innerHTML = '<tr><td colspan="7" class="loading">📡 Processando bags...</td></tr>';
+        
+        // Flatten all bags from all trips
+        let allBags = [];
+        (this.viagensAdubo || []).forEach(trip => {
+            if (Array.isArray(trip.bags)) {
+                trip.bags.forEach((bag, index) => {
+                    allBags.push({
+                        tripId: trip.id,
+                        tripDate: trip.data,
+                        tripFazenda: trip.fazenda,
+                        tripFrente: trip.frente,
+                        bagIndex: index,
+                        ...bag
+                    });
+                });
+            }
+        });
+
+        // Apply filters
+        if (searchTerm) {
+            allBags = allBags.filter(b => 
+                (b.identificacao || '').toLowerCase().includes(searchTerm) || 
+                (b.lacre || '').toLowerCase().includes(searchTerm) ||
+                (b.tripFazenda || '').toLowerCase().includes(searchTerm)
+            );
+        }
+
+        if (filterStatus) {
+            allBags = allBags.filter(b => {
+                if (filterStatus === 'devolvido') return b.devolvido === true || b.devolvido === 'true';
+                if (filterStatus === 'pendente') return !b.devolvido || b.devolvido === 'false';
+                return true;
+            });
+        }
+
+        // Sort by date (desc)
+        allBags.sort((a, b) => new Date(b.tripDate) - new Date(a.tripDate));
+
+        if (allBags.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px;">Nenhum bag encontrado com estes filtros.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = '';
+        allBags.forEach(bag => {
+            const tr = document.createElement('tr');
+            const isDevolvido = bag.devolvido === true || bag.devolvido === 'true';
+            
+            const statusLabel = isDevolvido ? 
+                '<span class="badge badge-success">Devolvido</span>' : 
+                '<span class="badge badge-warning">Pendente</span>';
+            
+            const actionBtn = `
+                <button class="btn btn-sm ${isDevolvido ? 'btn-secondary' : 'btn-primary'}" 
+                        onclick="window.insumosApp.toggleBagReturnStatusGlobal('${bag.tripId}', ${bag.bagIndex}, ${isDevolvido})">
+                    ${isDevolvido ? '↩ Marcar Pendente' : '✅ Marcar Devolvido'}
+                </button>
+            `;
+
+            tr.innerHTML = `
+                <td>${this.ui.formatDateBR(bag.tripDate)}</td>
+                <td>${bag.tripFazenda} / ${bag.tripFrente}</td>
+                <td>${bag.identificacao || '-'}</td>
+                <td><span class="fw-bold">${bag.lacre || '-'}</span></td>
+                <td>${this.ui.formatNumber(bag.peso || 0, 3)}</td>
+                <td>${statusLabel}</td>
+                <td style="text-align: center;">${actionBtn}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    async toggleBagReturnStatusGlobal(tripId, bagIndex, currentStatus) {
+        try {
+            const trip = this.viagensAdubo.find(v => String(v.id) === String(tripId));
+            if (!trip || !trip.bags || !trip.bags[bagIndex]) {
+                throw new Error('Bag não encontrado.');
+            }
+
+            // Confirm toggle
+            const actionText = currentStatus ? 'marcar como PENDENTE' : 'marcar como DEVOLVIDO';
+            if (!confirm(`Deseja ${actionText} o bag/lacre ${trip.bags[bagIndex].lacre || trip.bags[bagIndex].identificacao}?`)) {
+                return;
+            }
+
+            // Update local state
+            trip.bags[bagIndex].devolvido = !currentStatus;
+
+            // Prepare payload for API
+            const payload = {
+                bags: trip.bags
+            };
+
+            // Update in DB
+            const res = await this.api.updateViagemAdubo(tripId, payload);
+            if (res.success) {
+                this.ui.showNotification('Status do bag atualizado!', 'success');
+                this.renderBagsControl();
+            } else {
+                throw new Error(res.message);
+            }
+        } catch (error) {
+            console.error('Erro ao atualizar status do bag:', error);
+            this.ui.showNotification('Erro ao atualizar: ' + error.message, 'error');
+        }
     }
 
     addBagRow(prefix = '') {

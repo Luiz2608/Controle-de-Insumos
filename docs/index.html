@@ -820,6 +820,7 @@
                 <h4 style="margin:0;">Gerenciamento de Transporte de Adubo</h4>
                 <div style="display:flex; gap:10px;">
                      <button id="btn-nova-viagem-adubo" class="btn btn-primary">➕ Nova Viagem</button>
+                     <button id="btn-controle-bags" class="btn btn-secondary">🎒 Controle de Bags</button>
                      <button id="btn-toggle-viagens-filters" class="btn btn-secondary">🔍 Filtrar</button>
                      <button id="btn-export-resumo-executivo" class="btn btn-secondary">📄 Resumo Executivo (PDF)</button>
                 </div>
@@ -1034,7 +1035,42 @@
             </div>
         </div>
 
-        <div class="table-container">
+        <div id="view-bags-control" style="display: none; margin-bottom: 20px;">
+            <div class="chart-card form-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h4 style="margin: 0;">Controle Geral de Bags/Lacres</h4>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="bags-control-search" placeholder="Buscar por Lacre ou Bag..." style="padding: 8px; border-radius: 8px; border: 1px solid var(--border);">
+                        <select id="bags-control-filter-status" style="padding: 8px; border-radius: 8px; border: 1px solid var(--border);">
+                            <option value="">Todos os Status</option>
+                            <option value="pendente">Pendente</option>
+                            <option value="devolvido">Devolvido</option>
+                        </select>
+                        <button id="btn-refresh-bags-control" class="btn btn-sm btn-secondary">🔄</button>
+                    </div>
+                </div>
+                <div class="table-container" style="max-height: 500px; overflow-y: auto;">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Fazenda/Frente</th>
+                                <th>Identificação</th>
+                                <th>Lacre</th>
+                                <th>Peso (t)</th>
+                                <th>Status</th>
+                                <th style="text-align: center;">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="bags-control-table-body">
+                            <tr><td colspan="7" class="loading">Carregando bags...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-container" id="viagens-adubo-table-container">
             <table class="data-table" id="viagens-adubo-table">
                 <thead>
                     <tr>
