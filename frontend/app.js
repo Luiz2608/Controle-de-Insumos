@@ -10392,7 +10392,7 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
         const btnRefresh = document.getElementById('btn-refresh-composto');
         if (searchOS) searchOS.addEventListener('input', () => this.renderTransporteComposto());
         if (filterStatus) filterStatus.addEventListener('change', () => this.renderTransporteComposto());
-        if (btnRefresh) btnRefresh.addEventListener('click', () => this.renderTransporteComposto());
+        if (btnRefresh) btnRefresh.addEventListener('click', () => this.loadTransporteComposto());
 
         // 6. Transportes Diários
         const btnAddDiario = document.getElementById('btn-add-composto-diario');
@@ -10661,6 +10661,8 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
             
             // Preencher formulário automaticamente para visualização imediata
             this.fillCompostoForm(extractedData);
+            // Salvar automaticamente após preencher o formulário
+            await this.handleCompostoSubmit(null, extractedData);
 
         } catch (err) {
             this.hideProgress();
@@ -10904,9 +10906,20 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
         this.renderCompostoDiarioDraft();
     }
 
-    async handleCompostoSubmit(e) {
-        e.preventDefault();
-        const form = e.target;
+    async handleCompostoSubmit(e, importedData = null) {
+        let data;
+        let form;
+
+        if (importedData) {
+            data = importedData;
+            // Simulate form data for consistency, though not strictly needed for validation
+            form = document.getElementById('form-transporte-composto');
+        } else {
+            e.preventDefault();
+            form = e.target;
+            const formData = new FormData(form);
+            data = Object.fromEntries(formData.entries());
+        }
         
         // Check if user has unsaved daily items in the inputs
         const dailyData = document.getElementById('composto-diario-data')?.value;
@@ -10920,9 +10933,6 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
                 await new Promise(r => setTimeout(r, 100));
             }
         }
-
-        const formData = new FormData(form);
-        const data = Object.fromEntries(formData.entries());
 
         // Sanitize data_abertura if it comes in BR format (from readonly text field)
         if (data.data_abertura && typeof data.data_abertura === 'string' && data.data_abertura.includes('/')) {
@@ -10983,7 +10993,7 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
                 this.compostoDiarioDraft = [];
                 this.renderCompostoDiarioDraft();
 
-                this.renderTransporteComposto();
+                await this.loadTransporteComposto(); // Recarregar a lista principal
             } else {
                 throw new Error(res.message || 'Erro ao salvar');
             }
