@@ -1771,6 +1771,7 @@ class ApiService {
     // === OS Transporte Diário ===
     async getOSTransporteDiario(osId) {
         this.checkConfig();
+        if (!osId || osId === 'undefined') return { success: true, data: [] };
         const { data, error } = await this.supabase
             .from('os_transporte_diario')
             .select('*')
