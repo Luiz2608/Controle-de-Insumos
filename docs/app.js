@@ -9356,7 +9356,6 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
                 <td>${bag.tripFazenda} / ${bag.tripFrente}</td>
                 <td>${bag.identificacao || '-'}</td>
                 <td><span class="fw-bold">${bag.lacre || '-'}</span></td>
-                <td>${this.ui.formatNumber(bag.peso || 0, 3)}</td>
                 <td>${statusLabel}</td>
                 <td style="text-align: center;">${actionBtn}</td>
             `;
