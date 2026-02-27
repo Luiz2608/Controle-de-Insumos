@@ -9276,7 +9276,7 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
         if (btn) {
             btn.classList.toggle('btn-primary', isHidden);
             btn.classList.toggle('btn-secondary', !isHidden);
-            btn.textContent = isHidden ? '📋 Voltar para Viagens' : '🎒 Controle de Bags';
+            btn.textContent = isHidden ? '📋 Voltar para Viagens' : '🎒 Controle de Lacres';
         }
 
         if (isHidden) {
@@ -9291,7 +9291,7 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
         const searchTerm = (document.getElementById('bags-control-search')?.value || '').toLowerCase();
         const filterStatus = document.getElementById('bags-control-filter-status')?.value;
 
-        tbody.innerHTML = '<tr><td colspan="7" class="loading">📡 Processando bags...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="loading">📡 Processando lacres...</td></tr>';
         
         // Flatten all bags from all trips
         let allBags = [];
