@@ -13380,6 +13380,11 @@ InsumosApp.prototype.validatePlantioStep = function(step) {
 InsumosApp.prototype.goToPlantioStep = function(step) {
     this.currentStep = step;
     
+    // Load products if entering Step 2 (Insumos)
+    if (step === 2) {
+        this.loadProdutosDatalist();
+    }
+
     // Update buttons
     const stepBtns = document.querySelectorAll('.step-btn');
     stepBtns.forEach(btn => {
