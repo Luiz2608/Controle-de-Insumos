@@ -7266,11 +7266,11 @@ Abaixo de 50% → RUIM`;
 Peso: ${this.ui.formatNumber(pesoBonsTotal||0,2)} kg
 ${this.ui.formatNumber(tHaViavel||0,2)} T/ha
 Gemas viáveis/m (média): ${this.ui.formatNumber(mediaViaveisM||0,2)}
-Gemas inviáveis/m (média): ${this.ui.formatNumber(mediaInviaveisM||0,2)}
 
 🗑 Gema descarte:
 Peso: ${this.ui.formatNumber(pesoRuinsTotal||0,2)} kg
 ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
+Gemas inviáveis/m (média): ${this.ui.formatNumber(mediaInviaveisM||0,2)}
 
 📌 Status geral: ${statusLabel}`;
 
@@ -7578,7 +7578,6 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
                                 <tr><td>Peso bons (kg)</td><td>${this.ui.formatNumber(q.esqPesoBons||0,2)}</td><td>${this.ui.formatNumber(q.dirPesoBons||0,2)}</td></tr>
                                 <tr><td>Peso ruins (kg)</td><td>${this.ui.formatNumber(q.esqPesoRuins||0,2)}</td><td>${this.ui.formatNumber(q.dirPesoRuins||0,2)}</td></tr>
                                 <tr><td>Gemas por tolete</td><td>${this.ui.formatNumber(q.esqGemasBoasPorTolete||0,2)}</td><td>${this.ui.formatNumber(q.dirGemasBoasPorTolete||0,2)}</td></tr>
-                                <tr><td>Gemas por 5m</td><td>${this.ui.formatNumber(q.esqGemasBoasPor5||0,2)}</td><td>${this.ui.formatNumber(q.dirGemasBoasPor5||0,2)}</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -7597,7 +7596,6 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
                     <h6 style="margin: 12px 0 6px 0; border-bottom: 1px solid #eee; padding-bottom: 5px;">📈 Qualidade Consolidada</h6>
                     <div class="info-grid" style="grid-template-columns: repeat(3, 1fr);">
                         <div class="info-item"><strong>Média de gemas por tolete:</strong> ${this.ui.formatNumber(q.mediaGemasPorTolete||0,2)}</div>
-                        <div class="info-item"><strong>Média Gemas por 5m:</strong> ${this.ui.formatNumber(q.mediaGemasPor5||0,2)}</div>
                         <div class="info-item"><strong>Média KG por hectare:</strong> ${this.ui.formatNumber(q.mediaKgHa||0,2)} kg/ha</div>
                         <div class="info-item"><strong>Total Toletes Bons (%):</strong> ${this.ui.formatNumber(pctBonsTotal||0,2)}%</div>
                         <div class="info-item"><strong>Total Toletes Ruins (%):</strong> ${this.ui.formatNumber(pctRuinsTotal||0,2)}%</div>
