@@ -6466,8 +6466,12 @@ forceReloadAllData() {
         const logoutBtn = document.getElementById('logout-btn');
         const regToggle = document.getElementById('login-register-toggle');
         const regBtn = document.getElementById('register-btn');
+        const loginUser = document.getElementById('login-user');
+        const loginPass = document.getElementById('login-pass');
         if (loginBtn) loginBtn.addEventListener('click', () => this.handleLogin());
         if (logoutBtn) logoutBtn.addEventListener('click', () => this.handleLogout());
+        if (loginUser) loginUser.addEventListener('keydown', (e) => { if (e.key === 'Enter') this.handleLogin(); });
+        if (loginPass) loginPass.addEventListener('keydown', (e) => { if (e.key === 'Enter') this.handleLogin(); });
         if (regToggle) {
             regToggle.addEventListener('click', () => {
                 const registerArea = document.getElementById('register-area');
@@ -15407,7 +15411,7 @@ InsumosApp.prototype.handleLogin = async function() {
                 await this.loadInitialData(); 
             }
         }
-        else this.ui.showNotification('E-mail ou senha incorretos.', 'error', 4000, 'top-right');
+        else this.ui.showNotification((res && res.message) ? res.message : 'E-mail ou senha incorretos.', 'error', 4000, 'top-right');
     } catch(e) { this.ui.showNotification('Erro de login', 'error'); }
 };
 
