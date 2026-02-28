@@ -14179,9 +14179,11 @@ InsumosApp.prototype.handleEditPlantio = async function(id) {
     const record = this.plantioDia.find(r => String(r.id) === String(id));
     if (!record) return;
 
+    const q = record.qualidade || {};
+
     // Determine type FIRST
-    const tipoOp = record.tipo_operacao || (record.qualidade && record.qualidade.tipoOperacao) || 'plantio';
-    const subTipoQualidade = (record.qualidade && record.qualidade.tipoOperacao) || tipoOp;
+    const tipoOp = record.tipo_operacao || q.tipoOperacao || 'plantio';
+    const subTipoQualidade = q.tipoOperacao || tipoOp;
     
     // Call reset with correct mode
     const isQualidadeTipo = (tipoOp === 'qualidade_muda' || tipoOp === 'plantio_cana');
@@ -14279,9 +14281,6 @@ InsumosApp.prototype.handleEditPlantio = async function(id) {
         this.toggleOperacaoSections();
     }
 
-    // Qualidade
-    const q = record.qualidade || {};
-    
     // Restore quality selection if available
     if (q.qualitySourceId) {
         set('selected-qualidade-id', q.qualitySourceId);
