@@ -36,6 +36,8 @@ class ApiService {
                 },
             });
         }
+        this.realtimeChannel = null;
+
 
         // URL base da API (backend)
         this.baseUrl = (window.API_CONFIG && window.API_CONFIG.baseUrl) || '';
@@ -340,6 +342,43 @@ class ApiService {
         localStorage.removeItem('authRole');
         this.user = null;
         return { success: true };
+    }
+
+    // === REALTIME ===
+    enableRealtime(tables = []) {
+        this.checkConfig();
+        try {
+            if (this.realtimeChannel) {
+                this.supabase.removeChannel(this.realtimeChannel);
+                this.realtimeChannel = null;
+            }
+            const channel = this.supabase.channel('db-changes');
+            const watch = (table) => {
+                channel.on(
+                    'postgres_changes',
+                    { event: '*', schema: 'public', table },
+                    (payload) => {
+                        const detail = {
+                            table,
+                            eventType: payload.eventType,
+                            new: payload.new,
+                            old: payload.old
+                        };
+                        window.dispatchEvent(new CustomEvent('supabase:change', { detail }));
+                    }
+                );
+            };
+            const defaultTables = ['plantio_diario','equipamento_operador','insumos_fazendas','insumos_oxifertil','viagens_adubo','estoque','os_agricola','metas_plantio'];
+            const set = (tables && tables.length) ? tables : defaultTables;
+            set.forEach(watch);
+            this.realtimeChannel = channel.subscribe((status) => {
+                if (status === 'SUBSCRIBED') {
+                    window.dispatchEvent(new CustomEvent('supabase:ready'));
+                }
+            });
+        } catch (e) {
+            console.warn('Realtime indisponível:', e);
+        }
     }
 
 

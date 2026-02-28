@@ -1361,6 +1361,11 @@ class InsumosApp {
 
             this.updateCurrentUserUI();
             await this.loadInitialData();
+            // Realtime sync
+            if (this.api && this.api.enableRealtime) {
+                this.api.enableRealtime();
+                window.addEventListener('supabase:change', (e) => this.onDbChange(e.detail));
+            }
             
             this.ui.hideLoading();
             this.ui.showNotification('Sistema carregado com sucesso!', 'success', 2000);
@@ -1411,6 +1416,55 @@ forceReloadAllData() {
                 this.renderPlantioDia();
             });
         });
+    }
+
+    async onDbChange(detail) {
+        if (!detail || !detail.table) return;
+        switch (detail.table) {
+            case 'plantio_diario':
+            case 'equipamento_operador':
+                await this.reloadPlantioRealtime();
+                break;
+            case 'insumos_fazendas':
+            case 'insumos_oxifertil':
+                await this.loadInsumosData(this.insumosFilters || {});
+                break;
+            case 'viagens_adubo':
+                await this.loadViagensAdubo();
+                break;
+            case 'estoque':
+                await this.loadEstoque();
+                break;
+            case 'os_agricola':
+                await this.loadOSData();
+                break;
+            case 'metas_plantio':
+                await this.loadMetas();
+                break;
+        }
+    }
+
+    async reloadPlantioRealtime() {
+        try {
+            const plantioRes = await this.api.getPlantioDia();
+            if (plantioRes && plantioRes.success) {
+                this.plantioDiarioData = plantioRes.data.map(p => {
+                    if (typeof p.frentes === 'string') {
+                        try { p.frentes = JSON.parse(p.frentes); } catch(e) {}
+                    }
+                    if (typeof p.insumos === 'string') {
+                        try { p.insumos = JSON.parse(p.insumos); } catch(e) {}
+                    }
+                    if (typeof p.qualidade === 'string') {
+                        try { p.qualidade = JSON.parse(p.qualidade); } catch(e) {}
+                    }
+                    return p;
+                });
+                this.renderPlantioDia();
+            }
+        } catch (e) {
+            console.warn('Falha ao recarregar Plantio em realtime:', e);
+        }
     }
 
     setupPlantioSummaryListeners() {
