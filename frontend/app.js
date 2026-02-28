@@ -7093,6 +7093,16 @@ forceReloadAllData() {
                 mediaViaveisM = ((esqV || 0) + (dirV || 0)) / (count || 1);
             }
         }
+        // Gemas inviáveis por metro (média)
+        let mediaInviaveisM = (typeof q.mediaGemasInviaveisPorM === 'number') ? q.mediaGemasInviaveisPorM : null;
+        if (mediaInviaveisM == null) {
+            const esqI = (typeof q.esqGemasInviaveisPorM === 'number') ? q.esqGemasInviaveisPorM : null;
+            const dirI = (typeof q.dirGemasInviaveisPorM === 'number') ? q.dirGemasInviaveisPorM : null;
+            if (esqI != null || dirI != null) {
+                const countI = (esqI != null ? 1 : 0) + (dirI != null ? 1 : 0);
+                mediaInviaveisM = ((esqI || 0) + (dirI || 0)) / (countI || 1);
+            }
+        }
 
         const text =
 `🌱 RELATÓRIO DE QUALIDADE DE MUDA
@@ -7110,6 +7120,7 @@ forceReloadAllData() {
 
 🌿 Média de gemas por tolete: ${this.ui.formatNumber(q.mediaGemasPorTolete||0,2)}
 🌿 Gemas viáveis/m (média): ${this.ui.formatNumber(mediaViaveisM||0,2)}
+🗑 Gemas inviáveis/m (média): ${this.ui.formatNumber(mediaInviaveisM||0,2)}
 
 📌 Classificação: ${classificacao}
 
@@ -7224,6 +7235,16 @@ Abaixo de 50% → RUIM`;
                 mediaViaveisM = ((esqV || 0) + (dirV || 0)) / (count || 1);
             }
         }
+        // Gemas inviáveis por metro (média)
+        let mediaInviaveisM = (typeof q.mediaGemasInviaveisPorM === 'number') ? q.mediaGemasInviaveisPorM : null;
+        if (mediaInviaveisM == null) {
+            const esqI = (typeof q.esqGemasInviaveisPorM === 'number') ? q.esqGemasInviaveisPorM : null;
+            const dirI = (typeof q.dirGemasInviaveisPorM === 'number') ? q.dirGemasInviaveisPorM : null;
+            if (esqI != null || dirI != null) {
+                const countI = (esqI != null ? 1 : 0) + (dirI != null ? 1 : 0);
+                mediaInviaveisM = ((esqI || 0) + (dirI || 0)) / (countI || 1);
+            }
+        }
 
         const text =
 `🌱 *QUALIDADE DE MUDA – PLANTIO*
@@ -7245,6 +7266,7 @@ Abaixo de 50% → RUIM`;
 Peso: ${this.ui.formatNumber(pesoBonsTotal||0,2)} kg
 ${this.ui.formatNumber(tHaViavel||0,2)} T/ha
 Gemas viáveis/m (média): ${this.ui.formatNumber(mediaViaveisM||0,2)}
+Gemas inviáveis/m (média): ${this.ui.formatNumber(mediaInviaveisM||0,2)}
 
 🗑 Gema descarte:
 Peso: ${this.ui.formatNumber(pesoRuinsTotal||0,2)} kg
@@ -12758,9 +12780,14 @@ InsumosApp.prototype.updateGemasPercent = function(triggerEl) {
         // Gemas viáveis por metro (bons / amostra)
         if (amostraEl && mediaEl) {
             const viaveisPorMEl = document.getElementById('qual-gemas-viaveis-por-m');
+            const inviaveisPorMEl = document.getElementById('qual-gemas-inviaveis-por-m');
             if (viaveisPorMEl) {
                 const am = parseFloat(amostraEl.value || '0');
                 viaveisPorMEl.value = am > 0 ? (bons / am).toFixed(2) : '';
+            }
+            if (inviaveisPorMEl) {
+                const am = parseFloat(amostraEl.value || '0');
+                inviaveisPorMEl.value = am > 0 ? (ruins / am).toFixed(2) : '';
             }
         }
     } else {
@@ -12768,6 +12795,8 @@ InsumosApp.prototype.updateGemasPercent = function(triggerEl) {
         ruinsPctEl.value = '';
         const viaveisPorMEl = document.getElementById('qual-gemas-viaveis-por-m');
         if (viaveisPorMEl) viaveisPorMEl.value = '';
+        const inviaveisPorMEl = document.getElementById('qual-gemas-inviaveis-por-m');
+        if (inviaveisPorMEl) inviaveisPorMEl.value = '';
     }
 };
 
@@ -14227,6 +14256,9 @@ InsumosApp.prototype.updateQualidadePlantioCanaCalculations = function() {
         // Gemas viáveis por metro: considerar apenas toletes bons na amostra de 5m
         const gemasViaveisPorM = (gemasPorTolete * (qtdBons || 0)) / meters;
         set('gemas-viaveis-por-m', gemasViaveisPorM);
+        // Gemas inviáveis por metro: considerar toletes ruins na amostra de 5m
+        const gemasInviaveisPorM = (gemasPorTolete * (qtdRuins || 0)) / meters;
+        set('gemas-inviaveis-por-m', gemasInviaveisPorM);
         return { kgHa, qtdBons, qtdRuins, pesoBons, pesoRuins, gemasPorTolete, gemasPor5 };
     };
     const esq = computeSide('qual-esq');
@@ -14417,6 +14449,7 @@ InsumosApp.prototype.handleEditPlantio = async function(id) {
         set('qual-esq-gemas-por-tolete', q.esqGemasBoasPorTolete);
         set('qual-esq-gemas-por5', q.esqGemasBoasPor5);
         set('qual-esq-gemas-viaveis-por-m', q.esqGemasViaveisPorM);
+        set('qual-esq-gemas-inviaveis-por-m', q.esqGemasInviaveisPorM);
         
         set('qual-dir-peso-balde', q.dirPesoBalde || q.pesoBaldeKg || 0.460);
         set('qual-dir-peso-bruto', q.dirPesoBruto);
@@ -14431,6 +14464,7 @@ InsumosApp.prototype.handleEditPlantio = async function(id) {
         set('qual-dir-gemas-por-tolete', q.dirGemasBoasPorTolete);
         set('qual-dir-gemas-por5', q.dirGemasBoasPor5);
         set('qual-dir-gemas-viaveis-por-m', q.dirGemasViaveisPorM);
+        set('qual-dir-gemas-inviaveis-por-m', q.dirGemasInviaveisPorM);
         
         set('qual-media-kg-ha', q.mediaKgHa);
         set('qual-media-gemas-por-tolete', q.mediaGemasPorTolete);
@@ -14441,6 +14475,10 @@ InsumosApp.prototype.handleEditPlantio = async function(id) {
         const mediaViaveisEl = document.getElementById('qual-media-gemas-viaveis-por-m');
         if (mediaViaveisEl && q.mediaGemasViaveisPorM != null) {
             set('qual-media-gemas-viaveis-por-m', q.mediaGemasViaveisPorM);
+        }
+        const mediaInviaveisEl = document.getElementById('qual-media-gemas-inviaveis-por-m');
+        if (mediaInviaveisEl && q.mediaGemasInviaveisPorM != null) {
+            set('qual-media-gemas-inviaveis-por-m', q.mediaGemasInviaveisPorM);
         }
     }
     set('qual-cobertura', q.cobertura);
@@ -14682,6 +14720,7 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
             esqGemasBoasPorTolete: valRaw('qual-esq-gemas-por-tolete'),
             esqGemasBoasPor5: valRaw('qual-esq-gemas-por5'),
             esqGemasViaveisPorM: valRaw('qual-esq-gemas-viaveis-por-m'),
+            esqGemasInviaveisPorM: valRaw('qual-esq-gemas-inviaveis-por-m'),
             // Lado Direito
             dirPesoBalde: valRaw('qual-dir-peso-balde'),
             dirPesoBruto: valRaw('qual-dir-peso-bruto'),
@@ -14696,6 +14735,7 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
             dirGemasBoasPorTolete: valRaw('qual-dir-gemas-por-tolete'),
             dirGemasBoasPor5: valRaw('qual-dir-gemas-por5'),
             dirGemasViaveisPorM: valRaw('qual-dir-gemas-viaveis-por-m'),
+            dirGemasInviaveisPorM: valRaw('qual-dir-gemas-inviaveis-por-m'),
             // Resultados finais
             mediaKgHa: valRaw('qual-media-kg-ha'),
             mediaGemasPorTolete: valRaw('qual-media-gemas-por-tolete'),
@@ -14704,6 +14744,7 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
             totalGemasBoas: valRaw('qual-total-gemas-boas'),
             mediaGemasPor5: valRaw('qual-media-gemas-por5'),
             mediaGemasViaveisPorM: (valRaw('qual-esq-gemas-viaveis-por-m') + valRaw('qual-dir-gemas-viaveis-por-m')) / 2,
+            mediaGemasInviaveisPorM: (valRaw('qual-esq-gemas-inviaveis-por-m') + valRaw('qual-dir-gemas-inviaveis-por-m')) / 2,
             // Equipe e Equipamentos
             qualEquipamentoTrator: document.getElementById('qual-equipamento-trator')?.value || '',
             qualEquipamentoPlantadora: document.getElementById('qual-equipamento-plantadora')?.value || '',
