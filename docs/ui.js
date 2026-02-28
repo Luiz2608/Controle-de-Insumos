@@ -27,8 +27,13 @@ class UIManager {
     }
 
     showNotification(message, type = 'info', duration = 5000, position = null) {
-        const notification = document.getElementById('notification');
-        if (!notification) return;
+        let notification = document.getElementById('notification');
+        if (!notification) {
+            notification = document.createElement('div');
+            notification.id = 'notification';
+            notification.className = 'notification';
+            document.body.appendChild(notification);
+        }
         notification.textContent = message;
         // Reset base classes
         notification.className = `notification ${type}`;
@@ -41,6 +46,7 @@ class UIManager {
         // Show
         notification.classList.add('show');
         notification.style.display = 'block';
+        notification.style.zIndex = '200000';
         
         // Limpar timeout anterior
         if (this.notificationTimeout) {
