@@ -5861,6 +5861,10 @@ forceReloadAllData() {
                 this.renderBagsControl();
             });
         }
+        const btnExportBags = document.getElementById('btn-export-bags-report');
+        if (btnExportBags) {
+            btnExportBags.addEventListener('click', () => this.exportBagsReport());
+        }
 
         if (viagensApplyBtn) viagensApplyBtn.addEventListener('click', () => this.applyViagensFilters());
         if (viagensResetBtn) viagensResetBtn.addEventListener('click', () => this.resetViagensFilters());
@@ -9473,6 +9477,51 @@ Gemas inviáveis/m (média): ${this.ui.formatNumber(mediaInviaveisM||0,2)}
             `;
             tbody.appendChild(tr);
         });
+    }
+
+    exportBagsReport() {
+        try {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const center = (text, y) => {
+                const w = doc.getStringUnitWidth(text) * doc.internal.getFontSize() / doc.internal.scaleFactor;
+                doc.text(text, (pageWidth - w) / 2, y);
+            };
+            doc.setFontSize(16); doc.setFont(undefined, 'bold');
+            center('Relatório de Controle de Lacres', 18);
+            doc.setFontSize(10); doc.setFont(undefined, 'normal');
+            doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, pageWidth - 14, 24, { align: 'right' });
+            doc.line(14, 26, pageWidth - 14, 26);
+            let allBags = [];
+            (this.viagensAdubo || []).forEach(v => {
+                const faz = v.fazenda || '-';
+                const fr = v.frente || v.talhao || '-';
+                const dt = v.data || v.inicio || v.created_at;
+                (Array.isArray(v.bags) ? v.bags : []).forEach(b => {
+                    allBags.push({
+                        data: this.ui.formatDateBR(dt),
+                        fazFrente: `${faz} / ${fr}`,
+                        identificacao: b.identificacao || '-',
+                        lacre: b.lacre || '-',
+                        status: b.devolvido ? 'Devolvido' : 'Pendente'
+                    });
+                });
+            });
+            const body = allBags.map(b => [b.data, b.fazFrente, b.identificacao, b.lacre, b.status]);
+            doc.autoTable({
+                startY: 32,
+                head: [['Data', 'Fazenda / Frente', 'Identificação', 'Lacre', 'Status']],
+                body,
+                theme: 'grid',
+                styles: { fontSize: 9 },
+                headStyles: { fillColor: [33, 150, 243], textColor: 255 }
+            });
+            doc.save(`controle_lacres_${new Date().toISOString().slice(0,10)}.pdf`);
+            if (this.ui) this.ui.showNotification('Relatório de lacres gerado.', 'success', 2500, 'top-right');
+        } catch (e) {
+            if (this.ui) this.ui.showNotification('Erro ao gerar relatório de lacres', 'error', 3000, 'top-right');
+        }
     }
 
     async toggleBagReturnStatusGlobal(tripId, bagIndex, currentStatus) {
@@ -14701,6 +14750,17 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
     const responsavel = document.getElementById('plantio-responsavel')?.value;
     const observacoes = document.getElementById('plantio-obs')?.value || '';
     
+    // Validação básica obrigatória
+    const missingFields = [];
+    if (!data) missingFields.push('Data');
+    if (!responsavel) missingFields.push('Responsável');
+    if (missingFields.length) {
+        if (this.ui) this.ui.showNotification(`Preencha: ${missingFields.join(', ')}`, 'warning', 3000, 'top-right');
+        if (!data) document.getElementById('plantio-data')?.classList.add('input-error');
+        if (!responsavel) document.getElementById('plantio-responsavel')?.classList.add('input-error');
+        return;
+    }
+    
     // Captura Turno ou Hora
     const turnoInput = document.getElementById('plantio-turno');
     const horaRegistro = turnoInput ? `Turno ${turnoInput.value}` : (document.getElementById('plantio-hora')?.value || '');
@@ -15345,7 +15405,7 @@ InsumosApp.prototype.handleLogin = async function() {
                 await this.loadInitialData(); 
             }
         }
-        else this.ui.showNotification('Credenciais inválidas', 'error');
+        else this.ui.showNotification('E-mail ou senha incorretos.', 'error', 4000, 'top-right');
     } catch(e) { this.ui.showNotification('Erro de login', 'error'); }
 };
 

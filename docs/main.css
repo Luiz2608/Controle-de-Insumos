@@ -671,6 +671,26 @@ body {
     border-left: 5px solid var(--primary);
 }
 
+.notification.show {
+    display: block;
+    animation: slideIn 0.2s ease-out;
+}
+
+/* Corner positions */
+.notification.top-right {
+    top: 20px;
+    right: 20px;
+    bottom: auto;
+    left: auto;
+    transform: none;
+}
+.notification.bottom-right {
+    bottom: 20px;
+    right: 20px;
+    left: auto;
+    transform: none;
+}
+
 .notification.error { border-left-color: var(--error); }
 .notification.warning { border-left-color: var(--warning); }
 .notification.info { border-left-color: var(--accent); }

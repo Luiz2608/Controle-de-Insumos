@@ -26,10 +26,18 @@ class UIManager {
         }
     }
 
-    showNotification(message, type = 'info', duration = 5000) {
+    showNotification(message, type = 'info', duration = 5000, position = null) {
         const notification = document.getElementById('notification');
+        if (!notification) return;
         notification.textContent = message;
-        notification.className = `notification ${type} show`;
+        notification.className = `notification ${type}`;
+        if (position === 'top-right') {
+            notification.classList.add('top-right');
+        } else if (position === 'bottom-right') {
+            notification.classList.add('bottom-right');
+        }
+        notification.classList.add('show');
+        notification.style.display = 'block';
         
         // Limpar timeout anterior
         if (this.notificationTimeout) {
@@ -44,7 +52,9 @@ class UIManager {
 
     hideNotification() {
         const notification = document.getElementById('notification');
-        notification.classList.remove('show');
+        if (!notification) return;
+        notification.classList.remove('show', 'top-right', 'bottom-right');
+        setTimeout(() => { notification.style.display = 'none'; }, 150);
     }
 
     populateSelect(selectElement, options, placeholder = 'Selecione...') {
