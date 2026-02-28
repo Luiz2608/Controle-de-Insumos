@@ -14122,7 +14122,17 @@ InsumosApp.prototype.updateQualidadePlantioCanaCalculations = function() {
             const el = document.getElementById(`${pref}-${id}`);
             if (!el) return 0;
             let v = el.value || '0';
-            v = String(v).replace(',', '.');
+            if (typeof v === 'string') {
+                v = v.trim();
+                if (v.includes(',') && v.includes('.')) {
+                    const lastComma = v.lastIndexOf(',');
+                    const lastDot = v.lastIndexOf('.');
+                    if (lastComma > lastDot) v = v.replace(/\./g, '').replace(',', '.');
+                    else v = v.replace(/,/g, '');
+                } else if (v.includes(',')) {
+                    v = v.replace(',', '.');
+                }
+            }
             const num = parseFloat(v);
             return isNaN(num) ? 0 : num;
         };
@@ -14386,6 +14396,56 @@ InsumosApp.prototype.handleEditPlantio = async function(id) {
     set('qual-mudas-reboulos-ruins', q.mudasReboulosRuins);
     // Pct fields are auto-calculated by updateMudasPercent() called later
 
+    // --- FIX: Restaurar Campos de Frente e Fazenda ---
+    if (record.frentes && record.frentes.length > 0) {
+        const f = record.frentes[0];
+        
+        // Restore OS Selection
+        let osNum = f.os_numero || '';
+        if (!osNum && this.osListCache) {
+            // Fallback para registros antigos: tentar achar a OS pela fazenda/frente
+            const matchedOS = this.osListCache.find(o => 
+                (o.fazenda === f.fazenda || o.fazenda === f.cod) && 
+                (o.frente === f.frente)
+            );
+            if (matchedOS) osNum = matchedOS.numero;
+        }
+        set('single-os', osNum);
+
+        set('single-frente', f.frente);
+        
+        // Trigger change para carregar OS list se necessário
+        const singleFrente = document.getElementById('single-frente');
+        if (singleFrente) singleFrente.dispatchEvent(new Event('change'));
+
+        set('single-fazenda', f.fazenda);
+        set('single-cod', f.cod);
+        set('single-regiao', f.regiao);
+        set('single-area', f.area);
+        set('single-plantada', f.plantada);
+        set('single-area-total', f.areaTotal);
+        set('single-area-acumulada', f.areaAcumulada);
+        set('single-plantio-dia', f.plantioDiario);
+
+        this.originalPlantioValue = parseFloat(f.plantioDiario || f.plantada || 0);
+        this.originalMudaValue = parseFloat(q.mudaConsumoDia || 0);
+        this.originalCobricaoValue = parseFloat(q.cobricaoDia || 0);
+
+        // Carregar stats da fazenda para cálculo correto do acumulado
+        if (f.cod) {
+             this.api.getFazendaByCodigo(f.cod).then(res => {
+                 if (res && res.success && res.data) {
+                     this.tempFazendaStats = {
+                        plantioAcumulado: res.data.plantio_acumulado || 0,
+                        mudaAcumulada: res.data.muda_acumulada || 0,
+                        cobricaoAcumulada: res.data.cobricao_acumulada || 0
+                     };
+                     this.updateAccumulatedStats();
+                 }
+             }).catch(e => console.error('Erro ao buscar stats fazenda edit:', e));
+        }
+    }
+
     // --- FIX: Restaurar Turno ---
     const savedHora = record.hora || (record.qualidade && record.qualidade.horaRegistro) || '';
     if (savedHora) {
@@ -14422,8 +14482,8 @@ InsumosApp.prototype.handleEditPlantio = async function(id) {
     
     // Forçar cálculos de Plantio de Cana se aplicável
     if (tipoOp === 'plantio_cana' || q.tipoOperacao === 'plantio_cana') {
-        if (typeof this.computeQualidadePlantioCana === 'function') {
-            this.computeQualidadePlantioCana();
+        if (typeof this.updateQualidadePlantioCanaCalculations === 'function') {
+            this.updateQualidadePlantioCanaCalculations();
         }
     }
 
@@ -14447,10 +14507,20 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
     const parseVal = (id) => {
         const el = document.getElementById(id);
         if (!el) return 0;
-        let val = el.value;
-        if (!val || typeof val === 'string' && val.trim() === '') return 0;
-        if (typeof val === 'string') val = val.replace(',', '.');
-        const num = parseFloat(val);
+        let v = el.value;
+        if (!v || typeof v === 'string' && v.trim() === '') return 0;
+        if (typeof v === 'string') {
+            v = v.trim();
+            if (v.includes(',') && v.includes('.')) {
+                const lastComma = v.lastIndexOf(',');
+                const lastDot = v.lastIndexOf('.');
+                if (lastComma > lastDot) v = v.replace(/\./g, '').replace(',', '.');
+                else v = v.replace(/,/g, '');
+            } else if (v.includes(',')) {
+                v = v.replace(',', '.');
+            }
+        }
+        const num = parseFloat(v);
         return isNaN(num) ? 0 : num;
     };
 
@@ -14490,7 +14560,17 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
             const el = document.getElementById(id);
             if (!el) return 0;
             let v = el.value || '0';
-            v = String(v).replace(',', '.');
+            if (typeof v === 'string') {
+                v = v.trim();
+                if (v.includes(',') && v.includes('.')) {
+                    const lastComma = v.lastIndexOf(',');
+                    const lastDot = v.lastIndexOf('.');
+                    if (lastComma > lastDot) v = v.replace(/\./g, '').replace(',', '.');
+                    else v = v.replace(/,/g, '');
+                } else if (v.includes(',')) {
+                    v = v.replace(',', '.');
+                }
+            }
             const num = parseFloat(v);
             return isNaN(num) ? 0 : num;
         };
