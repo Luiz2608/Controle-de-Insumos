@@ -12730,9 +12730,20 @@ InsumosApp.prototype.updateGemasPercent = function(triggerEl) {
         
         bonsPctEl.value = ((bons / total) * 100).toFixed(2);
         ruinsPctEl.value = ((ruins / total) * 100).toFixed(2);
+        
+        // Gemas viáveis por metro (bons / amostra)
+        if (amostraEl && mediaEl) {
+            const viaveisPorMEl = document.getElementById('qual-gemas-viaveis-por-m');
+            if (viaveisPorMEl) {
+                const am = parseFloat(amostraEl.value || '0');
+                viaveisPorMEl.value = am > 0 ? (bons / am).toFixed(2) : '';
+            }
+        }
     } else {
         bonsPctEl.value = '';
         ruinsPctEl.value = '';
+        const viaveisPorMEl = document.getElementById('qual-gemas-viaveis-por-m');
+        if (viaveisPorMEl) viaveisPorMEl.value = '';
     }
 };
 
@@ -14189,6 +14200,9 @@ InsumosApp.prototype.updateQualidadePlantioCanaCalculations = function() {
         const totalToletes = (qtdBons || 0) + (qtdRuins || 0);
         const gemasPor5 = gemasPorTolete * totalToletes;
         set('gemas-por5', gemasPor5);
+        // Gemas viáveis por metro: considerar apenas toletes bons na amostra de 5m
+        const gemasViaveisPorM = (gemasPorTolete * (qtdBons || 0)) / meters;
+        set('gemas-viaveis-por-m', gemasViaveisPorM);
         return { kgHa, qtdBons, qtdRuins, pesoBons, pesoRuins, gemasPorTolete, gemasPor5 };
     };
     const esq = computeSide('qual-esq');
@@ -14378,6 +14392,7 @@ InsumosApp.prototype.handleEditPlantio = async function(id) {
         set('qual-esq-peso-ruins-pct', q.esqPesoRuinsPct);
         set('qual-esq-gemas-por-tolete', q.esqGemasBoasPorTolete);
         set('qual-esq-gemas-por5', q.esqGemasBoasPor5);
+        set('qual-esq-gemas-viaveis-por-m', q.esqGemasViaveisPorM);
         
         set('qual-dir-peso-balde', q.dirPesoBalde || q.pesoBaldeKg || 0.460);
         set('qual-dir-peso-bruto', q.dirPesoBruto);
@@ -14391,6 +14406,7 @@ InsumosApp.prototype.handleEditPlantio = async function(id) {
         set('qual-dir-peso-ruins-pct', q.dirPesoRuinsPct);
         set('qual-dir-gemas-por-tolete', q.dirGemasBoasPorTolete);
         set('qual-dir-gemas-por5', q.dirGemasBoasPor5);
+        set('qual-dir-gemas-viaveis-por-m', q.dirGemasViaveisPorM);
         
         set('qual-media-kg-ha', q.mediaKgHa);
         set('qual-media-gemas-por-tolete', q.mediaGemasPorTolete);
@@ -14398,6 +14414,11 @@ InsumosApp.prototype.handleEditPlantio = async function(id) {
         set('qual-total-toletes-ruins', q.totalToletesRuins);
         set('qual-total-gemas-boas', q.totalGemasBoas);
         set('qual-media-gemas-por5', q.mediaGemasPor5);
+        // Campo consolidado opcional (se existir no layout futuramente)
+        const mediaViaveisEl = document.getElementById('qual-media-gemas-viaveis-por-m');
+        if (mediaViaveisEl && q.mediaGemasViaveisPorM != null) {
+            set('qual-media-gemas-viaveis-por-m', q.mediaGemasViaveisPorM);
+        }
     }
     set('qual-cobertura', q.cobertura);
     set('qual-alinhamento', q.alinhamento);
@@ -14637,6 +14658,7 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
             esqPesoRuinsPct: valRaw('qual-esq-peso-ruins-pct'),
             esqGemasBoasPorTolete: valRaw('qual-esq-gemas-por-tolete'),
             esqGemasBoasPor5: valRaw('qual-esq-gemas-por5'),
+            esqGemasViaveisPorM: valRaw('qual-esq-gemas-viaveis-por-m'),
             // Lado Direito
             dirPesoBalde: valRaw('qual-dir-peso-balde'),
             dirPesoBruto: valRaw('qual-dir-peso-bruto'),
@@ -14650,6 +14672,7 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
             dirPesoRuinsPct: valRaw('qual-dir-peso-ruins-pct'),
             dirGemasBoasPorTolete: valRaw('qual-dir-gemas-por-tolete'),
             dirGemasBoasPor5: valRaw('qual-dir-gemas-por5'),
+            dirGemasViaveisPorM: valRaw('qual-dir-gemas-viaveis-por-m'),
             // Resultados finais
             mediaKgHa: valRaw('qual-media-kg-ha'),
             mediaGemasPorTolete: valRaw('qual-media-gemas-por-tolete'),
@@ -14657,6 +14680,7 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
             totalToletesRuins: valRaw('qual-total-toletes-ruins'),
             totalGemasBoas: valRaw('qual-total-gemas-boas'),
             mediaGemasPor5: valRaw('qual-media-gemas-por5'),
+            mediaGemasViaveisPorM: (valRaw('qual-esq-gemas-viaveis-por-m') + valRaw('qual-dir-gemas-viaveis-por-m')) / 2,
             // Equipe e Equipamentos
             qualEquipamentoTrator: document.getElementById('qual-equipamento-trator')?.value || '',
             qualEquipamentoPlantadora: document.getElementById('qual-equipamento-plantadora')?.value || '',
