@@ -13194,65 +13194,45 @@ InsumosApp.prototype.renderInsumosDraft = function() {
 InsumosApp.prototype.loadProdutosDatalist = async function() {
     try {
         const frenteKey = document.getElementById('single-frente')?.value || '';
-        const osKey = document.getElementById('single-os')?.value || '';
         const fazendaKey = document.getElementById('single-fazenda')?.value || ''; // Filter by Farm
-        let osProdutos = [];
-        
-        console.log(`[loadProdutosDatalist] Frente: ${frenteKey}, OS: ${osKey}, Fazenda: ${fazendaKey}`);
+        let produtos = [];
+        console.log(`[loadProdutosDatalist] Frente: ${frenteKey}, Fazenda: ${fazendaKey}`);
 
-        // 1. Tentar pegar da OS selecionada (via Cache)
-        if (osKey && this.osListCache) {
-             const os = this.osListCache.find(o => String(o.numero).trim() === String(osKey).trim());
-             if (os && Array.isArray(os.produtos)) {
-                 console.log('[loadProdutosDatalist] Usando produtos da OS selecionada:', os.produtos);
-                 osProdutos = os.produtos.map(p => p.produto).filter(p => p);
-             }
-        }
-        
-        // 2. Se não achou produtos (ou OS não selecionada), busca a mais recente via API
-        if (osProdutos.length === 0 && frenteKey) {
-            console.log('[loadProdutosDatalist] Buscando OS mais recente por frente...');
-            const osRes = await this.api.getOSByFrente(frenteKey);
-            if (osRes && osRes.success && osRes.data && Array.isArray(osRes.data.produtos)) {
-                console.log('[loadProdutosDatalist] Produtos encontrados via API:', osRes.data.produtos);
-                osProdutos = osRes.data.produtos.map(p => p.produto).filter(p => p);
-            } else {
-                console.warn('[loadProdutosDatalist] Nenhum produto encontrado na API para a frente:', frenteKey);
-            }
-        }
-
-        // 3. Buscar produtos do ESTOQUE da Fazenda/Frente e MERGEAR com a lista
+        // Buscar produtos EXCLUSIVAMENTE do ESTOQUE (filtrados por Fazenda/Frente quando possível)
         if (fazendaKey || frenteKey) {
             try {
-                // Fetch stock items filtered by Fazenda or Frente
-                const stockRes = await this.api.getEstoque(); // Get all and filter in memory to be safe with name variations
+                const stockRes = await this.api.getEstoque();
                 if (stockRes && stockRes.success && Array.isArray(stockRes.data)) {
-                    const stockProducts = stockRes.data
+                    produtos = stockRes.data
                         .filter(item => {
                             const loc = (item.frente || '').toUpperCase().trim();
                             const faz = (fazendaKey || '').toUpperCase().trim();
                             const fre = (frenteKey || '').toUpperCase().trim();
-                            // Match Fazenda Name OR Frente Code
                             return (faz && loc === faz) || (fre && loc === fre);
                         })
                         .map(item => item.produto)
                         .filter(Boolean);
-                    
-                    if (stockProducts.length > 0) {
-                        console.log('[loadProdutosDatalist] Produtos do Estoque:', stockProducts);
-                        // Merge and deduplicate
-                        osProdutos = [...new Set([...osProdutos, ...stockProducts])];
-                    }
+                    produtos = [...new Set(produtos)];
                 }
             } catch (err) {
                 console.error('Erro ao buscar estoque para filtro de produtos:', err);
+            }
+        } else {
+            // Sem filtros definidos: carrega todos os produtos do estoque (únicos)
+            try {
+                const stockRes = await this.api.getEstoque();
+                if (stockRes && stockRes.success && Array.isArray(stockRes.data)) {
+                    produtos = [...new Set(stockRes.data.map(i => i.produto).filter(Boolean))];
+                }
+            } catch (err) {
+                console.error('Erro ao buscar estoque para lista geral de produtos:', err);
             }
         }
         
         const select = document.getElementById('insumo-produto');
         if (select) {
             select.innerHTML = '<option value="">Selecione o produto...</option>' + 
-                               osProdutos.map(p => `<option value="${p}">${p}</option>`).join('');
+                               produtos.map(p => `<option value="${p}">${p}</option>`).join('');
         }
     } catch (e) {
         console.error('Erro ao carregar produtos para select:', e);
