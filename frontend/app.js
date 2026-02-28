@@ -14826,34 +14826,24 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
         }
     }
     
-    // Auto-Aggregation Logic for Quality Mode
+    // Auto-Aggregation Logic for Quality Mode (Only if NOT creating multiple records)
+    // Se o usuário estiver em modo qualidade, vamos permitir múltiplos registros por dia
+    // para a mesma frente, a menos que ele explicitamente queira editar um anterior.
+    // Para isso, vamos DESATIVAR a agregação automática se houver um campo de hora ou similar
+    // que diferencie as amostras.
+    
+    /* 
     if (this.isQualidadeMode && !this.currentPlantioId) {
         try {
             const found = await this.api.findPlantioByDataFrente(data, frenteKey);
             if (found && found.success && found.data) {
-                const rec = found.data;
-                console.log('Registro existente encontrado para agregação:', rec);
-                this.currentPlantioId = rec.id;
-                
-                // Preserve existing data that shouldn't be overwritten by Quality form
-                // Only overwrite if we actually have drafts (which we shouldn't in quality mode)
-                if ((!this.plantioInsumosDraft || this.plantioInsumosDraft.length === 0) && rec.insumos) {
-                    payload.insumos = rec.insumos;
-                }
-                
-                // Merge observations
-                if (rec.observacoes && payload.observacoes && !rec.observacoes.includes(payload.observacoes)) {
-                    payload.observacoes = rec.observacoes + ' | ' + payload.observacoes;
-                } else if (rec.observacoes) {
-                    payload.observacoes = rec.observacoes;
-                }
-                
-                this.ui.showNotification('Agregando dados de qualidade ao registro existente.', 'info');
+                // ... lógica de agregação ...
             }
         } catch (e) {
             console.error('Erro ao buscar registro existente:', e);
         }
     }
+    */
     
     try {
         let res;
