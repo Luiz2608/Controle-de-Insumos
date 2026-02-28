@@ -6106,7 +6106,21 @@ forceReloadAllData() {
         if (singlePlantioDia) singlePlantioDia.addEventListener('input', () => {
             this.updateAccumulatedStats();
             this.renderInsumosDraft();
+            
+            // Auto-update Insumo Area if it hasn't been manually overridden
+            const insumoAreaEl = document.getElementById('insumo-area-aplicada');
+            if (insumoAreaEl && (!insumoAreaEl.value || insumoAreaEl.dataset.autoFilled === 'true')) {
+                insumoAreaEl.value = singlePlantioDia.value;
+                insumoAreaEl.dataset.autoFilled = 'true';
+            }
         });
+
+        const insumoAreaEl = document.getElementById('insumo-area-aplicada');
+        if (insumoAreaEl) {
+            insumoAreaEl.addEventListener('input', () => {
+                insumoAreaEl.dataset.autoFilled = 'false';
+            });
+        }
         if (mudaConsumoDia) mudaConsumoDia.addEventListener('input', () => {
             this.updateAccumulatedStats();
         });
@@ -13088,6 +13102,15 @@ InsumosApp.prototype.addInsumoRow = async function() {
         const el = document.getElementById(id); 
         if (el) el.value = ''; 
     });
+    
+    // Auto-repopulate Area Aplicada for the next row
+    const plantioAreaEl = document.getElementById('single-plantio-dia');
+    const insumoAreaEl = document.getElementById('insumo-area-aplicada');
+    if (plantioAreaEl && insumoAreaEl) {
+         insumoAreaEl.value = plantioAreaEl.value;
+         insumoAreaEl.dataset.autoFilled = 'true';
+    }
+    
     document.getElementById('insumo-produto')?.focus();
 };
 
@@ -13383,6 +13406,14 @@ InsumosApp.prototype.goToPlantioStep = function(step) {
     // Load products if entering Step 2 (Insumos)
     if (step === 2) {
         this.loadProdutosDatalist();
+        
+        // Auto-populate Insumo Area from Plantio Area (Step 1)
+        const plantioAreaEl = document.getElementById('single-plantio-dia');
+        const insumoAreaEl = document.getElementById('insumo-area-aplicada');
+        if (plantioAreaEl && insumoAreaEl && (!insumoAreaEl.value || parseFloat(insumoAreaEl.value) === 0 || insumoAreaEl.dataset.autoFilled === 'true')) {
+             insumoAreaEl.value = plantioAreaEl.value;
+             insumoAreaEl.dataset.autoFilled = 'true';
+        }
     }
 
     // Update buttons
@@ -14016,6 +14047,7 @@ InsumosApp.prototype.resetPlantioForm = function(mode = 'normal') {
         'colheita-hectares', 'colheita-tch-estimado', 'colheita-tch-real',
         'single-frente', 'single-fazenda', 'single-cod', 'single-regiao',
         'single-area', 'single-plantada', 'single-area-total', 'single-area-acumulada', 'single-plantio-dia',
+        'insumo-area-aplicada', 'insumo-dose-prevista',
         'qual-esq-peso-balde', 'qual-esq-peso-bruto', 'qual-esq-peso-liquido', 'qual-esq-kg-ha', 'qual-esq-qtd-bons', 'qual-esq-qtd-ruins', 
         'qual-esq-peso-bons', 'qual-esq-peso-ruins', 'qual-esq-peso-bons-pct', 'qual-esq-peso-ruins-pct', 'qual-esq-gemas-por-tolete', 'qual-esq-gemas-por5',
         'qual-dir-peso-balde', 'qual-dir-peso-bruto', 'qual-dir-peso-liquido', 'qual-dir-kg-ha', 'qual-dir-qtd-bons', 'qual-dir-qtd-ruins', 
@@ -14052,6 +14084,9 @@ InsumosApp.prototype.resetPlantioForm = function(mode = 'normal') {
         hiddenQualId.value = '';
         hiddenQualId.dataset.label = '';
     }
+    
+    const insumoAreaEl = document.getElementById('insumo-area-aplicada');
+    if (insumoAreaEl) insumoAreaEl.dataset.autoFilled = 'true';
 
     const dataEl = document.getElementById('plantio-data');
     if (dataEl) dataEl.valueAsDate = new Date();
