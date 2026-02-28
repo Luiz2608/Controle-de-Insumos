@@ -14416,10 +14416,16 @@ InsumosApp.prototype.handleEditPlantio = async function(id) {
     const modal = document.getElementById('novo-lancamento-modal');
     if (modal) modal.style.display = 'flex';
     
-    // Atualizar labels de porcentagem
     this.updateToletesPercent();
     this.updateGemasPercent();
     this.updateMudasPercent();
+    
+    // Forçar cálculos de Plantio de Cana se aplicável
+    if (tipoOp === 'plantio_cana' || q.tipoOperacao === 'plantio_cana') {
+        if (typeof this.computeQualidadePlantioCana === 'function') {
+            this.computeQualidadePlantioCana();
+        }
+    }
 
     // Atualizar Resumo do Modal (Advanced UI)
     this.updatePlantioSummary();
