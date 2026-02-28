@@ -27,40 +27,75 @@ class UIManager {
     }
 
     showNotification(message, type = 'info', duration = 5000, position = null) {
-        let notification = document.getElementById('notification');
-        if (!notification) {
-            notification = document.createElement('div');
-            notification.id = 'notification';
-            notification.className = 'notification';
-            document.body.appendChild(notification);
-        }
-        notification.textContent = message;
-        notification.className = `notification ${type}`;
-        if (position === 'top-right') {
-            notification.classList.add('top-right');
-        } else if (position === 'bottom-right') {
-            notification.classList.add('bottom-right');
-        }
-        notification.classList.add('show');
-        notification.style.display = 'block';
-        notification.style.zIndex = '200000';
+        console.log('🔔 showNotification chamada:', message, type);
         
-        // Limpar timeout anterior
-        if (this.notificationTimeout) {
-            clearTimeout(this.notificationTimeout);
-        }
+        // Criar elemento novo e independente
+        const div = document.createElement('div');
+        div.textContent = message;
         
-        // Auto-esconder
-        this.notificationTimeout = setTimeout(() => {
-            this.hideNotification();
+        // Estilos base forçados (inline para vencer qualquer CSS)
+        div.style.position = 'fixed';
+        div.style.top = '20px';
+        div.style.right = '20px';
+        div.style.padding = '16px 24px';
+        div.style.borderRadius = '8px';
+        div.style.color = '#fff';
+        div.style.zIndex = '2147483647'; // Max Int32
+        div.style.boxShadow = '0 8px 24px rgba(0,0,0,0.4)';
+        div.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+        div.style.fontSize = '16px';
+        div.style.fontWeight = '600';
+        div.style.transition = 'opacity 0.3s ease-in-out, transform 0.3s ease-in-out';
+        div.style.opacity = '0';
+        div.style.transform = 'translateY(-20px)';
+        div.style.pointerEvents = 'auto';
+        div.style.cursor = 'pointer';
+        div.style.minWidth = '300px';
+        div.style.maxWidth = '90vw';
+        div.style.textAlign = 'center';
+        div.style.borderLeft = '6px solid rgba(0,0,0,0.2)';
+
+        // Cores por tipo
+        if (type === 'error') {
+            div.style.backgroundColor = '#d32f2f'; // Vermelho
+        } else if (type === 'success') {
+            div.style.backgroundColor = '#2e7d32'; // Verde
+        } else if (type === 'warning') {
+            div.style.backgroundColor = '#fbc02d'; // Amarelo
+            div.style.color = '#000';
+        } else {
+            div.style.backgroundColor = '#0288d1'; // Azul
+        }
+
+        // Adicionar ao body
+        document.body.appendChild(div);
+
+        // Animação de entrada
+        requestAnimationFrame(() => {
+            div.style.opacity = '1';
+            div.style.transform = 'translateY(0)';
+        });
+
+        // Fechar ao clicar
+        div.onclick = () => {
+            div.style.opacity = '0';
+            div.style.transform = 'translateY(-20px)';
+            setTimeout(() => { if (div.parentNode) div.parentNode.removeChild(div); }, 300);
+        };
+
+        // Auto remove
+        setTimeout(() => {
+            if (div.parentNode) {
+                div.style.opacity = '0';
+                div.style.transform = 'translateY(-20px)';
+                setTimeout(() => { if (div.parentNode) div.parentNode.removeChild(div); }, 300);
+            }
         }, duration);
     }
 
     hideNotification() {
-        const notification = document.getElementById('notification');
-        if (!notification) return;
-        notification.classList.remove('show', 'top-right', 'bottom-right');
-        setTimeout(() => { notification.style.display = 'none'; }, 150);
+        // Método mantido para compatibilidade, mas não faz nada nas novas notificações
+        // pois elas se gerenciam sozinhas
     }
 
     populateSelect(selectElement, options, placeholder = 'Selecione...') {
