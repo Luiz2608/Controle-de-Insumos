@@ -21,16 +21,18 @@ class LacreReportGenerator {
 
         const data = this.processData(viagens);
 
-        this.createCover(data);
-        this.createExecutiveSummary(data);
-        this.createFarmAnalysis(data);
-        this.createFrontAnalysis(data);
-        this.createDetailedList(data);
-        this.createAlerts(data);
-        this.createConclusion(data);
-        this.addFooter();
+        // Ordem do novo padrão
+        this.createHeader(data);
+        this.createOperationalOverview(data);
+        this.createFarmRiskAnalysis(data);
+        this.createFrontPerformance(data);
+        this.createTemporalAnalysis(data);
+        this.createDataIntegrityAudit(data);
+        this.createConsolidatedList(data);
+        this.createTechnicalDiagnosis(data);
+        this.addPageNumbers();
 
-        this.doc.save(`Relatorio_Controle_Lacres_${new Date().toISOString().split('T')[0]}.pdf`);
+        this.doc.save(`Relatorio_Operacional_Lacres_${new Date().toISOString().split('T')[0]}.pdf`);
     }
 
     processData(viagens) {
@@ -54,14 +56,14 @@ class LacreReportGenerator {
                         diasEmAberto = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                     }
 
-                    if (numeroLacre) { // Só considera se tiver número de lacre
+                    if (numeroLacre) { 
                         lacres.push({
                             data: dataViagem,
                             fazenda,
                             frente,
                             identificacao,
                             lacre: numeroLacre,
-                            status: isDevolvido ? 'Devolvido' : 'Pendente',
+                            status: isDevolvido ? 'DEVOLVIDO' : 'PENDENTE',
                             diasEmAberto,
                             originalBag: bag,
                             originalViagem: v
@@ -73,7 +75,7 @@ class LacreReportGenerator {
 
         // Estatísticas Gerais
         const total = lacres.length;
-        const devolvidos = lacres.filter(l => l.status === 'Devolvido').length;
+        const devolvidos = lacres.filter(l => l.status === 'DEVOLVIDO').length;
         const pendentes = total - devolvidos;
         const percDevolucao = total > 0 ? (devolvidos / total) * 100 : 0;
         const percPendencia = total > 0 ? (pendentes / total) * 100 : 0;
@@ -86,22 +88,23 @@ class LacreReportGenerator {
             // Fazendas
             if (!fazendasStats[l.fazenda]) fazendasStats[l.fazenda] = { total: 0, devolvidos: 0, pendentes: 0 };
             fazendasStats[l.fazenda].total++;
-            if (l.status === 'Devolvido') fazendasStats[l.fazenda].devolvidos++;
+            if (l.status === 'DEVOLVIDO') fazendasStats[l.fazenda].devolvidos++;
             else fazendasStats[l.fazenda].pendentes++;
 
             // Frentes
             if (!frentesStats[l.frente]) frentesStats[l.frente] = { total: 0, devolvidos: 0, pendentes: 0 };
             frentesStats[l.frente].total++;
-            if (l.status === 'Devolvido') frentesStats[l.frente].devolvidos++;
+            if (l.status === 'DEVOLVIDO') frentesStats[l.frente].devolvidos++;
             else frentesStats[l.frente].pendentes++;
         });
 
-        // Alertas
-        const alertas = {
-            atrasados: lacres.filter(l => l.status === 'Pendente' && l.diasEmAberto > 30),
+        // Auditoria
+        const auditoria = {
             duplicados: [],
-            inconsistentes: [], // Padrão divergente já tratado na normalização, mas podemos listar os originais estranhos se quisermos. Aqui vamos focar em duplicidade lógica.
-            divergentes: lacres.filter(l => !l.lacre.match(/^\d+$/)) // Ex: lacres que não são apenas números
+            sequenciaIncoerente: [], // Placeholder
+            divergenciaPadrao: lacres.filter(l => !l.originalBag.identificacao.match(/^BAG \d{2}$/i) && !l.originalBag.identificacao.match(/^BAG\d{2}$/i)),
+            foraPadraoDigitos: lacres.filter(l => l.lacre.length !== 6),
+            inconsistentes: []
         };
 
         // Checar duplicados
@@ -111,23 +114,30 @@ class LacreReportGenerator {
             mapLacres[l.lacre].push(l);
         });
         for (const [key, val] of Object.entries(mapLacres)) {
-            if (val.length > 1) alertas.duplicados.push({ lacre: key, ocorrencias: val.length, details: val });
+            if (val.length > 1) auditoria.duplicados.push({ lacre: key, ocorrencias: val.length });
         }
 
+        // Aging
+        const aging = {
+            d0_7: lacres.filter(l => l.status === 'PENDENTE' && l.diasEmAberto <= 7).length,
+            d8_15: lacres.filter(l => l.status === 'PENDENTE' && l.diasEmAberto > 7 && l.diasEmAberto <= 15).length,
+            d16_30: lacres.filter(l => l.status === 'PENDENTE' && l.diasEmAberto > 15 && l.diasEmAberto <= 30).length,
+            d30_plus: lacres.filter(l => l.status === 'PENDENTE' && l.diasEmAberto > 30).length
+        };
+
         return {
-            lacres: lacres.sort((a, b) => (b.data || 0) - (a.data || 0)), // Mais recentes primeiro
+            lacres,
             stats: { total, devolvidos, pendentes, percDevolucao, percPendencia },
             fazendas: fazendasStats,
             frentes: frentesStats,
-            alertas
+            auditoria,
+            aging
         };
     }
 
     normalizeLacre(val) {
         if (!val) return '';
-        // Remove espaços e padroniza zeros à esquerda (assumindo 6 dígitos como padrão ideal, mas adaptável)
         let s = String(val).trim();
-        // Se for numérico, padroniza com zeros à esquerda até 6 dígitos (exemplo)
         if (/^\d+$/.test(s)) {
             return s.padStart(6, '0');
         }
@@ -135,9 +145,8 @@ class LacreReportGenerator {
     }
 
     normalizeBagId(val) {
-        if (!val) return 'BAG S/N';
+        if (!val) return 'BAG 00';
         let s = String(val).trim().toUpperCase();
-        // Tenta padronizar "BAG 1", "BAG01" -> "BAG 01"
         const match = s.match(/BAG\s*0*(\d+)/);
         if (match) {
             return `BAG ${match[1].padStart(2, '0')}`;
@@ -150,11 +159,11 @@ class LacreReportGenerator {
         return String(val).trim().toUpperCase();
     }
 
-    // --- PDF Helper Methods ---
+    // --- PDF Components ---
 
     addPage() {
         this.doc.addPage();
-        this.cursorY = this.margin;
+        this.cursorY = this.margin + 10; // Margem superior maior
     }
 
     checkSpace(needed) {
@@ -163,37 +172,30 @@ class LacreReportGenerator {
         }
     }
 
-    // 1. CAPA
-    createCover(data) {
-        this.cursorY = 60;
+    // Cabeçalho Institucional
+    createHeader(data) {
+        this.cursorY = 20;
         this.doc.setFont("helvetica", "bold");
-        this.doc.setFontSize(22);
-        this.doc.text("RELATÓRIO GERENCIAL DE", this.pageWidth / 2, this.cursorY, { align: "center" });
-        this.cursorY += 12;
-        this.doc.text("CONTROLE DE LACRES", this.pageWidth / 2, this.cursorY, { align: "center" });
-        
-        this.cursorY += 30;
         this.doc.setFontSize(14);
+        this.doc.text("RELATÓRIO OPERACIONAL DE CONTROLE DE LACRES", this.margin, this.cursorY);
+        
         this.doc.setFont("helvetica", "normal");
+        this.doc.setFontSize(10);
+        this.cursorY += 8;
         
-        const period = this.getPeriodText(data.lacres);
-        this.doc.text(`Período Analisado: ${period}`, this.pageWidth / 2, this.cursorY, { align: "center" });
-        this.cursorY += 10;
-        this.doc.text(`Data de Emissão: ${new Date().toLocaleString('pt-BR')}`, this.pageWidth / 2, this.cursorY, { align: "center" });
-        
-        this.cursorY += 40;
-        this.doc.setFontSize(16);
-        this.doc.setFont("helvetica", "bold");
-        this.doc.text("AGRO MCN", this.pageWidth / 2, this.cursorY, { align: "center" }); // Nome fictício ou pegar de config
-        
-        this.cursorY += 10;
-        this.doc.setFontSize(12);
-        this.doc.setFont("helvetica", "normal");
-        // Tenta pegar usuário logado
         const user = window.insumosApp?.api?.user?.firstName || 'Gestor Responsável';
-        this.doc.text(`Responsável: ${user}`, this.pageWidth / 2, this.cursorY, { align: "center" });
-
-        this.addPage(); // Vai para conteúdo
+        const period = this.getPeriodText(data.lacres);
+        
+        this.doc.text(`Unidade: AGRO MCN`, this.margin, this.cursorY);
+        this.doc.text(`Período: ${period}`, this.margin + 80, this.cursorY);
+        this.cursorY += 5;
+        this.doc.text(`Responsável Técnico: ${user}`, this.margin, this.cursorY);
+        this.doc.text(`Data de Emissão: ${new Date().toLocaleString('pt-BR')}`, this.margin + 80, this.cursorY);
+        
+        this.cursorY += 5;
+        this.doc.setLineWidth(0.5);
+        this.doc.line(this.margin, this.cursorY, this.pageWidth - this.margin, this.cursorY);
+        this.cursorY += 10;
     }
 
     getPeriodText(lacres) {
@@ -205,289 +207,373 @@ class LacreReportGenerator {
         return `${start} a ${end}`;
     }
 
-    // 2. RESUMO EXECUTIVO
-    createExecutiveSummary(data) {
-        this.doc.setFontSize(16);
-        this.doc.setFont("helvetica", "bold");
-        this.doc.text("1. RESUMO EXECUTIVO", this.margin, this.cursorY);
-        this.cursorY += 10;
-
-        // Cards (Simulados com retângulos)
+    // 1. VISÃO GERAL OPERACIONAL
+    createOperationalOverview(data) {
+        this.sectionTitle("1. VISÃO GERAL OPERACIONAL (Indicadores Estratégicos)");
+        
         const stats = data.stats;
-        const cardWidth = 40;
-        const cardHeight = 25;
-        const gap = 5;
-        let startX = this.margin;
-
-        this.drawCard(startX, this.cursorY, cardWidth, cardHeight, "Total Lacres", stats.total.toString(), [220, 220, 220]);
-        startX += cardWidth + gap;
-        this.drawCard(startX, this.cursorY, cardWidth, cardHeight, "Devolvidos", stats.devolvidos.toString(), [200, 230, 201]); // Verde claro
-        startX += cardWidth + gap;
-        this.drawCard(startX, this.cursorY, cardWidth, cardHeight, "Pendentes", stats.pendentes.toString(), [255, 205, 210]); // Vermelho claro
-        startX += cardWidth + gap;
-        this.drawCard(startX, this.cursorY, cardWidth, cardHeight, "% Devolução", stats.percDevolucao.toFixed(1) + "%", [255, 255, 255]);
-
-        this.cursorY += cardHeight + 15;
-
-        // Rankings
-        this.doc.setFontSize(12);
-        this.doc.text("Top Pendências por Fazenda:", this.margin, this.cursorY);
-        this.cursorY += 6;
         
-        const sortedFazendas = Object.entries(data.fazendas)
-            .sort(([,a], [,b]) => b.pendentes - a.pendentes)
-            .slice(0, 5);
-
-        sortedFazendas.forEach(([name, st], i) => {
-            this.doc.setFont("helvetica", "normal");
-            this.doc.setFontSize(10);
-            this.doc.text(`${i+1}. ${name}: ${st.pendentes} pendentes`, this.margin + 5, this.cursorY);
-            this.cursorY += 5;
-        });
-
-        this.cursorY += 5;
-    }
-
-    drawCard(x, y, w, h, title, value, bgColor) {
-        this.doc.setFillColor(...bgColor);
-        this.doc.rect(x, y, w, h, 'F');
-        this.doc.rect(x, y, w, h, 'S'); // Borda
+        // Classificação
+        let classificacao = "";
+        let corClassificacao = [0, 0, 0];
+        let interpretacao = "";
         
-        this.doc.setFontSize(8);
-        this.doc.setTextColor(0);
-        this.doc.text(title, x + w/2, y + 8, { align: "center" });
-        
-        this.doc.setFontSize(12);
-        this.doc.setFont("helvetica", "bold");
-        this.doc.text(value, x + w/2, y + 18, { align: "center" });
-    }
+        if (stats.percDevolucao >= 90) {
+            classificacao = "EXCELENTE CONTROLE";
+            corClassificacao = [0, 100, 0];
+            interpretacao = "O processo de recolhimento apresenta alta eficácia, garantindo rastreabilidade quase total dos insumos utilizados.";
+        } else if (stats.percDevolucao >= 80) {
+            classificacao = "CONTROLE ADEQUADO";
+            corClassificacao = [0, 0, 200];
+            interpretacao = "Indicadores dentro da margem aceitável, porém com pontos de atenção pontuais que requerem monitoramento.";
+        } else if (stats.percDevolucao >= 65) {
+            classificacao = "ALERTA OPERACIONAL";
+            corClassificacao = [200, 150, 0];
+            interpretacao = "Volume de pendências elevado, indicando falhas no fluxo de retorno das embalagens ou atraso nos lançamentos.";
+        } else {
+            classificacao = "NÃO CONFORMIDADE OPERACIONAL";
+            corClassificacao = [200, 0, 0];
+            interpretacao = "Situação crítica com risco severo de perda de rastreabilidade. Necessária intervenção imediata nos processos.";
+        }
 
-    // 3. ANÁLISE POR FAZENDA
-    createFarmAnalysis(data) {
-        this.cursorY += 10;
-        this.checkSpace(60);
-        
-        this.doc.setFontSize(16);
-        this.doc.setFont("helvetica", "bold");
-        this.doc.text("2. ANÁLISE POR FAZENDA", this.margin, this.cursorY);
-        this.cursorY += 8;
-
-        const headers = [["Fazenda", "Total", "Devolvidos", "Pendentes", "% Pend.", "Risco"]];
-        const body = Object.entries(data.fazendas).map(([name, st]) => {
-            const percPend = st.total > 0 ? (st.pendentes / st.total) * 100 : 0;
-            let risco = "Baixo";
-            if (percPend > 25) risco = "ALTO";
-            else if (percPend > 10) risco = "Médio";
-            
-            return [
-                name,
-                st.total,
-                st.devolvidos,
-                st.pendentes,
-                percPend.toFixed(1) + "%",
-                risco
-            ];
-        });
-
-        // Ordenar por risco (Alto primeiro)
-        body.sort((a, b) => {
-            const map = { "ALTO": 3, "Médio": 2, "Baixo": 1 };
-            return map[b[5]] - map[a[5]];
-        });
+        // Tabela de Indicadores
+        const headers = [["Indicador", "Valor", "Meta Ref.", "Status"]];
+        const body = [
+            ["Total de Lacres Emitidos", stats.total, "-", "-"],
+            ["Total de Lacres Devolvidos", stats.devolvidos, "-", "-"],
+            ["Total de Lacres Pendentes", stats.pendentes, "0", stats.pendentes > 0 ? "Atenção" : "OK"],
+            ["Taxa Geral de Devolução", stats.percDevolucao.toFixed(1) + "%", "> 90%", classificacao],
+            ["Taxa Geral de Pendência", stats.percPendencia.toFixed(1) + "%", "< 10%", "-"]
+        ];
 
         this.doc.autoTable({
             startY: this.cursorY,
             head: headers,
             body: body,
             theme: 'grid',
-            headStyles: { fillColor: [46, 125, 50] },
-            didParseCell: function(data) {
-                if (data.section === 'body' && data.column.index === 5) {
-                    if (data.cell.raw === 'ALTO') data.cell.styles.textColor = [200, 0, 0];
-                    if (data.cell.raw === 'Médio') data.cell.styles.textColor = [200, 150, 0];
-                    if (data.cell.raw === 'Baixo') data.cell.styles.textColor = [0, 100, 0];
-                }
-            }
+            headStyles: { fillColor: [220, 220, 220], textColor: 0, fontStyle: 'bold' },
+            columnStyles: { 
+                0: { fontStyle: 'bold' },
+                3: { fontStyle: 'bold', textColor: corClassificacao }
+            },
+            margin: { left: this.margin, right: this.margin }
         });
-
-        this.cursorY = this.doc.lastAutoTable.finalY + 10;
+        
+        this.cursorY = this.doc.lastAutoTable.finalY + 5;
+        
+        // Interpretação Técnica
+        this.doc.setFontSize(9);
+        this.doc.setFont("helvetica", "italic");
+        this.doc.text(`Nota Técnica: ${interpretacao}`, this.margin, this.cursorY, { maxWidth: this.pageWidth - (this.margin*2) });
+        this.cursorY += 15;
     }
 
-    // 4. ANÁLISE POR FRENTE
-    createFrontAnalysis(data) {
+    // 2. ANÁLISE DE RISCO POR FAZENDA
+    createFarmRiskAnalysis(data) {
         this.checkSpace(60);
-        this.doc.setFontSize(16);
-        this.doc.setFont("helvetica", "bold");
-        this.doc.text("3. ANÁLISE POR FRENTE", this.margin, this.cursorY);
-        this.cursorY += 8;
+        this.sectionTitle("2. ANÁLISE DE RISCO POR FAZENDA");
 
-        const headers = [["Frente", "Total", "Devolvidos", "Pendentes", "% Eficiência"]];
-        const body = Object.entries(data.frentes).map(([name, st]) => {
-            const percDev = st.total > 0 ? (st.devolvidos / st.total) * 100 : 0;
-            return [
-                name,
-                st.total,
-                st.devolvidos,
-                st.pendentes,
-                percDev.toFixed(1) + "%"
-            ];
+        const body = Object.entries(data.fazendas).map(([name, st]) => {
+            const percPend = st.total > 0 ? (st.pendentes / st.total) * 100 : 0;
+            let classificacao = "";
+            let nivel = 0; // Para ordenação
+
+            if (percPend <= 10) { classificacao = "BAIXO RISCO"; nivel = 1; }
+            else if (percPend <= 25) { classificacao = "RISCO MODERADO"; nivel = 2; }
+            else if (percPend <= 40) { classificacao = "RISCO ELEVADO"; nivel = 3; }
+            else { classificacao = "RISCO CRÍTICO"; nivel = 4; }
+
+            return { name, ...st, percPend, classificacao, nivel };
         });
 
-        this.doc.autoTable({
-            startY: this.cursorY,
-            head: headers,
-            body: body,
-            theme: 'striped',
-            headStyles: { fillColor: [0, 121, 107] }
-        });
+        // Ordenar por nível de risco (desc) e depois por total de pendências
+        body.sort((a, b) => b.nivel - a.nivel || b.pendentes - a.pendentes);
 
-        this.cursorY = this.doc.lastAutoTable.finalY + 15;
-    }
-
-    // 5. LISTAGEM DETALHADA
-    createDetailedList(data) {
-        this.addPage();
-        this.doc.setFontSize(16);
-        this.doc.setFont("helvetica", "bold");
-        this.doc.text("4. LISTAGEM DETALHADA DE LACRES", this.margin, this.cursorY);
-        this.cursorY += 8;
-
-        const headers = [["Data", "Fazenda", "Frente", "Bag ID", "Lacre", "Status", "Dias Aberto"]];
-        const body = data.lacres.map(l => [
-            l.data ? l.data.toLocaleDateString('pt-BR') : '-',
-            l.fazenda,
-            l.frente,
-            l.identificacao,
-            l.lacre,
-            l.status,
-            l.status === 'Pendente' ? l.diasEmAberto : '-'
+        const tableBody = body.map(row => [
+            row.name,
+            row.total,
+            row.pendentes,
+            row.percPend.toFixed(1) + "%",
+            row.classificacao
         ]);
 
         this.doc.autoTable({
             startY: this.cursorY,
-            head: headers,
-            body: body,
-            theme: 'plain',
-            styles: { fontSize: 8 },
-            headStyles: { fillColor: [100, 100, 100], textColor: 255 },
-            columnStyles: {
-                5: { fontStyle: 'bold' } // Status
-            },
+            head: [["Fazenda", "Total", "Pendentes", "% Pendência", "Nível de Exposição"]],
+            body: tableBody,
+            theme: 'striped',
+            headStyles: { fillColor: [50, 50, 50] },
             didParseCell: function(data) {
-                if (data.section === 'body' && data.column.index === 5) {
-                    if (data.cell.raw === 'Pendente') data.cell.styles.textColor = [200, 0, 0];
+                if (data.section === 'body' && data.column.index === 4) {
+                    const val = data.cell.raw;
+                    if (val.includes("CRÍTICO")) data.cell.styles.textColor = [200, 0, 0];
+                    else if (val.includes("ELEVADO")) data.cell.styles.textColor = [200, 100, 0];
+                    else if (val.includes("MODERADO")) data.cell.styles.textColor = [200, 180, 0];
                     else data.cell.styles.textColor = [0, 100, 0];
                 }
             }
         });
+        
+        this.cursorY = this.doc.lastAutoTable.finalY + 5;
 
-        this.cursorY = this.doc.lastAutoTable.finalY + 15;
-    }
-
-    // 6. ALERTAS AUTOMÁTICOS
-    createAlerts(data) {
-        this.addPage();
-        this.doc.setFontSize(16);
-        this.doc.setFont("helvetica", "bold");
-        this.doc.text("5. ALERTAS E INCONSISTÊNCIAS", this.margin, this.cursorY);
-        this.cursorY += 10;
-
-        // Atrasos
-        this.doc.setFontSize(12);
-        this.doc.setTextColor(200, 0, 0);
-        this.doc.text(`⚠️ Lacres Pendentes Críticos (> 30 dias): ${data.alertas.atrasados.length}`, this.margin, this.cursorY);
-        this.cursorY += 6;
-        this.doc.setFont("helvetica", "normal");
-        this.doc.setTextColor(0);
-        this.doc.setFontSize(10);
-        if (data.alertas.atrasados.length > 0) {
-            data.alertas.atrasados.slice(0, 10).forEach(l => {
-                this.doc.text(`- Lacre ${l.lacre} (${l.fazenda}): ${l.diasEmAberto} dias`, this.margin + 5, this.cursorY);
-                this.cursorY += 5;
-            });
-            if (data.alertas.atrasados.length > 10) {
-                this.doc.text(`... e mais ${data.alertas.atrasados.length - 10} casos.`, this.margin + 5, this.cursorY);
-                this.cursorY += 5;
+        // Observação Automática
+        const totalPendentesGeral = data.stats.pendentes;
+        if (totalPendentesGeral > 0) {
+            const concentradores = body.filter(f => (f.pendentes / totalPendentesGeral) > 0.30);
+            if (concentradores.length > 0) {
+                this.doc.setFontSize(9);
+                this.doc.setTextColor(150, 0, 0);
+                const nomes = concentradores.map(c => c.name).join(", ");
+                this.doc.text(`⚠️ Atenção: As fazendas [${nomes}] concentram mais de 30% das pendências totais.`, this.margin, this.cursorY);
+                this.doc.setTextColor(0);
+                this.cursorY += 10;
             }
-        } else {
-            this.doc.text("Nenhum caso crítico identificado.", this.margin + 5, this.cursorY);
-            this.cursorY += 5;
-        }
-
-        this.cursorY += 5;
-
-        // Duplicados
-        this.doc.setFontSize(12);
-        this.doc.setFont("helvetica", "bold");
-        this.doc.setTextColor(200, 150, 0);
-        this.doc.text(`⚠️ Duplicidade de Numeração: ${data.alertas.duplicados.length} casos`, this.margin, this.cursorY);
-        this.cursorY += 6;
-        this.doc.setFont("helvetica", "normal");
-        this.doc.setTextColor(0);
-        this.doc.setFontSize(10);
-        
-        if (data.alertas.duplicados.length > 0) {
-            data.alertas.duplicados.forEach(d => {
-                this.doc.text(`- Lacre ${d.lacre}: Aparece ${d.ocorrencias} vezes`, this.margin + 5, this.cursorY);
-                this.cursorY += 5;
-            });
-        } else {
-            this.doc.text("Nenhuma duplicidade encontrada.", this.margin + 5, this.cursorY);
-            this.cursorY += 5;
         }
     }
 
-    // 7. CONCLUSÃO GERENCIAL
-    createConclusion(data) {
-        this.cursorY += 15;
-        this.checkSpace(80);
+    // 3. ANÁLISE DE PERFORMANCE POR FRENTE
+    createFrontPerformance(data) {
+        this.checkSpace(60);
+        this.sectionTitle("3. ANÁLISE DE PERFORMANCE POR FRENTE OPERACIONAL");
+
+        const body = Object.entries(data.frentes).map(([name, st]) => {
+            const eficiencia = st.total > 0 ? (st.devolvidos / st.total) * 100 : 0;
+            return { name, ...st, eficiencia };
+        });
+
+        // Ordenar por eficiência (crescente -> pior primeiro)
+        body.sort((a, b) => a.eficiencia - b.eficiencia);
+
+        const tableBody = body.map((row, index) => [
+            row.name,
+            row.total,
+            row.pendentes,
+            row.eficiencia.toFixed(1) + "%",
+            `${index + 1}º` // Ranking inverso (1º é o pior)
+        ]);
+
+        this.doc.autoTable({
+            startY: this.cursorY,
+            head: [["Frente", "Total Lacres", "Pendentes", "Índice de Eficiência", "Ranking (Pior Desemp.)"]],
+            body: tableBody,
+            theme: 'grid',
+            headStyles: { fillColor: [70, 70, 70] }
+        });
         
-        this.doc.setFontSize(16);
-        this.doc.setFont("helvetica", "bold");
-        this.doc.setTextColor(0);
-        this.doc.text("6. CONCLUSÃO GERENCIAL", this.margin, this.cursorY);
-        this.cursorY += 10;
-
-        this.doc.setFontSize(11);
-        this.doc.setFont("helvetica", "normal");
-
-        const percPend = data.stats.percPendencia;
-        let situation = "";
-        let recommendation = "";
-
-        if (percPend < 5) {
-            situation = "A situação do controle de lacres encontra-se em nível EXCELENTE, com baixo índice de pendências.";
-            recommendation = "Manter o rigor atual nos lançamentos e conferências de devolução.";
-        } else if (percPend < 15) {
-            situation = "A situação encontra-se em nível REGULAR. Existe um volume moderado de lacres não baixados.";
-            recommendation = "Reforçar a cobrança junto às frentes com maiores pendências e verificar se há falha no processo de registro de devolução.";
+        if (body.length > 0) {
+            this.cursorY = this.doc.lastAutoTable.finalY + 5;
+            this.doc.setFontSize(9);
+            this.doc.text(`Frente com maior impacto operacional negativo: ${body[0].name}`, this.margin, this.cursorY);
+            this.cursorY += 10;
         } else {
-            situation = "A situação é CRÍTICA. O volume de pendências compromete a integridade do controle.";
-            recommendation = "Realizar auditoria urgente nas fazendas de alto risco e revisar o fluxo de recolhimento das embalagens vazias.";
+            this.cursorY = this.doc.lastAutoTable.finalY + 10;
         }
+    }
 
-        const text = [
-            `Situação Geral: ${situation}`,
-            "",
-            "Recomendações Operacionais:",
-            `1. ${recommendation}`,
-            "2. Verificar periodicamente os alertas de duplicidade para evitar erros de digitação.",
-            "3. Priorizar a regularização dos lacres com mais de 30 dias em aberto."
+    // 4. ANÁLISE TEMPORAL
+    createTemporalAnalysis(data) {
+        this.checkSpace(60);
+        this.sectionTitle("4. ANÁLISE TEMPORAL DAS PENDÊNCIAS");
+
+        const aging = data.aging;
+        const totalP = data.stats.pendentes || 1; // evitar div por zero
+
+        const body = [
+            ["0 a 7 dias", aging.d0_7, ((aging.d0_7 / totalP) * 100).toFixed(1) + "%"],
+            ["8 a 15 dias", aging.d8_15, ((aging.d8_15 / totalP) * 100).toFixed(1) + "%"],
+            ["16 a 30 dias", aging.d16_30, ((aging.d16_30 / totalP) * 100).toFixed(1) + "%"],
+            ["Acima de 30 dias", aging.d30_plus, ((aging.d30_plus / totalP) * 100).toFixed(1) + "%"]
         ];
 
-        this.doc.text(text, this.margin, this.cursorY);
+        this.doc.autoTable({
+            startY: this.cursorY,
+            head: [["Aging (Idade da Pendência)", "Qtd. Lacres", "% do Total Pendente"]],
+            body: body,
+            theme: 'plain',
+            headStyles: { fillColor: [100, 100, 100], textColor: 255 },
+            columnStyles: { 0: { fontStyle: 'bold' } }
+        });
+
+        this.cursorY = this.doc.lastAutoTable.finalY + 5;
+        
+        // Análise de tendência
+        let analise = "";
+        if (aging.d30_plus > aging.d0_7) {
+            analise = "⚠️ Tendência de envelhecimento crítico: O volume de pendências antigas supera as recentes, indicando abandono de controle.";
+        } else if (aging.d16_30 > 0 || aging.d30_plus > 0) {
+            analise = "⚠️ Risco de ruptura: Existem pendências significativas em fase de envelhecimento.";
+        } else {
+            analise = "✅ Acúmulo concentrado no curto prazo, característico de fluxo operacional normal.";
+        }
+        
+        this.doc.setFontSize(9);
+        this.doc.text(analise, this.margin, this.cursorY);
+        this.cursorY += 10;
     }
 
-    addFooter() {
+    // 5. AUDITORIA DE INTEGRIDADE
+    createDataIntegrityAudit(data) {
+        this.checkSpace(60);
+        this.sectionTitle("5. AUDITORIA DE INTEGRIDADE DOS DADOS");
+
+        const audit = data.auditoria;
+        const totalIssues = audit.duplicados.length + audit.foraPadraoDigitos.length + audit.divergenciaPadrao.length;
+
+        if (totalIssues === 0) {
+            this.doc.setFontSize(10);
+            this.doc.text("Nenhuma não conformidade de integridade detectada.", this.margin, this.cursorY);
+            this.cursorY += 10;
+        } else {
+            this.doc.setFontSize(10);
+            this.doc.setTextColor(200, 0, 0);
+            
+            if (audit.duplicados.length > 0) {
+                this.doc.text(`• Numeração Duplicada: ${audit.duplicados.length} ocorrências.`, this.margin, this.cursorY);
+                this.cursorY += 5;
+            }
+            if (audit.foraPadraoDigitos.length > 0) {
+                this.doc.text(`• Lacres fora do padrão (6 dígitos): ${audit.foraPadraoDigitos.length} ocorrências.`, this.margin, this.cursorY);
+                this.cursorY += 5;
+            }
+            if (audit.divergenciaPadrao.length > 0) {
+                this.doc.text(`• Divergência de padrão BAG: ${audit.divergenciaPadrao.length} ocorrências.`, this.margin, this.cursorY);
+                this.cursorY += 5;
+            }
+            this.doc.setTextColor(0);
+            this.cursorY += 5;
+        }
+    }
+
+    // 6. LISTAGEM CONSOLIDADA
+    createConsolidatedList(data) {
+        this.addPage();
+        this.sectionTitle("6. LISTAGEM OPERACIONAL CONSOLIDADA");
+
+        // Ordenação: 
+        // 1. Pendentes > 15 dias (mais antigos primeiro)
+        // 2. Pendentes recentes
+        // 3. Devolvidos
+        const sortedLacres = [...data.lacres].sort((a, b) => {
+            const aCritico = a.status === 'PENDENTE' && a.diasEmAberto > 15;
+            const bCritico = b.status === 'PENDENTE' && b.diasEmAberto > 15;
+            
+            if (aCritico && !bCritico) return -1;
+            if (!aCritico && bCritico) return 1;
+            
+            if (a.status === 'PENDENTE' && b.status !== 'PENDENTE') return -1;
+            if (a.status !== 'PENDENTE' && b.status === 'PENDENTE') return 1;
+            
+            return 0;
+        });
+
+        const body = sortedLacres.map(l => [
+            l.data ? l.data.toLocaleDateString('pt-BR') : '-',
+            l.fazenda, // Já está em uppercase
+            l.frente,
+            l.identificacao, // Já normalizado para BAG XX
+            l.lacre, // Já normalizado para 6 dígitos
+            l.status,
+            l.status === 'PENDENTE' ? l.diasEmAberto : '-'
+        ]);
+
+        this.doc.autoTable({
+            startY: this.cursorY,
+            head: [["Data", "Fazenda", "Frente", "Identificação", "Lacre", "Status", "Dias"]],
+            body: body,
+            theme: 'grid',
+            styles: { fontSize: 8, cellPadding: 2 },
+            headStyles: { fillColor: [0, 0, 0], textColor: 255 },
+            didParseCell: function(data) {
+                if (data.section === 'body') {
+                    if (data.column.index === 5) { // Status
+                        if (data.cell.raw === 'PENDENTE') {
+                            data.cell.styles.textColor = [200, 0, 0];
+                            data.cell.styles.fontStyle = 'bold';
+                        } else {
+                            data.cell.styles.textColor = [0, 100, 0];
+                        }
+                    }
+                    if (data.column.index === 1) { // Fazenda
+                        data.cell.styles.fontStyle = 'bold';
+                    }
+                }
+            }
+        });
+        
+        this.cursorY = this.doc.lastAutoTable.finalY + 10;
+    }
+
+    // 7. DIAGNÓSTICO TÉCNICO
+    createTechnicalDiagnosis(data) {
+        this.addPage();
+        this.sectionTitle("7. DIAGNÓSTICO TÉCNICO OPERACIONAL");
+
+        const percPend = data.stats.percPendencia;
+        let analiseGeral = "";
+        let acoes = [];
+        let auditoriaFreq = "";
+
+        if (percPend < 10) {
+            analiseGeral = "O controle encontra-se estável e aderente aos padrões de compliance operacional.";
+            acoes = [
+                "Manter rotina de baixa diária das devoluções.",
+                "Realizar conferência amostral semanal."
+            ];
+            auditoriaFreq = "Mensal";
+        } else if (percPend < 25) {
+            analiseGeral = "Identificadas oportunidades de melhoria no fluxo de retorno das informações.";
+            acoes = [
+                "Reforçar treinamento com apontadores das frentes críticas.",
+                "Estabelecer corte semanal para justificativa de pendências."
+            ];
+            auditoriaFreq = "Quinzenal";
+        } else {
+            analiseGeral = "Cenário de risco operacional elevado, exigindo plano de ação corretiva imediato.";
+            acoes = [
+                "Realizar força-tarefa para saneamento da base de pendências.",
+                "Bloquear novas liberações para frentes com pendência crítica (>30 dias).",
+                "Revisar processo de recolhimento físico das embalagens."
+            ];
+            auditoriaFreq = "Semanal";
+        }
+
+        const textLines = [
+            `Situação Geral: ${analiseGeral}`,
+            "",
+            "Principais Pontos Críticos:",
+            `- Volume de pendências: ${data.stats.pendentes} unidades.`,
+            `- Índice de não conformidade: ${percPend.toFixed(1)}%.`,
+            "",
+            "Ações Corretivas Sugeridas:",
+            ...acoes.map(a => `• ${a}`),
+            "",
+            `Frequência Recomendada de Auditoria: ${auditoriaFreq}`
+        ];
+
+        this.doc.setFontSize(10);
+        this.doc.setFont("helvetica", "normal");
+        this.doc.text(textLines, this.margin, this.cursorY);
+    }
+
+    // Utils
+    sectionTitle(text) {
+        this.doc.setFontSize(12);
+        this.doc.setFont("helvetica", "bold");
+        this.doc.setFillColor(240, 240, 240);
+        this.doc.rect(this.margin, this.cursorY, this.pageWidth - (this.margin*2), 8, 'F');
+        this.doc.text(text, this.margin + 2, this.cursorY + 5.5);
+        this.cursorY += 12;
+    }
+
+    addPageNumbers() {
         const pageCount = this.doc.internal.getNumberOfPages();
         for (let i = 1; i <= pageCount; i++) {
             this.doc.setPage(i);
             this.doc.setFontSize(8);
             this.doc.setTextColor(150);
-            this.doc.text(`Página ${i} de ${pageCount} - Relatório Gerado pelo Sistema Agro MCN`, this.pageWidth / 2, this.pageHeight - 10, { align: "center" });
+            this.doc.text(`${i} / ${pageCount}`, this.pageWidth - this.margin, this.pageHeight - 10, { align: "right" });
         }
     }
 }
 
-// Expor globalmente
 window.LacreReportGenerator = LacreReportGenerator;
