@@ -13253,7 +13253,7 @@ InsumosApp.prototype.initPlantioModalSteps = function() {
             e.preventDefault();
             if (this.currentStep > 1) {
                 let prevStep = this.currentStep - 1;
-                const tipo = document.getElementById('tipo-operacao')?.value;
+                const tipo = this.isQualidadeMode ? 'qualidade_muda' : (document.getElementById('tipo-operacao')?.value || 'plantio');
                 
                 // Se for qualidade_muda, o passo 2 (Insumos) não existe, pula do 3 para o 1
                 if (tipo === 'qualidade_muda' && prevStep === 2) {
@@ -13269,7 +13269,7 @@ InsumosApp.prototype.initPlantioModalSteps = function() {
             e.preventDefault();
             if (this.validatePlantioStep(this.currentStep)) {
                 // Determine max steps based on type
-                const tipo = document.getElementById('tipo-operacao')?.value;
+                const tipo = this.isQualidadeMode ? 'qualidade_muda' : (document.getElementById('tipo-operacao')?.value || 'plantio');
                 let maxStep = 3;
                 // if (tipo === 'plantio') maxStep = 2; // Plantio ends at step 2 (Insumos) -> Agora vai até 3 (Qualidade)
                 if (tipo === 'colheita_muda') maxStep = 3; // Colheita agora vai até step 3 (Qualidade)
@@ -13301,7 +13301,7 @@ InsumosApp.prototype.validatePlantioStep = function(step) {
         const dataEl = document.getElementById('plantio-data');
         const osEl = document.getElementById('single-os');
         const areaEl = document.getElementById('single-plantio-dia');
-        const tipo = document.getElementById('tipo-operacao')?.value;
+        const tipo = this.isQualidadeMode ? 'qualidade_muda' : (document.getElementById('tipo-operacao')?.value || 'plantio');
         let valid = true;
 
         if (!dataEl.value) {
@@ -14181,6 +14181,7 @@ InsumosApp.prototype.handleEditPlantio = async function(id) {
 
     // Determine type FIRST
     const tipoOp = record.tipo_operacao || (record.qualidade && record.qualidade.tipoOperacao) || 'plantio';
+    const subTipoQualidade = (record.qualidade && record.qualidade.tipoOperacao) || tipoOp;
     
     // Call reset with correct mode
     const isQualidadeTipo = (tipoOp === 'qualidade_muda' || tipoOp === 'plantio_cana');
@@ -14188,10 +14189,13 @@ InsumosApp.prototype.handleEditPlantio = async function(id) {
     this.resetPlantioForm(mode);
 
     // Ensure quality options are loaded before setting values
-    await this.loadLiberacoesForSelect();
+    await Promise.all([
+        this.loadOSList(),
+        this.loadLiberacoesForSelect()
+    ]);
 
     this.currentPlantioId = record.id;
-    console.log('Editando Plantio:', record);
+    console.log('Editando Plantio:', record, 'SubTipo:', subTipoQualidade);
 
     const saveBtn = document.getElementById('plantio-save-btn');
     if (saveBtn) saveBtn.textContent = '💾 Salvar Alterações';
@@ -14205,6 +14209,59 @@ InsumosApp.prototype.handleEditPlantio = async function(id) {
     set('plantio-responsavel', record.responsavel);
     set('plantio-obs', record.observacoes);
 
+    // Frentes (pega a primeira se houver)
+    if (record.frentes && record.frentes.length > 0) {
+        const f = record.frentes[0];
+        
+        // Restore OS Selection
+        let osNum = f.os_numero || '';
+        if (!osNum && this.osListCache) {
+            // Fallback para registros antigos: tentar achar a OS pela fazenda/frente
+            const matchedOS = this.osListCache.find(o => 
+                (o.fazenda === f.fazenda || o.fazenda === f.cod) && 
+                (o.frente === f.frente)
+            );
+            if (matchedOS) osNum = matchedOS.numero;
+        }
+        set('single-os', osNum);
+
+        set('single-frente', f.frente);
+        
+        // Trigger change para carregar OS list se necessário, mas pode ser assíncrono
+        // Vamos setar diretamente por enquanto
+        const singleFrente = document.getElementById('single-frente');
+        if (singleFrente) singleFrente.dispatchEvent(new Event('change'));
+
+        set('single-fazenda', f.fazenda);
+        set('single-cod', f.cod);
+        set('single-regiao', f.regiao);
+        set('single-area', f.area);
+        set('single-plantada', f.plantada);
+        set('single-area-total', f.areaTotal);
+        set('single-area-acumulada', f.areaAcumulada);
+        set('single-plantio-dia', f.plantioDiario);
+        this.originalPlantioValue = parseFloat(f.plantioDiario || f.plantada || 0);
+        this.originalMudaValue = parseFloat(q.mudaConsumoDia || 0);
+        this.originalCobricaoValue = parseFloat(q.cobricaoDia || 0);
+
+        // --- FIX: Carregar stats atualizados da fazenda para cálculo correto do acumulado na edição ---
+        if (f.cod) {
+             this.api.getFazendaByCodigo(f.cod).then(res => {
+                 if (res && res.success && res.data) {
+                     this.tempFazendaStats = {
+                        plantioAcumulado: res.data.plantio_acumulado || 0,
+                        mudaAcumulada: res.data.muda_acumulada || 0,
+                        cobricaoAcumulada: res.data.cobricao_acumulada || 0
+                     };
+                     console.log('Stats da fazenda carregados para edição:', this.tempFazendaStats);
+                     
+                     // Force update UI with loaded stats
+                     this.updateAccumulatedStats();
+                 }
+             }).catch(e => console.error('Erro ao buscar stats fazenda edit:', e));
+        }
+    }
+
     // Tipo de Operação
     // Only set if option exists (for plantio/colheita). Para qualidade, o select específico é usado.
     if (!isQualidadeTipo) {
@@ -14212,19 +14269,14 @@ InsumosApp.prototype.handleEditPlantio = async function(id) {
     } else {
         const qualTipoSelect = document.getElementById('qualidade-tipo-select');
         if (qualTipoSelect) {
-            qualTipoSelect.value = tipoOp;
+            // Se subTipoQualidade for 'qualidade_muda' (valor do root), fallback para 'plantio_cana' (primeira opção válida)
+            qualTipoSelect.value = (subTipoQualidade === 'qualidade_muda') ? 'plantio_cana' : subTipoQualidade;
         }
     }
     
     // Disparar evento para ajustar visibilidade das seções
-    const tipoOpEl = document.getElementById('tipo-operacao');
-    if (tipoOpEl) {
-        // Forçar chamada do toggle se o evento não funcionar como esperado ou para garantir
-        if (typeof this.toggleOperacaoSections === 'function') {
-            this.toggleOperacaoSections();
-        } else {
-            tipoOpEl.dispatchEvent(new Event('change'));
-        }
+    if (typeof this.toggleOperacaoSections === 'function') {
+        this.toggleOperacaoSections();
     }
 
     // Qualidade
@@ -14334,46 +14386,6 @@ InsumosApp.prototype.handleEditPlantio = async function(id) {
     set('qual-mudas-reboulos-bons', q.mudasReboulosBons);
     set('qual-mudas-reboulos-ruins', q.mudasReboulosRuins);
     // Pct fields are auto-calculated by updateMudasPercent() called later
-
-    // Frentes (pega a primeira se houver)
-    if (record.frentes && record.frentes.length > 0) {
-        const f = record.frentes[0];
-        set('single-frente', f.frente);
-        
-        // Trigger change para carregar OS list se necessário, mas pode ser assíncrono
-        // Vamos setar diretamente por enquanto
-        const singleFrente = document.getElementById('single-frente');
-        if (singleFrente) singleFrente.dispatchEvent(new Event('change'));
-
-        set('single-fazenda', f.fazenda);
-        set('single-cod', f.cod);
-        set('single-regiao', f.regiao);
-        set('single-area', f.area);
-        set('single-plantada', f.plantada);
-        set('single-area-total', f.areaTotal);
-        set('single-area-acumulada', f.areaAcumulada);
-        set('single-plantio-dia', f.plantioDiario);
-        this.originalPlantioValue = parseFloat(f.plantioDiario || f.plantada || 0);
-        this.originalMudaValue = parseFloat(q.mudaConsumoDia || 0);
-        this.originalCobricaoValue = parseFloat(q.cobricaoDia || 0);
-
-        // --- FIX: Carregar stats atualizados da fazenda para cálculo correto do acumulado na edição ---
-        if (f.cod) {
-             this.api.getFazendaByCodigo(f.cod).then(res => {
-                 if (res && res.success && res.data) {
-                     this.tempFazendaStats = {
-                        plantioAcumulado: res.data.plantio_acumulado || 0,
-                        mudaAcumulada: res.data.muda_acumulada || 0,
-                        cobricaoAcumulada: res.data.cobricao_acumulada || 0
-                     };
-                     console.log('Stats da fazenda carregados para edição:', this.tempFazendaStats);
-                     
-                     // Force update UI with loaded stats
-                     this.updateAccumulatedStats();
-                 }
-             }).catch(e => console.error('Erro ao buscar stats fazenda edit:', e));
-        }
-    }
 
     // --- FIX: Restaurar Turno ---
     const savedHora = record.hora || (record.qualidade && record.qualidade.horaRegistro) || '';
@@ -14619,6 +14631,7 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
     const frente = {
         frente: frenteKey,
         fazenda: fazendaNome,
+        os_numero: osKeyForFazenda,
         cod: codFinal,
         regiao: document.getElementById('single-regiao')?.value || '',
         area: parseVal('single-area'),
