@@ -6938,7 +6938,7 @@ forceReloadAllData() {
                         <button class="btn btn-sm btn-secondary" onclick="window.insumosApp.showPlantioDetails('${r.id}')">
                             📋
                         </button>
-                        <button class="btn btn-sm btn-secondary" onclick="window.insumosApp.editPlantio('${r.id}')" title="Editar">
+                        <button class="btn btn-sm btn-secondary" onclick="window.insumosApp.handleEditPlantio('${r.id}')" title="Editar">
                             ✏️
                         </button>
                         <button class="btn btn-sm btn-danger" onclick="window.insumosApp.deletePlantio('${r.id}')" style="background-color: #e74c3c; color: white;" title="Excluir">
@@ -7680,9 +7680,12 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
                     </div>
                 </div>
                 </div>
-                <div style="margin-top: 15px; text-align: right;">
+                <div style="margin-top: 15px; display: flex; gap: 10px; justify-content: flex-end;">
+                    <button class="btn btn-secondary" onclick="window.insumosApp.handleEditPlantio('${r.id}'); document.getElementById('plantio-detail-modal').style.display='none';">
+                        ✏️ Editar Lançamento
+                    </button>
                     ${(q && q.tipoOperacao === 'plantio_cana') ? `
-                    <button class="btn btn-secondary" onclick="window.insumosApp.copyQualidadeResumoOperacionalWhatsApp('${r.id}', this)">
+                    <button class="btn btn-primary" onclick="window.insumosApp.copyQualidadeResumoOperacionalWhatsApp('${r.id}', this)">
                         📋 Copiar Resumo para WhatsApp
                     </button>
                     ` : ''}
@@ -14912,6 +14915,12 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
             this.resetPlantioForm();
             await this.loadPlantioDia();
             
+            // Se o modal de detalhes estiver aberto para este registro, atualizá-lo
+            const detailModal = document.getElementById('plantio-detail-modal');
+            if (detailModal && detailModal.style.display === 'block' && this.currentPlantioId) {
+                this.showPlantioDetails(this.currentPlantioId);
+            }
+
             // Force reset throttle to ensure dashboard updates
             this._lastDashboardLoad = 0;
 
