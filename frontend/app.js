@@ -1637,6 +1637,29 @@ forceReloadAllData() {
             });
         }
 
+        // Botão Exportar PDF Lacres
+        const btnExportLacres = document.getElementById('btn-export-lacres-pdf');
+        if (btnExportLacres) {
+            btnExportLacres.addEventListener('click', async () => {
+                try {
+                    this.ui.showLoading();
+                    if (!window.LacreReportGenerator) {
+                        throw new Error('Gerador de relatórios não carregado.');
+                    }
+                    const generator = new LacreReportGenerator();
+                    // Passar uma cópia dos dados para evitar mutações acidentais
+                    const dados = JSON.parse(JSON.stringify(this.viagensAdubo || []));
+                    await generator.generate(dados);
+                    this.ui.showNotification('Relatório gerado com sucesso!', 'success');
+                } catch (e) {
+                    console.error('Erro ao gerar relatório:', e);
+                    this.ui.showNotification('Erro ao gerar relatório: ' + e.message, 'error');
+                } finally {
+                    this.ui.hideLoading();
+                }
+            });
+        }
+
         // Modal Liberação de Colheita
         const btnLiberacao = document.getElementById('btn-liberacao-colheita');
         const liberacaoModal = document.getElementById('liberacao-modal');
