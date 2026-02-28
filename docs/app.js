@@ -7083,6 +7083,17 @@ forceReloadAllData() {
         if (pctBonsTotal > 80) classificacao = 'BOM';
         else if (pctBonsTotal >= 50) classificacao = 'MÉDIO';
 
+        // Gemas viáveis por metro (média)
+        let mediaViaveisM = (typeof q.mediaGemasViaveisPorM === 'number') ? q.mediaGemasViaveisPorM : null;
+        if (mediaViaveisM == null) {
+            const esqV = (typeof q.esqGemasViaveisPorM === 'number') ? q.esqGemasViaveisPorM : null;
+            const dirV = (typeof q.dirGemasViaveisPorM === 'number') ? q.dirGemasViaveisPorM : null;
+            if (esqV != null || dirV != null) {
+                const count = (esqV != null ? 1 : 0) + (dirV != null ? 1 : 0);
+                mediaViaveisM = ((esqV || 0) + (dirV || 0)) / (count || 1);
+            }
+        }
+
         const text =
 `🌱 RELATÓRIO DE QUALIDADE DE MUDA
 📍 Frente: ${frente}
@@ -7098,6 +7109,7 @@ forceReloadAllData() {
 🔴 Tolete ruim: ${this.ui.formatNumber(qtdRuinsTotal||0,0)} (~${this.ui.formatNumber(pctRuinsTotal||0,2)}%)
 
 🌿 Média de gemas por tolete: ${this.ui.formatNumber(q.mediaGemasPorTolete||0,2)}
+🌿 Gemas viáveis/m (média): ${this.ui.formatNumber(mediaViaveisM||0,2)}
 
 📌 Classificação: ${classificacao}
 
@@ -7202,6 +7214,17 @@ Abaixo de 50% → RUIM`;
         if (pctBonsTotal > 80) statusLabel = 'BOM';
         else if (pctBonsTotal >= 50) statusLabel = 'MÉDIO';
 
+        // Gemas viáveis por metro (média)
+        let mediaViaveisM = (typeof q.mediaGemasViaveisPorM === 'number') ? q.mediaGemasViaveisPorM : null;
+        if (mediaViaveisM == null) {
+            const esqV = (typeof q.esqGemasViaveisPorM === 'number') ? q.esqGemasViaveisPorM : null;
+            const dirV = (typeof q.dirGemasViaveisPorM === 'number') ? q.dirGemasViaveisPorM : null;
+            if (esqV != null || dirV != null) {
+                const count = (esqV != null ? 1 : 0) + (dirV != null ? 1 : 0);
+                mediaViaveisM = ((esqV || 0) + (dirV || 0)) / (count || 1);
+            }
+        }
+
         const text =
 `🌱 *QUALIDADE DE MUDA – PLANTIO*
 
@@ -7221,6 +7244,7 @@ Abaixo de 50% → RUIM`;
 🌿 Gema viável:
 Peso: ${this.ui.formatNumber(pesoBonsTotal||0,2)} kg
 ${this.ui.formatNumber(tHaViavel||0,2)} T/ha
+Gemas viáveis/m (média): ${this.ui.formatNumber(mediaViaveisM||0,2)}
 
 🗑 Gema descarte:
 Peso: ${this.ui.formatNumber(pesoRuinsTotal||0,2)} kg
