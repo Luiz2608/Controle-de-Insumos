@@ -14186,7 +14186,8 @@ InsumosApp.prototype.updateQualidadePlantioCanaCalculations = function() {
             set('peso-ruins-pct', 0);
         }
         const gemasPorTolete = val('gemas-por-tolete');
-        const gemasPor5 = gemasPorTolete / 5;
+        const totalToletes = (qtdBons || 0) + (qtdRuins || 0);
+        const gemasPor5 = gemasPorTolete * totalToletes;
         set('gemas-por5', gemasPor5);
         return { kgHa, qtdBons, qtdRuins, pesoBons, pesoRuins, gemasPorTolete, gemasPor5 };
     };
@@ -14199,6 +14200,7 @@ InsumosApp.prototype.updateQualidadePlantioCanaCalculations = function() {
     const setOut = (id, v) => { const el = document.getElementById(id); if (el) el.value = isFinite(v) ? Number(v).toFixed(2) : ''; };
     setOut('qual-media-kg-ha', mediaKgHa);
     setOut('qual-media-gemas-por-tolete', mediaGemas);
+    setOut('qual-media-gemas-por5', mediaGemas);
     const totalToletes = totalBons + totalRuins;
     let pctBons = 0;
     let pctRuins = 0;
