@@ -14262,13 +14262,13 @@ InsumosApp.prototype.updateQualidadePlantioCanaCalculations = function() {
     const esq = computeSide('qual-esq');
     const dir = computeSide('qual-dir');
     const mediaKgHa = ((esq.kgHa || 0) + (dir.kgHa || 0)) / 2;
-    const mediaGemas = ((esq.gemasPor5 || 0) + (dir.gemasPor5 || 0)) / 2;
+    const mediaGemasTolete = ((esq.gemasPorTolete || 0) + (dir.gemasPorTolete || 0)) / 2;
     const totalBons = (esq.qtdBons || 0) + (dir.qtdBons || 0);
     const totalRuins = (esq.qtdRuins || 0) + (dir.qtdRuins || 0);
     const setOut = (id, v) => { const el = document.getElementById(id); if (el) el.value = isFinite(v) ? Number(v).toFixed(2) : ''; };
     setOut('qual-media-kg-ha', mediaKgHa);
-    setOut('qual-media-gemas-por-tolete', mediaGemas);
-    setOut('qual-media-gemas-por5', mediaGemas);
+    setOut('qual-media-gemas-por-tolete', mediaGemasTolete);
+    setOut('qual-media-gemas-por5', ((esq.gemasPor5 || 0) + (dir.gemasPor5 || 0)) / 2);
     const totalToletes = totalBons + totalRuins;
     let pctBons = 0;
     let pctRuins = 0;
