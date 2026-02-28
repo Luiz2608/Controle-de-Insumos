@@ -7680,12 +7680,9 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
                     </div>
                 </div>
                 </div>
-                <div style="margin-top: 15px; display: flex; gap: 10px; justify-content: flex-end;">
-                    <button class="btn btn-secondary" onclick="window.insumosApp.handleEditPlantio('${r.id}'); document.getElementById('plantio-detail-modal').style.display='none';">
-                        ✏️ Editar Lançamento
-                    </button>
+                <div style="margin-top: 15px; text-align: right;">
                     ${(q && q.tipoOperacao === 'plantio_cana') ? `
-                    <button class="btn btn-primary" onclick="window.insumosApp.copyQualidadeResumoOperacionalWhatsApp('${r.id}', this)">
+                    <button class="btn btn-secondary" onclick="window.insumosApp.copyQualidadeResumoOperacionalWhatsApp('${r.id}', this)">
                         📋 Copiar Resumo para WhatsApp
                     </button>
                     ` : ''}
@@ -14134,6 +14131,11 @@ InsumosApp.prototype.updateQualidadePlantioCanaCalculations = function() {
                     else v = v.replace(/,/g, '');
                 } else if (v.includes(',')) {
                     v = v.replace(',', '.');
+                } else if (v.includes('.')) {
+                    const parts = v.split('.');
+                    if (parts[1] && parts[1].length === 3 && parseFloat(parts[0]) < 100) {
+                        // Mantém decimal (6.020 -> 6.02)
+                    }
                 }
             }
             const num = parseFloat(v);
@@ -14514,13 +14516,25 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
         if (!v || typeof v === 'string' && v.trim() === '') return 0;
         if (typeof v === 'string') {
             v = v.trim();
+            // Se tiver vírgula e ponto, assumimos que o ponto é milhar e a vírgula é decimal (ex: 1.234,56)
             if (v.includes(',') && v.includes('.')) {
                 const lastComma = v.lastIndexOf(',');
                 const lastDot = v.lastIndexOf('.');
-                if (lastComma > lastDot) v = v.replace(/\./g, '').replace(',', '.');
-                else v = v.replace(/,/g, '');
+                if (lastComma > lastDot) v = v.replace(/\./g, '').replace(',', '.'); // PT-BR
+                else v = v.replace(/,/g, ''); // EN
             } else if (v.includes(',')) {
+                // Se tiver apenas vírgula, trocamos por ponto (ex: 6,48 -> 6.48)
                 v = v.replace(',', '.');
+            } else if (v.includes('.')) {
+                // Se tiver apenas ponto, e houver 3 casas decimais após ele (ex: 6.020), 
+                // e o valor original do banco era 6.02, o usuário pode estar vendo um milhar falso.
+                // Mas parseFloat já lida com ponto como decimal.
+                // O risco é "6.020" ser interpretado como 6 mil e vinte.
+                // Para campos de peso (< 100), se tiver um ponto e 3 dígitos, é provável que seja decimal.
+                const parts = v.split('.');
+                if (parts[1] && parts[1].length === 3 && parseFloat(parts[0]) < 100) {
+                    // Mantém como decimal (6.020 continua 6.020)
+                }
             }
         }
         const num = parseFloat(v);
@@ -14572,6 +14586,12 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
                     else v = v.replace(/,/g, '');
                 } else if (v.includes(',')) {
                     v = v.replace(',', '.');
+                } else if (v.includes('.')) {
+                    const parts = v.split('.');
+                    // Se tiver ponto e 3 casas decimais (ex: 6.020) em um valor pequeno (< 100), tratar como decimal
+                    if (parts[1] && parts[1].length === 3 && parseFloat(parts[0]) < 100) {
+                        // Mantém como decimal
+                    }
                 }
             }
             const num = parseFloat(v);
@@ -14915,10 +14935,13 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
             this.resetPlantioForm();
             await this.loadPlantioDia();
             
+            // Garantir que temos o registro atualizado na lista local para os detalhes
+            const updatedRecord = (this.plantioDia || []).find(p => String(p.id) === String(this.currentPlantioId));
+            
             // Se o modal de detalhes estiver aberto para este registro, atualizá-lo
             const detailModal = document.getElementById('plantio-detail-modal');
-            if (detailModal && detailModal.style.display === 'block' && this.currentPlantioId) {
-                this.showPlantioDetails(this.currentPlantioId);
+            if (detailModal && detailModal.style.display === 'block' && updatedRecord) {
+                this.showPlantioDetails(updatedRecord.id);
             }
 
             // Force reset throttle to ensure dashboard updates
