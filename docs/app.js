@@ -10382,15 +10382,17 @@ Gemas inviáveis/m (média): ${this.ui.formatNumber(mediaInviaveisM||0,2)}
             const meta = parseFloat(item.quantidade) || 0;
             const realizado = parseFloat(item.realizado) || 0;
             const restante = parseFloat(item.restante) || 0;
+            const pctReal = meta > 0 ? ((realizado / meta) * 100) : 0;
+            const pctRest = meta > 0 ? ((restante / meta) * 100) : 0;
             
             totalMeta += meta;
             totalRealizado += realizado;
             totalRestante += restante;
 
             // Color logic
-            let restColor = '#d35400';
-            if (restante < -0.01) restColor = 'red';
-            else if (Math.abs(restante) < 0.01 && meta > 0) restColor = 'green';
+            let restColor = 'var(--warning, #d35400)';
+            if (restante < -0.01) restColor = 'var(--danger, #ef4444)';
+            else if (Math.abs(restante) < 0.01 && meta > 0) restColor = 'var(--success, #388e3c)';
 
             return `
             <tr>
@@ -10399,8 +10401,8 @@ Gemas inviáveis/m (média): ${this.ui.formatNumber(mediaInviaveisM||0,2)}
                 <td>${item.fazenda || '-'} / ${item.frente || '-'}</td>
                 <td>${item.produto || '-'}</td>
                 <td>${this.ui.formatNumber(meta, 3)}</td>
-                <td style="color: blue; font-weight: bold;">${this.ui.formatNumber(realizado, 3)}</td>
-                <td style="color: ${restColor}; font-weight: bold;">${this.ui.formatNumber(restante, 3)}</td>
+                <td style="color: var(--accent); font-weight: bold;"><span style="margin-right:6px;">${pctReal.toFixed(1)}%</span>${this.ui.formatNumber(realizado, 3)}</td>
+                <td style="color: ${restColor}; font-weight: bold;"><span style="margin-right:6px;">${pctRest.toFixed(1)}%</span>${this.ui.formatNumber(restante, 3)}</td>
                 <td><span class="badge ${item.status === 'ABERTO' ? 'badge-warning' : 'badge-success'}">${item.status}</span></td>
                 <td style="white-space: nowrap;">
                     <div style="display: flex; gap: 8px;">
@@ -10413,9 +10415,11 @@ Gemas inviáveis/m (média): ${this.ui.formatNumber(mediaInviaveisM||0,2)}
         `}).join('');
 
         // Update Footer
+        const totalPctReal = totalMeta > 0 ? ((totalRealizado / totalMeta) * 100) : 0;
+        const totalPctRest = totalMeta > 0 ? ((totalRestante / totalMeta) * 100) : 0;
         if (tfootMeta) tfootMeta.textContent = this.ui.formatNumber(totalMeta, 3);
-        if (tfootRealizado) tfootRealizado.textContent = this.ui.formatNumber(totalRealizado, 3);
-        if (tfootRestante) tfootRestante.textContent = this.ui.formatNumber(totalRestante, 3);
+        if (tfootRealizado) tfootRealizado.innerHTML = `<span style="margin-right:6px;">${totalPctReal.toFixed(1)}%</span>${this.ui.formatNumber(totalRealizado, 3)}`;
+        if (tfootRestante) tfootRestante.innerHTML = `<span style="margin-right:6px;">${totalPctRest.toFixed(1)}%</span>${this.ui.formatNumber(totalRestante, 3)}`;
     }
 
     setupCompostoListeners() {
