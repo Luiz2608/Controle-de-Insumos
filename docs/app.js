@@ -7009,9 +7009,13 @@ forceReloadAllData() {
             const fazendaFrente = frentes.length > 0 ? `${frentes[0].fazenda || ''} / ${frentes[0].frente || ''}` : '—';
             
             // Try to find variety
-            const variedade = (r.qualidade && r.qualidade.mudaVariedade) 
+            let variedade = (r.qualidade && r.qualidade.mudaVariedade) 
                 ? r.qualidade.mudaVariedade 
                 : (frentes.length > 0 && frentes[0].variedade ? frentes[0].variedade : '—');
+            
+            // Fix: Se variedade for undefined/null, tenta buscar em outros campos ou coloca '—'
+            if (!variedade || variedade === 'undefined') variedade = '—';
+            
             
             const q = r.qualidade || {};
             const tipo = r.tipo_operacao || q.tipoOperacao || 'plantio';
@@ -7638,7 +7642,7 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
                             <div class="info-item"><strong>Plantadora:</strong> ${q.qualEquipamentoPlantadora || '—'}</div>
                             <div class="info-item"><strong>Operador:</strong> ${q.qualOperador || '—'}</div>
                             <div class="info-item"><strong>Matrícula:</strong> ${q.qualMatricula || '—'}</div>
-                            <div class="info-item"><strong>Variedade:</strong> ${q.mudaVariedade || '—'}</div>
+                            <div class="info-item"><strong>Variedade:</strong> ${q.mudaVariedade && q.mudaVariedade !== 'undefined' ? q.mudaVariedade : '—'}</div>
                         </div>
                     </div>
                     <div class="quality-grid" style="margin: 8px 0 12px 0;">
@@ -14902,6 +14906,7 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
             qualEquipamentoPlantadora: document.getElementById('qual-equipamento-plantadora')?.value || '',
             qualOperador: document.getElementById('qual-operador')?.value || '',
             qualMatricula: document.getElementById('qual-matricula')?.value || document.getElementById('qual-matricula-header')?.value || '',
+            mudaVariedade: document.getElementById('qual-muda-variedade')?.value || document.getElementById('muda-variedade')?.value || '',
             horaRegistro: horaRegistro,
             // Fallback for indicators used in summary/badges
             gemasTotal: valRaw('qual-total-gemas-boas') || 1, 
