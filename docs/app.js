@@ -5208,8 +5208,10 @@ forceReloadAllData() {
                             <td>${this.ui.formatDateBR(os.abertura)}</td>
                             <td>${os.respAplicacao || '-'}</td>
                             <td>
-                                <button class="btn btn-sm btn-secondary btn-edit-os" data-numero="${os.numero}">✏️ Editar</button>
-                                <button class="btn btn-sm btn-delete-os" data-numero="${os.numero}" style="background-color: #e74c3c; color: white; margin-left: 5px;">🗑️ Excluir</button>
+                                <div style="display: flex; gap: 5px; justify-content: center;">
+                                    <button class="btn btn-sm btn-secondary btn-edit-os" data-numero="${os.numero}">✏️ Editar</button>
+                                    <button class="btn btn-sm btn-delete-os" data-numero="${os.numero}" style="background-color: #e74c3c; color: white;">🗑️ Excluir</button>
+                                </div>
                             </td>
                         </tr>
                     `).join('');
