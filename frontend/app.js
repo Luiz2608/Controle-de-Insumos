@@ -14373,8 +14373,8 @@ InsumosApp.prototype.initQualidadePlantioCanaListeners = function() {
 };
 
 InsumosApp.prototype.updateQualidadePlantioCanaCalculations = function() {
-    // const meters = 5; // Antigo fixo
-    const factor = 6666; // Fator para T/ha (considerando espaçamento 1.5m -> 10000/1.5 = 6666m lineares/ha)
+    const meters = 5; // A amostra é sempre retirada de 5 metros lineares plantados
+    const factor = 6666; // Fator para T/ha (10000m² / 1.5m espaçamento = 6666m lineares/ha)
     
     const computeSide = (pref) => {
         const val = (id) => {
@@ -14410,18 +14410,10 @@ InsumosApp.prototype.updateQualidadePlantioCanaCalculations = function() {
         const pesoLiquido = Math.max(0, pesoBruto - bucket);
         set('peso-liquido', pesoLiquido);
         
-        // Cálculo de T/ha baseado em metros lineares da amostra
-        // Se a amostra é baseada em toletes de 30cm:
-        let qtdBons = val('qtd-bons');
-        let qtdRuins = val('qtd-ruins');
-        const totalToletes = (qtdBons || 0) + (qtdRuins || 0);
-        
-        // Comprimento da amostra em metros (cada tolete = 0.3m)
-        const sampleMeters = totalToletes * 0.30; 
-        
-        // KG/ha = (Kg Amostra / Metros Amostra) * Metros Lineares por Ha
-        // Se sampleMeters for 0, evita divisão por zero
-        const kgHa = sampleMeters > 0 ? (pesoLiquido / sampleMeters) * factor : 0;
+        // Cálculo de KG/ha:
+        // Peso Líquido é o peso total encontrado nos 5 metros da amostra
+        // KG/ha = (Peso Líquido / 5 metros) * 6666 metros/ha
+        const kgHa = (pesoLiquido / meters) * factor;
         set('kg-ha', kgHa);
 
         let pesoBons = val('peso-bons');
@@ -14438,17 +14430,26 @@ InsumosApp.prototype.updateQualidadePlantioCanaCalculations = function() {
             set('peso-ruins-pct', 0);
         }
         
+        // Contagem de Toletes (Toletes de 30cm contados dentro dos 5 metros)
+        let qtdBons = val('qtd-bons');
+        let qtdRuins = val('qtd-ruins');
+        const totalToletes = (qtdBons || 0) + (qtdRuins || 0);
+
         const gemasPorTolete = val('gemas-por-tolete');
-        const gemasPor5 = gemasPorTolete * totalToletes; // Total de gemas na amostra
+        
+        // Total de gemas na amostra de 5 metros
+        const gemasPor5 = gemasPorTolete * totalToletes; 
         set('gemas-por5', gemasPor5);
         
-        // Gemas viáveis por metro: considerar apenas toletes bons na amostra
-        // Gemas/m = (GemasPorTolete * QtdBons) / ComprimentoAmostra
-        const gemasViaveisPorM = sampleMeters > 0 ? (gemasPorTolete * (qtdBons || 0)) / sampleMeters : 0;
+        // Gemas viáveis por metro:
+        // Consideramos apenas as gemas dos toletes BONS encontrados nos 5 metros
+        // Gemas/m = (GemasPorTolete * QtdBons) / 5 metros
+        const gemasViaveisPorM = (gemasPorTolete * (qtdBons || 0)) / meters;
         set('gemas-viaveis-por-m', gemasViaveisPorM);
         
         // Gemas inviáveis por metro
-        const gemasInviaveisPorM = sampleMeters > 0 ? (gemasPorTolete * (qtdRuins || 0)) / sampleMeters : 0;
+        // Consideramos as gemas dos toletes RUINS encontrados nos 5 metros
+        const gemasInviaveisPorM = (gemasPorTolete * (qtdRuins || 0)) / meters;
         set('gemas-inviaveis-por-m', gemasInviaveisPorM);
         
         return { kgHa, qtdBons, qtdRuins, pesoBons, pesoRuins, gemasPorTolete, gemasPor5 };
