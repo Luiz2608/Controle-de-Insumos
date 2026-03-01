@@ -7093,6 +7093,12 @@ forceReloadAllData() {
                                    (q.gemasViaveisPerc ? `${this.ui.formatNumber(q.gemasViaveisPerc, 1)}%` : '—');
                 indicador = gemasViaveis;
             }
+            
+            // Garantir que o indicador sempre tenha conteúdo para o flexbox funcionar
+            // Se for apenas o traço, envolver num span para centralizar
+            if (indicador === '—') {
+                indicador = '<span style="font-size: 1.2em; color: #ccc;">—</span>';
+            }
 
             return `
             <tr>
