@@ -7382,6 +7382,25 @@ Abaixo de 8 gemas/m → RUIM`;
             if (tHaDescarte < 0) tHaDescarte = 0;
         }
 
+        // Gemas viáveis por metro (média) – mesma lógica do resumo simples
+        let mediaViaveisM = (typeof q.mediaGemasViaveisPorM === 'number') ? q.mediaGemasViaveisPorM : null;
+        if (mediaViaveisM == null) {
+            const esqV = (typeof q.esqGemasViaveisPorM === 'number') ? q.esqGemasViaveisPorM : null;
+            const dirV = (typeof q.dirGemasViaveisPorM === 'number') ? q.dirGemasViaveisPorM : null;
+            if (esqV != null || dirV != null) {
+                const count = (esqV != null ? 1 : 0) + (dirV != null ? 1 : 0);
+                mediaViaveisM = ((esqV || 0) + (dirV || 0)) / (count || 1);
+            }
+        }
+
+        // Status com base nas faixas de gemas/m
+        let statusLabel = 'RUIM';
+        if (typeof mediaViaveisM === 'number') {
+            if (mediaViaveisM >= 8 && mediaViaveisM <= 13) statusLabel = 'BOM';
+            else if (mediaViaveisM > 13) statusLabel = 'EXCELENTE';
+            else statusLabel = 'RUIM';
+        }
+
         const text =
 `🌱 *QUALIDADE DE MUDA – PLANTIO*
 
