@@ -7366,42 +7366,53 @@ Abaixo de 8 gemas/m → RUIM`;
         const kgHaTotal = typeof q.mediaKgHa === 'number' ? q.mediaKgHa : 0;
         let tHaTotal = kgHaTotal > 0 ? (kgHaTotal / 1000) : 0;
         
-        // Abordagem por lado (mais precisa): aplica % de peso bons/ruins em cada lado
+        // Estratégia de divisão (prioridade):
+        // 1) Proporção de GEMAS boas/ruins (se disponível)
+        // 2) Por lado com % peso bons
+        // 3) Proporção por pesos bons/ruins (fallback)
         let viavelKgHa = 0;
         let descarteKgHa = 0;
-        let sideCount = 0;
-        const esqKgHa = q.esqKgHa || 0;
-        const dirKgHa = q.dirKgHa || 0;
-        const esqPctBons = (q.esqPesoBonsPct != null) ? q.esqPesoBonsPct : null;
-        const dirPctBons = (q.dirPesoBonsPct != null) ? q.dirPesoBonsPct : null;
         
-        if (esqKgHa > 0 && esqPctBons != null) {
-            viavelKgHa += esqKgHa * (esqPctBons / 100);
-            descarteKgHa += esqKgHa * (1 - (esqPctBons / 100));
-            sideCount++;
-        }
-        if (dirKgHa > 0 && dirPctBons != null) {
-            viavelKgHa += dirKgHa * (dirPctBons / 100);
-            descarteKgHa += dirKgHa * (1 - (dirPctBons / 100));
-            sideCount++;
-        }
+        const gemasBoas5m = (q.totalGemasBoas != null) ? q.totalGemasBoas : ((q.esqGemasBoasPor5 || 0) + (q.dirGemasBoasPor5 || 0));
+        const gemasRuins5m = (q.esqGemasRuinsTotais || 0) + (q.dirGemasRuinsTotais || 0);
+        const somaGemas = (gemasBoas5m || 0) + (gemasRuins5m || 0);
         
-        if (sideCount > 0) {
-            viavelKgHa = viavelKgHa / sideCount;
-            descarteKgHa = descarteKgHa / sideCount;
-        } else if (kgHaTotal > 0 && pesoLiquidoTotal > 0) {
-            // Fallback: distribui por proporção de massa da amostra
-            const pb = Math.max(pesoBonsTotal, 0);
-            const pr = Math.max(pesoRuinsTotal, 0);
-            let propBons = pesoLiquidoTotal > 0 ? pb / pesoLiquidoTotal : 0;
-            let propRuins = pesoLiquidoTotal > 0 ? pr / pesoLiquidoTotal : 0;
-            const somaProps = propBons + propRuins;
-            if (somaProps > 0) {
-                propBons = propBons / somaProps;
-                propRuins = propRuins / somaProps;
-            }
+        if (kgHaTotal > 0 && somaGemas > 0) {
+            const propBons = gemasBoas5m / somaGemas;
+            const propRuins = 1 - propBons;
             viavelKgHa = kgHaTotal * propBons;
             descarteKgHa = kgHaTotal * propRuins;
+        } else {
+            let sideSumViavel = 0;
+            let sideSumDescarte = 0;
+            let sideCount = 0;
+            const esqKgHa = q.esqKgHa || 0;
+            const dirKgHa = q.dirKgHa || 0;
+            const esqPctBons = (q.esqPesoBonsPct != null) ? q.esqPesoBonsPct : null;
+            const dirPctBons = (q.dirPesoBonsPct != null) ? q.dirPesoBonsPct : null;
+            
+            if (esqKgHa > 0 && esqPctBons != null) {
+                sideSumViavel += esqKgHa * (esqPctBons / 100);
+                sideSumDescarte += esqKgHa * (1 - (esqPctBons / 100));
+                sideCount++;
+            }
+            if (dirKgHa > 0 && dirPctBons != null) {
+                sideSumViavel += dirKgHa * (dirPctBons / 100);
+                sideSumDescarte += dirKgHa * (1 - (dirPctBons / 100));
+                sideCount++;
+            }
+            
+            if (kgHaTotal > 0 && sideCount > 0) {
+                viavelKgHa = sideSumViavel / sideCount;
+                descarteKgHa = sideSumDescarte / sideCount;
+            } else if (kgHaTotal > 0 && pesoLiquidoTotal > 0) {
+                const pb = Math.max(pesoBonsTotal, 0);
+                const pr = Math.max(pesoRuinsTotal, 0);
+                let propBons = pesoLiquidoTotal > 0 ? pb / pesoLiquidoTotal : 0;
+                let propRuins = 1 - propBons;
+                viavelKgHa = kgHaTotal * propBons;
+                descarteKgHa = kgHaTotal * propRuins;
+            }
         }
         
         let tHaViavel = viavelKgHa / 1000;
