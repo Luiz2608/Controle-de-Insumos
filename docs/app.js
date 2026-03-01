@@ -6769,7 +6769,7 @@ forceReloadAllData() {
                         <th>Tipo</th>
                         <th>Fazenda / Frente</th>
                         <th>Frota / Hora</th>
-                        <th>Status</th>
+                        <th class="col-status">Status</th>
                         <th>Ações</th>
                     </tr>
                 `;
@@ -6926,7 +6926,7 @@ forceReloadAllData() {
                     <td><span class="badge ${badgeClass}">${tipoLabel}</span></td>
                     <td>${fazendaFrente}</td>
                     <td>${frotaHora}</td>
-                    <td>${statusBadge}</td>
+                    <td class="col-status">${statusBadge}</td>
                     <td>
                         <div style="display: flex; gap: 5px;">
                             <button class="btn btn-sm btn-secondary" onclick="window.insumosApp.showPlantioDetails('${r.id}')">

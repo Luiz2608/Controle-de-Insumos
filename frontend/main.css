@@ -417,6 +417,12 @@ body {
     color: var(--text-light);
 }
 
+/* Center align for Status column header and cells */
+.data-table th.col-status,
+.data-table td.col-status {
+    text-align: center;
+}
+
 .form-group input:focus, .form-group select:focus,
 .filter-group input:focus, .filter-group select:focus,
 .manual-entry-group input:focus, .manual-entry-group select:focus,
