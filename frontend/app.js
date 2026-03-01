@@ -6853,25 +6853,52 @@ forceReloadAllData() {
                 const frotaHora = `<div>${frota}</div><div style="font-size: 0.8em; color: #888;">${turnoOuHora}</div>`;
 
                 // Status
-                // Prefer gemasBoasPct or calculate it
-                let pct = null;
-                if (q.tipoOperacao === 'plantio_cana' && typeof q.totalToletesBons === 'number') {
-                    pct = q.totalToletesBons;
+                let statusBadge = '<span class="badge badge-secondary">—</span>';
+                
+                if (q.tipoOperacao === 'plantio_cana') {
+                    // Nova lógica baseada em Gemas/m (8-13)
+                    let mediaViaveisM = (typeof q.mediaGemasViaveisPorM === 'number') ? q.mediaGemasViaveisPorM : null;
+                    // Fallback
+                    if (mediaViaveisM == null) {
+                        const esqV = (typeof q.esqGemasViaveisPorM === 'number') ? q.esqGemasViaveisPorM : null;
+                        const dirV = (typeof q.dirGemasViaveisPorM === 'number') ? q.dirGemasViaveisPorM : null;
+                        if (esqV != null || dirV != null) {
+                            mediaViaveisM = ((esqV || 0) + (dirV || 0)) / ((esqV!=null?1:0) + (dirV!=null?1:0) || 1);
+                        }
+                    }
+
+                    if (mediaViaveisM != null) {
+                        let colorClass = 'badge-danger'; 
+                        let label = 'Ruim';
+                        
+                        if (mediaViaveisM >= 8 && mediaViaveisM <= 13) {
+                            colorClass = 'badge-info'; 
+                            label = 'Bom';
+                        } else if (mediaViaveisM > 13) {
+                            colorClass = 'badge-success'; 
+                            label = 'Excelente';
+                        } else {
+                            colorClass = 'badge-danger';
+                            label = 'Ruim';
+                        }
+                        statusBadge = `<span class="badge ${colorClass}" title="${this.ui.formatNumber(mediaViaveisM, 2)} gemas/m">${label}</span>`;
+                    }
                 } else {
+                    // Lógica antiga para outros tipos (porcentagem)
+                    let pct = null;
                     pct = (q.gemasBoasPct != null) ? parseFloat(q.gemasBoasPct) : 
                            (q.gemasViaveisPerc != null) ? parseFloat(q.gemasViaveisPerc) :
                            (typeof q.totalToletesBons === 'number' && q.gemasTotal > 0) ? (q.totalToletesBons / q.gemasTotal * 100) : null;
-                }
-                
-                let statusBadge = '<span class="badge badge-secondary">—</span>';
-                if (pct !== null) {
-                    let colorClass = 'badge-danger'; // Ruim
-                    let label = 'Ruim';
-                    if (pct >= 90) { colorClass = 'badge-success'; label = 'Ótimo'; }
-                    else if (pct >= 80) { colorClass = 'badge-info'; label = 'Bom'; }
-                    else if (pct >= 70) { colorClass = 'badge-warning'; label = 'Regular'; }
                     
-                    statusBadge = `<span class="badge ${colorClass}" title="${this.ui.formatNumber(pct, 1)}% Viáveis">${label}</span>`;
+                    if (pct !== null) {
+                        let colorClass = 'badge-danger';
+                        let label = 'Ruim';
+                        if (pct >= 90) { colorClass = 'badge-success'; label = 'Ótimo'; }
+                        else if (pct >= 80) { colorClass = 'badge-info'; label = 'Bom'; }
+                        else if (pct >= 70) { colorClass = 'badge-warning'; label = 'Regular'; }
+                        
+                        statusBadge = `<span class="badge ${colorClass}" title="${this.ui.formatNumber(pct, 1)}% Viáveis">${label}</span>`;
+                    }
                 }
 
                 // Determine Type Label
@@ -7020,10 +7047,40 @@ forceReloadAllData() {
             const q = r.qualidade || {};
             const tipo = r.tipo_operacao || q.tipoOperacao || 'plantio';
             let indicador;
+            
             if (tipo === 'plantio_cana') {
-                indicador = (q.mediaKgHa != null)
-                    ? `${this.ui.formatNumber(q.mediaKgHa, 2)} kg/ha`
-                    : '—';
+                // Lógica de Status para Plantio de Cana (Gemas/m)
+                let mediaViaveisM = (typeof q.mediaGemasViaveisPorM === 'number') ? q.mediaGemasViaveisPorM : null;
+                
+                // Fallback de cálculo se não salvo
+                if (mediaViaveisM == null) {
+                    const esqV = (typeof q.esqGemasViaveisPorM === 'number') ? q.esqGemasViaveisPorM : null;
+                    const dirV = (typeof q.dirGemasViaveisPorM === 'number') ? q.dirGemasViaveisPorM : null;
+                    if (esqV != null || dirV != null) {
+                        const count = (esqV != null ? 1 : 0) + (dirV != null ? 1 : 0);
+                        mediaViaveisM = ((esqV || 0) + (dirV || 0)) / (count || 1);
+                    }
+                }
+
+                if (mediaViaveisM != null) {
+                    let colorClass = 'badge-danger'; // Ruim
+                    let label = 'Ruim';
+                    
+                    if (mediaViaveisM >= 8 && mediaViaveisM <= 13) {
+                        colorClass = 'badge-info'; // Bom (Azul ou Verde se preferir badge-success)
+                        label = 'Bom';
+                    } else if (mediaViaveisM > 13) {
+                        colorClass = 'badge-success'; // Excelente
+                        label = 'Excelente';
+                    } else {
+                        colorClass = 'badge-danger'; // < 8
+                        label = 'Ruim';
+                    }
+                    
+                    indicador = `<span class="badge ${colorClass}" title="${this.ui.formatNumber(mediaViaveisM, 2)} gemas/m">${label}</span>`;
+                } else {
+                    indicador = (q.mediaKgHa != null) ? `${this.ui.formatNumber(q.mediaKgHa, 2)} kg/ha` : '—';
+                }
             } else {
                 const gemasViaveis = (q.gemasBoasPct != null) ? `${this.ui.formatNumber(q.gemasBoasPct, 1)}%` : 
                                    (q.gemasViaveisPerc ? `${this.ui.formatNumber(q.gemasViaveisPerc, 1)}%` : '—');
@@ -14316,8 +14373,9 @@ InsumosApp.prototype.initQualidadePlantioCanaListeners = function() {
 };
 
 InsumosApp.prototype.updateQualidadePlantioCanaCalculations = function() {
-    const meters = 5;
-    const factor = 6666;
+    // const meters = 5; // Antigo fixo
+    const factor = 6666; // Fator para T/ha (considerando espaçamento 1.5m -> 10000/1.5 = 6666m lineares/ha)
+    
     const computeSide = (pref) => {
         const val = (id) => {
             const el = document.getElementById(`${pref}-${id}`);
@@ -14335,7 +14393,7 @@ InsumosApp.prototype.updateQualidadePlantioCanaCalculations = function() {
                 } else if (v.includes('.')) {
                     const parts = v.split('.');
                     if (parts[1] && parts[1].length === 3 && parseFloat(parts[0]) < 100) {
-                        // Mantém decimal (6.020 -> 6.02)
+                        // Mantém decimal
                     }
                 }
             }
@@ -14346,16 +14404,29 @@ InsumosApp.prototype.updateQualidadePlantioCanaCalculations = function() {
             const el = document.getElementById(`${pref}-${id}`);
             if (el) el.value = isFinite(v) ? Number(v).toFixed(2) : '';
         };
+        
         const bucket = val('peso-balde') || 0.460;
         const pesoBruto = val('peso-bruto');
         const pesoLiquido = Math.max(0, pesoBruto - bucket);
         set('peso-liquido', pesoLiquido);
-        const kgHa = (pesoLiquido / meters) * factor;
-        set('kg-ha', kgHa);
+        
+        // Cálculo de T/ha baseado em metros lineares da amostra
+        // Se a amostra é baseada em toletes de 30cm:
         let qtdBons = val('qtd-bons');
         let qtdRuins = val('qtd-ruins');
+        const totalToletes = (qtdBons || 0) + (qtdRuins || 0);
+        
+        // Comprimento da amostra em metros (cada tolete = 0.3m)
+        const sampleMeters = totalToletes * 0.30; 
+        
+        // KG/ha = (Kg Amostra / Metros Amostra) * Metros Lineares por Ha
+        // Se sampleMeters for 0, evita divisão por zero
+        const kgHa = sampleMeters > 0 ? (pesoLiquido / sampleMeters) * factor : 0;
+        set('kg-ha', kgHa);
+
         let pesoBons = val('peso-bons');
         let pesoRuins = val('peso-ruins');
+        
         const totalPesoPart = (pesoBons || 0) + (pesoRuins || 0);
         if (pesoLiquido > 0 && totalPesoPart > 0) {
             const pctBons = (pesoBons / pesoLiquido) * 100;
@@ -14366,16 +14437,20 @@ InsumosApp.prototype.updateQualidadePlantioCanaCalculations = function() {
             set('peso-bons-pct', 0);
             set('peso-ruins-pct', 0);
         }
+        
         const gemasPorTolete = val('gemas-por-tolete');
-        const totalToletes = (qtdBons || 0) + (qtdRuins || 0);
-        const gemasPor5 = gemasPorTolete * totalToletes;
+        const gemasPor5 = gemasPorTolete * totalToletes; // Total de gemas na amostra
         set('gemas-por5', gemasPor5);
-        // Gemas viáveis por metro: considerar apenas toletes bons na amostra de 5m
-        const gemasViaveisPorM = (gemasPorTolete * (qtdBons || 0)) / meters;
+        
+        // Gemas viáveis por metro: considerar apenas toletes bons na amostra
+        // Gemas/m = (GemasPorTolete * QtdBons) / ComprimentoAmostra
+        const gemasViaveisPorM = sampleMeters > 0 ? (gemasPorTolete * (qtdBons || 0)) / sampleMeters : 0;
         set('gemas-viaveis-por-m', gemasViaveisPorM);
-        // Gemas inviáveis por metro: considerar toletes ruins na amostra de 5m
-        const gemasInviaveisPorM = (gemasPorTolete * (qtdRuins || 0)) / meters;
+        
+        // Gemas inviáveis por metro
+        const gemasInviaveisPorM = sampleMeters > 0 ? (gemasPorTolete * (qtdRuins || 0)) / sampleMeters : 0;
         set('gemas-inviaveis-por-m', gemasInviaveisPorM);
+        
         return { kgHa, qtdBons, qtdRuins, pesoBons, pesoRuins, gemasPorTolete, gemasPor5 };
     };
     const esq = computeSide('qual-esq');
