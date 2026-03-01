@@ -7306,10 +7306,6 @@ Abaixo de 50% → RUIM`;
             if (tHaDescarte < 0) tHaDescarte = 0;
         }
 
-        let statusLabel = 'RUIM';
-        if (pctBonsTotal > 80) statusLabel = 'BOM';
-        else if (pctBonsTotal >= 50) statusLabel = 'MÉDIO';
-
         // Gemas viáveis por metro (média)
         let mediaViaveisM = (typeof q.mediaGemasViaveisPorM === 'number') ? q.mediaGemasViaveisPorM : null;
         if (mediaViaveisM == null) {
@@ -7331,11 +7327,21 @@ Abaixo de 50% → RUIM`;
             }
         }
 
+        let statusLabel = 'RUIM';
+        if (mediaViaveisM >= 8 && mediaViaveisM <= 13) {
+            statusLabel = 'BOM';
+        } else if (mediaViaveisM > 13) {
+            statusLabel = 'EXCELENTE';
+        } else {
+            statusLabel = 'RUIM'; // < 8
+        }
+
         const text =
 `🌱 *QUALIDADE DE MUDA – PLANTIO*
 
 📍 Fazenda: ${fazenda}
 📍 Frente: ${frente}
+🌱 Variedade: ${q.mudaVariedade || '—'}
 
 🚜 Distribuidora: ${distribuidora}
 📏 Distância: ${distanciaStr}
@@ -7355,7 +7361,6 @@ Gemas viáveis/m (média): ${this.ui.formatNumber(mediaViaveisM||0,2)}
 🗑 Gema descarte:
 Peso: ${this.ui.formatNumber(pesoRuinsTotal||0,2)} kg
 ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
-Gemas inviáveis/m (média): ${this.ui.formatNumber(mediaInviaveisM||0,2)}
 
 📌 Status geral: ${statusLabel}`;
 
