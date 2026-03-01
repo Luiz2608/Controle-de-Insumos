@@ -6852,7 +6852,7 @@ forceReloadAllData() {
                         turnoOuHora = dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
                     } catch (e) {}
                 }
-                const frotaHora = `<div>${frota}</div><div style="font-size: 0.8em; color: #888;">${turnoOuHora}</div>`;
+                const frotaHora = `<div>${frota}</div><div class="subtext">${turnoOuHora}</div>`;
 
                 // Status
                 let statusBadge = '<span class="badge badge-secondary">—</span>';
@@ -6888,8 +6888,8 @@ forceReloadAllData() {
                         statusBadge = `
                         <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
                             <span class="badge ${colorClass}" style="font-size: 0.9em; padding: 6px 10px;">${label}</span>
-                            <span style="font-size: 0.75em; color: #666; font-weight: 500;">${this.ui.formatNumber(mediaViaveisM, 2)} gemas/m</span>
-                            <span style="font-size: 0.7em; color: #888;">Qualidade Muda</span>
+                            <span class="subtext" style="font-weight: 500;">${this.ui.formatNumber(mediaViaveisM, 2)} gemas/m</span>
+                            <span class="subtext" style="font-size: 0.7em;">Qualidade Muda</span>
                         </div>`;
                     }
                 } else {

@@ -227,9 +227,9 @@
                     </div>
             </div>
 
-            <!-- Modal Admin Permissions -->
-<div id="permissions-modal" class="modal" style="display: none; z-index: 10001;">
-    <div class="modal-content" style="max-width: 500px; margin: 10% auto;">
+            <!-- Permissions Modal -->
+            <div id="permissions-modal" class="modal" style="display: none; z-index: 10001; align-items: center; justify-content: center;">
+                <div class="modal-content" style="max-width: 500px; max-height: 85vh; overflow-y: auto; margin: auto;">
                     <div class="modal-header">
                         <h3>🔒 Permissões de Acesso</h3>
                         <button class="close-modal close-permissions-modal">&times;</button>
@@ -1906,6 +1906,18 @@
                                 <label for="qual-muda-variedade">Variedade</label>
                                 <input type="text" id="qual-muda-variedade" placeholder="Variedade">
                             </div>
+                            <div class="form-group show-in-quality-only" style="display: none;">
+                                <label for="qual-operador">Operador</label>
+                                <input type="text" id="qual-operador">
+                            </div>
+                            <div class="form-group show-in-quality-only" style="display: none;">
+                                <label for="qual-equipamento-trator">Trator</label>
+                                <input type="text" id="qual-equipamento-trator">
+                            </div>
+                            <div class="form-group show-in-quality-only" style="display: none;">
+                                <label for="qual-equipamento-plantadora">Plantadora</label>
+                                <input type="text" id="qual-equipamento-plantadora">
+                            </div>
 
                             
                             <div class="form-group" style="grid-column: span 2;">
@@ -2464,7 +2476,7 @@
 
 
     <!-- Modal Transporte de Composto -->
-<div id="modal-transporte-composto" class="modal" style="display: none;">
+    <div id="modal-transporte-composto" class="modal" style="display: none;">
         <div class="modal-content">
             <div class="modal-header">
                 <h3>Cadastro de Transporte de Composto</h3>

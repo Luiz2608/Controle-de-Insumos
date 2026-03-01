@@ -6852,7 +6852,7 @@ forceReloadAllData() {
                         turnoOuHora = dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
                     } catch (e) {}
                 }
-                const frotaHora = `<div>${frota}</div><div style="font-size: 0.8em; color: #888;">${turnoOuHora}</div>`;
+                const frotaHora = `<div>${frota}</div><div class="subtext">${turnoOuHora}</div>`;
 
                 // Status
                 let statusBadge = '<span class="badge badge-secondary">—</span>';
@@ -6888,8 +6888,8 @@ forceReloadAllData() {
                         statusBadge = `
                         <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
                             <span class="badge ${colorClass}" style="font-size: 0.9em; padding: 6px 10px;">${label}</span>
-                            <span style="font-size: 0.75em; color: #666; font-weight: 500;">${this.ui.formatNumber(mediaViaveisM, 2)} gemas/m</span>
-                            <span style="font-size: 0.7em; color: #888;">Qualidade Muda</span>
+                            <span class="subtext" style="font-weight: 500;">${this.ui.formatNumber(mediaViaveisM, 2)} gemas/m</span>
+                            <span class="subtext" style="font-size: 0.7em;">Qualidade Muda</span>
                         </div>`;
                     }
                 } else {
@@ -7255,7 +7255,7 @@ forceReloadAllData() {
                 mediaViaveisM = ((esqV || 0) + (dirV || 0)) / (count || 1);
             }
         }
-
+        
         let statusLabel = 'RUIM';
         if (mediaViaveisM >= 8 && mediaViaveisM <= 13) {
             statusLabel = 'BOM';
@@ -7380,36 +7380,6 @@ Abaixo de 8 gemas/m → RUIM`;
             tHaDescarte = tHaTotal - tHaViavel;
             if (tHaViavel < 0) tHaViavel = 0;
             if (tHaDescarte < 0) tHaDescarte = 0;
-        }
-
-        // Gemas viáveis por metro (média)
-        let mediaViaveisM = (typeof q.mediaGemasViaveisPorM === 'number') ? q.mediaGemasViaveisPorM : null;
-        if (mediaViaveisM == null) {
-            const esqV = (typeof q.esqGemasViaveisPorM === 'number') ? q.esqGemasViaveisPorM : null;
-            const dirV = (typeof q.dirGemasViaveisPorM === 'number') ? q.dirGemasViaveisPorM : null;
-            if (esqV != null || dirV != null) {
-                const count = (esqV != null ? 1 : 0) + (dirV != null ? 1 : 0);
-                mediaViaveisM = ((esqV || 0) + (dirV || 0)) / (count || 1);
-            }
-        }
-        // Gemas inviáveis por metro (média)
-        let mediaInviaveisM = (typeof q.mediaGemasInviaveisPorM === 'number') ? q.mediaGemasInviaveisPorM : null;
-        if (mediaInviaveisM == null) {
-            const esqI = (typeof q.esqGemasInviaveisPorM === 'number') ? q.esqGemasInviaveisPorM : null;
-            const dirI = (typeof q.dirGemasInviaveisPorM === 'number') ? q.dirGemasInviaveisPorM : null;
-            if (esqI != null || dirI != null) {
-                const countI = (esqI != null ? 1 : 0) + (dirI != null ? 1 : 0);
-                mediaInviaveisM = ((esqI || 0) + (dirI || 0)) / (countI || 1);
-            }
-        }
-
-        let statusLabel = 'RUIM';
-        if (mediaViaveisM >= 8 && mediaViaveisM <= 13) {
-            statusLabel = 'BOM';
-        } else if (mediaViaveisM > 13) {
-            statusLabel = 'EXCELENTE';
-        } else {
-            statusLabel = 'RUIM'; // < 8
         }
 
         const text =
@@ -9602,7 +9572,6 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
                 const w = doc.getStringUnitWidth(text) * doc.internal.getFontSize() / doc.internal.scaleFactor;
                 doc.text(text, (pageWidth - w) / 2, y);
             };
-            // Header
             doc.setFontSize(16); doc.setFont(undefined, 'bold');
             center('Relatório de Controle de Lacres', 18);
             doc.setFontSize(10); doc.setFont(undefined, 'normal');
@@ -10481,6 +10450,10 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
             if (restante < -0.01) restColor = 'var(--danger, #ef4444)';
             else if (Math.abs(restante) < 0.01 && meta > 0) restColor = 'var(--success, #388e3c)';
 
+            // Separator " - " logic (com &nbsp; para garantir espaçamento visível)
+            const pctRealStr = `<span style="margin-right:8px;">${pctReal.toFixed(1)}%&nbsp;-</span>`;
+            const pctRestStr = `<span style="margin-right:8px;">${pctRest.toFixed(1)}%&nbsp;-</span>`;
+
             return `
             <tr>
                 <td>${item.numero_os || '-'}</td>
@@ -10488,8 +10461,8 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
                 <td>${item.fazenda || '-'} / ${item.frente || '-'}</td>
                 <td>${item.produto || '-'}</td>
                 <td>${this.ui.formatNumber(meta, 3)}</td>
-                <td style="color: var(--accent); font-weight: bold; white-space: nowrap;"><span style="margin-right:8px;">${pctReal.toFixed(1)}%&nbsp;-</span>${this.ui.formatNumber(realizado, 3)}</td>
-                <td style="color: ${restColor}; font-weight: bold; white-space: nowrap;"><span style="margin-right:8px;">${pctRest.toFixed(1)}%&nbsp;-</span>${this.ui.formatNumber(restante, 3)}</td>
+                <td style="color: var(--accent); font-weight: bold; white-space: nowrap;">${pctRealStr}${this.ui.formatNumber(realizado, 3)}</td>
+                <td style="color: ${restColor}; font-weight: bold; white-space: nowrap;">${pctRestStr}${this.ui.formatNumber(restante, 3)}</td>
                 <td><span class="badge ${item.status === 'ABERTO' ? 'badge-warning' : 'badge-success'}">${item.status}</span></td>
                 <td style="white-space: nowrap;">
                     <div style="display: flex; gap: 8px;">
@@ -14722,7 +14695,6 @@ InsumosApp.prototype.handleEditPlantio = async function(id) {
         set('qual-total-toletes-ruins', q.totalToletesRuins);
         set('qual-total-gemas-boas', q.totalGemasBoas);
         set('qual-media-gemas-por5', q.mediaGemasPor5);
-        // Campo consolidado opcional (se existir no layout futuramente)
         const mediaViaveisEl = document.getElementById('qual-media-gemas-viaveis-por-m');
         if (mediaViaveisEl && q.mediaGemasViaveisPorM != null) {
             set('qual-media-gemas-viaveis-por-m', q.mediaGemasViaveisPorM);
