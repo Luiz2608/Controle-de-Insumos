@@ -7096,12 +7096,12 @@ forceReloadAllData() {
 
             return `
             <tr>
-                <td>${this.ui.formatDateBR(r.data)}</td>
-                <td>${fazendaFrente}</td>
-                <td>${variedade}</td>
-                <td>${indicador}</td>
-                <td>
-                    <div style="display: flex; gap: 5px;">
+                <td style="vertical-align: middle;">${this.ui.formatDateBR(r.data)}</td>
+                <td style="vertical-align: middle;">${fazendaFrente}</td>
+                <td style="vertical-align: middle;">${variedade}</td>
+                <td style="text-align: center; vertical-align: middle;">${indicador}</td>
+                <td style="vertical-align: middle;">
+                    <div style="display: flex; gap: 5px; justify-content: center;">
                         <button class="btn btn-sm btn-secondary" onclick="window.insumosApp.showPlantioDetails('${r.id}')">
                             📋
                         </button>
