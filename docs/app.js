@@ -6881,7 +6881,14 @@ forceReloadAllData() {
                             colorClass = 'badge-danger';
                             label = 'Ruim';
                         }
-                        statusBadge = `<span class="badge ${colorClass}" title="${this.ui.formatNumber(mediaViaveisM, 2)} gemas/m">${label}</span>`;
+                        
+                        // Status Badge com Título e Valor
+                        statusBadge = `
+                        <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                            <span class="badge ${colorClass}" style="font-size: 0.9em; padding: 6px 10px;">${label}</span>
+                            <span style="font-size: 0.75em; color: #666; font-weight: 500;">${this.ui.formatNumber(mediaViaveisM, 2)} gemas/m</span>
+                            <span style="font-size: 0.7em; color: #888;">Qualidade Muda</span>
+                        </div>`;
                     }
                 } else {
                     // Lógica antiga para outros tipos (porcentagem)
