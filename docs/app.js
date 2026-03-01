@@ -7509,6 +7509,11 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
         }
         const headerFazenda = derivedHeaderFazenda || q.mudaFazendaOrigem || '—';
         const headerFrente = (primeiraFrente && primeiraFrente.frente) || q.mudaTalhaoOrigem || '—';
+        
+        // Campo Variedade em destaque
+        const mudaVariedadeDisplay = q.mudaVariedade 
+            ? `<div style="grid-column: 1/-1; background: #e3f2fd; padding: 8px; border-radius: 4px; margin-bottom: 10px; border: 1px solid #90caf9; color: #1565c0; font-weight: bold; text-align: center;">🌱 Variedade: ${q.mudaVariedade}</div>`
+            : '';
 
         let statusPlantioCana = null;
         if (isPlantioCanaComplex) {
@@ -7633,6 +7638,7 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
                             <div class="info-item"><strong>Plantadora:</strong> ${q.qualEquipamentoPlantadora || '—'}</div>
                             <div class="info-item"><strong>Operador:</strong> ${q.qualOperador || '—'}</div>
                             <div class="info-item"><strong>Matrícula:</strong> ${q.qualMatricula || '—'}</div>
+                            <div class="info-item"><strong>Variedade:</strong> ${q.mudaVariedade || '—'}</div>
                         </div>
                     </div>
                     <div class="quality-grid" style="margin: 8px 0 12px 0;">
