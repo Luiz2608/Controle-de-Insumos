@@ -7358,29 +7358,52 @@ Abaixo de 8 gemas/m → RUIM`;
         const pctBonsTotal = typeof q.totalToletesBons === 'number' ? q.totalToletesBons : 0;
         const pctRuinsTotal = typeof q.totalToletesRuins === 'number' ? q.totalToletesRuins : 0;
 
-        let tHaTotal = 0;
-        let tHaViavel = 0;
-        let tHaDescarte = 0;
+        // Produtividade (T/ha) total e segregada (viável x descarte)
         const kgHaTotal = typeof q.mediaKgHa === 'number' ? q.mediaKgHa : 0;
-
-        if (kgHaTotal > 0 && pesoLiquidoTotal > 0) {
-            tHaTotal = kgHaTotal / 1000;
+        let tHaTotal = kgHaTotal > 0 ? (kgHaTotal / 1000) : 0;
+        
+        // Abordagem por lado (mais precisa): aplica % de peso bons/ruins em cada lado
+        let viavelKgHa = 0;
+        let descarteKgHa = 0;
+        let sideCount = 0;
+        const esqKgHa = q.esqKgHa || 0;
+        const dirKgHa = q.dirKgHa || 0;
+        const esqPctBons = (q.esqPesoBonsPct != null) ? q.esqPesoBonsPct : null;
+        const dirPctBons = (q.dirPesoBonsPct != null) ? q.dirPesoBonsPct : null;
+        
+        if (esqKgHa > 0 && esqPctBons != null) {
+            viavelKgHa += esqKgHa * (esqPctBons / 100);
+            descarteKgHa += esqKgHa * (1 - (esqPctBons / 100));
+            sideCount++;
+        }
+        if (dirKgHa > 0 && dirPctBons != null) {
+            viavelKgHa += dirKgHa * (dirPctBons / 100);
+            descarteKgHa += dirKgHa * (1 - (dirPctBons / 100));
+            sideCount++;
+        }
+        
+        if (sideCount > 0) {
+            viavelKgHa = viavelKgHa / sideCount;
+            descarteKgHa = descarteKgHa / sideCount;
+        } else if (kgHaTotal > 0 && pesoLiquidoTotal > 0) {
+            // Fallback: distribui por proporção de massa da amostra
             const pb = Math.max(pesoBonsTotal, 0);
             const pr = Math.max(pesoRuinsTotal, 0);
             let propBons = pesoLiquidoTotal > 0 ? pb / pesoLiquidoTotal : 0;
             let propRuins = pesoLiquidoTotal > 0 ? pr / pesoLiquidoTotal : 0;
-            if (propBons < 0) propBons = 0;
-            if (propRuins < 0) propRuins = 0;
             const somaProps = propBons + propRuins;
             if (somaProps > 0) {
                 propBons = propBons / somaProps;
                 propRuins = propRuins / somaProps;
             }
-            tHaViavel = tHaTotal * propBons;
-            tHaDescarte = tHaTotal - tHaViavel;
-            if (tHaViavel < 0) tHaViavel = 0;
-            if (tHaDescarte < 0) tHaDescarte = 0;
+            viavelKgHa = kgHaTotal * propBons;
+            descarteKgHa = kgHaTotal * propRuins;
         }
+        
+        let tHaViavel = viavelKgHa / 1000;
+        let tHaDescarte = descarteKgHa / 1000;
+        if (tHaViavel < 0) tHaViavel = 0;
+        if (tHaDescarte < 0) tHaDescarte = 0;
 
         // Gemas viáveis por metro (média) – mesma lógica do resumo simples
         let mediaViaveisM = (typeof q.mediaGemasViaveisPorM === 'number') ? q.mediaGemasViaveisPorM : null;
@@ -14473,32 +14496,24 @@ InsumosApp.prototype.updateQualidadePlantioCanaCalculations = function() {
         let qtdRuins = val('qtd-ruins');
         const totalToletes = (qtdBons || 0) + (qtdRuins || 0);
 
-        // O campo ID "gemas-por-tolete" agora recebe o TOTAL de gemas nos toletes BONS
-        // Então renomeamos a variável para evitar confusão no código, mas mantemos o ID para compatibilidade
+        // O campo ID "gemas-por-tolete" recebe o TOTAL de gemas nos toletes BONS (amostra de 5m)
         const totalGemasBonsInput = val('gemas-por-tolete');
+        // Novo campo: TOTAL de gemas nos toletes RUINS (amostra de 5m)
+        const totalGemasRuinsInput = val('gemas-ruins-total');
         
-        // Calculamos a média real para uso nas fórmulas: Total Gemas / Qtd Toletes Bons
-        // Evita divisão por zero
+        // Média de gemas por tolete (informativa) = Total gemas boas / toletes bons
         const gemasPorTolete = qtdBons > 0 ? (totalGemasBonsInput / qtdBons) : 0;
         
-        // Total de gemas na amostra de 5 metros (Considerando apenas a proporção dos bons)
-        // Se o usuário inseriu o total de gemas nos bons, então gemasPor5 é praticamente o input + gemas dos ruins (estimado)
-        // Mas para manter consistência com a fórmula anterior: gemasPor5 = Média * TotalToletes
+        // Total estimado de gemas na amostra de 5m (bons + ruins) usando a média informativa
         const gemasPor5 = gemasPorTolete * totalToletes; 
         set('gemas-por5', gemasPor5);
         
-        // Gemas viáveis por metro:
-        // Consideramos apenas as gemas dos toletes BONS encontrados nos 5 metros
-        // Gemas/m = (GemasPorTolete * QtdBons) / 5 metros
-        // Como GemasPorTolete = Input / QtdBons, então:
-        // Gemas/m = (Input / QtdBons * QtdBons) / 5 = Input / 5
-        const gemasViaveisPorM = meters > 0 ? totalGemasBonsInput / meters : 0;
+        // Gemas viáveis por metro: exclusivamente o total de gemas boas nos toletes bons / 5m
+        const gemasViaveisPorM = meters > 0 ? (totalGemasBonsInput / meters) : 0;
         set('gemas-viaveis-por-m', gemasViaveisPorM);
         
-        // Gemas inviáveis por metro
-        // Consideramos as gemas dos toletes RUINS encontrados nos 5 metros
-        // Usamos a média calculada dos bons para estimar os ruins
-        const gemasInviaveisPorM = (gemasPorTolete * (qtdRuins || 0)) / meters;
+        // Gemas inviáveis por metro: exclusivamente o total de gemas ruins nos toletes ruins / 5m
+        const gemasInviaveisPorM = meters > 0 ? (totalGemasRuinsInput / meters) : 0;
         set('gemas-inviaveis-por-m', gemasInviaveisPorM);
         
         return { kgHa, qtdBons, qtdRuins, pesoBons, pesoRuins, gemasPorTolete, gemasPor5 };
@@ -14972,6 +14987,7 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
             esqPesoRuinsPct: valRaw('qual-esq-peso-ruins-pct'),
             esqGemasBoasPorTolete: valRaw('qual-esq-gemas-por-tolete'),
             esqGemasBoasPor5: valRaw('qual-esq-gemas-por5'),
+            esqGemasRuinsTotais: valRaw('qual-esq-gemas-ruins-total'),
             esqGemasViaveisPorM: valRaw('qual-esq-gemas-viaveis-por-m'),
             esqGemasInviaveisPorM: valRaw('qual-esq-gemas-inviaveis-por-m'),
             // Lado Direito
@@ -14987,6 +15003,7 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
             dirPesoRuinsPct: valRaw('qual-dir-peso-ruins-pct'),
             dirGemasBoasPorTolete: valRaw('qual-dir-gemas-por-tolete'),
             dirGemasBoasPor5: valRaw('qual-dir-gemas-por5'),
+            dirGemasRuinsTotais: valRaw('qual-dir-gemas-ruins-total'),
             dirGemasViaveisPorM: valRaw('qual-dir-gemas-viaveis-por-m'),
             dirGemasInviaveisPorM: valRaw('qual-dir-gemas-inviaveis-por-m'),
             // Resultados finais
