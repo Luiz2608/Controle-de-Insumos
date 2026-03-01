@@ -1612,6 +1612,12 @@ body.dark-mode #novo-lancamento-modal h4 {
     color: #212529;
 }
 
+/* Missing style for Ruim/Erro */
+.badge-danger {
+    background-color: var(--error, #ef4444);
+    color: #fff;
+}
+
 /* Theme Adaptation for Transport Modals (Viagem Adubo & Produto Outro) */
 body.dark-mode #modal-viagem-adubo .modal-content,
 body.dark-mode #modal-produto-outro .modal-content,
