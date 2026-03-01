@@ -10377,6 +10377,10 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
             if (restante < -0.01) restColor = 'var(--danger, #ef4444)';
             else if (Math.abs(restante) < 0.01 && meta > 0) restColor = 'var(--success, #388e3c)';
 
+            // Separator " - " logic
+            const pctRealStr = `<span style="margin-right:6px;">${pctReal.toFixed(1)}% -</span>`;
+            const pctRestStr = `<span style="margin-right:6px;">${pctRest.toFixed(1)}% -</span>`;
+
             return `
             <tr>
                 <td>${item.numero_os || '-'}</td>
@@ -10384,8 +10388,8 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
                 <td>${item.fazenda || '-'} / ${item.frente || '-'}</td>
                 <td>${item.produto || '-'}</td>
                 <td>${this.ui.formatNumber(meta, 3)}</td>
-                <td style="color: var(--accent); font-weight: bold;"><span style="margin-right:6px;">${pctReal.toFixed(1)}%</span>${this.ui.formatNumber(realizado, 3)}</td>
-                <td style="color: ${restColor}; font-weight: bold;"><span style="margin-right:6px;">${pctRest.toFixed(1)}%</span>${this.ui.formatNumber(restante, 3)}</td>
+                <td style="color: var(--accent); font-weight: bold;">${pctRealStr}${this.ui.formatNumber(realizado, 3)}</td>
+                <td style="color: ${restColor}; font-weight: bold;">${pctRestStr}${this.ui.formatNumber(restante, 3)}</td>
                 <td><span class="badge ${item.status === 'ABERTO' ? 'badge-warning' : 'badge-success'}">${item.status}</span></td>
                 <td style="white-space: nowrap;">
                     <div style="display: flex; gap: 8px;">
@@ -10401,8 +10405,8 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
         const totalPctReal = totalMeta > 0 ? ((totalRealizado / totalMeta) * 100) : 0;
         const totalPctRest = totalMeta > 0 ? ((totalRestante / totalMeta) * 100) : 0;
         if (tfootMeta) tfootMeta.textContent = this.ui.formatNumber(totalMeta, 3);
-        if (tfootRealizado) tfootRealizado.innerHTML = `<span style="margin-right:6px;">${totalPctReal.toFixed(1)}%</span>${this.ui.formatNumber(totalRealizado, 3)}`;
-        if (tfootRestante) tfootRestante.innerHTML = `<span style="margin-right:6px;">${totalPctRest.toFixed(1)}%</span>${this.ui.formatNumber(totalRestante, 3)}`;
+        if (tfootRealizado) tfootRealizado.innerHTML = `<span style="margin-right:6px;">${totalPctReal.toFixed(1)}% -</span>${this.ui.formatNumber(totalRealizado, 3)}`;
+        if (tfootRestante) tfootRestante.innerHTML = `<span style="margin-right:6px;">${totalPctRest.toFixed(1)}% -</span>${this.ui.formatNumber(totalRestante, 3)}`;
     }
 
     setupCompostoListeners() {
