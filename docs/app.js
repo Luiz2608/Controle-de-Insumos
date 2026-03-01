@@ -14516,18 +14516,29 @@ InsumosApp.prototype.updateQualidadePlantioCanaCalculations = function() {
         const gemasInviaveisPorM = meters > 0 ? (totalGemasRuinsInput / meters) : 0;
         set('gemas-inviaveis-por-m', gemasInviaveisPorM);
         
-        return { kgHa, qtdBons, qtdRuins, pesoBons, pesoRuins, gemasPorTolete, gemasPor5 };
+        return { kgHa, qtdBons, qtdRuins, pesoBons, pesoRuins, gemasPorTolete, gemasPor5, gemasViaveisPorM, gemasInviaveisPorM };
     };
     const esq = computeSide('qual-esq');
     const dir = computeSide('qual-dir');
     const mediaKgHa = ((esq.kgHa || 0) + (dir.kgHa || 0)) / 2;
     const mediaGemasTolete = ((esq.gemasPorTolete || 0) + (dir.gemasPorTolete || 0)) / 2;
+    // Médias de gemas por metro (viáveis e inviáveis) sem mistura
+    const viaveisVals = [];
+    const inviaveisVals = [];
+    if (esq.gemasViaveisPorM != null) viaveisVals.push(esq.gemasViaveisPorM);
+    if (dir.gemasViaveisPorM != null) viaveisVals.push(dir.gemasViaveisPorM);
+    if (esq.gemasInviaveisPorM != null) inviaveisVals.push(esq.gemasInviaveisPorM);
+    if (dir.gemasInviaveisPorM != null) inviaveisVals.push(dir.gemasInviaveisPorM);
+    const mediaViaveisM = viaveisVals.length ? (viaveisVals.reduce((a,b)=>a+b,0) / viaveisVals.length) : 0;
+    const mediaInviaveisM = inviaveisVals.length ? (inviaveisVals.reduce((a,b)=>a+b,0) / inviaveisVals.length) : 0;
     const totalBons = (esq.qtdBons || 0) + (dir.qtdBons || 0);
     const totalRuins = (esq.qtdRuins || 0) + (dir.qtdRuins || 0);
     const setOut = (id, v) => { const el = document.getElementById(id); if (el) el.value = isFinite(v) ? Number(v).toFixed(2) : ''; };
     setOut('qual-media-kg-ha', mediaKgHa);
     setOut('qual-media-gemas-por-tolete', mediaGemasTolete);
     setOut('qual-media-gemas-por5', ((esq.gemasPor5 || 0) + (dir.gemasPor5 || 0)) / 2);
+    setOut('qual-media-gemas-viaveis-por-m', mediaViaveisM);
+    setOut('qual-media-gemas-inviaveis-por-m', mediaInviaveisM);
     const totalToletes = totalBons + totalRuins;
     let pctBons = 0;
     let pctRuins = 0;
