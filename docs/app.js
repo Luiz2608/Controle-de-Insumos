@@ -7265,6 +7265,9 @@ forceReloadAllData() {
             statusLabel = 'RUIM'; // < 8
         }
 
+        const gemasBoas5m = (q.totalGemasBoas != null) ? q.totalGemasBoas : ((q.esqGemasBoasPor5 || 0) + (q.dirGemasBoasPor5 || 0));
+        const gemasRuins5m = (q.esqGemasRuinsTotais || 0) + (q.dirGemasRuinsTotais || 0);
+
         const text =
 `🌱 RELATÓRIO DE QUALIDADE DE MUDA
 📍 Frente: ${frente}
@@ -7275,12 +7278,13 @@ forceReloadAllData() {
 ⚖ Peso Bruto: ${this.ui.formatNumber(pesoBrutoTotal||0,2)} kg
 ⚖ Peso Líquido: ${this.ui.formatNumber(pesoLiquidoTotal||0,2)} kg
 
-📊 Tonelada por hectare: ${this.ui.formatNumber(q.mediaKgHa||0,2)} kg
+📊 Kg/ha: ${this.ui.formatNumber(q.mediaKgHa||0,2)} kg/ha
 
 🟢 Tolete bom: ${this.ui.formatNumber(qtdBonsTotal||0,0)} (~${this.ui.formatNumber(pctBonsTotal||0,2)}%)
 🔴 Tolete ruim: ${this.ui.formatNumber(qtdRuinsTotal||0,0)} (~${this.ui.formatNumber(pctRuinsTotal||0,2)}%)
 
 🌿 Média de gemas por tolete: ${this.ui.formatNumber(q.mediaGemasPorTolete||0,2)}
+🧬 Gemas (5 m): Boas ${this.ui.formatNumber(gemasBoas5m||0,0)} · Ruins ${this.ui.formatNumber(gemasRuins5m||0,0)}
 🌿 Gemas viáveis/m (média): ${this.ui.formatNumber(mediaViaveisM||0,2)}
 
 📌 Classificação: ${statusLabel}
@@ -7424,6 +7428,9 @@ Abaixo de 8 gemas/m → RUIM`;
             else statusLabel = 'RUIM';
         }
 
+        const gemasBoas5m = (q.totalGemasBoas != null) ? q.totalGemasBoas : ((q.esqGemasBoasPor5 || 0) + (q.dirGemasBoasPor5 || 0));
+        const gemasRuins5m = (q.esqGemasRuinsTotais || 0) + (q.dirGemasRuinsTotais || 0);
+
         const text =
 `🌱 *QUALIDADE DE MUDA – PLANTIO*
 
@@ -7436,15 +7443,19 @@ Abaixo de 8 gemas/m → RUIM`;
 ⏰ Hora: ${horaStr}
 
 ⚖ Peso total: ${this.ui.formatNumber(pesoLiquidoTotal||0,2)} kg
-📊 Tonelada por hectare: ${this.ui.formatNumber(tHaTotal||0,2)} T/ha
+📊 Kg/ha: ${this.ui.formatNumber(kgHaTotal||0,2)} kg/ha
+📈 T/ha: ${this.ui.formatNumber(tHaTotal||0,2)} T/ha
 
 🟢 Tolete bom: ${this.ui.formatNumber(qtdBonsTotal||0,0)} ~ ${this.ui.formatNumber(pctBonsTotal||0,2)}%
 🔴 Tolete ruim: ${this.ui.formatNumber(qtdRuinsTotal||0,0)} ~ ${this.ui.formatNumber(pctRuinsTotal||0,2)}%
 
+🧬 Gemas (5 m)
+Boas: ${this.ui.formatNumber(gemasBoas5m||0,0)} | Ruins: ${this.ui.formatNumber(gemasRuins5m||0,0)}
+Gemas viáveis/m (média): ${this.ui.formatNumber(mediaViaveisM||0,2)}
+
 🌿 Gema viável:
 Peso: ${this.ui.formatNumber(pesoBonsTotal||0,2)} kg
 ${this.ui.formatNumber(tHaViavel||0,2)} T/ha
-Gemas viáveis/m (média): ${this.ui.formatNumber(mediaViaveisM||0,2)}
 
 🗑 Gema descarte:
 Peso: ${this.ui.formatNumber(pesoRuinsTotal||0,2)} kg
@@ -7910,6 +7921,12 @@ Dia: ${this.ui.formatNumber(consDia,2)} t | Prev.: ${this.ui.formatNumber(consPr
                         <div class="info-item"><strong>Média KG por hectare:</strong> ${this.ui.formatNumber(q.mediaKgHa||0,2)} kg/ha</div>
                         <div class="info-item"><strong>Total Toletes Bons (%):</strong> ${this.ui.formatNumber(pctBonsTotal||0,2)}%</div>
                         <div class="info-item"><strong>Total Toletes Ruins (%):</strong> ${this.ui.formatNumber(pctRuinsTotal||0,2)}%</div>
+                    </div>
+                    <h6 style="margin: 12px 0 6px 0; border-bottom: 1px solid #eee; padding-bottom: 5px;">🧬 Gemas (Consolidadas)</h6>
+                    <div class="info-grid" style="grid-template-columns: repeat(3, 1fr);">
+                        <div class="info-item"><strong>Gemas boas (5 m):</strong> ${this.ui.formatNumber((q.totalGemasBoas!=null?q.totalGemasBoas:(q.esqGemasBoasPor5||0)+(q.dirGemasBoasPor5||0))||0,0)}</div>
+                        <div class="info-item"><strong>Gemas ruins (5 m):</strong> ${this.ui.formatNumber(((q.esqGemasRuinsTotais||0)+(q.dirGemasRuinsTotais||0))||0,0)}</div>
+                        <div class="info-item"><strong>Gemas viáveis/m (média):</strong> ${this.ui.formatNumber(q.mediaGemasViaveisPorM!=null?q.mediaGemasViaveisPorM:mediaViaveisM||0,2)}</div>
                     </div>
                 `;
             } else {
