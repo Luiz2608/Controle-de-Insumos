@@ -7484,6 +7484,111 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
         }
     }
 
+    copyQualidadeResumoGeralWhatsApp(id, button) {
+        const r = (this.plantioDia || []).find(p => String(p.id) === String(id));
+        if (!r || !r.qualidade) return;
+
+        const q = r.qualidade || {};
+        const fmtDate = (d) => {
+            if (!d) return '—';
+            const parts = String(d).split('-');
+            return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : d;
+        };
+        const dataStr = fmtDate(r.data);
+        const primeiraFrente = Array.isArray(r.frentes) && r.frentes.length > 0 ? r.frentes[0] : null;
+        const fazenda = (primeiraFrente && primeiraFrente.fazenda) || q.mudaFazendaOrigem || '—';
+        const frente = (primeiraFrente && primeiraFrente.frente) || q.mudaTalhaoOrigem || '—';
+        const variedade = q.mudaVariedade || '—';
+        const liberacao = q.mudaLiberacaoFazenda || q.mudaColheitaInfo || '—';
+
+        const ga = Number(q.gemasAmostra || 0);
+        const gt = Number(q.gemasTotal || 0);
+        const gb = Number(q.gemasBoas || 0);
+        const gr = Number(q.gemasRuins || 0);
+        const gMed = (q.gemasMedia != null) ? Number(q.gemasMedia) : (ga > 0 && gt > 0 ? gt / ga : 0);
+        const gbPct = (q.gemasBoasPct != null) ? Number(q.gemasBoasPct) : (gt > 0 ? (gb / gt) * 100 : 0);
+        const grPct = (q.gemasRuinsPct != null) ? Number(q.gemasRuinsPct) : (gt > 0 ? (gr / gt) * 100 : 0);
+
+        const ta = Number(q.toletesAmostra || 0);
+        const tt = Number(q.toletesTotal || 0);
+        const tb = Number(q.toletesBons || 0);
+        const tr = Number(q.toletesRuins || 0);
+        const tMed = (q.toletesMedia != null) ? Number(q.toletesMedia) : (ta > 0 && tt > 0 ? tt / ta : 0);
+        const tbPct = (q.toletesBonsPct != null) ? Number(q.toletesBonsPct) : (tt > 0 ? (tb / tt) * 100 : 0);
+        const trPct = (q.toletesRuinsPct != null) ? Number(q.toletesRuinsPct) : (tt > 0 ? (tr / tt) * 100 : 0);
+
+        const rebTot = Number(q.mudasReboulos || 0);
+        const rebB = Number(q.mudasReboulosBons || 0);
+        const rebR = Number(q.mudasReboulosRuins || 0);
+        const rebBPct = (q.mudasReboulosBonsPct != null) ? Number(q.mudasReboulosBonsPct) : (rebTot > 0 ? (rebB / rebTot) * 100 : 0);
+        const rebRPct = (q.mudasReboulosRuinsPct != null) ? Number(q.mudasReboulosRuinsPct) : (rebTot > 0 ? (rebR / rebTot) * 100 : 0);
+
+        const consTot = Number(q.mudaConsumoTotal || 0);
+        const consAc = Number(q.mudaConsumoAcumulado || 0);
+        const consDia = Number(q.mudaConsumoDia || 0);
+        const consPrev = Number(q.mudaPrevisto || 0);
+
+        const text =
+`🧬 QUALIDADE DE MUDA
+
+📍 Fazenda: ${fazenda}
+📍 Frente: ${frente}
+🌱 Variedade: ${variedade}
+🔖 Liberação: ${liberacao}
+📅 Data: ${dataStr}
+
+🧬 Gemas
+Amostra: ${this.ui.formatNumber(ga,1)} | Total: ${this.ui.formatNumber(gt)}
+Média/m: ${this.ui.formatNumber(gMed,2)}
+Viáveis: ${this.ui.formatNumber(gb)} (${this.ui.formatNumber(gbPct,2)}%)
+Inviáveis: ${this.ui.formatNumber(gr)} (${this.ui.formatNumber(grPct,2)}%)
+
+🪵 Toletes
+Amostra: ${this.ui.formatNumber(ta,1)} | Total: ${this.ui.formatNumber(tt)}
+Média/m: ${this.ui.formatNumber(tMed,2)}
+Bons: ${this.ui.formatNumber(tb)} (${this.ui.formatNumber(tbPct,2)}%)
+Ruins: ${this.ui.formatNumber(tr)} (${this.ui.formatNumber(trPct,2)}%)
+
+🍂 Reboulos
+Total: ${this.ui.formatNumber(rebTot)}
+Bons: ${this.ui.formatNumber(rebB)} (${this.ui.formatNumber(rebBPct,2)}%)
+Ruins: ${this.ui.formatNumber(rebR)} (${this.ui.formatNumber(rebRPct,2)}%)
+
+🚜 Consumo de Muda
+Total: ${this.ui.formatNumber(consTot,2)} t | Acum.: ${this.ui.formatNumber(consAc,2)} t
+Dia: ${this.ui.formatNumber(consDia,2)} t | Prev.: ${this.ui.formatNumber(consPrev,2)} t`;
+
+        const originalText = button ? button.innerText : null;
+        if (button) {
+            button.disabled = true;
+            button.innerText = '✅ Copiado!';
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(() => {
+                this.ui.showNotification('✔ Resumo copiado para a área de transferência!', 'success');
+                if (button) {
+                    setTimeout(() => {
+                        button.disabled = false;
+                        button.innerText = originalText;
+                    }, 2500);
+                }
+            }).catch(() => {
+                this.ui.showNotification('Erro ao copiar. Tente novamente.', 'error');
+                window.prompt('Copie o texto abaixo:', text);
+                if (button) {
+                    button.disabled = false;
+                    button.innerText = originalText;
+                }
+            });
+        } else {
+            window.prompt('Copie o texto abaixo:', text);
+            if (button) {
+                button.disabled = false;
+                button.innerText = originalText;
+            }
+        }
+    }
+
     getPlantioDetailsHTML(r) {
         const fmtDate = (d) => {
             if (!d) return '—';
@@ -7632,20 +7737,42 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
                 <!-- Subseção Gemas -->
                 <h6 style="margin: 15px 0 5px 0; border-bottom: 1px solid #eee; padding-bottom: 5px;">🧬 Gemas (Qualidade)</h6>
                 <div class="quality-grid">
-                    ${qualItem('Amostra', this.ui.formatNumber(q.gemasAmostra||0, 1))}
-                    ${qualItem('Total', this.ui.formatNumber(q.gemasTotal||0))}
-                    ${qualItem('Média/m', this.ui.formatNumber(q.gemasMedia||0, 2))}
-                    ${qualItem('Viáveis', this.ui.formatNumber(q.gemasBoas||0), `(${this.ui.formatNumber(q.gemasBoasPct||0,1)}%)`)}
-                    ${qualItem('Inviáveis', this.ui.formatNumber(q.gemasRuins||0), `(${this.ui.formatNumber(q.gemasRuinsPct||0,1)}%)`)}
+                    ${(() => {
+                        const ga = Number(q.gemasAmostra||0);
+                        const gt = Number(q.gemasTotal||0);
+                        const gb = Number(q.gemasBoas||0);
+                        const gr = Number(q.gemasRuins||0);
+                        const gMed = (q.gemasMedia != null) ? Number(q.gemasMedia) : (ga>0 && gt>0 ? gt/ga : 0);
+                        const gbPct = (q.gemasBoasPct != null) ? Number(q.gemasBoasPct) : (gt>0 ? (gb/gt)*100 : 0);
+                        const grPct = (q.gemasRuinsPct != null) ? Number(q.gemasRuinsPct) : (gt>0 ? (gr/gt)*100 : 0);
+                        return `
+                            ${qualItem('Amostra', this.ui.formatNumber(ga, 1))}
+                            ${qualItem('Total', this.ui.formatNumber(gt))}
+                            ${qualItem('Média/m', this.ui.formatNumber(gMed, 2))}
+                            ${qualItem('Viáveis', this.ui.formatNumber(gb), `(${this.ui.formatNumber(gbPct,1)}%)`)}
+                            ${qualItem('Inviáveis', this.ui.formatNumber(gr), `(${this.ui.formatNumber(grPct,1)}%)`)}
+                        `;
+                    })()}
                 </div>
                 <!-- Subseção Toletes -->
                 <h6 style="margin: 15px 0 5px 0; border-bottom: 1px solid #eee; padding-bottom: 5px;">🪵 Toletes (Qualidade)</h6>
                 <div class="quality-grid">
-                    ${qualItem('Amostra', this.ui.formatNumber(q.toletesAmostra||0, 1))}
-                    ${qualItem('Total', this.ui.formatNumber(q.toletesTotal||0))}
-                    ${qualItem('Média/m', this.ui.formatNumber(q.toletesMedia||0, 2))}
-                    ${qualItem('Bons', this.ui.formatNumber(q.toletesBons||0), `(${this.ui.formatNumber(q.toletesBonsPct||0,1)}%)`)}
-                    ${qualItem('Ruins', this.ui.formatNumber(q.toletesRuins||0), `(${this.ui.formatNumber(q.toletesRuinsPct||0,1)}%)`)}
+                    ${(() => {
+                        const ta = Number(q.toletesAmostra||0);
+                        const tt = Number(q.toletesTotal||0);
+                        const tb = Number(q.toletesBons||0);
+                        const tr = Number(q.toletesRuins||0);
+                        const tMed = (q.toletesMedia != null) ? Number(q.toletesMedia) : (ta>0 && tt>0 ? tt/ta : 0);
+                        const tbPct = (q.toletesBonsPct != null) ? Number(q.toletesBonsPct) : (tt>0 ? (tb/tt)*100 : 0);
+                        const trPct = (q.toletesRuinsPct != null) ? Number(q.toletesRuinsPct) : (tt>0 ? (tr/tt)*100 : 0);
+                        return `
+                            ${qualItem('Amostra', this.ui.formatNumber(ta, 1))}
+                            ${qualItem('Total', this.ui.formatNumber(tt))}
+                            ${qualItem('Média/m', this.ui.formatNumber(tMed, 2))}
+                            ${qualItem('Bons', this.ui.formatNumber(tb), `(${this.ui.formatNumber(tbPct,1)}%)`)}
+                            ${qualItem('Ruins', this.ui.formatNumber(tr), `(${this.ui.formatNumber(trPct,1)}%)`)}
+                        `;
+                    })()}
                 </div>
             `;
             
@@ -7927,7 +8054,11 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
                     <button class="btn btn-secondary" onclick="window.insumosApp.copyQualidadeResumoOperacionalWhatsApp('${r.id}', this)">
                         📋 Copiar Resumo para WhatsApp
                     </button>
-                    ` : ''}
+                    ` : (q ? `
+                    <button class="btn btn-secondary" onclick="window.insumosApp.copyQualidadeResumoGeralWhatsApp('${r.id}', this)">
+                        📋 Copiar Resumo para WhatsApp
+                    </button>
+                    ` : '')}
                 </div>
             </div>`;
     }
