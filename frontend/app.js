@@ -14435,20 +14435,31 @@ InsumosApp.prototype.updateQualidadePlantioCanaCalculations = function() {
         let qtdRuins = val('qtd-ruins');
         const totalToletes = (qtdBons || 0) + (qtdRuins || 0);
 
-        const gemasPorTolete = val('gemas-por-tolete');
+        // O campo ID "gemas-por-tolete" agora recebe o TOTAL de gemas nos toletes BONS
+        // Então renomeamos a variável para evitar confusão no código, mas mantemos o ID para compatibilidade
+        const totalGemasBonsInput = val('gemas-por-tolete');
         
-        // Total de gemas na amostra de 5 metros
+        // Calculamos a média real para uso nas fórmulas: Total Gemas / Qtd Toletes Bons
+        // Evita divisão por zero
+        const gemasPorTolete = qtdBons > 0 ? (totalGemasBonsInput / qtdBons) : 0;
+        
+        // Total de gemas na amostra de 5 metros (Considerando apenas a proporção dos bons)
+        // Se o usuário inseriu o total de gemas nos bons, então gemasPor5 é praticamente o input + gemas dos ruins (estimado)
+        // Mas para manter consistência com a fórmula anterior: gemasPor5 = Média * TotalToletes
         const gemasPor5 = gemasPorTolete * totalToletes; 
         set('gemas-por5', gemasPor5);
         
         // Gemas viáveis por metro:
         // Consideramos apenas as gemas dos toletes BONS encontrados nos 5 metros
         // Gemas/m = (GemasPorTolete * QtdBons) / 5 metros
-        const gemasViaveisPorM = (gemasPorTolete * (qtdBons || 0)) / meters;
+        // Como GemasPorTolete = Input / QtdBons, então:
+        // Gemas/m = (Input / QtdBons * QtdBons) / 5 = Input / 5
+        const gemasViaveisPorM = meters > 0 ? totalGemasBonsInput / meters : 0;
         set('gemas-viaveis-por-m', gemasViaveisPorM);
         
         // Gemas inviáveis por metro
         // Consideramos as gemas dos toletes RUINS encontrados nos 5 metros
+        // Usamos a média calculada dos bons para estimar os ruins
         const gemasInviaveisPorM = (gemasPorTolete * (qtdRuins || 0)) / meters;
         set('gemas-inviaveis-por-m', gemasInviaveisPorM);
         
