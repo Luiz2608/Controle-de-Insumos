@@ -7164,11 +7164,8 @@ forceReloadAllData() {
         const pctBonsTotal = typeof q.totalToletesBons === 'number' ? q.totalToletesBons : 0;
         const pctRuinsTotal = typeof q.totalToletesRuins === 'number' ? q.totalToletesRuins : 0;
 
-        let classificacao = 'RUIM';
-        if (pctBonsTotal > 80) classificacao = 'BOM';
-        else if (pctBonsTotal >= 50) classificacao = 'MÉDIO';
-
         // Gemas viáveis por metro (média)
+        // OBS: As gemas boas tem que ser em cima apenas dos toletes bons
         let mediaViaveisM = (typeof q.mediaGemasViaveisPorM === 'number') ? q.mediaGemasViaveisPorM : null;
         if (mediaViaveisM == null) {
             const esqV = (typeof q.esqGemasViaveisPorM === 'number') ? q.esqGemasViaveisPorM : null;
@@ -7178,21 +7175,21 @@ forceReloadAllData() {
                 mediaViaveisM = ((esqV || 0) + (dirV || 0)) / (count || 1);
             }
         }
-        // Gemas inviáveis por metro (média)
-        let mediaInviaveisM = (typeof q.mediaGemasInviaveisPorM === 'number') ? q.mediaGemasInviaveisPorM : null;
-        if (mediaInviaveisM == null) {
-            const esqI = (typeof q.esqGemasInviaveisPorM === 'number') ? q.esqGemasInviaveisPorM : null;
-            const dirI = (typeof q.dirGemasInviaveisPorM === 'number') ? q.dirGemasInviaveisPorM : null;
-            if (esqI != null || dirI != null) {
-                const countI = (esqI != null ? 1 : 0) + (dirI != null ? 1 : 0);
-                mediaInviaveisM = ((esqI || 0) + (dirI || 0)) / (countI || 1);
-            }
+
+        let statusLabel = 'RUIM';
+        if (mediaViaveisM >= 8 && mediaViaveisM <= 13) {
+            statusLabel = 'BOM';
+        } else if (mediaViaveisM > 13) {
+            statusLabel = 'EXCELENTE';
+        } else {
+            statusLabel = 'RUIM'; // < 8
         }
 
         const text =
 `🌱 RELATÓRIO DE QUALIDADE DE MUDA
 📍 Frente: ${frente}
 📅 Data: ${dataStr}
+🌱 Variedade: ${q.mudaVariedade || '—'}
 
 ⚖ Peso do Balde: ${this.ui.formatNumber(pesoBaldeEsq,3)}kg / ${this.ui.formatNumber(pesoBaldeDir,3)}kg
 ⚖ Peso Bruto: ${this.ui.formatNumber(pesoBrutoTotal||0,2)} kg
@@ -7205,13 +7202,12 @@ forceReloadAllData() {
 
 🌿 Média de gemas por tolete: ${this.ui.formatNumber(q.mediaGemasPorTolete||0,2)}
 🌿 Gemas viáveis/m (média): ${this.ui.formatNumber(mediaViaveisM||0,2)}
-🗑 Gemas inviáveis/m (média): ${this.ui.formatNumber(mediaInviaveisM||0,2)}
 
-📌 Classificação: ${classificacao}
+📌 Classificação: ${statusLabel}
 
-Acima de 80% → BOM
-Entre 50% e 80% → MÉDIO
-Abaixo de 50% → RUIM`;
+Entre 8 e 13 gemas/m → BOM
+Acima de 13 gemas/m → EXCELENTE
+Abaixo de 8 gemas/m → RUIM`;
 
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(text).then(() => {
