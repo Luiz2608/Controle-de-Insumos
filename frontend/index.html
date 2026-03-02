@@ -820,7 +820,7 @@
                 <h4 style="margin:0;">Gerenciamento de Transporte de Adubo</h4>
                 <div style="display:flex; gap:10px;">
                      <button id="btn-nova-viagem-adubo" class="btn btn-primary">➕ Nova Viagem</button>
-                     <button id="btn-export-lacres-pdf" class="btn btn-secondary" style="background-color: #6a1b9a; border-color: #6a1b9a;">📄 Relatório Gerencial</button>
+                     <button id="btn-export-lacres-pdf" class="btn btn-secondary" style="display: none; background-color: #6a1b9a; border-color: #6a1b9a;">📄 Relatório Gerencial</button>
                      <button id="btn-controle-bags" class="btn btn-secondary">🎒 Controle de Lacres</button>
                      <button id="btn-toggle-viagens-filters" class="btn btn-secondary">🔍 Filtrar</button>
                 </div>
@@ -2266,6 +2266,8 @@
                                     <!-- Campos ocultos para compatibilidade com getSaveData -->
                                     <input type="hidden" id="qual-total-gemas-boas">
                                     <input type="hidden" id="qual-media-gemas-por5">
+                                    <input type="hidden" id="qual-esq-gemas-por5">
+                                    <input type="hidden" id="qual-dir-gemas-por5">
                                 </div>
                             </div>
                         </div>

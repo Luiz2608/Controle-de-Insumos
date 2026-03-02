@@ -7321,7 +7321,18 @@ Abaixo de 8 gemas/m → RUIM`;
 
         const dataStr = fmtDate(r.data);
         const primeiraFrente = Array.isArray(r.frentes) && r.frentes.length > 0 ? r.frentes[0] : null;
-        const fazenda = (primeiraFrente && primeiraFrente.fazenda) || q.mudaFazendaOrigem || '—';
+        let derivedHeaderFazenda = null;
+        if (primeiraFrente) {
+            if (primeiraFrente.fazenda) {
+                derivedHeaderFazenda = primeiraFrente.fazenda;
+            } else if (primeiraFrente.frente) {
+                const m = String(primeiraFrente.frente).match(/^(\d+)\s+(.+)$/);
+                if (m && m[2]) {
+                    derivedHeaderFazenda = m[2].trim();
+                }
+            }
+        }
+        const fazenda = derivedHeaderFazenda || q.mudaFazendaOrigem || '—';
         const frente = (primeiraFrente && primeiraFrente.frente) || q.mudaTalhaoOrigem || '—';
 
         const plantadora = q.qualEquipamentoPlantadora || '—';
@@ -7536,7 +7547,18 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
         };
         const dataStr = fmtDate(r.data);
         const primeiraFrente = Array.isArray(r.frentes) && r.frentes.length > 0 ? r.frentes[0] : null;
-        const fazenda = (primeiraFrente && primeiraFrente.fazenda) || q.mudaFazendaOrigem || '—';
+        let derivedHeaderFazenda = null;
+        if (primeiraFrente) {
+            if (primeiraFrente.fazenda) {
+                derivedHeaderFazenda = primeiraFrente.fazenda;
+            } else if (primeiraFrente.frente) {
+                const m = String(primeiraFrente.frente).match(/^(\d+)\s+(.+)$/);
+                if (m && m[2]) {
+                    derivedHeaderFazenda = m[2].trim();
+                }
+            }
+        }
+        const fazenda = derivedHeaderFazenda || q.mudaFazendaOrigem || '—';
         const frente = (primeiraFrente && primeiraFrente.frente) || q.mudaTalhaoOrigem || '—';
         const variedade = q.mudaVariedade || '—';
         const liberacao = q.mudaLiberacaoFazenda || q.mudaColheitaInfo || '—';
@@ -7761,6 +7783,17 @@ Dia: ${this.ui.formatNumber(consDia,2)} t | Prev.: ${this.ui.formatNumber(consPr
                 statusPlantioCana = { label: 'MÉDIO', emoji: '🟡', color: '#f9a825' };
             } else {
                 statusPlantioCana = { label: 'RUIM', emoji: '🔴', color: '#e53935' };
+            }
+        }
+
+        // Garantir disponibilidade de 'mediaViaveisM' neste escopo
+        let mediaViaveisM = (typeof q.mediaGemasViaveisPorM === 'number') ? q.mediaGemasViaveisPorM : null;
+        if (mediaViaveisM == null) {
+            const esqV = (typeof q.esqGemasViaveisPorM === 'number') ? q.esqGemasViaveisPorM : null;
+            const dirV = (typeof q.dirGemasViaveisPorM === 'number') ? q.dirGemasViaveisPorM : null;
+            if (esqV != null || dirV != null) {
+                const count = (esqV != null ? 1 : 0) + (dirV != null ? 1 : 0);
+                mediaViaveisM = ((esqV || 0) + (dirV || 0)) / (count || 1);
             }
         }
 
@@ -9710,6 +9743,12 @@ Dia: ${this.ui.formatNumber(consDia,2)} t | Prev.: ${this.ui.formatNumber(consPr
             btn.classList.toggle('btn-primary', isHidden);
             btn.classList.toggle('btn-secondary', !isHidden);
             btn.textContent = isHidden ? '📋 Voltar para Viagens' : '🎒 Controle de Lacres';
+        }
+
+        // Mostrar o botão "Relatório Gerencial" apenas no Controle de Lacres
+        const btnExportLacres = document.getElementById('btn-export-lacres-pdf');
+        if (btnExportLacres) {
+            btnExportLacres.style.display = isHidden ? 'inline-block' : 'none';
         }
 
         if (isHidden) {
@@ -14730,6 +14769,18 @@ InsumosApp.prototype.updateQualidadePlantioCanaCalculations = function() {
     setOut('qual-media-gemas-por5', ((esq.gemasPor5 || 0) + (dir.gemasPor5 || 0)) / 2);
     setOut('qual-media-gemas-viaveis-por-m', mediaViaveisM);
     setOut('qual-media-gemas-inviaveis-por-m', mediaInviaveisM);
+    // Persistir os totais por lado e o total geral de gemas boas (5 m) para uso no save/cópias
+    setOut('qual-esq-gemas-por5', esq.gemasPor5 || 0);
+    setOut('qual-dir-gemas-por5', dir.gemasPor5 || 0);
+    const toNumHidden = (id) => {
+        const el = document.getElementById(id);
+        if (!el) return 0;
+        const s = String(el.value || '').trim().replace(/\./g, '').replace(',', '.');
+        const n = parseFloat(s);
+        return isNaN(n) ? 0 : n;
+    };
+    const totalGemasBoas5m = toNumHidden('qual-esq-gemas-por-tolete') + toNumHidden('qual-dir-gemas-por-tolete');
+    setOut('qual-total-gemas-boas', totalGemasBoas5m);
     const totalToletes = totalBons + totalRuins;
     let pctBons = 0;
     let pctRuins = 0;
