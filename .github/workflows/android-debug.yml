@@ -33,6 +33,15 @@ jobs:
 
       - name: Build Debug APK
         run: |
+          mkdir -p android/app/src/main/assets/public
+          cp -f docs/index.html android/app/src/main/assets/public/index.html || true
+          cp -f docs/app.js android/app/src/main/assets/public/app.js || true
+          cp -f docs/main.css android/app/src/main/assets/public/main.css || true
+          # Optional extras if present
+          [ -f docs/lacre-report.js ] && cp -f docs/lacre-report.js android/app/src/main/assets/public/lacre-report.js || true
+          [ -f docs/ui.js ] && cp -f docs/ui.js android/app/src/main/assets/public/ui.js || true
+          [ -f docs/api.js ] && cp -f docs/api.js android/app/src/main/assets/public/api.js || true
+          [ -f docs/config.js ] && cp -f docs/config.js android/app/src/main/assets/public/config.js || true
           gradle -p android assembleDebug
 
       - name: Upload APK
