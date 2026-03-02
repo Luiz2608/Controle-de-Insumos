@@ -7367,51 +7367,63 @@ Abaixo de 8 gemas/m → RUIM`;
         let tHaTotal = kgHaTotal > 0 ? (kgHaTotal / 1000) : 0;
         
         // Estratégia de divisão (prioridade):
-        // 1) Proporção de GEMAS boas/ruins (se disponível)
-        // 2) Por lado com % peso bons
-        // 3) Proporção por pesos bons/ruins (fallback)
+        // 1) Pesos por lado (E/D) ponderados por Kg/ha do próprio lado
+        // 2) Proporção de GEMAS boas/ruins (5 m)
+        // 3) % bons por lado (E/D) com Kg/ha
+        // 4) Pesos totais da amostra (fallback)
         let viavelKgHa = 0;
         let descarteKgHa = 0;
-        
-        const gemasBoas5mCalc = (q.totalGemasBoas != null) ? q.totalGemasBoas : ((q.esqGemasBoasPor5 || 0) + (q.dirGemasBoasPor5 || 0));
-        const gemasRuins5mCalc = (q.esqGemasRuinsTotais || 0) + (q.dirGemasRuinsTotais || 0);
-        const somaGemas = (gemasBoas5mCalc || 0) + (gemasRuins5mCalc || 0);
-        
-        if (kgHaTotal > 0 && somaGemas > 0) {
-            const propBons = gemasBoas5mCalc / somaGemas;
-            const propRuins = 1 - propBons;
-            viavelKgHa = kgHaTotal * propBons;
-            descarteKgHa = kgHaTotal * propRuins;
+        const toNum = (v) => (v == null || v === '') ? 0 : Number(v);
+        const esqPB = toNum(q.esqPesoBons), esqPR = toNum(q.esqPesoRuins);
+        const dirPB = toNum(q.dirPesoBons), dirPR = toNum(q.dirPesoRuins);
+        const esqDen = esqPB + esqPR, dirDen = dirPB + dirPR;
+        const esqKg = toNum(q.esqKgHa), dirKg = toNum(q.dirKgHa);
+        let sideV = 0, sideR = 0, sideCnt = 0;
+        if (esqKg > 0 && esqDen > 0) {
+            sideV += esqKg * (esqPB / esqDen);
+            sideR += esqKg * (esqPR / esqDen);
+            sideCnt++;
+        }
+        if (dirKg > 0 && dirDen > 0) {
+            sideV += dirKg * (dirPB / dirDen);
+            sideR += dirKg * (dirPR / dirDen);
+            sideCnt++;
+        }
+        if (kgHaTotal > 0 && sideCnt > 0) {
+            viavelKgHa = sideV / sideCnt;
+            descarteKgHa = sideR / sideCnt;
         } else {
-            let sideSumViavel = 0;
-            let sideSumDescarte = 0;
-            let sideCount = 0;
-            const esqKgHa = q.esqKgHa || 0;
-            const dirKgHa = q.dirKgHa || 0;
-            const esqPctBons = (q.esqPesoBonsPct != null) ? q.esqPesoBonsPct : null;
-            const dirPctBons = (q.dirPesoBonsPct != null) ? q.dirPesoBonsPct : null;
-            
-            if (esqKgHa > 0 && esqPctBons != null) {
-                sideSumViavel += esqKgHa * (esqPctBons / 100);
-                sideSumDescarte += esqKgHa * (1 - (esqPctBons / 100));
-                sideCount++;
-            }
-            if (dirKgHa > 0 && dirPctBons != null) {
-                sideSumViavel += dirKgHa * (dirPctBons / 100);
-                sideSumDescarte += dirKgHa * (1 - (dirPctBons / 100));
-                sideCount++;
-            }
-            
-            if (kgHaTotal > 0 && sideCount > 0) {
-                viavelKgHa = sideSumViavel / sideCount;
-                descarteKgHa = sideSumDescarte / sideCount;
-            } else if (kgHaTotal > 0 && pesoLiquidoTotal > 0) {
-                const pb = Math.max(pesoBonsTotal, 0);
-                const pr = Math.max(pesoRuinsTotal, 0);
-                let propBons = pesoLiquidoTotal > 0 ? pb / pesoLiquidoTotal : 0;
-                let propRuins = 1 - propBons;
+            const gemasBoas5mCalc = (q.totalGemasBoas != null) ? q.totalGemasBoas : ((q.esqGemasBoasPor5 || 0) + (q.dirGemasBoasPor5 || 0));
+            const gemasRuins5mCalc = (q.esqGemasRuinsTotais || 0) + (q.dirGemasRuinsTotais || 0);
+            const somaGemas = (gemasBoas5mCalc || 0) + (gemasRuins5mCalc || 0);
+            if (kgHaTotal > 0 && somaGemas > 0) {
+                const propBons = gemasBoas5mCalc / somaGemas;
                 viavelKgHa = kgHaTotal * propBons;
-                descarteKgHa = kgHaTotal * propRuins;
+                descarteKgHa = kgHaTotal * (1 - propBons);
+            } else {
+                let sumV = 0, sumR = 0, cnt = 0;
+                const ePct = (q.esqPesoBonsPct != null) ? q.esqPesoBonsPct : null;
+                const dPct = (q.dirPesoBonsPct != null) ? q.dirPesoBonsPct : null;
+                if (esqKg > 0 && ePct != null) {
+                    sumV += esqKg * (ePct/100);
+                    sumR += esqKg * (1 - ePct/100);
+                    cnt++;
+                }
+                if (dirKg > 0 && dPct != null) {
+                    sumV += dirKg * (dPct/100);
+                    sumR += dirKg * (1 - dPct/100);
+                    cnt++;
+                }
+                if (kgHaTotal > 0 && cnt > 0) {
+                    viavelKgHa = sumV / cnt;
+                    descarteKgHa = sumR / cnt;
+                } else if (kgHaTotal > 0 && pesoLiquidoTotal > 0) {
+                    const pb = Math.max(pesoBonsTotal, 0);
+                    const pr = Math.max(pesoRuinsTotal, 0);
+                    const propBons = pb / (pb + pr);
+                    viavelKgHa = kgHaTotal * propBons;
+                    descarteKgHa = kgHaTotal * (1 - propBons);
+                }
             }
         }
         

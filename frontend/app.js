@@ -7373,19 +7373,21 @@ Abaixo de 8 gemas/m → RUIM`;
         // 4) Proporção pelos pesos bons/ruins da amostra (fallback)
         let viavelKgHa = 0;
         let descarteKgHa = 0;
-        // 1) Pesos por lado
-        const esqPB = q.esqPesoBons || 0, esqPR = q.esqPesoRuins || 0;
-        const dirPB = q.dirPesoBons || 0, dirPR = q.dirPesoRuins || 0;
+        // 1) Pesos por lado (forçar numéricos)
+        const toNum = (v) => (v == null || v === '') ? 0 : Number(v);
+        const esqPB = toNum(q.esqPesoBons), esqPR = toNum(q.esqPesoRuins);
+        const dirPB = toNum(q.dirPesoBons), dirPR = toNum(q.dirPesoRuins);
         const esqDen = esqPB + esqPR, dirDen = dirPB + dirPR;
         let sideV = 0, sideR = 0, sideCnt = 0;
-        if ((q.esqKgHa||0) > 0 && esqDen > 0) {
-            sideV += (q.esqKgHa||0) * (esqPB / esqDen);
-            sideR += (q.esqKgHa||0) * (esqPR / esqDen);
+        const esqKg = toNum(q.esqKgHa), dirKg = toNum(q.dirKgHa);
+        if (esqKg > 0 && esqDen > 0) {
+            sideV += esqKg * (esqPB / esqDen);
+            sideR += esqKg * (esqPR / esqDen);
             sideCnt++;
         }
-        if ((q.dirKgHa||0) > 0 && dirDen > 0) {
-            sideV += (q.dirKgHa||0) * (dirPB / dirDen);
-            sideR += (q.dirKgHa||0) * (dirPR / dirDen);
+        if (dirKg > 0 && dirDen > 0) {
+            sideV += dirKg * (dirPB / dirDen);
+            sideR += dirKg * (dirPR / dirDen);
             sideCnt++;
         }
         if (kgHaTotal > 0 && sideCnt > 0) {
