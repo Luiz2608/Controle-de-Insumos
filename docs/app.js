@@ -7373,12 +7373,12 @@ Abaixo de 8 gemas/m → RUIM`;
         let viavelKgHa = 0;
         let descarteKgHa = 0;
         
-        const gemasBoas5m = (q.totalGemasBoas != null) ? q.totalGemasBoas : ((q.esqGemasBoasPor5 || 0) + (q.dirGemasBoasPor5 || 0));
-        const gemasRuins5m = (q.esqGemasRuinsTotais || 0) + (q.dirGemasRuinsTotais || 0);
-        const somaGemas = (gemasBoas5m || 0) + (gemasRuins5m || 0);
+        const gemasBoas5mCalc = (q.totalGemasBoas != null) ? q.totalGemasBoas : ((q.esqGemasBoasPor5 || 0) + (q.dirGemasBoasPor5 || 0));
+        const gemasRuins5mCalc = (q.esqGemasRuinsTotais || 0) + (q.dirGemasRuinsTotais || 0);
+        const somaGemas = (gemasBoas5mCalc || 0) + (gemasRuins5mCalc || 0);
         
         if (kgHaTotal > 0 && somaGemas > 0) {
-            const propBons = gemasBoas5m / somaGemas;
+            const propBons = gemasBoas5mCalc / somaGemas;
             const propRuins = 1 - propBons;
             viavelKgHa = kgHaTotal * propBons;
             descarteKgHa = kgHaTotal * propRuins;
