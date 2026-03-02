@@ -7265,8 +7265,10 @@ forceReloadAllData() {
             statusLabel = 'RUIM'; // < 8
         }
 
-        const gemasBoas5m = (q.totalGemasBoas != null) ? q.totalGemasBoas : ((q.esqGemasBoasPor5 || 0) + (q.dirGemasBoasPor5 || 0));
-        const gemasRuins5m = (q.esqGemasRuinsTotais || 0) + (q.dirGemasRuinsTotais || 0);
+        const toNumG_rel = (v) => (v == null || v === '') ? 0 : Number(v);
+        const totalGBoas_rel = toNumG_rel(q.totalGemasBoas);
+        const gemasBoas5m = totalGBoas_rel > 0 ? totalGBoas_rel : (toNumG_rel(q.esqGemasBoasPor5) + toNumG_rel(q.dirGemasBoasPor5));
+        const gemasRuins5m = toNumG_rel(q.esqGemasRuinsTotais) + toNumG_rel(q.dirGemasRuinsTotais);
 
         const text =
 `🌱 RELATÓRIO DE QUALIDADE DE MUDA
@@ -7395,9 +7397,11 @@ Abaixo de 8 gemas/m → RUIM`;
             descarteKgHa = sideR / sideCnt;
         } else {
             // 2) Gemas
-            const gemasBoas5mCalc = (q.totalGemasBoas != null) ? q.totalGemasBoas : ((q.esqGemasBoasPor5 || 0) + (q.dirGemasBoasPor5 || 0));
-            const gemasRuins5mCalc = (q.esqGemasRuinsTotais || 0) + (q.dirGemasRuinsTotais || 0);
-            const somaGemas = (gemasBoas5mCalc || 0) + (gemasRuins5mCalc || 0);
+            const toNumG_calc = (v) => (v == null || v === '') ? 0 : Number(v);
+            const totalGBoas_calc = toNumG_calc(q.totalGemasBoas);
+            const gemasBoas5mCalc = totalGBoas_calc > 0 ? totalGBoas_calc : (toNumG_calc(q.esqGemasBoasPor5) + toNumG_calc(q.dirGemasBoasPor5));
+            const gemasRuins5mCalc = toNumG_calc(q.esqGemasRuinsTotais) + toNumG_calc(q.dirGemasRuinsTotais);
+            const somaGemas = gemasBoas5mCalc + gemasRuins5mCalc;
             if (kgHaTotal > 0 && somaGemas > 0) {
                 const propBons = gemasBoas5mCalc / somaGemas;
                 viavelKgHa = kgHaTotal * propBons;
@@ -7455,8 +7459,10 @@ Abaixo de 8 gemas/m → RUIM`;
             else statusLabel = 'RUIM';
         }
 
-        const gemasBoas5m = (q.totalGemasBoas != null) ? q.totalGemasBoas : ((q.esqGemasBoasPor5 || 0) + (q.dirGemasBoasPor5 || 0));
-        const gemasRuins5m = (q.esqGemasRuinsTotais || 0) + (q.dirGemasRuinsTotais || 0);
+        const toNumG_op = (v) => (v == null || v === '') ? 0 : Number(v);
+        const totalGBoas_op = toNumG_op(q.totalGemasBoas);
+        const gemasBoas5m = totalGBoas_op > 0 ? totalGBoas_op : (toNumG_op(q.esqGemasBoasPor5) + toNumG_op(q.dirGemasBoasPor5));
+        const gemasRuins5m = toNumG_op(q.esqGemasRuinsTotais) + toNumG_op(q.dirGemasRuinsTotais);
 
         const text =
 `🌱 *QUALIDADE DE MUDA – PLANTIO*
