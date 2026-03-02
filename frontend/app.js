@@ -7827,31 +7827,46 @@ Dia: ${this.ui.formatNumber(consDia,2)} t | Prev.: ${this.ui.formatNumber(consPr
                 let tHaDescarte = 0;
                 let proporcaoRuins = 0;
 
-                if (kgHaTotal > 0) {
+                    if (kgHaTotal > 0) {
                     tHaTotal = kgHaTotal / 1000;
                     
-                    if (pesoLiquidoTotal > 0) {
-                        const pb = Math.max(pesoBonsTotal, 0);
-                        const pr = Math.max(pesoRuinsTotal, 0);
-                        let propBons = pb / pesoLiquidoTotal;
-                        let propRuins = pr / pesoLiquidoTotal;
-
-                        const somaProps = propBons + propRuins;
-                        if (somaProps > 0) {
-                            propBons = propBons / somaProps;
-                            propRuins = propRuins / somaProps;
+                        // Estratégia de divisão (prioridade): gemas -> lados -> pesos
+                        const gBoas = (q.totalGemasBoas != null) ? q.totalGemasBoas : ((q.esqGemasBoasPor5 || 0) + (q.dirGemasBoasPor5 || 0));
+                        const gRuins = (q.esqGemasRuinsTotais || 0) + (q.dirGemasRuinsTotais || 0);
+                        const somaG = (gBoas || 0) + (gRuins || 0);
+                        if (somaG > 0) {
+                            const pB = gBoas / somaG;
+                            const pR = 1 - pB;
+                            tHaViavel = tHaTotal * pB;
+                            tHaDescarte = tHaTotal * pR;
+                            proporcaoRuins = pR;
+                        } else {
+                            const eKg = q.esqKgHa || 0;
+                            const dKg = q.dirKgHa || 0;
+                            const ePct = (q.esqPesoBonsPct != null) ? q.esqPesoBonsPct : null;
+                            const dPct = (q.dirPesoBonsPct != null) ? q.dirPesoBonsPct : null;
+                            if (eKg > 0 && dKg > 0 && ePct != null && dPct != null) {
+                                const vKg = eKg * (ePct/100) + dKg * (dPct/100);
+                                const rKg = eKg * (1 - ePct/100) + dKg * (1 - dPct/100);
+                                tHaViavel = (vKg/1000);
+                                tHaDescarte = (rKg/1000);
+                                const somaKr = vKg + rKg;
+                                proporcaoRuins = somaKr > 0 ? rKg / somaKr : 0;
+                            } else if (pesoLiquidoTotal > 0) {
+                                const pb = Math.max(pesoBonsTotal, 0);
+                                const pr = Math.max(pesoRuinsTotal, 0);
+                                const propBons = pb / (pb + pr);
+                                const propRuins = 1 - propBons;
+                                tHaViavel = tHaTotal * propBons;
+                                tHaDescarte = tHaTotal * propRuins;
+                                proporcaoRuins = propRuins;
+                            } else if (pctBonsTotal > 0 || pctRuinsTotal > 0) {
+                                const propBons = pctBonsTotal / 100;
+                                tHaViavel = tHaTotal * propBons;
+                                tHaDescarte = tHaTotal - tHaViavel;
+                                proporcaoRuins = pctRuinsTotal / 100;
+                            }
                         }
-
-                        tHaViavel = tHaTotal * propBons;
-                        tHaDescarte = tHaTotal - tHaViavel;
-                        proporcaoRuins = propRuins;
-                    } else if (pctBonsTotal > 0 || pctRuinsTotal > 0) {
-                        // Fallback para quando não tem peso mas tem porcentagem de toletes
-                        const propBons = pctBonsTotal / 100;
-                        tHaViavel = tHaTotal * propBons;
-                        tHaDescarte = tHaTotal - tHaViavel;
-                        proporcaoRuins = pctRuinsTotal / 100;
-                    }
                     
                     if (tHaViavel < 0) tHaViavel = 0;
                     if (tHaDescarte < 0) tHaDescarte = 0;
@@ -7920,12 +7935,12 @@ Dia: ${this.ui.formatNumber(consDia,2)} t | Prev.: ${this.ui.formatNumber(consPr
                     <div class="info-item" style="border-radius: 6px; padding: 8px 10px; background: ${conversaoBg}; border: 1px solid ${conversaoBorder};">
                         <div><strong>🌿 Gema Viável</strong></div>
                         <div>Peso: ${this.ui.formatNumber(pesoBonsTotal||0,2)} kg</div>
-                        <div>Produtividade estimada: ${this.ui.formatNumber(tHaViavel||0,2)} T/ha</div>
+                        <div>Produtividade estimada: ${this.ui.formatNumber(tHaViavel||0,4)} T/ha</div>
                         <div style="margin-top: 6px;"><strong>🗑 Gema Descarte</strong></div>
                         <div>Peso: ${this.ui.formatNumber(pesoRuinsTotal||0,2)} kg</div>
-                        <div>Impacto estimado: ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha</div>
+                        <div>Impacto estimado: ${this.ui.formatNumber(tHaDescarte||0,4)} T/ha</div>
                         <div style="margin-top: 6px;"><strong>📊 Total</strong></div>
-                        <div>Produtividade total: ${this.ui.formatNumber(tHaTotal||0,2)} T/ha</div>
+                        <div>Produtividade total: ${this.ui.formatNumber(tHaTotal||0,4)} T/ha</div>
                         ${conversaoAlert ? `<div style="margin-top: 8px; font-weight: 600;">${conversaoAlert}</div>` : ''}
                     </div>
                     <h6 style="margin: 12px 0 6px 0; border-bottom: 1px solid #eee; padding-bottom: 5px;">📈 Qualidade Consolidada</h6>
