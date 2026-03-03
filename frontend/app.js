@@ -5392,6 +5392,17 @@ forceReloadAllData() {
         }
     }
 
+    // Compat: wrapper para abrir o modal de metas (evita erro this.openMetasModal is not a function)
+    openMetasModal() {
+        const metasModal = document.getElementById('metas-modal');
+        if (metasModal) {
+            metasModal.style.display = 'flex';
+            if (typeof this.loadMetasUI === 'function') {
+                this.loadMetasUI();
+            }
+        }
+    }
+
     async handleDeleteOS(numero) {
         if (!numero) return;
         const ok = window.confirm(`Tem certeza que deseja excluir a OS ${numero}?`);
@@ -5425,6 +5436,12 @@ forceReloadAllData() {
         if (btnConfigMetas && metasModal) {
             btnConfigMetas.addEventListener('click', () => {
                 metasModal.style.display = 'flex';
+                // Lock background scroll while modal is open
+                document.body.dataset.prevOverflow = document.body.style.overflow || '';
+                document.body.style.overflow = 'hidden';
+                // Garantir que o overlay esteja no topo da viewport
+                try { window.scrollTo({ top: 0, behavior: 'auto' }); } catch(e){}
+                metasModal.scrollTop = 0;
                 this.loadMetasUI();
             });
         }
@@ -5432,12 +5449,21 @@ forceReloadAllData() {
         closeMetasButtons.forEach(btn => {
             btn.addEventListener('click', () => {
                 if (metasModal) metasModal.style.display = 'none';
+                // Restore background scroll
+                const prev = document.body.dataset.prevOverflow || '';
+                document.body.style.overflow = prev;
+                delete document.body.dataset.prevOverflow;
             });
         });
 
         if (metasModal) {
             window.addEventListener('click', (e) => {
-                if (e.target === metasModal) metasModal.style.display = 'none';
+                if (e.target === metasModal) {
+                    metasModal.style.display = 'none';
+                    const prev = document.body.dataset.prevOverflow || '';
+                    document.body.style.overflow = prev;
+                    delete document.body.dataset.prevOverflow;
+                }
             });
         }
 
@@ -15587,7 +15613,7 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
             }
 
             // Atualizar dashboard para refletir novos dados
-            this.loadDashboard();
+            await this.loadDashboard();
             
             if (!createAnother) {
                 const modal = document.getElementById('novo-lancamento-modal');

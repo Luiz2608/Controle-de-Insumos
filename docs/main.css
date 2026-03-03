@@ -550,6 +550,16 @@ body {
     flex-direction: column;
 }
 
+/* Metas modal: fix vertical position near top and avoid flex auto-centering */
+#metas-modal {
+    align-items: flex-start !important;
+    justify-content: center;
+    padding-top: 6vh;
+}
+#metas-modal .modal-content {
+    margin: 0 auto !important; /* cancel vertical auto-centering in flex */
+}
+
 .modal-body {
     flex: 1;
     overflow-y: auto;
