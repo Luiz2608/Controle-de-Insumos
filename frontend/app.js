@@ -7312,6 +7312,16 @@ forceReloadAllData() {
         const gemasBoas5m = totalGBoas_rel > 0 ? totalGBoas_rel : (toNumG_rel(q.esqGemasBoasPor5) + toNumG_rel(q.dirGemasBoasPor5));
         const gemasRuins5m = toNumG_rel(q.esqGemasRuinsTotais) + toNumG_rel(q.dirGemasRuinsTotais);
 
+        // Helper para cor de classificação por emoji
+        const getStatusEmoji = (status) => {
+            const s = String(status || '').toLowerCase();
+            if (s.includes('excelente')) return '🔵';
+            if (s.includes('bom')) return '🟢';
+            if (s.includes('regular')) return '🟡';
+            if (s.includes('ruim')) return '🔴';
+            return '⚪';
+        };
+
         const text =
 `🌱 QUALIDADE DE MUDA – PLANTIO
 
@@ -7335,11 +7345,16 @@ forceReloadAllData() {
 
 📊 Avaliação
 
-Qualidade dos toletes: ${statusToletes} (${this.ui.formatNumber(pctToletesBons, 1)}%)
-Gemas viáveis por metro: ${statusGemasM} (${this.ui.formatNumber(mediaViaveisM, 2)})
-% de gemas viáveis: ${statusPctGemas} (${this.ui.formatNumber(pctGemasViaveis, 1)}%)
+Qualidade dos toletes: ${getStatusEmoji(statusToletes)} ${statusToletes} (${this.ui.formatNumber(pctToletesBons, 1)}%)
+Gemas viáveis por metro: ${getStatusEmoji(statusGemasM)} ${statusGemasM} (${this.ui.formatNumber(mediaViaveisM, 2)})
+% de gemas viáveis: ${getStatusEmoji(statusPctGemas)} ${statusPctGemas} (${this.ui.formatNumber(pctGemasViaveis, 1)}%)
 
-📌 Status geral: ${statusGeral}`;
+📌 Status geral: ${getStatusEmoji(statusGeral)} ${statusGeral}
+
+📝 Premissas:
+- Qualidade toletes: >= 70%
+- Gemas viáveis/m: 10 a 13
+- % gemas viáveis: >= 80%`;
 
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(text).then(() => {
@@ -7506,6 +7521,16 @@ Gemas viáveis por metro: ${statusGemasM} (${this.ui.formatNumber(mediaViaveisM,
         const gemasBoas5m = totalGBoas_op > 0 ? totalGBoas_op : (toNumG_op(q.esqGemasBoasPor5) + toNumG_op(q.dirGemasBoasPor5));
         const gemasRuins5m = toNumG_op(q.esqGemasRuinsTotais) + toNumG_op(q.dirGemasRuinsTotais);
 
+        // Helper para cor de classificação por emoji
+        const getStatusEmoji = (status) => {
+            const s = String(status || '').toLowerCase();
+            if (s.includes('excelente')) return '🔵';
+            if (s.includes('bom')) return '🟢';
+            if (s.includes('regular')) return '🟡';
+            if (s.includes('ruim')) return '🔴';
+            return '⚪';
+        };
+
         const text =
 `🌱 *QUALIDADE DE MUDA – PLANTIO*
 
@@ -7539,11 +7564,16 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
 
 📊 Avaliação
 
-Qualidade dos toletes: ${statusToletes} (${this.ui.formatNumber(pctToletesBons, 1)}%)
-Gemas viáveis por metro: ${statusGemasM} (${this.ui.formatNumber(mediaViaveisM, 2)})
-% de gemas viáveis: ${statusPctGemas} (${this.ui.formatNumber(pctGemasViaveis, 1)}%)
+Qualidade dos toletes: ${getStatusEmoji(statusToletes)} ${statusToletes} (${this.ui.formatNumber(pctToletesBons, 1)}%)
+Gemas viáveis por metro: ${getStatusEmoji(statusGemasM)} ${statusGemasM} (${this.ui.formatNumber(mediaViaveisM, 2)})
+% de gemas viáveis: ${getStatusEmoji(statusPctGemas)} ${statusPctGemas} (${this.ui.formatNumber(pctGemasViaveis, 1)}%)
 
-📌 Status geral: ${statusGeral}`;
+📌 Status geral: ${getStatusEmoji(statusGeral)} ${statusGeral}
+
+📝 Premissas:
+- Qualidade toletes: >= 70%
+- Gemas viáveis/m: 10 a 13
+- % gemas viáveis: >= 80%`;
 
         const originalText = button ? button.innerText : null;
         if (button) {
