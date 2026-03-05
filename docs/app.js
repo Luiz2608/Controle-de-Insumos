@@ -7352,7 +7352,7 @@ Abaixo de 8 gemas/m → RUIM`;
             if (primeiraFrente.fazenda) {
                 derivedHeaderFazenda = primeiraFrente.fazenda;
             } else if (primeiraFrente.frente) {
-                const m = String(primeiraFrente.frente).match(/^(\d+)\s+(.+)$/);
+                const m = String(primeiraFrente.frente).match(/^(\d+)\\s+(.+)$/);
                 if (m && m[2]) {
                     derivedHeaderFazenda = m[2].trim();
                 }
@@ -7406,18 +7406,19 @@ Abaixo de 8 gemas/m → RUIM`;
         let tHaTotal = kgHaTotal > 0 ? (kgHaTotal / 1000) : 0;
         
         // Estratégia de divisão (prioridade):
-        // 1) Pesos por lado (E/D) ponderados por Kg/ha do próprio lado
-        // 2) Proporção de GEMAS boas/ruins (5 m)
-        // 3) % bons por lado (E/D) com Kg/ha
-        // 4) Pesos totais da amostra (fallback)
+        // 1) Proporção por lado usando pesos bons/ruins (mais fiel ao campo)
+        // 2) Proporção de GEMAS boas/ruins (se disponível)
+        // 3) Proporção por lado usando % de peso bons
+        // 4) Proporção pelos pesos bons/ruins da amostra (fallback)
         let viavelKgHa = 0;
         let descarteKgHa = 0;
+        // 1) Pesos por lado (forçar numéricos)
         const toNum = (v) => (v == null || v === '') ? 0 : Number(v);
         const esqPB = toNum(q.esqPesoBons), esqPR = toNum(q.esqPesoRuins);
         const dirPB = toNum(q.dirPesoBons), dirPR = toNum(q.dirPesoRuins);
         const esqDen = esqPB + esqPR, dirDen = dirPB + dirPR;
-        const esqKg = toNum(q.esqKgHa), dirKg = toNum(q.dirKgHa);
         let sideV = 0, sideR = 0, sideCnt = 0;
+        const esqKg = toNum(q.esqKgHa), dirKg = toNum(q.dirKgHa);
         if (esqKg > 0 && esqDen > 0) {
             sideV += esqKg * (esqPB / esqDen);
             sideR += esqKg * (esqPR / esqDen);
@@ -7432,6 +7433,7 @@ Abaixo de 8 gemas/m → RUIM`;
             viavelKgHa = sideV / sideCnt;
             descarteKgHa = sideR / sideCnt;
         } else {
+            // 2) Gemas
             const toNumG_calc = (v) => (v == null || v === '') ? 0 : Number(v);
             const totalGBoas_calc = toNumG_calc(q.totalGemasBoas);
             const gemasBoas5mCalc = totalGBoas_calc > 0 ? totalGBoas_calc : (toNumG_calc(q.esqGemasBoasPor5) + toNumG_calc(q.dirGemasBoasPor5));
@@ -7442,23 +7444,25 @@ Abaixo de 8 gemas/m → RUIM`;
                 viavelKgHa = kgHaTotal * propBons;
                 descarteKgHa = kgHaTotal * (1 - propBons);
             } else {
+                // 3) % bons por lado
                 let sumV = 0, sumR = 0, cnt = 0;
                 const ePct = (q.esqPesoBonsPct != null) ? q.esqPesoBonsPct : null;
                 const dPct = (q.dirPesoBonsPct != null) ? q.dirPesoBonsPct : null;
-                if (esqKg > 0 && ePct != null) {
-                    sumV += esqKg * (ePct/100);
-                    sumR += esqKg * (1 - ePct/100);
+                if ((q.esqKgHa||0) > 0 && ePct != null) {
+                    sumV += (q.esqKgHa||0) * (ePct/100);
+                    sumR += (q.esqKgHa||0) * (1 - ePct/100);
                     cnt++;
                 }
-                if (dirKg > 0 && dPct != null) {
-                    sumV += dirKg * (dPct/100);
-                    sumR += dirKg * (1 - dPct/100);
+                if ((q.dirKgHa||0) > 0 && dPct != null) {
+                    sumV += (q.dirKgHa||0) * (dPct/100);
+                    sumR += (q.dirKgHa||0) * (1 - dPct/100);
                     cnt++;
                 }
                 if (kgHaTotal > 0 && cnt > 0) {
                     viavelKgHa = sumV / cnt;
                     descarteKgHa = sumR / cnt;
                 } else if (kgHaTotal > 0 && pesoLiquidoTotal > 0) {
+                    // 4) Fallback: pesos totais amostra
                     const pb = Math.max(pesoBonsTotal, 0);
                     const pr = Math.max(pesoRuinsTotal, 0);
                     const propBons = pb / (pb + pr);
@@ -7578,7 +7582,7 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
             if (primeiraFrente.fazenda) {
                 derivedHeaderFazenda = primeiraFrente.fazenda;
             } else if (primeiraFrente.frente) {
-                const m = String(primeiraFrente.frente).match(/^(\d+)\s+(.+)$/);
+                const m = String(primeiraFrente.frente).match(/^(\d+)\\s+(.+)$/);
                 if (m && m[2]) {
                     derivedHeaderFazenda = m[2].trim();
                 }
@@ -7905,6 +7909,7 @@ Dia: ${this.ui.formatNumber(consDia,2)} t | Prev.: ${this.ui.formatNumber(consPr
                     if (kgHaTotal > 0) {
                     tHaTotal = kgHaTotal / 1000;
                     
+                        // Estratégia de divisão (prioridade): gemas -> lados -> pesos
                         const gBoas = (q.totalGemasBoas != null) ? q.totalGemasBoas : ((q.esqGemasBoasPor5 || 0) + (q.dirGemasBoasPor5 || 0));
                         const gRuins = (q.esqGemasRuinsTotais || 0) + (q.dirGemasRuinsTotais || 0);
                         const somaG = (gBoas || 0) + (gRuins || 0);
@@ -8026,8 +8031,8 @@ Dia: ${this.ui.formatNumber(consDia,2)} t | Prev.: ${this.ui.formatNumber(consPr
                     </div>
                     <h6 style="margin: 12px 0 6px 0; border-bottom: 1px solid #eee; padding-bottom: 5px;">🧬 Gemas (Consolidadas)</h6>
                     <div class="info-grid" style="grid-template-columns: repeat(3, 1fr);">
-                        <div class="info-item"><strong>Gemas boas (5 m):</strong> ${(() => { const n=(x)=> (x==null||x==='')?0:Number(x); const t=n(q.totalGemasBoas); return this.ui.formatNumber(t>0?t:(n(q.esqGemasBoasPor5)+n(q.dirGemasBoasPor5)),0); })()}</div>
-                        <div class="info-item"><strong>Gemas ruins (5 m):</strong> ${(() => { const n=(x)=> (x==null||x==='')?0:Number(x); return this.ui.formatNumber(n(q.esqGemasRuinsTotais)+n(q.dirGemasRuinsTotais),0); })()}</div>
+                        <div class="info-item"><strong>Gemas boas (5 m):</strong> ${this.ui.formatNumber((q.totalGemasBoas!=null?q.totalGemasBoas:(q.esqGemasBoasPor5||0)+(q.dirGemasBoasPor5||0))||0,0)}</div>
+                        <div class="info-item"><strong>Gemas ruins (5 m):</strong> ${this.ui.formatNumber(((q.esqGemasRuinsTotais||0)+(q.dirGemasRuinsTotais||0))||0,0)}</div>
                         <div class="info-item"><strong>Gemas viáveis/m (média):</strong> ${this.ui.formatNumber(q.mediaGemasViaveisPorM!=null?q.mediaGemasViaveisPorM:mediaViaveisM||0,2)}</div>
                     </div>
                 `;
