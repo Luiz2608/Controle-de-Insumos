@@ -8036,9 +8036,9 @@ Dia: ${this.ui.formatNumber(consDia,2)} t | Prev.: ${this.ui.formatNumber(consPr
                                 <tr><td>Total toletes</td><td>${this.ui.formatNumber((q.esqQtdBons||0)+(q.esqQtdRuins||0),0)}</td><td>${this.ui.formatNumber((q.dirQtdBons||0)+(q.dirQtdRuins||0),0)}</td></tr>
                                 <tr><td>Peso bons (kg)</td><td>${this.ui.formatNumber(q.esqPesoBons||0,2)}</td><td>${this.ui.formatNumber(q.dirPesoBons||0,2)}</td></tr>
                                 <tr><td>Peso ruins (kg)</td><td>${this.ui.formatNumber(q.esqPesoRuins||0,2)}</td><td>${this.ui.formatNumber(q.dirPesoRuins||0,2)}</td></tr>
-                                <tr><td>Gemas por tolete</td><td>${this.ui.formatNumber(q.esqGemasBoasPorTolete||0,2)}</td><td>${this.ui.formatNumber(q.dirGemasBoasPorTolete||0,2)}</td></tr>
-                                <tr><td>Gemas boas (5 m)</td><td>${this.ui.formatNumber(q.esqGemasBoasPor5||0,0)}</td><td>${this.ui.formatNumber(q.dirGemasBoasPor5||0,0)}</td></tr>
+                                <tr><td>Gemas boas (5 m)</td><td>${this.ui.formatNumber(q.esqGemasBoasPorTolete||0,0)}</td><td>${this.ui.formatNumber(q.dirGemasBoasPorTolete||0,0)}</td></tr>
                                 <tr><td>Gemas ruins (5 m)</td><td>${this.ui.formatNumber(q.esqGemasRuinsTotais||0,0)}</td><td>${this.ui.formatNumber(q.dirGemasRuinsTotais||0,0)}</td></tr>
+                                <tr><td>Total gemas (est.)</td><td>${this.ui.formatNumber(q.esqGemasBoasPor5||0,0)}</td><td>${this.ui.formatNumber(q.dirGemasBoasPor5||0,0)}</td></tr>
                                 <tr><td>Gemas viáveis/m</td><td>${this.ui.formatNumber(q.esqGemasViaveisPorM||0,2)}</td><td>${this.ui.formatNumber(q.dirGemasViaveisPorM||0,2)}</td></tr>
                             </tbody>
                         </table>
@@ -14623,9 +14623,12 @@ InsumosApp.prototype.resetPlantioForm = function(mode = 'normal') {
         'insumo-area-aplicada', 'insumo-dose-prevista',
         'qual-esq-peso-balde', 'qual-esq-peso-bruto', 'qual-esq-peso-liquido', 'qual-esq-kg-ha', 'qual-esq-qtd-bons', 'qual-esq-qtd-ruins', 
         'qual-esq-peso-bons', 'qual-esq-peso-ruins', 'qual-esq-peso-bons-pct', 'qual-esq-peso-ruins-pct', 'qual-esq-gemas-por-tolete', 'qual-esq-gemas-por5',
+        'qual-esq-gemas-ruins-total', 'qual-esq-gemas-viaveis-por-m', 'qual-esq-gemas-inviaveis-por-m',
         'qual-dir-peso-balde', 'qual-dir-peso-bruto', 'qual-dir-peso-liquido', 'qual-dir-kg-ha', 'qual-dir-qtd-bons', 'qual-dir-qtd-ruins', 
         'qual-dir-peso-bons', 'qual-dir-peso-ruins', 'qual-dir-peso-bons-pct', 'qual-dir-peso-ruins-pct', 'qual-dir-gemas-por-tolete', 'qual-dir-gemas-por5',
-        'qual-media-kg-ha', 'qual-media-gemas-por-tolete', 'qual-total-toletes-bons', 'qual-total-toletes-ruins', 'qual-total-gemas-boas', 'qual-media-gemas-por5'
+        'qual-dir-gemas-ruins-total', 'qual-dir-gemas-viaveis-por-m', 'qual-dir-gemas-inviaveis-por-m',
+        'qual-media-kg-ha', 'qual-media-gemas-por-tolete', 'qual-total-toletes-bons', 'qual-total-toletes-ruins', 'qual-total-gemas-boas', 'qual-media-gemas-por5',
+        'qual-media-gemas-viaveis-por-m', 'qual-media-gemas-inviaveis-por-m'
     ];
     ids.forEach(id => {
         const el = document.getElementById(id);
@@ -15022,6 +15025,7 @@ InsumosApp.prototype.handleEditPlantio = async function(id) {
         set('qual-esq-peso-ruins-pct', q.esqPesoRuinsPct);
         set('qual-esq-gemas-por-tolete', q.esqGemasBoasPorTolete);
         set('qual-esq-gemas-por5', q.esqGemasBoasPor5);
+        set('qual-esq-gemas-ruins-total', q.esqGemasRuinsTotais);
         set('qual-esq-gemas-viaveis-por-m', q.esqGemasViaveisPorM);
         set('qual-esq-gemas-inviaveis-por-m', q.esqGemasInviaveisPorM);
         
@@ -15037,6 +15041,7 @@ InsumosApp.prototype.handleEditPlantio = async function(id) {
         set('qual-dir-peso-ruins-pct', q.dirPesoRuinsPct);
         set('qual-dir-gemas-por-tolete', q.dirGemasBoasPorTolete);
         set('qual-dir-gemas-por5', q.dirGemasBoasPor5);
+        set('qual-dir-gemas-ruins-total', q.dirGemasRuinsTotais);
         set('qual-dir-gemas-viaveis-por-m', q.dirGemasViaveisPorM);
         set('qual-dir-gemas-inviaveis-por-m', q.dirGemasInviaveisPorM);
         
