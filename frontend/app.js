@@ -41,6 +41,14 @@ class InsumosApp {
         this.liberacaoColheitaData = [];
         this.compostoDiarioDraft = []; // Novo draft para itens diários de composto
 
+        // Estado de ordenação das tabelas
+        this.tableSort = {
+            plantio: { key: 'data', dir: 'desc' },
+            colheita: { key: 'data', dir: 'desc' },
+            qualidade: { key: 'data', dir: 'desc' },
+            fazendas: { key: 'codigo', dir: 'asc' }
+        };
+
         // Controle de Load do Dashboard (Circuit Breaker)
         this.dashboardLoadCount = 0;
         this.dashboardLoadResetTime = Date.now();
@@ -509,17 +517,52 @@ class InsumosApp {
     renderCadastroFazendas(list) {
         this.cadastroFazendas = Array.isArray(list) ? list : [];
         const tbody = document.getElementById('cadastro-fazendas-body');
+        const thead = document.getElementById('cadastro-fazendas-head');
         if (!tbody) return;
+
+        // Renderizar cabeçalho com listeners de ordenação
+        if (thead) {
+            const sort = this.tableSort.fazendas;
+            const getIcon = (key) => sort.key === key ? (sort.dir === 'asc' ? ' 🔼' : ' 🔽') : '';
+            
+            thead.innerHTML = `
+                <tr>
+                    <th style="cursor:pointer" onclick="window.insumosApp.toggleTableSort('fazendas', 'codigo')">Código${getIcon('codigo')}</th>
+                    <th style="cursor:pointer" onclick="window.insumosApp.toggleTableSort('fazendas', 'nome')">Nome${getIcon('nome')}</th>
+                    <th style="cursor:pointer" onclick="window.insumosApp.toggleTableSort('fazendas', 'regiao')">Região${getIcon('regiao')}</th>
+                    <th style="cursor:pointer" onclick="window.insumosApp.toggleTableSort('fazendas', 'area_total')">Área Total${getIcon('area_total')}</th>
+                    <th style="cursor:pointer" onclick="window.insumosApp.toggleTableSort('fazendas', 'plantio_acumulado')">Plantio Acum.${getIcon('plantio_acumulado')}</th>
+                    <th style="cursor:pointer" onclick="window.insumosApp.toggleTableSort('fazendas', 'muda_acumulada')">Muda Acum.${getIcon('muda_acumulada')}</th>
+                    <th style="cursor:pointer" onclick="window.insumosApp.toggleTableSort('fazendas', 'cobricao_acumulada')">Cobrição Acum.${getIcon('cobricao_acumulada')}</th>
+                    <th>Ações</th>
+                </tr>
+            `;
+        }
+
         if (!this.cadastroFazendas.length) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="7" class="loading">📭 Nenhuma fazenda cadastrada</td>
+                    <td colspan="8" class="loading">📭 Nenhuma fazenda cadastrada</td>
                 </tr>
             `;
             return;
         }
+
+        // Aplicar ordenação
+        const sortedList = [...this.cadastroFazendas].sort((a, b) => {
+            const { key, dir } = this.tableSort.fazendas;
+            let valA = a[key], valB = b[key];
+            
+            if (typeof valA === 'string') valA = valA.toLowerCase();
+            if (typeof valB === 'string') valB = valB.toLowerCase();
+            
+            if (valA < valB) return dir === 'asc' ? -1 : 1;
+            if (valA > valB) return dir === 'asc' ? 1 : -1;
+            return 0;
+        });
+
         tbody.innerHTML = '';
-        this.cadastroFazendas.forEach(f => {
+        sortedList.forEach(f => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>${f.codigo ?? ''}</td>
@@ -6697,6 +6740,30 @@ forceReloadAllData() {
         if (info && fazendaEl) fazendaEl.value = info.fazenda ?? info.nome ?? '';
     }
 
+    toggleTableSort(table, key) {
+        if (!this.tableSort[table]) return;
+        
+        if (this.tableSort[table].key === key) {
+            this.tableSort[table].dir = this.tableSort[table].dir === 'asc' ? 'desc' : 'asc';
+        } else {
+            this.tableSort[table].key = key;
+            this.tableSort[table].dir = 'asc';
+        }
+        
+        // Re-renderizar a tabela correta
+        if (table === 'fazendas') {
+            this.renderCadastroFazendas(this.cadastroFazendas);
+        } else if (table === 'plantio' || table === 'colheita') {
+            this.renderPlantioDia();
+        } else if (table === 'qualidade') {
+            // Se estiver na aba plantio (sub-aba qualidade) ou na aba de qualidade dedicada
+            if (this.plantioTab === 'qualidade_muda') {
+                this.renderPlantioDia();
+            }
+            this.renderQualidadeList();
+        }
+    }
+
     async loadStaticData() {
         try {
             await this.ensureApiReady();
@@ -6851,10 +6918,14 @@ forceReloadAllData() {
         
         // Update Headers based on tab
         if (thead) {
+            const sort = (currentTab === 'qualidade_muda') ? this.tableSort.qualidade : (currentTab === 'colheita_muda' ? this.tableSort.colheita : this.tableSort.plantio);
+            const getIcon = (key) => sort.key === key ? (sort.dir === 'asc' ? ' 🔼' : ' 🔽') : '';
+            const sortFn = (key) => `window.insumosApp.toggleTableSort('${currentTab === 'qualidade_muda' ? 'qualidade' : (currentTab === 'colheita_muda' ? 'colheita' : 'plantio')}', '${key}')`;
+
             if (currentTab === 'qualidade_muda') {
                 thead.innerHTML = `
                     <tr>
-                        <th>Data</th>
+                        <th style="cursor:pointer" onclick="${sortFn('data')}">Data${getIcon('data')}</th>
                         <th>Tipo</th>
                         <th>Fazenda / Frente</th>
                         <th>Frota / Hora</th>
@@ -6865,29 +6936,53 @@ forceReloadAllData() {
             } else if (currentTab === 'colheita_muda') {
                 thead.innerHTML = `
                     <tr>
-                        <th>Data</th>
+                        <th style="cursor:pointer" onclick="${sortFn('data')}">Data${getIcon('data')}</th>
                         <th>Frentes</th>
-                        <th>Hectares Colhidos</th>
-                        <th>TCH</th>
-                        <th>Toneladas Totais</th>
+                        <th style="cursor:pointer" onclick="${sortFn('colheita_hectares')}">Hectares Colhidos${getIcon('colheita_hectares')}</th>
+                        <th style="cursor:pointer" onclick="${sortFn('colheita_tch_real')}">TCH${getIcon('colheita_tch_real')}</th>
+                        <th style="cursor:pointer" onclick="${sortFn('colheita_toneladas_totais')}">Toneladas Totais${getIcon('colheita_toneladas_totais')}</th>
                         <th>Ações</th>
                     </tr>
                 `;
             } else {
                 thead.innerHTML = `
                     <tr>
-                        <th>Data</th>
+                        <th style="cursor:pointer" onclick="${sortFn('data')}">Data${getIcon('data')}</th>
                         <th>Frentes</th>
-                        <th>Área Total (ha)</th>
-                        <th>Plantio Dia (ha)</th>
-                        <th>Cobrição (ha)</th>
+                        <th style="cursor:pointer" onclick="${sortFn('sumArea')}">Área Total (ha)${getIcon('sumArea')}</th>
+                        <th style="cursor:pointer" onclick="${sortFn('sumPlantioDia')}">Plantio Dia (ha)${getIcon('sumPlantioDia')}</th>
+                        <th style="cursor:pointer" onclick="${sortFn('cobricao')}">Cobrição (ha)${getIcon('cobricao')}</th>
                         <th>Ações</th>
                     </tr>
                 `;
             }
         }
         
-        const allRows = (this.plantioDia || []).slice().sort((a,b)=> String(b.data||'').localeCompare(String(a.data||''))); // Descending date
+        // Aplicar ordenação
+        const sortState = (currentTab === 'qualidade_muda') ? this.tableSort.qualidade : (currentTab === 'colheita_muda' ? this.tableSort.colheita : this.tableSort.plantio);
+        
+        const allRows = (this.plantioDia || []).slice().sort((a, b) => {
+            const { key, dir } = sortState;
+            let valA, valB;
+
+            if (key === 'sumArea') {
+                valA = (a.frentes||[]).reduce((s,x)=> s + (Number(x.area)||0), 0);
+                valB = (b.frentes||[]).reduce((s,x)=> s + (Number(x.area)||0), 0);
+            } else if (key === 'sumPlantioDia') {
+                valA = (a.frentes||[]).reduce((s,x)=> s + (Number(x.plantioDiario || x.plantada)||0), 0);
+                valB = (b.frentes||[]).reduce((s,x)=> s + (Number(x.plantioDiario || x.plantada)||0), 0);
+            } else if (key === 'cobricao') {
+                valA = Number((a.qualidade || {}).cobricaoDia || a.cobricaoDia || 0);
+                valB = Number((b.qualidade || {}).cobricaoDia || b.cobricaoDia || 0);
+            } else {
+                valA = a[key];
+                valB = b[key];
+            }
+
+            if (valA < valB) return dir === 'asc' ? -1 : 1;
+            if (valA > valB) return dir === 'asc' ? 1 : -1;
+            return 0;
+        });
         
         // Filter rows based on tab
         const rows = allRows.filter(r => {
@@ -7082,7 +7177,25 @@ forceReloadAllData() {
     async renderQualidadeList() {
         console.log('Rendering Qualidade List...');
         const tbody = document.getElementById('qualidade-list-body');
+        const thead = document.getElementById('qualidade-list-head');
         if (!tbody) return;
+
+        // Renderizar cabeçalho com listeners de ordenação
+        if (thead) {
+            const sort = this.tableSort.qualidade;
+            const getIcon = (key) => sort.key === key ? (sort.dir === 'asc' ? ' 🔼' : ' 🔽') : '';
+            const sortFn = (key) => `window.insumosApp.toggleTableSort('qualidade', '${key}')`;
+
+            thead.innerHTML = `
+                <tr>
+                    <th style="cursor:pointer" onclick="${sortFn('data')}">Data${getIcon('data')}</th>
+                    <th>Fazenda / Frente</th>
+                    <th>Variedade</th>
+                    <th>Indicador</th>
+                    <th>Ações</th>
+                </tr>
+            `;
+        }
 
         tbody.innerHTML = '<tr><td colspan="5" class="loading">Carregando...</td></tr>';
 
@@ -7097,7 +7210,15 @@ forceReloadAllData() {
             allRows = (this.plantioDia || []);
         }
 
-        const rows = allRows.slice().sort((a,b)=> String(b.data||'').localeCompare(String(a.data||''))); // Descending date
+        // Aplicar ordenação
+        const rows = allRows.slice().sort((a, b) => {
+            const { key, dir } = this.tableSort.qualidade;
+            let valA = a[key], valB = b[key];
+            
+            if (valA < valB) return dir === 'asc' ? -1 : 1;
+            if (valA > valB) return dir === 'asc' ? 1 : -1;
+            return 0;
+        });
         
         // Filter for Quality records (getQualidadeRecords already filters by type, but double check if using local fallback)
         const filteredRows = rows.filter(r => {

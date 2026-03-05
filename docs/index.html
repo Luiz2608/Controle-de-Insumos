@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestão de Insumos - v1.1</title>
+    <title>Gestão de Insumos</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
@@ -1190,7 +1190,6 @@
                                 <th>Data</th>
                                 <th>Frentes</th>
                                 <th>Área Total (ha)</th>
-                                <th style="text-align: center;">Status</th>
                                 <th>Ações</th>
                             </tr>
                         </thead>
@@ -1544,7 +1543,7 @@
                         <h4 style="margin: 0 0 10px 0;">Fazendas Cadastradas</h4>
                         <div class="table-container">
                             <table id="cadastro-fazendas-table" class="data-table">
-                                <thead>
+                                <thead id="cadastro-fazendas-head">
                                     <tr>
                                         <th>Código da Fazenda</th>
                                         <th>Nome</th>
@@ -1558,7 +1557,7 @@
                                 </thead>
                                 <tbody id="cadastro-fazendas-body">
                                     <tr>
-                                        <td colspan="7" class="loading">📡 Carregando cadastro de fazendas...</td>
+                                        <td colspan="8" class="loading">📡 Carregando cadastro de fazendas...</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -2834,7 +2833,7 @@
             <div class="modal-body">
                 <div class="table-container" style="max-height: 60vh; overflow-y: auto;">
                     <table class="data-table">
-                        <thead>
+                        <thead id="qualidade-list-head">
                             <tr>
                                 <th>Data</th>
                                 <th>Fazenda/Frente</th>
