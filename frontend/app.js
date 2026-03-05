@@ -7305,7 +7305,7 @@ forceReloadAllData() {
 
         // Nova lógica de classificação
         const qualStatus = this.calculateQualidadeMudaStatus(q);
-        const { statusToletes, statusGemasM, statusPctGemas, statusGeral, mediaViaveisM, pctGemasViaveis } = qualStatus;
+        const { statusToletes, statusGemasM, statusPctGemas, statusGeral, mediaViaveisM, pctGemasViaveis, pctToletesBons } = qualStatus;
 
         const toNumG_rel = (v) => (v == null || v === '') ? 0 : Number(v);
         const totalGBoas_rel = toNumG_rel(q.totalGemasBoas);
@@ -7499,7 +7499,7 @@ Gemas viáveis por metro: ${statusGemasM} (${this.ui.formatNumber(mediaViaveisM,
 
         // Nova lógica de classificação
         const qualStatus = this.calculateQualidadeMudaStatus(q);
-        const { statusToletes, statusGemasM, statusPctGemas, statusGeral, mediaViaveisM, pctGemasViaveis } = qualStatus;
+        const { statusToletes, statusGemasM, statusPctGemas, statusGeral, mediaViaveisM, pctGemasViaveis, pctToletesBons } = qualStatus;
 
         const toNumG_op = (v) => (v == null || v === '') ? 0 : Number(v);
         const totalGBoas_op = toNumG_op(q.totalGemasBoas);
