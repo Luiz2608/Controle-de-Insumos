@@ -7345,16 +7345,11 @@ forceReloadAllData() {
 
 📊 Avaliação
 
-Qualidade dos toletes: ${getStatusEmoji(statusToletes)} ${statusToletes} (${this.ui.formatNumber(pctToletesBons, 1)}%)
-Gemas viáveis por metro: ${getStatusEmoji(statusGemasM)} ${statusGemasM} (${this.ui.formatNumber(mediaViaveisM, 2)})
-% de gemas viáveis: ${getStatusEmoji(statusPctGemas)} ${statusPctGemas} (${this.ui.formatNumber(pctGemasViaveis, 1)}%)
+Qualidade dos toletes (Alvo: >=70%): ${getStatusEmoji(statusToletes)} ${statusToletes} (${this.ui.formatNumber(pctToletesBons, 1)}%)
+Gemas viáveis por metro (Alvo: 10 a 13): ${getStatusEmoji(statusGemasM)} ${statusGemasM} (${this.ui.formatNumber(mediaViaveisM, 2)})
+% de gemas viáveis (Alvo: >= 80%): ${getStatusEmoji(statusPctGemas)} ${statusPctGemas} (${this.ui.formatNumber(pctGemasViaveis, 1)}%)
 
-📌 Status geral: ${getStatusEmoji(statusGeral)} ${statusGeral}
-
-📝 Premissas:
-- Qualidade toletes: >= 70%
-- Gemas viáveis/m: 10 a 13
-- % gemas viáveis: >= 80%`;
+📌 Status geral: ${getStatusEmoji(statusGeral)} ${statusGeral}`;
 
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(text).then(() => {
@@ -7564,16 +7559,11 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
 
 📊 Avaliação
 
-Qualidade dos toletes: ${getStatusEmoji(statusToletes)} ${statusToletes} (${this.ui.formatNumber(pctToletesBons, 1)}%)
-Gemas viáveis por metro: ${getStatusEmoji(statusGemasM)} ${statusGemasM} (${this.ui.formatNumber(mediaViaveisM, 2)})
-% de gemas viáveis: ${getStatusEmoji(statusPctGemas)} ${statusPctGemas} (${this.ui.formatNumber(pctGemasViaveis, 1)}%)
+Qualidade dos toletes (Alvo: >=70%): ${getStatusEmoji(statusToletes)} ${statusToletes} (${this.ui.formatNumber(pctToletesBons, 1)}%)
+Gemas viáveis por metro (Alvo: 10 a 13): ${getStatusEmoji(statusGemasM)} ${statusGemasM} (${this.ui.formatNumber(mediaViaveisM, 2)})
+% de gemas viáveis (Alvo: >= 80%): ${getStatusEmoji(statusPctGemas)} ${statusPctGemas} (${this.ui.formatNumber(pctGemasViaveis, 1)}%)
 
-📌 Status geral: ${getStatusEmoji(statusGeral)} ${statusGeral}
-
-📝 Premissas:
-- Qualidade toletes: >= 70%
-- Gemas viáveis/m: 10 a 13
-- % gemas viáveis: >= 80%`;
+📌 Status geral: ${getStatusEmoji(statusGeral)} ${statusGeral}`;
 
         const originalText = button ? button.innerText : null;
         if (button) {
