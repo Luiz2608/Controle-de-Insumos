@@ -7543,9 +7543,7 @@ ${this.ui.formatNumber(tHaViavel||0,2)} T/ha
 
 🗑 Gema descarte:
 Peso: ${this.ui.formatNumber(pesoRuinsTotal||0,2)} kg
-${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
-
-📌 Status geral: ${statusGeral}`;
+${this.ui.formatNumber(tHaDescarte||0,2)} T/ha`;
 
         const originalText = button ? button.innerText : null;
         if (button) {
@@ -8035,9 +8033,13 @@ Dia: ${this.ui.formatNumber(consDia,2)} t | Prev.: ${this.ui.formatNumber(consPr
                                 <tr><td>KG por hectare (kg/ha)</td><td>${this.ui.formatNumber(q.esqKgHa||0,2)}</td><td>${this.ui.formatNumber(q.dirKgHa||0,2)}</td></tr>
                                 <tr><td>Qtd. toletes bons</td><td>${this.ui.formatNumber(q.esqQtdBons||0,0)}</td><td>${this.ui.formatNumber(q.dirQtdBons||0,0)}</td></tr>
                                 <tr><td>Qtd. toletes ruins</td><td>${this.ui.formatNumber(q.esqQtdRuins||0,0)}</td><td>${this.ui.formatNumber(q.dirQtdRuins||0,0)}</td></tr>
+                                <tr><td>Total toletes</td><td>${this.ui.formatNumber((q.esqQtdBons||0)+(q.esqQtdRuins||0),0)}</td><td>${this.ui.formatNumber((q.dirQtdBons||0)+(q.dirQtdRuins||0),0)}</td></tr>
                                 <tr><td>Peso bons (kg)</td><td>${this.ui.formatNumber(q.esqPesoBons||0,2)}</td><td>${this.ui.formatNumber(q.dirPesoBons||0,2)}</td></tr>
                                 <tr><td>Peso ruins (kg)</td><td>${this.ui.formatNumber(q.esqPesoRuins||0,2)}</td><td>${this.ui.formatNumber(q.dirPesoRuins||0,2)}</td></tr>
                                 <tr><td>Gemas por tolete</td><td>${this.ui.formatNumber(q.esqGemasBoasPorTolete||0,2)}</td><td>${this.ui.formatNumber(q.dirGemasBoasPorTolete||0,2)}</td></tr>
+                                <tr><td>Gemas boas (5 m)</td><td>${this.ui.formatNumber(q.esqGemasBoasPor5||0,0)}</td><td>${this.ui.formatNumber(q.dirGemasBoasPor5||0,0)}</td></tr>
+                                <tr><td>Gemas ruins (5 m)</td><td>${this.ui.formatNumber(q.esqGemasRuinsTotais||0,0)}</td><td>${this.ui.formatNumber(q.dirGemasRuinsTotais||0,0)}</td></tr>
+                                <tr><td>Gemas viáveis/m</td><td>${this.ui.formatNumber(q.esqGemasViaveisPorM||0,2)}</td><td>${this.ui.formatNumber(q.dirGemasViaveisPorM||0,2)}</td></tr>
                             </tbody>
                         </table>
                     </div>
