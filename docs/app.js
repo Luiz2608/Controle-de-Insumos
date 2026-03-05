@@ -7315,14 +7315,6 @@ forceReloadAllData() {
         const text =
 `🌱 QUALIDADE DE MUDA – PLANTIO
 
-📊 Avaliação
-
-Qualidade dos toletes: ${statusToletes} (${this.ui.formatNumber(pctToletesBons, 1)}%)
-Gemas viáveis por metro: ${statusGemasM} (${this.ui.formatNumber(mediaViaveisM, 2)})
-% de gemas viáveis: ${statusPctGemas} (${this.ui.formatNumber(pctGemasViaveis, 1)}%)
-
-📌 Status geral: ${statusGeral}
-
 📍 Frente: ${frente}
 📅 Data: ${dataStr}
 🌱 Variedade: ${q.mudaVariedade || '—'}
@@ -7339,7 +7331,15 @@ Gemas viáveis por metro: ${statusGemasM} (${this.ui.formatNumber(mediaViaveisM,
 🌿 Média de gemas por tolete: ${this.ui.formatNumber(q.mediaGemasPorTolete||0,2)}
 🧬 Gemas (5 m): Boas ${this.ui.formatNumber(gemasBoas5m||0,0)} · Ruins ${this.ui.formatNumber(gemasRuins5m||0,0)}
 🌿 Gemas viáveis/m (média): ${this.ui.formatNumber(mediaViaveisM||0,2)}
-🧬 % Gemas viáveis: ${this.ui.formatNumber(pctGemasViaveis||0,2)}%`;
+🧬 % Gemas viáveis: ${this.ui.formatNumber(pctGemasViaveis||0,2)}%
+
+📊 Avaliação
+
+Qualidade dos toletes: ${statusToletes} (${this.ui.formatNumber(pctToletesBons, 1)}%)
+Gemas viáveis por metro: ${statusGemasM} (${this.ui.formatNumber(mediaViaveisM, 2)})
+% de gemas viáveis: ${statusPctGemas} (${this.ui.formatNumber(pctGemasViaveis, 1)}%)
+
+📌 Status geral: ${statusGeral}`;
 
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(text).then(() => {
@@ -7509,14 +7509,6 @@ Gemas viáveis por metro: ${statusGemasM} (${this.ui.formatNumber(mediaViaveisM,
         const text =
 `🌱 *QUALIDADE DE MUDA – PLANTIO*
 
-📊 Avaliação
-
-Qualidade dos toletes: ${statusToletes} (${this.ui.formatNumber(pctToletesBons, 1)}%)
-Gemas viáveis por metro: ${statusGemasM} (${this.ui.formatNumber(mediaViaveisM, 2)})
-% de gemas viáveis: ${statusPctGemas} (${this.ui.formatNumber(pctGemasViaveis, 1)}%)
-
-📌 Status geral: ${statusGeral}
-
 📍 Fazenda: ${fazenda}
 📍 Frente: ${frente}
 🌱 Variedade: ${q.mudaVariedade || '—'}
@@ -7543,7 +7535,15 @@ ${this.ui.formatNumber(tHaViavel||0,2)} T/ha
 
 🗑 Gema descarte:
 Peso: ${this.ui.formatNumber(pesoRuinsTotal||0,2)} kg
-${this.ui.formatNumber(tHaDescarte||0,2)} T/ha`;
+${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
+
+📊 Avaliação
+
+Qualidade dos toletes: ${statusToletes} (${this.ui.formatNumber(pctToletesBons, 1)}%)
+Gemas viáveis por metro: ${statusGemasM} (${this.ui.formatNumber(mediaViaveisM, 2)})
+% de gemas viáveis: ${statusPctGemas} (${this.ui.formatNumber(pctGemasViaveis, 1)}%)
+
+📌 Status geral: ${statusGeral}`;
 
         const originalText = button ? button.innerText : null;
         if (button) {
