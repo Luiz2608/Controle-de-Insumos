@@ -63,6 +63,69 @@ class InsumosApp {
         window.insumosApp = this;
     }
 
+    calculateQualidadeMudaStatus(q) {
+        if (!q) return null;
+        const toNum = (v) => (v == null || v === '') ? 0 : Number(v);
+
+        // 1. Qualidade dos toletes (%)
+        const pctToletesBons = typeof q.totalToletesBons === 'number' ? q.totalToletesBons : 0;
+        let statusToletes = 'Ruim';
+        if (pctToletesBons >= 80) statusToletes = 'Excelente';
+        else if (pctToletesBons >= 70) statusToletes = 'Bom';
+        else if (pctToletesBons >= 60) statusToletes = 'Regular';
+        else statusToletes = 'Ruim';
+
+        // 2. Gemas viáveis por metro
+        let mediaViaveisM = (typeof q.mediaGemasViaveisPorM === 'number') ? q.mediaGemasViaveisPorM : null;
+        if (mediaViaveisM == null) {
+            const esqV = (typeof q.esqGemasViaveisPorM === 'number') ? q.esqGemasViaveisPorM : null;
+            const dirV = (typeof q.dirGemasViaveisPorM === 'number') ? q.dirGemasViaveisPorM : null;
+            if (esqV != null || dirV != null) {
+                const count = (esqV != null ? 1 : 0) + (dirV != null ? 1 : 0);
+                mediaViaveisM = ((esqV || 0) + (dirV || 0)) / (count || 1);
+            }
+        }
+        let statusGemasM = 'Ruim';
+        if (mediaViaveisM >= 12) statusGemasM = 'Excelente';
+        else if (mediaViaveisM >= 10) statusGemasM = 'Bom';
+        else if (mediaViaveisM >= 8) statusGemasM = 'Regular';
+        else statusGemasM = 'Ruim';
+
+        // 3. Percentual de gemas viáveis (%)
+        const totalGBoas = toNum(q.totalGemasBoas) > 0 ? toNum(q.totalGemasBoas) : (toNum(q.esqGemasBoasPor5) + toNum(q.dirGemasBoasPor5));
+        const totalGRuins = toNum(q.esqGemasRuinsTotais) + toNum(q.dirGemasRuinsTotais);
+        const totalGemas = totalGBoas + totalGRuins;
+        const pctGemasViaveis = totalGemas > 0 ? (totalGBoas / totalGemas) * 100 : 0;
+        let statusPctGemas = 'Ruim';
+        if (pctGemasViaveis >= 90) statusPctGemas = 'Excelente';
+        else if (pctGemasViaveis >= 80) statusPctGemas = 'Bom';
+        else if (pctGemasViaveis >= 70) statusPctGemas = 'Regular';
+        else statusPctGemas = 'Ruim';
+
+        // Overall Quality: worst of the three
+        const levels = { 'Excelente': 4, 'Bom': 3, 'Regular': 2, 'Ruim': 1 };
+        const statuses = [statusToletes, statusGemasM, statusPctGemas];
+        let minLevel = 4;
+        let statusGeral = 'Excelente';
+
+        statuses.forEach(s => {
+            if (levels[s] < minLevel) {
+                minLevel = levels[s];
+                statusGeral = s;
+            }
+        });
+
+        return {
+            statusToletes,
+            statusGemasM,
+            statusPctGemas,
+            statusGeral,
+            pctToletesBons,
+            mediaViaveisM,
+            pctGemasViaveis
+        };
+    }
+
     initApiKeyConfig() {
         console.log('Inicializando configuração de API Key...');
         const modal = document.getElementById('api-key-modal');
@@ -6884,37 +6947,23 @@ forceReloadAllData() {
                 let statusBadge = '<span class="badge badge-secondary">—</span>';
                 
                 if (q.tipoOperacao === 'plantio_cana') {
-                    // Nova lógica baseada em Gemas/m (8-13)
-                    let mediaViaveisM = (typeof q.mediaGemasViaveisPorM === 'number') ? q.mediaGemasViaveisPorM : null;
-                    // Fallback
-                    if (mediaViaveisM == null) {
-                        const esqV = (typeof q.esqGemasViaveisPorM === 'number') ? q.esqGemasViaveisPorM : null;
-                        const dirV = (typeof q.dirGemasViaveisPorM === 'number') ? q.dirGemasViaveisPorM : null;
-                        if (esqV != null || dirV != null) {
-                            mediaViaveisM = ((esqV || 0) + (dirV || 0)) / ((esqV!=null?1:0) + (dirV!=null?1:0) || 1);
-                        }
-                    }
+                    // Nova lógica baseada em 3 indicadores
+                    const qualStatus = this.calculateQualidadeMudaStatus(q);
 
-                    if (mediaViaveisM != null) {
-                        let colorClass = 'badge-danger'; 
-                        let label = 'Ruim';
+                    if (qualStatus) {
+                        const { statusGeral, mediaViaveisM } = qualStatus;
+                        let colorClass = 'badge-danger';
                         
-                        if (mediaViaveisM >= 8 && mediaViaveisM <= 13) {
-                            colorClass = 'badge-info'; 
-                            label = 'Bom';
-                        } else if (mediaViaveisM > 13) {
-                            colorClass = 'badge-success'; 
-                            label = 'Excelente';
-                        } else {
-                            colorClass = 'badge-danger';
-                            label = 'Ruim';
-                        }
+                        if (statusGeral === 'Excelente') colorClass = 'badge-success';
+                        else if (statusGeral === 'Bom') colorClass = 'badge-info';
+                        else if (statusGeral === 'Regular') colorClass = 'badge-warning';
+                        else colorClass = 'badge-danger';
                         
                         // Status Badge com Título e Valor
                         statusBadge = `
                         <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
-                            <span class="badge ${colorClass}" style="font-size: 0.9em; padding: 6px 10px;">${label}</span>
-                            <span class="subtext" style="font-weight: 500;">${this.ui.formatNumber(mediaViaveisM, 2)} gemas/m</span>
+                            <span class="badge ${colorClass}" style="font-size: 0.9em; padding: 6px 10px;">${statusGeral}</span>
+                            <span class="subtext" style="font-weight: 500;">${this.ui.formatNumber(mediaViaveisM || 0, 2)} gemas/m</span>
                             <span class="subtext" style="font-size: 0.7em;">Qualidade Muda</span>
                         </div>`;
                     }
@@ -7084,35 +7133,19 @@ forceReloadAllData() {
             let indicador;
             
             if (tipo === 'plantio_cana') {
-                // Lógica de Status para Plantio de Cana (Gemas/m)
-                let mediaViaveisM = (typeof q.mediaGemasViaveisPorM === 'number') ? q.mediaGemasViaveisPorM : null;
-                
-                // Fallback de cálculo se não salvo
-                if (mediaViaveisM == null) {
-                    const esqV = (typeof q.esqGemasViaveisPorM === 'number') ? q.esqGemasViaveisPorM : null;
-                    const dirV = (typeof q.dirGemasViaveisPorM === 'number') ? q.dirGemasViaveisPorM : null;
-                    if (esqV != null || dirV != null) {
-                        const count = (esqV != null ? 1 : 0) + (dirV != null ? 1 : 0);
-                        mediaViaveisM = ((esqV || 0) + (dirV || 0)) / (count || 1);
-                    }
-                }
+                // Nova lógica baseada em 3 indicadores
+                const qualStatus = this.calculateQualidadeMudaStatus(q);
 
-                if (mediaViaveisM != null) {
-                    let colorClass = 'badge-danger'; // Ruim
-                    let label = 'Ruim';
+                if (qualStatus) {
+                    const { statusGeral, mediaViaveisM } = qualStatus;
+                    let colorClass = 'badge-danger';
                     
-                    if (mediaViaveisM >= 8 && mediaViaveisM <= 13) {
-                        colorClass = 'badge-info'; // Bom (Azul ou Verde se preferir badge-success)
-                        label = 'Bom';
-                    } else if (mediaViaveisM > 13) {
-                        colorClass = 'badge-success'; // Excelente
-                        label = 'Excelente';
-                    } else {
-                        colorClass = 'badge-danger'; // < 8
-                        label = 'Ruim';
-                    }
+                    if (statusGeral === 'Excelente') colorClass = 'badge-success';
+                    else if (statusGeral === 'Bom') colorClass = 'badge-info';
+                    else if (statusGeral === 'Regular') colorClass = 'badge-warning';
+                    else colorClass = 'badge-danger';
                     
-                    indicador = `<span class="badge ${colorClass}" title="${this.ui.formatNumber(mediaViaveisM, 2)} gemas/m">${label}</span>`;
+                    indicador = `<span class="badge ${colorClass}" title="${this.ui.formatNumber(mediaViaveisM || 0, 2)} gemas/m">${statusGeral}</span>`;
                 } else {
                     indicador = (q.mediaKgHa != null) ? `${this.ui.formatNumber(q.mediaKgHa, 2)} kg/ha` : '—';
                 }
@@ -7270,26 +7303,9 @@ forceReloadAllData() {
         const pctBonsTotal = typeof q.totalToletesBons === 'number' ? q.totalToletesBons : 0;
         const pctRuinsTotal = typeof q.totalToletesRuins === 'number' ? q.totalToletesRuins : 0;
 
-        // Gemas viáveis por metro (média)
-        // OBS: As gemas boas tem que ser em cima apenas dos toletes bons
-        let mediaViaveisM = (typeof q.mediaGemasViaveisPorM === 'number') ? q.mediaGemasViaveisPorM : null;
-        if (mediaViaveisM == null) {
-            const esqV = (typeof q.esqGemasViaveisPorM === 'number') ? q.esqGemasViaveisPorM : null;
-            const dirV = (typeof q.dirGemasViaveisPorM === 'number') ? q.dirGemasViaveisPorM : null;
-            if (esqV != null || dirV != null) {
-                const count = (esqV != null ? 1 : 0) + (dirV != null ? 1 : 0);
-                mediaViaveisM = ((esqV || 0) + (dirV || 0)) / (count || 1);
-            }
-        }
-        
-        let statusLabel = 'RUIM';
-        if (mediaViaveisM >= 8 && mediaViaveisM <= 13) {
-            statusLabel = 'BOM';
-        } else if (mediaViaveisM > 13) {
-            statusLabel = 'EXCELENTE';
-        } else {
-            statusLabel = 'RUIM'; // < 8
-        }
+        // Nova lógica de classificação
+        const qualStatus = this.calculateQualidadeMudaStatus(q);
+        const { statusToletes, statusGemasM, statusPctGemas, statusGeral, mediaViaveisM, pctGemasViaveis } = qualStatus;
 
         const toNumG_rel = (v) => (v == null || v === '') ? 0 : Number(v);
         const totalGBoas_rel = toNumG_rel(q.totalGemasBoas);
@@ -7297,7 +7313,16 @@ forceReloadAllData() {
         const gemasRuins5m = toNumG_rel(q.esqGemasRuinsTotais) + toNumG_rel(q.dirGemasRuinsTotais);
 
         const text =
-`🌱 RELATÓRIO DE QUALIDADE DE MUDA
+`🌱 QUALIDADE DE MUDA – PLANTIO
+
+📊 Avaliação
+
+Qualidade dos toletes: ${statusToletes} (${this.ui.formatNumber(pctToletesBons, 1)}%)
+Gemas viáveis por metro: ${statusGemasM} (${this.ui.formatNumber(mediaViaveisM, 2)})
+% de gemas viáveis: ${statusPctGemas} (${this.ui.formatNumber(pctGemasViaveis, 1)}%)
+
+📌 Status geral: ${statusGeral}
+
 📍 Frente: ${frente}
 📅 Data: ${dataStr}
 🌱 Variedade: ${q.mudaVariedade || '—'}
@@ -7308,18 +7333,13 @@ forceReloadAllData() {
 
 📊 Kg/ha: ${this.ui.formatNumber(q.mediaKgHa||0,2)} kg/ha
 
-🟢 Tolete bom: ${this.ui.formatNumber(qtdBonsTotal||0,0)} (~${this.ui.formatNumber(pctBonsTotal||0,2)}%)
+🟢 Tolete bom: ${this.ui.formatNumber(qtdBonsTotal||0,0)} (~${this.ui.formatNumber(pctToletesBons||0,2)}%)
 🔴 Tolete ruim: ${this.ui.formatNumber(qtdRuinsTotal||0,0)} (~${this.ui.formatNumber(pctRuinsTotal||0,2)}%)
 
 🌿 Média de gemas por tolete: ${this.ui.formatNumber(q.mediaGemasPorTolete||0,2)}
 🧬 Gemas (5 m): Boas ${this.ui.formatNumber(gemasBoas5m||0,0)} · Ruins ${this.ui.formatNumber(gemasRuins5m||0,0)}
 🌿 Gemas viáveis/m (média): ${this.ui.formatNumber(mediaViaveisM||0,2)}
-
-📌 Classificação: ${statusLabel}
-
-Entre 8 e 13 gemas/m → BOM
-Acima de 13 gemas/m → EXCELENTE
-Abaixo de 8 gemas/m → RUIM`;
+🧬 % Gemas viáveis: ${this.ui.formatNumber(pctGemasViaveis||0,2)}%`;
 
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(text).then(() => {
@@ -7477,24 +7497,9 @@ Abaixo de 8 gemas/m → RUIM`;
         if (tHaViavel < 0) tHaViavel = 0;
         if (tHaDescarte < 0) tHaDescarte = 0;
 
-        // Gemas viáveis por metro (média) – mesma lógica do resumo simples
-        let mediaViaveisM = (typeof q.mediaGemasViaveisPorM === 'number') ? q.mediaGemasViaveisPorM : null;
-        if (mediaViaveisM == null) {
-            const esqV = (typeof q.esqGemasViaveisPorM === 'number') ? q.esqGemasViaveisPorM : null;
-            const dirV = (typeof q.dirGemasViaveisPorM === 'number') ? q.dirGemasViaveisPorM : null;
-            if (esqV != null || dirV != null) {
-                const count = (esqV != null ? 1 : 0) + (dirV != null ? 1 : 0);
-                mediaViaveisM = ((esqV || 0) + (dirV || 0)) / (count || 1);
-            }
-        }
-
-        // Status com base nas faixas de gemas/m
-        let statusLabel = 'RUIM';
-        if (typeof mediaViaveisM === 'number') {
-            if (mediaViaveisM >= 8 && mediaViaveisM <= 13) statusLabel = 'BOM';
-            else if (mediaViaveisM > 13) statusLabel = 'EXCELENTE';
-            else statusLabel = 'RUIM';
-        }
+        // Nova lógica de classificação
+        const qualStatus = this.calculateQualidadeMudaStatus(q);
+        const { statusToletes, statusGemasM, statusPctGemas, statusGeral, mediaViaveisM, pctGemasViaveis } = qualStatus;
 
         const toNumG_op = (v) => (v == null || v === '') ? 0 : Number(v);
         const totalGBoas_op = toNumG_op(q.totalGemasBoas);
@@ -7503,6 +7508,14 @@ Abaixo de 8 gemas/m → RUIM`;
 
         const text =
 `🌱 *QUALIDADE DE MUDA – PLANTIO*
+
+📊 Avaliação
+
+Qualidade dos toletes: ${statusToletes} (${this.ui.formatNumber(pctToletesBons, 1)}%)
+Gemas viáveis por metro: ${statusGemasM} (${this.ui.formatNumber(mediaViaveisM, 2)})
+% de gemas viáveis: ${statusPctGemas} (${this.ui.formatNumber(pctGemasViaveis, 1)}%)
+
+📌 Status geral: ${statusGeral}
 
 📍 Fazenda: ${fazenda}
 📍 Frente: ${frente}
@@ -7516,12 +7529,13 @@ Abaixo de 8 gemas/m → RUIM`;
 📊 Kg/ha: ${this.ui.formatNumber(kgHaTotal||0,2)} kg/ha
 📈 T/ha: ${this.ui.formatNumber(tHaTotal||0,2)} T/ha
 
-🟢 Tolete bom: ${this.ui.formatNumber(qtdBonsTotal||0,0)} ~ ${this.ui.formatNumber(pctBonsTotal||0,2)}%
+🟢 Tolete bom: ${this.ui.formatNumber(qtdBonsTotal||0,0)} ~ ${this.ui.formatNumber(pctToletesBons||0,2)}%
 🔴 Tolete ruim: ${this.ui.formatNumber(qtdRuinsTotal||0,0)} ~ ${this.ui.formatNumber(pctRuinsTotal||0,2)}%
 
 🧬 Gemas (5 m)
 Boas: ${this.ui.formatNumber(gemasBoas5m||0,0)} | Ruins: ${this.ui.formatNumber(gemasRuins5m||0,0)}
 Gemas viáveis/m (média): ${this.ui.formatNumber(mediaViaveisM||0,2)}
+🧬 % Gemas viáveis: ${this.ui.formatNumber(pctGemasViaveis||0,2)}%
 
 🌿 Gema viável:
 Peso: ${this.ui.formatNumber(pesoBonsTotal||0,2)} kg
@@ -7531,7 +7545,7 @@ ${this.ui.formatNumber(tHaViavel||0,2)} T/ha
 Peso: ${this.ui.formatNumber(pesoRuinsTotal||0,2)} kg
 ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
 
-📌 Status geral: ${statusLabel}`;
+📌 Status geral: ${statusGeral}`;
 
         const originalText = button ? button.innerText : null;
         if (button) {
@@ -7620,8 +7634,20 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
         const consDia = Number(q.mudaConsumoDia || 0);
         const consPrev = Number(q.mudaPrevisto || 0);
 
+        // Nova lógica de classificação
+        const qualStatus = this.calculateQualidadeMudaStatus(q);
+        const { statusToletes, statusGemasM, statusPctGemas, statusGeral, mediaViaveisM, pctGemasViaveis, pctToletesBons } = qualStatus || {};
+
         const text =
-`🧬 QUALIDADE DE MUDA
+`🌱 QUALIDADE DE MUDA – PLANTIO
+
+📊 Avaliação
+
+Qualidade dos toletes: ${statusToletes} (${this.ui.formatNumber(pctToletesBons, 1)}%)
+Gemas viáveis por metro: ${statusGemasM} (${this.ui.formatNumber(mediaViaveisM, 2)})
+% de gemas viáveis: ${statusPctGemas} (${this.ui.formatNumber(pctGemasViaveis, 1)}%)
+
+📌 Status geral: ${statusGeral}
 
 📍 Fazenda: ${fazenda}
 📍 Frente: ${frente}
@@ -7806,13 +7832,18 @@ Dia: ${this.ui.formatNumber(consDia,2)} t | Prev.: ${this.ui.formatNumber(consPr
 
         let statusPlantioCana = null;
         if (isPlantioCanaComplex) {
-            const pctBons = typeof q.totalToletesBons === 'number' ? q.totalToletesBons : 0;
-            if (pctBons > 80) {
-                statusPlantioCana = { label: 'BOM', emoji: '🟢', color: '#2e7d32' };
-            } else if (pctBons >= 50) {
-                statusPlantioCana = { label: 'MÉDIO', emoji: '🟡', color: '#f9a825' };
-            } else {
-                statusPlantioCana = { label: 'RUIM', emoji: '🔴', color: '#e53935' };
+            const qualStatus = this.calculateQualidadeMudaStatus(q);
+            if (qualStatus) {
+                const { statusGeral } = qualStatus;
+                if (statusGeral === 'Excelente') {
+                    statusPlantioCana = { label: 'EXCELENTE', emoji: '🟢', color: '#2e7d32' };
+                } else if (statusGeral === 'Bom') {
+                    statusPlantioCana = { label: 'BOM', emoji: '🔵', color: '#1565c0' };
+                } else if (statusGeral === 'Regular') {
+                    statusPlantioCana = { label: 'REGULAR', emoji: '🟡', color: '#f9a825' };
+                } else {
+                    statusPlantioCana = { label: 'RUIM', emoji: '🔴', color: '#e53935' };
+                }
             }
         }
 
