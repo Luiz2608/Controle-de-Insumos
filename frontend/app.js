@@ -7026,16 +7026,20 @@ forceReloadAllData() {
                 
                 // Tenta pegar o turno ou a hora (fallback)
                 let turnoOuHora = '—';
-                if (r.turno) {
-                    turnoOuHora = `Turno ${r.turno}`;
-                } else if (q.horaRegistro) {
+                // Prioridade: Hora > Created_at > Turno
+                if (q.horaRegistro && !q.horaRegistro.toLowerCase().includes('turno')) {
                     turnoOuHora = q.horaRegistro;
+                } else if (r.horaRegistro && !r.horaRegistro.toLowerCase().includes('turno')) {
+                    turnoOuHora = r.horaRegistro;
                 } else if (r.created_at) {
                     try {
                         const dateObj = new Date(r.created_at);
                         turnoOuHora = dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
                     } catch (e) {}
+                } else if (r.turno) {
+                    turnoOuHora = `Turno ${r.turno}`;
                 }
+                
                 const frotaHora = `<div>${frota}</div><div class="subtext">${turnoOuHora}</div>`;
 
                 // Status
@@ -7511,7 +7515,6 @@ Gemas viáveis por metro (Alvo: 10 a 13): ${getStatusEmoji(statusGemasM)} ${stat
         };
 
         const dataStr = fmtDate(r.data);
-        const horaStr = r.horaRegistro || (r.qualidade && r.qualidade.horaRegistro) || '—';
         const primeiraFrente = Array.isArray(r.frentes) && r.frentes.length > 0 ? r.frentes[0] : null;
         const frente = (primeiraFrente && primeiraFrente.frente) || '—';
         const fazenda = (primeiraFrente && primeiraFrente.fazenda) || '—';
@@ -7530,6 +7533,21 @@ Gemas viáveis por metro (Alvo: 10 a 13): ${getStatusEmoji(statusGemasM)} ${stat
         let turnoOuHora = '—';
         if (r.turno) {
             turnoOuHora = `Turno ${r.turno}`;
+        }
+        
+        // Garante que a horaStr seja realmente a hora, e não turno
+        let horaStr = String(r.horaRegistro || (r.qualidade && r.qualidade.horaRegistro) || '—');
+        
+        // Se a horaStr estiver vindo como Turno, tenta limpar ou usar data de criação
+        if (horaStr.toLowerCase().includes('turno')) {
+             if (r.created_at) {
+                 try {
+                     const dateObj = new Date(r.created_at);
+                     horaStr = dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                 } catch (e) { horaStr = '—'; }
+             } else {
+                 horaStr = '—';
+             }
         }
 
         const pesoLiquidoTotal = (q.esqPesoLiquido || 0) + (q.dirPesoLiquido || 0);
