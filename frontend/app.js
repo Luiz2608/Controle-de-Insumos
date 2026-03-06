@@ -6926,10 +6926,10 @@ forceReloadAllData() {
                 thead.innerHTML = `
                     <tr>
                         <th style="cursor:pointer" onclick="${sortFn('data')}">Data${getIcon('data')}</th>
-                        <th>Tipo</th>
-                        <th>Fazenda / Frente</th>
-                        <th>Frota / Hora</th>
-                        <th class="col-status">Status</th>
+                        <th style="cursor:pointer" onclick="${sortFn('tipo_operacao')}">Tipo${getIcon('tipo_operacao')}</th>
+                        <th style="cursor:pointer" onclick="${sortFn('fazenda_frente')}">Fazenda / Frente${getIcon('fazenda_frente')}</th>
+                        <th style="cursor:pointer" onclick="${sortFn('frota_hora')}">Frota / Hora${getIcon('frota_hora')}</th>
+                        <th style="cursor:pointer" onclick="${sortFn('status')}">Status${getIcon('status')}</th>
                         <th>Ações</th>
                     </tr>
                 `;
@@ -6965,7 +6965,42 @@ forceReloadAllData() {
             const { key, dir } = sortState;
             let valA, valB;
 
-            if (key === 'sumArea') {
+            if (currentTab === 'qualidade_muda') {
+                const getVal = (item, k) => {
+                    const q = item.qualidade || {};
+                    const frentes = (item.frentes||[]);
+                    
+                    if (k === 'tipo_operacao') return item.tipo_operacao || q.tipoOperacao || 'plantio';
+                    
+                    if (k === 'fazenda_frente') {
+                         return frentes.length > 0 ? `${frentes[0].fazenda || ''} / ${frentes[0].frente || ''}` : '';
+                    }
+                    
+                    if (k === 'frota_hora') {
+                        const trator = q.qualEquipamentoTrator || '';
+                        const plantadora = q.qualEquipamentoPlantadora || '';
+                        return (trator || plantadora) ? `${trator}${plantadora}` : '';
+                    }
+
+                    if (k === 'status') {
+                        // Calcula valor numérico para status para ordenar corretamente (Melhor -> Pior)
+                        if (q.tipoOperacao === 'plantio_cana') {
+                             const qualStatus = this.calculateQualidadeMudaStatus(q);
+                             if (qualStatus) {
+                                 const map = { 'Excelente': 4, 'Bom': 3, 'Regular': 2, 'Ruim': 1 };
+                                 return map[qualStatus.statusGeral] || 0;
+                             }
+                        }
+                        return 0;
+                    }
+                    
+                    return item[k];
+                };
+                
+                valA = getVal(a, key);
+                valB = getVal(b, key);
+
+            } else if (key === 'sumArea') {
                 valA = (a.frentes||[]).reduce((s,x)=> s + (Number(x.area)||0), 0);
                 valB = (b.frentes||[]).reduce((s,x)=> s + (Number(x.area)||0), 0);
             } else if (key === 'sumPlantioDia') {
@@ -6978,6 +7013,9 @@ forceReloadAllData() {
                 valA = a[key];
                 valB = b[key];
             }
+            
+            if (typeof valA === 'string') valA = valA.toLowerCase();
+            if (typeof valB === 'string') valB = valB.toLowerCase();
 
             if (valA < valB) return dir === 'asc' ? -1 : 1;
             if (valA > valB) return dir === 'asc' ? 1 : -1;
