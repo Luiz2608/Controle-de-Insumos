@@ -6936,7 +6936,7 @@ forceReloadAllData() {
             } else if (currentTab === 'colheita_muda') {
                 thead.innerHTML = `
                     <tr>
-                        <th style="cursor:pointer" onclick="${sortFn('data')}">Data${getIcon('data')}</th>
+                        <th style="cursor:pointer" onclick="${sortFn('data')}">Data / Hora${getIcon('data')}</th>
                         <th>Frentes</th>
                         <th style="cursor:pointer" onclick="${sortFn('colheita_hectares')}">Hectares Colhidos${getIcon('colheita_hectares')}</th>
                         <th style="cursor:pointer" onclick="${sortFn('colheita_tch_real')}">TCH${getIcon('colheita_tch_real')}</th>
@@ -6947,7 +6947,7 @@ forceReloadAllData() {
             } else {
                 thead.innerHTML = `
                     <tr>
-                        <th style="cursor:pointer" onclick="${sortFn('data')}">Data${getIcon('data')}</th>
+                        <th style="cursor:pointer" onclick="${sortFn('data')}">Data / Hora${getIcon('data')}</th>
                         <th>Frentes</th>
                         <th style="cursor:pointer" onclick="${sortFn('sumArea')}">Área Total (ha)${getIcon('sumArea')}</th>
                         <th style="cursor:pointer" onclick="${sortFn('sumPlantioDia')}">Plantio Dia (ha)${getIcon('sumPlantioDia')}</th>
@@ -7118,9 +7118,13 @@ forceReloadAllData() {
                 const tch = this.ui.formatNumber(r.colheita_tch_real || 0, 2);
                 const tonTotais = this.ui.formatNumber(r.colheita_toneladas_totais || 0, 2);
                 
+                // Hora
+                const horaStr = r.horaRegistro || (r.qualidade && r.qualidade.horaRegistro) || '';
+                const dataHoraHtml = horaStr ? `<div>${this.ui.formatDateBR(r.data)}</div><div style="font-size:0.85em; color:#666;">${horaStr}</div>` : this.ui.formatDateBR(r.data);
+
                 return `
                 <tr>
-                    <td>${this.ui.formatDateBR(r.data)}</td>
+                    <td>${dataHoraHtml}</td>
                     <td>${resumoFrentes}</td>
                     <td>${qtdColhida} ha</td>
                     <td>${tch}</td>
@@ -7148,9 +7152,13 @@ forceReloadAllData() {
                 
                 const resumoFrentes = (r.frentes||[]).map(f => `${f.frente}: ${f.fazenda||'—'}${f.regiao?(' / '+f.regiao):''}`).join(' | ');
                 
+                // Hora
+                const horaStr = r.horaRegistro || (r.qualidade && r.qualidade.horaRegistro) || '';
+                const dataHoraHtml = horaStr ? `<div>${this.ui.formatDateBR(r.data)}</div><div style="font-size:0.85em; color:#666;">${horaStr}</div>` : this.ui.formatDateBR(r.data);
+
                 return `
                 <tr>
-                    <td>${this.ui.formatDateBR(r.data)}</td>
+                    <td>${dataHoraHtml}</td>
                     <td>${resumoFrentes || '—'}</td>
                     <td>${this.ui.formatNumber(sumArea)}</td>
                     <td>${this.ui.formatNumber(sumPlantioDia)}</td>
@@ -7282,9 +7290,13 @@ forceReloadAllData() {
                 indicador = '<span style="font-size: 1.2em; color: #ccc;">—</span>';
             }
 
+            // Hora
+            const horaStr = r.horaRegistro || (r.qualidade && r.qualidade.horaRegistro) || '';
+            const dataHoraHtml = horaStr ? `<div>${this.ui.formatDateBR(r.data)}</div><div style="font-size:0.85em; color:#666;">${horaStr}</div>` : this.ui.formatDateBR(r.data);
+
             return `
             <tr>
-                <td style="vertical-align: middle;">${this.ui.formatDateBR(r.data)}</td>
+                <td style="vertical-align: middle;">${dataHoraHtml}</td>
                 <td style="vertical-align: middle;">${fazendaFrente}</td>
                 <td style="vertical-align: middle;">${variedade}</td>
                 <td style="text-align: center; vertical-align: middle;">
@@ -7412,6 +7424,7 @@ forceReloadAllData() {
         };
 
         const dataStr = fmtDate(r.data);
+        const horaStr = r.horaRegistro || (r.qualidade && r.qualidade.horaRegistro) || '—';
         const primeiraFrente = Array.isArray(r.frentes) && r.frentes.length > 0 ? r.frentes[0] : null;
         const frente = (primeiraFrente && primeiraFrente.frente) || '—';
 
@@ -7448,6 +7461,7 @@ forceReloadAllData() {
 
 📍 Frente: ${frente}
 📅 Data: ${dataStr}
+🕒 Hora: ${horaStr}
 🌱 Variedade: ${q.mudaVariedade || '—'}
 
 ⚖ Peso do Balde: ${this.ui.formatNumber(pesoBaldeEsq,3)}kg / ${this.ui.formatNumber(pesoBaldeDir,3)}kg
@@ -7497,20 +7511,10 @@ Gemas viáveis por metro (Alvo: 10 a 13): ${getStatusEmoji(statusGemasM)} ${stat
         };
 
         const dataStr = fmtDate(r.data);
+        const horaStr = r.horaRegistro || (r.qualidade && r.qualidade.horaRegistro) || '—';
         const primeiraFrente = Array.isArray(r.frentes) && r.frentes.length > 0 ? r.frentes[0] : null;
-        let derivedHeaderFazenda = null;
-        if (primeiraFrente) {
-            if (primeiraFrente.fazenda) {
-                derivedHeaderFazenda = primeiraFrente.fazenda;
-            } else if (primeiraFrente.frente) {
-                const m = String(primeiraFrente.frente).match(/^(\d+)\\s+(.+)$/);
-                if (m && m[2]) {
-                    derivedHeaderFazenda = m[2].trim();
-                }
-            }
-        }
-        const fazenda = derivedHeaderFazenda || q.mudaFazendaOrigem || '—';
-        const frente = (primeiraFrente && primeiraFrente.frente) || q.mudaTalhaoOrigem || '—';
+        const frente = (primeiraFrente && primeiraFrente.frente) || '—';
+        const fazenda = (primeiraFrente && primeiraFrente.fazenda) || '—';
 
         const plantadora = q.qualEquipamentoPlantadora || '—';
         const equipamento = q.qualEquipamentoTrator || '—';
@@ -7526,23 +7530,7 @@ Gemas viáveis por metro (Alvo: 10 a 13): ${getStatusEmoji(statusGemasM)} ${stat
         let turnoOuHora = '—';
         if (r.turno) {
             turnoOuHora = `Turno ${r.turno}`;
-        } else if (q.horaRegistro) {
-            // Verifica se horaRegistro já é um turno
-            if (q.horaRegistro.toLowerCase().includes('turno')) {
-                turnoOuHora = q.horaRegistro;
-            } else {
-                turnoOuHora = q.horaRegistro;
-            }
-        } else if (r.created_at) {
-            try {
-                const dateObj = new Date(r.created_at);
-                turnoOuHora = dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-            } catch (e) {}
         }
-
-        const horaInicio = q.horaInicio || turnoOuHora || '—';
-        const horaFim = q.horaFim || '';
-        const horaStr = horaFim ? `${horaInicio}/${horaFim}` : horaInicio;
 
         const pesoLiquidoTotal = (q.esqPesoLiquido || 0) + (q.dirPesoLiquido || 0);
         const pesoBonsTotal = (q.esqPesoBons || 0) + (q.dirPesoBons || 0);
