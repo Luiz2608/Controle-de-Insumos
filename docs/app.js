@@ -45,7 +45,9 @@ class InsumosApp {
         this.tableSort = {
             plantio: { key: 'data', dir: 'desc' },
             colheita: { key: 'data', dir: 'desc' },
-            qualidade: { key: 'data', dir: 'desc' },
+            // Mudança para suportar múltiplos critérios na qualidade
+            // Ex: [{key: 'data', dir: 'desc'}, {key: 'fazenda_frente', dir: 'asc'}]
+            qualidade: [{ key: 'data', dir: 'desc' }], 
             fazendas: { key: 'codigo', dir: 'asc' }
         };
 
@@ -6743,11 +6745,41 @@ forceReloadAllData() {
     toggleTableSort(table, key) {
         if (!this.tableSort[table]) return;
         
-        if (this.tableSort[table].key === key) {
-            this.tableSort[table].dir = this.tableSort[table].dir === 'asc' ? 'desc' : 'asc';
+        // Lógica específica para Qualidade (Multi-sort)
+        if (table === 'qualidade') {
+            const currentSorts = this.tableSort.qualidade;
+            const existingIndex = currentSorts.findIndex(s => s.key === key);
+            
+            // Se já existe, inverte a direção
+            if (existingIndex !== -1) {
+                // Se for o PRIMEIRO (principal), inverte
+                // Se for secundário, move para primário e inverte? Ou só inverte?
+                // Comportamento padrão de Excel: Clicar em coluna torna ela a primária
+                
+                const item = currentSorts[existingIndex];
+                item.dir = item.dir === 'asc' ? 'desc' : 'asc';
+                
+                // Move para o topo da lista (prioridade máxima)
+                currentSorts.splice(existingIndex, 1);
+                currentSorts.unshift(item);
+            } else {
+                // Adiciona como nova prioridade no topo
+                currentSorts.unshift({ key: key, dir: 'asc' });
+            }
+            
+            // Limita a 3 critérios de ordenação para não virar bagunça
+            if (currentSorts.length > 3) {
+                currentSorts.length = 3;
+            }
+            
         } else {
-            this.tableSort[table].key = key;
-            this.tableSort[table].dir = 'asc';
+            // Lógica Padrão (Single-sort)
+            if (this.tableSort[table].key === key) {
+                this.tableSort[table].dir = this.tableSort[table].dir === 'asc' ? 'desc' : 'asc';
+            } else {
+                this.tableSort[table].key = key;
+                this.tableSort[table].dir = 'asc';
+            }
         }
         
         // Re-renderizar a tabela correta
@@ -6918,8 +6950,25 @@ forceReloadAllData() {
         
         // Update Headers based on tab
         if (thead) {
+            const currentTab = this.plantioTab || 'plantio';
             const sort = (currentTab === 'qualidade_muda') ? this.tableSort.qualidade : (currentTab === 'colheita_muda' ? this.tableSort.colheita : this.tableSort.plantio);
-            const getIcon = (key) => sort.key === key ? (sort.dir === 'asc' ? ' 🔼' : ' 🔽') : '';
+            
+            // Helper para ícones multi-sort
+            const getIcon = (key) => {
+                if (Array.isArray(sort)) {
+                    // Multi-sort (Qualidade)
+                    const idx = sort.findIndex(s => s.key === key);
+                    if (idx === -1) return '';
+                    const arrow = sort[idx].dir === 'asc' ? ' 🔼' : ' 🔽';
+                    // Mostra número da prioridade se houver mais de 1
+                    const priority = sort.length > 1 ? `<sub style="font-size:0.7em">${idx + 1}</sub>` : '';
+                    return `${arrow}${priority}`;
+                } else {
+                    // Single-sort
+                    return sort.key === key ? (sort.dir === 'asc' ? ' 🔼' : ' 🔽') : '';
+                }
+            };
+            
             const sortFn = (key) => `window.insumosApp.toggleTableSort('${currentTab === 'qualidade_muda' ? 'qualidade' : (currentTab === 'colheita_muda' ? 'colheita' : 'plantio')}', '${key}')`;
 
             if (currentTab === 'qualidade_muda') {
@@ -6962,64 +7011,78 @@ forceReloadAllData() {
         const sortState = (currentTab === 'qualidade_muda') ? this.tableSort.qualidade : (currentTab === 'colheita_muda' ? this.tableSort.colheita : this.tableSort.plantio);
         
         const allRows = (this.plantioDia || []).slice().sort((a, b) => {
-            const { key, dir } = sortState;
-            let valA, valB;
-
-            if (currentTab === 'qualidade_muda') {
-                const getVal = (item, k) => {
-                    const q = item.qualidade || {};
-                    const frentes = (item.frentes||[]);
-                    
-                    if (k === 'tipo_operacao') return item.tipo_operacao || q.tipoOperacao || 'plantio';
-                    
-                    if (k === 'fazenda_frente') {
-                         return frentes.length > 0 ? `${frentes[0].fazenda || ''} / ${frentes[0].frente || ''}` : '';
-                    }
-                    
-                    if (k === 'frota_hora') {
-                        const trator = q.qualEquipamentoTrator || '';
-                        const plantadora = q.qualEquipamentoPlantadora || '';
-                        return (trator || plantadora) ? `${trator}${plantadora}` : '';
-                    }
-
-                    if (k === 'status') {
-                        // Calcula valor numérico para status para ordenar corretamente (Melhor -> Pior)
-                        if (q.tipoOperacao === 'plantio_cana') {
-                             const qualStatus = this.calculateQualidadeMudaStatus(q);
-                             if (qualStatus) {
-                                 const map = { 'Excelente': 4, 'Bom': 3, 'Regular': 2, 'Ruim': 1 };
-                                 return map[qualStatus.statusGeral] || 0;
-                             }
-                        }
-                        return 0;
-                    }
-                    
-                    return item[k];
-                };
-                
-                valA = getVal(a, key);
-                valB = getVal(b, key);
-
-            } else if (key === 'sumArea') {
-                valA = (a.frentes||[]).reduce((s,x)=> s + (Number(x.area)||0), 0);
-                valB = (b.frentes||[]).reduce((s,x)=> s + (Number(x.area)||0), 0);
-            } else if (key === 'sumPlantioDia') {
-                valA = (a.frentes||[]).reduce((s,x)=> s + (Number(x.plantioDiario || x.plantada)||0), 0);
-                valB = (b.frentes||[]).reduce((s,x)=> s + (Number(x.plantioDiario || x.plantada)||0), 0);
-            } else if (key === 'cobricao') {
-                valA = Number((a.qualidade || {}).cobricaoDia || a.cobricaoDia || 0);
-                valB = Number((b.qualidade || {}).cobricaoDia || b.cobricaoDia || 0);
-            } else {
-                valA = a[key];
-                valB = b[key];
-            }
             
-            if (typeof valA === 'string') valA = valA.toLowerCase();
-            if (typeof valB === 'string') valB = valB.toLowerCase();
+            if (currentTab === 'qualidade_muda' && Array.isArray(sortState)) {
+                // Multi-sort Logic
+                for (const { key, dir } of sortState) {
+                    const getVal = (item, k) => {
+                        const q = item.qualidade || {};
+                        const frentes = (item.frentes||[]);
+                        
+                        if (k === 'tipo_operacao') return item.tipo_operacao || q.tipoOperacao || 'plantio';
+                        
+                        if (k === 'fazenda_frente') {
+                             return frentes.length > 0 ? `${frentes[0].fazenda || ''} / ${frentes[0].frente || ''}` : '';
+                        }
+                        
+                        if (k === 'frota_hora') {
+                            const trator = q.qualEquipamentoTrator || '';
+                            const plantadora = q.qualEquipamentoPlantadora || '';
+                            return (trator || plantadora) ? `${trator}${plantadora}` : '';
+                        }
+    
+                        if (k === 'status') {
+                            // Calcula valor numérico para status para ordenar corretamente (Melhor -> Pior)
+                            if (q.tipoOperacao === 'plantio_cana') {
+                                 const qualStatus = this.calculateQualidadeMudaStatus(q);
+                                 if (qualStatus) {
+                                     const map = { 'Excelente': 4, 'Bom': 3, 'Regular': 2, 'Ruim': 1 };
+                                     return map[qualStatus.statusGeral] || 0;
+                                 }
+                            }
+                            return 0;
+                        }
+                        
+                        return item[k];
+                    };
+                    
+                    let valA = getVal(a, key);
+                    let valB = getVal(b, key);
+                    
+                    if (typeof valA === 'string') valA = valA.toLowerCase();
+                    if (typeof valB === 'string') valB = valB.toLowerCase();
+    
+                    if (valA < valB) return dir === 'asc' ? -1 : 1;
+                    if (valA > valB) return dir === 'asc' ? 1 : -1;
+                }
+                return 0;
 
-            if (valA < valB) return dir === 'asc' ? -1 : 1;
-            if (valA > valB) return dir === 'asc' ? 1 : -1;
-            return 0;
+            } else {
+                // Single-sort Logic (Plantio/Colheita)
+                const { key, dir } = sortState;
+                let valA, valB;
+
+                if (key === 'sumArea') {
+                    valA = (a.frentes||[]).reduce((s,x)=> s + (Number(x.area)||0), 0);
+                    valB = (b.frentes||[]).reduce((s,x)=> s + (Number(x.area)||0), 0);
+                } else if (key === 'sumPlantioDia') {
+                    valA = (a.frentes||[]).reduce((s,x)=> s + (Number(x.plantioDiario || x.plantada)||0), 0);
+                    valB = (b.frentes||[]).reduce((s,x)=> s + (Number(x.plantioDiario || x.plantada)||0), 0);
+                } else if (key === 'cobricao') {
+                    valA = Number((a.qualidade || {}).cobricaoDia || a.cobricaoDia || 0);
+                    valB = Number((b.qualidade || {}).cobricaoDia || b.cobricaoDia || 0);
+                } else {
+                    valA = a[key];
+                    valB = b[key];
+                }
+                
+                if (typeof valA === 'string') valA = valA.toLowerCase();
+                if (typeof valB === 'string') valB = valB.toLowerCase();
+    
+                if (valA < valB) return dir === 'asc' ? -1 : 1;
+                if (valA > valB) return dir === 'asc' ? 1 : -1;
+                return 0;
+            }
         });
         
         // Filter rows based on tab
@@ -7233,15 +7296,26 @@ forceReloadAllData() {
         // Renderizar cabeçalho com listeners de ordenação
         if (thead) {
             const sort = this.tableSort.qualidade;
-            const getIcon = (key) => sort.key === key ? (sort.dir === 'asc' ? ' 🔼' : ' 🔽') : '';
+            // Helper para ícones multi-sort (mesma lógica do plantioDia)
+            const getIcon = (key) => {
+                if (Array.isArray(sort)) {
+                    const idx = sort.findIndex(s => s.key === key);
+                    if (idx === -1) return '';
+                    const arrow = sort[idx].dir === 'asc' ? ' 🔼' : ' 🔽';
+                    const priority = sort.length > 1 ? `<sub style="font-size:0.7em">${idx + 1}</sub>` : '';
+                    return `${arrow}${priority}`;
+                } else {
+                    return sort.key === key ? (sort.dir === 'asc' ? ' 🔼' : ' 🔽') : '';
+                }
+            };
             const sortFn = (key) => `window.insumosApp.toggleTableSort('qualidade', '${key}')`;
 
             thead.innerHTML = `
                 <tr>
                     <th style="cursor:pointer" onclick="${sortFn('data')}">Data${getIcon('data')}</th>
-                    <th>Fazenda / Frente</th>
-                    <th>Variedade</th>
-                    <th>Indicador</th>
+                    <th style="cursor:pointer" onclick="${sortFn('fazenda_frente')}">Fazenda / Frente${getIcon('fazenda_frente')}</th>
+                    <th style="cursor:pointer" onclick="${sortFn('variedade')}">Variedade${getIcon('variedade')}</th>
+                    <th style="cursor:pointer" onclick="${sortFn('indicador')}">Indicador${getIcon('indicador')}</th>
                     <th>Ações</th>
                 </tr>
             `;
@@ -7262,11 +7336,59 @@ forceReloadAllData() {
 
         // Aplicar ordenação
         const rows = allRows.slice().sort((a, b) => {
-            const { key, dir } = this.tableSort.qualidade;
-            let valA = a[key], valB = b[key];
+            const sortList = this.tableSort.qualidade; // Array de {key, dir}
             
-            if (valA < valB) return dir === 'asc' ? -1 : 1;
-            if (valA > valB) return dir === 'asc' ? 1 : -1;
+            // Itera sobre os critérios de ordenação
+            for (const { key, dir } of sortList) {
+                let valA, valB;
+                
+                // --- Lógica de extração de valores (repetida do renderPlantioDia) ---
+                const getVal = (item, k) => {
+                    const q = item.qualidade || {};
+                    const frentes = (item.frentes||[]);
+                    
+                    if (k === 'data') return item.data;
+                    
+                    if (k === 'fazenda_frente') {
+                         return frentes.length > 0 ? `${frentes[0].fazenda || ''} / ${frentes[0].frente || ''}` : '';
+                    }
+                    
+                    if (k === 'variedade') {
+                        return (q && q.mudaVariedade) 
+                            ? q.mudaVariedade 
+                            : (frentes.length > 0 && frentes[0].variedade ? frentes[0].variedade : '');
+                    }
+                    
+                    if (k === 'indicador') {
+                        // Tenta extrair um valor numérico para ordenar o indicador
+                        if (q.tipoOperacao === 'plantio_cana') {
+                             const qualStatus = this.calculateQualidadeMudaStatus(q);
+                             if (qualStatus) {
+                                 // Ordena por status (4=Excelente... 1=Ruim)
+                                 const map = { 'Excelente': 4, 'Bom': 3, 'Regular': 2, 'Ruim': 1 };
+                                 return map[qualStatus.statusGeral] || 0;
+                             }
+                             return q.mediaKgHa || 0;
+                        } else {
+                            // % gemas boas
+                            return (q.gemasBoasPct != null) ? q.gemasBoasPct : 
+                                   (q.gemasViaveisPerc != null) ? q.gemasViaveisPerc : 0;
+                        }
+                    }
+                    
+                    return item[k];
+                };
+                
+                valA = getVal(a, key);
+                valB = getVal(b, key);
+                
+                if (typeof valA === 'string') valA = valA.toLowerCase();
+                if (typeof valB === 'string') valB = valB.toLowerCase();
+                
+                if (valA < valB) return dir === 'asc' ? -1 : 1;
+                if (valA > valB) return dir === 'asc' ? 1 : -1;
+                // Se for igual, continua para o próximo critério
+            }
             return 0;
         });
         
