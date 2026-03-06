@@ -7035,7 +7035,23 @@ forceReloadAllData() {
                         if (k === 'frota_hora') {
                             const trator = q.qualEquipamentoTrator || '';
                             const plantadora = q.qualEquipamentoPlantadora || '';
-                            return (trator || plantadora) ? `${trator}${plantadora}` : '';
+                            
+                            // Lógica de fallback para hora (igual ao display)
+                            let hora = '';
+                            if (q.horaRegistro && !q.horaRegistro.toLowerCase().includes('turno')) {
+                                hora = q.horaRegistro;
+                            } else if (item.horaRegistro && !item.horaRegistro.toLowerCase().includes('turno')) {
+                                hora = item.horaRegistro;
+                            } else if (item.created_at) {
+                                try {
+                                    const dateObj = new Date(item.created_at);
+                                    hora = dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                                } catch (e) {}
+                            }
+                            
+                            // Prioridade na ordenação: Hora primeiro, depois Frota
+                            // Formato ISO-like para string sort funcionar bem: HH:MM + Frota
+                            return `${hora} ${trator}${plantadora}`;
                         }
     
                         if (k === 'status') {
