@@ -7033,8 +7033,7 @@ forceReloadAllData() {
                         }
                         
                         if (k === 'frota_hora') {
-                            const trator = q.qualEquipamentoTrator || '';
-                            const plantadora = q.qualEquipamentoPlantadora || '';
+                            const q = item.qualidade || {};
                             
                             // Lógica de fallback para hora (igual ao display)
                             let hora = '';
@@ -7049,9 +7048,8 @@ forceReloadAllData() {
                                 } catch (e) {}
                             }
                             
-                            // Prioridade na ordenação: Hora primeiro, depois Frota
-                            // Formato ISO-like para string sort funcionar bem: HH:MM + Frota
-                            return `${hora} ${trator}${plantadora}`;
+                            // Ordena APENAS pela hora, ignorando a frota
+                            return hora;
                         }
     
                         if (k === 'status') {
