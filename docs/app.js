@@ -6750,24 +6750,31 @@ forceReloadAllData() {
             const currentSorts = this.tableSort.qualidade;
             const existingIndex = currentSorts.findIndex(s => s.key === key);
             
-            // Se já existe, inverte a direção
-            if (existingIndex !== -1) {
-                // Se for o PRIMEIRO (principal), inverte
-                // Se for secundário, move para primário e inverte? Ou só inverte?
-                // Comportamento padrão de Excel: Clicar em coluna torna ela a primária
-                
-                const item = currentSorts[existingIndex];
-                item.dir = item.dir === 'asc' ? 'desc' : 'asc';
-                
-                // Move para o topo da lista (prioridade máxima)
-                currentSorts.splice(existingIndex, 1);
-                currentSorts.unshift(item);
+            // Comportamento: 
+            // - Clicar numa coluna: torna-se a PRINCIPAL (índice 0)
+            // - Se já era a principal: inverte a ordem
+            // - Se era secundária: move para principal (mantendo ordem ou resetando para asc? Geralmente mantém)
+            // - As outras colunas são empurradas para baixo na prioridade
+            
+            if (existingIndex === 0) {
+                // Se já é a principal, inverte
+                currentSorts[0].dir = currentSorts[0].dir === 'asc' ? 'desc' : 'asc';
             } else {
-                // Adiciona como nova prioridade no topo
-                currentSorts.unshift({ key: key, dir: 'asc' });
+                let newItem;
+                if (existingIndex !== -1) {
+                    // Se já existia na lista (mas não era a primeira), remove de lá
+                    newItem = currentSorts.splice(existingIndex, 1)[0];
+                    // Opcional: Resetar para asc quando promove? Ou manter estado?
+                    // Excel mantém o estado se você clicar de novo. Vamos manter.
+                } else {
+                    // Nova coluna
+                    newItem = { key: key, dir: 'asc' };
+                }
+                // Adiciona no início (prioridade máxima)
+                currentSorts.unshift(newItem);
             }
             
-            // Limita a 3 critérios de ordenação para não virar bagunça
+            // Limita a 3 critérios de ordenação
             if (currentSorts.length > 3) {
                 currentSorts.length = 3;
             }
