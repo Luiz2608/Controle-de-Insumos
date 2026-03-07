@@ -12485,8 +12485,25 @@ Dia: ${this.ui.formatNumber(consDia,2)} t | Prev.: ${this.ui.formatNumber(consPr
                 const idField = document.getElementById('composto-id');
                 if (idField) idField.value = id;
                 
-                // Lock fields for editing (View Mode)
-                this.toggleCompostoFields(true);
+                // Lock fields for editing (View Mode) -> Changed to Allow Edit
+                // this.toggleCompostoFields(true); // OLD: Locked everything
+                this.toggleCompostoFields(false); // NEW: Unlock fields for editing
+                
+                // Lock OS Number to prevent key changes if needed, but allow others
+                const osField = document.getElementById('composto-numero-os');
+                if (osField) {
+                    osField.readOnly = true;
+                    osField.classList.add('readonly-input');
+                }
+
+                // Ensure Frente is editable
+                const frenteField = document.getElementById('composto-frente');
+                if (frenteField) {
+                    frenteField.readOnly = false;
+                    frenteField.classList.remove('readonly-input');
+                    frenteField.removeAttribute('readonly');
+                    frenteField.disabled = false;
+                }
                 
                 // Show Modal
                 const modal = document.getElementById('modal-transporte-composto');
