@@ -14169,8 +14169,19 @@ InsumosApp.prototype.loadProdutosDatalist = async function() {
         
         const select = document.getElementById('insumo-produto');
         if (select) {
+            // Lista Padrão de Produtos (Hardcoded)
+            const defaultProducts = [
+                'BIOZYME', '04-30-10', 'QUALITY', 'AZOKOP', 'SURVEY (FIPRONIL)',
+                'OXIFERTIL', 'LANEX 800 WG (REGENTE)', 'COMET', 'COMPOSTO',
+                '10-49-00', 'PEREGRINO', 'NO-NEMA', 'Outro'
+            ];
+
+            // Merge unique products (Default + Stock)
+            const allProducts = new Set([...defaultProducts, ...produtos]);
+            
+            // Rebuild Select
             select.innerHTML = '<option value="">Selecione o produto...</option>' + 
-                               produtos.map(p => `<option value="${p}">${p}</option>`).join('');
+                               Array.from(allProducts).map(p => `<option value="${p}">${p}</option>`).join('');
         }
     } catch (e) {
         console.error('Erro ao carregar produtos para select:', e);
