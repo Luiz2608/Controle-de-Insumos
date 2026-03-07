@@ -12725,12 +12725,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    // Listener para carregar fazendas quando a aba for clicada
-    const tabRel = document.querySelector('.tab[data-tab="relatorio-fazenda"]');
-    if (tabRel) {
-        tabRel.addEventListener('click', () => {
+    // Listener para carregar fazendas quando a aba Insumos for clicada
+    const tabInsumos = document.querySelector('.tab[data-tab="insumos-fazendas"]');
+    if (tabInsumos) {
+        tabInsumos.addEventListener('click', () => {
             if (window.insumosApp && window.insumosApp.loadFazendasForRelatorio) {
-                window.insumosApp.loadFazendasForRelatorio();
+                // Pequeno delay para garantir que a aba esteja visível/carregada
+                setTimeout(() => window.insumosApp.loadFazendasForRelatorio(), 100);
             }
         });
     }
