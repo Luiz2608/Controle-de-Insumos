@@ -12710,7 +12710,29 @@ document.addEventListener('DOMContentLoaded', () => {
     // Verificar se já existe uma instância para evitar duplicação
     if (!window.insumosApp) {
         window.insumosApp = new InsumosApp();
-        window.insumosApp.init().catch(e => console.error('Init failed:', e));
+        window.insumosApp.init().then(() => {
+            // Initialize new features after core init
+            if (window.insumosApp.setupRelatorioFazendaListeners) {
+                window.insumosApp.setupRelatorioFazendaListeners();
+                window.insumosApp.loadFazendasForRelatorio();
+            }
+        }).catch(e => console.error('Init failed:', e));
+    } else {
+        // If already initialized (e.g. hot reload), just setup listeners
+        if (window.insumosApp.setupRelatorioFazendaListeners) {
+            window.insumosApp.setupRelatorioFazendaListeners();
+            window.insumosApp.loadFazendasForRelatorio();
+        }
+    }
+    
+    // Listener para carregar fazendas quando a aba for clicada
+    const tabRel = document.querySelector('.tab[data-tab="relatorio-fazenda"]');
+    if (tabRel) {
+        tabRel.addEventListener('click', () => {
+            if (window.insumosApp && window.insumosApp.loadFazendasForRelatorio) {
+                window.insumosApp.loadFazendasForRelatorio();
+            }
+        });
     }
 });
 
@@ -16883,4 +16905,134 @@ InsumosApp.prototype.handlePrintReport = async function() {
     setTimeout(() => {
         window.print();
     }, 500);
+};
+
+// === RELATÓRIO POR FAZENDA (NOVO) ===
+
+InsumosApp.prototype.setupRelatorioFazendaListeners = function() {
+    const btnGerar = document.getElementById('btn-gerar-relatorio-fazenda');
+    if (btnGerar) {
+        btnGerar.addEventListener('click', () => this.renderRelatorioFazenda());
+    }
+    
+    // Auto-load on tab switch (if implemented globally) or manual call
+    // Listener para carregar fazendas ao abrir a aba (se necessário, mas init já carrega)
+};
+
+InsumosApp.prototype.loadFazendasForRelatorio = function() {
+    const select = document.getElementById('relatorio-fazenda-select');
+    if (!select) return;
+
+    // Usar cadastro de fazendas ou extrair de insumosFazendasData
+    // Prioridade: Cadastro Oficial > Extração de Dados
+    let fazendas = [];
+    
+    if (this.cadastroFazendas && this.cadastroFazendas.length > 0) {
+        fazendas = this.cadastroFazendas.map(f => f.nome || f.fazenda).filter(Boolean).sort();
+    } else {
+        // Fallback
+        const unique = new Set();
+        (this.insumosFazendasData || []).forEach(i => {
+            if (i.fazenda) unique.add(i.fazenda);
+        });
+        fazendas = Array.from(unique).sort();
+    }
+
+    // Remove duplicates just in case
+    fazendas = [...new Set(fazendas)];
+
+    select.innerHTML = '<option value="">Selecione a Fazenda...</option>' + 
+                       fazendas.map(f => `<option value="${f}">${f}</option>`).join('');
+};
+
+InsumosApp.prototype.renderRelatorioFazenda = function() {
+    const select = document.getElementById('relatorio-fazenda-select');
+    const tbody = document.getElementById('relatorio-fazenda-tbody');
+    const resultDiv = document.getElementById('relatorio-fazenda-result');
+    const titulo = document.getElementById('relatorio-fazenda-titulo');
+    
+    if (!select || !tbody) return;
+
+    const fazendaSelecionada = select.value;
+    if (!fazendaSelecionada) {
+        this.ui.showNotification('Por favor, selecione uma fazenda.', 'warning');
+        return;
+    }
+
+    // Mostrar container
+    if (resultDiv) resultDiv.style.display = 'block';
+    if (titulo) titulo.textContent = `Resultados para: ${fazendaSelecionada}`;
+
+    tbody.innerHTML = '<tr><td colspan="6" class="loading">Calculando...</td></tr>';
+
+    // Processamento
+    // Filtrar dados globais de insumos (this.insumosFazendasData)
+    // Se não tiver dados, tenta carregar
+    if (!this.insumosFazendasData || this.insumosFazendasData.length === 0) {
+        // Tenta carregar se estiver vazio (embora geralmente já esteja carregado)
+        // this.loadInsumosData(); // Async, pode demorar
+    }
+
+    const dados = (this.insumosFazendasData || []).filter(item => {
+        return (item.fazenda || '').trim().toLowerCase() === fazendaSelecionada.trim().toLowerCase();
+    });
+
+    if (dados.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Nenhum registro de insumo encontrado para esta fazenda.</td></tr>';
+        return;
+    }
+
+    // Agrupar por Produto
+    const agrupado = {};
+
+    dados.forEach(item => {
+        const prod = item.produto || 'Não Identificado';
+        if (!agrupado[prod]) {
+            agrupado[prod] = {
+                produto: prod,
+                areaTotal: 0,
+                quantidadeTotal: 0,
+                doseRecomendadaSum: 0,
+                doseRecomendadaCount: 0
+            };
+        }
+        
+        const area = parseFloat(item.areaTotalAplicada || 0) || 0;
+        const qtd = parseFloat(item.quantidadeAplicada || 0) || 0;
+        const doseRec = parseFloat(item.doseRecomendada || 0) || 0;
+
+        agrupado[prod].areaTotal += area;
+        agrupado[prod].quantidadeTotal += qtd;
+        
+        if (doseRec > 0) {
+            agrupado[prod].doseRecomendadaSum += doseRec;
+            agrupado[prod].doseRecomendadaCount++;
+        }
+    });
+
+    // Gerar linhas da tabela
+    const linhas = Object.values(agrupado).map(r => {
+        const doseMedia = r.areaTotal > 0 ? (r.quantidadeTotal / r.areaTotal) : 0;
+        const doseRecMedia = r.doseRecomendadaCount > 0 ? (r.doseRecomendadaSum / r.doseRecomendadaCount) : 0;
+        
+        let difPerc = 0;
+        if (doseRecMedia > 0 && doseMedia > 0) {
+            difPerc = ((doseMedia / doseRecMedia) - 1) * 100;
+        }
+
+        const difClass = this.ui.getDifferenceClass(difPerc);
+
+        return `
+            <tr>
+                <td>${r.produto}</td>
+                <td>${this.ui.formatNumber(r.areaTotal, 2)}</td>
+                <td>${this.ui.formatNumber(r.quantidadeTotal, 3)}</td>
+                <td>${this.ui.formatNumber(doseMedia, 3)}</td>
+                <td>${this.ui.formatNumber(doseRecMedia, 3)}</td>
+                <td class="${difClass}">${this.ui.formatPercentage(difPerc)}</td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = linhas.join('');
 };

@@ -304,6 +304,7 @@
                 <button class="tab" data-tab="plantio-dia">📅 Plantio</button>
                 <button class="tab" data-tab="viagens-adubo">🚚 Viagens Adubo</button>
                 <button class="tab" data-tab="insumos-fazendas">🌱 Insumos</button>
+                <button class="tab" data-tab="relatorio-fazenda">📋 Rel. Fazenda</button>
                 <button class="tab" data-tab="estoque">📦 Estoque</button>
             </div>
 
@@ -577,33 +578,43 @@
                     </tbody>
                 </table>
             </div>
-            <div class="dashboard-wrapper">
+            <!-- O antigo resumo foi movido para a nova aba dedicada -->
+        </div>
+
+        <!-- Tab RELATÓRIO FAZENDA (NOVO) -->
+        <div class="tab-content" id="relatorio-fazenda">
+            <h3 style="margin-bottom: 20px; color: var(--primary);">Relatório de Insumos por Fazenda</h3>
+            
+            <div class="filters" style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px; background-color: #f5f5f5; padding: 15px; border-radius: 8px;">
+                <div class="filter-group" style="flex: 1;">
+                    <label for="relatorio-fazenda-select" style="font-weight: bold; font-size: 1.1em;">Selecione a Fazenda:</label>
+                    <select id="relatorio-fazenda-select" style="width: 100%; padding: 10px; font-size: 1.1em;">
+                        <option value="">Selecione...</option>
+                    </select>
+                </div>
+                <button id="btn-gerar-relatorio-fazenda" class="btn btn-primary" style="padding: 10px 20px; font-size: 1.1em;">🔍 Gerar Relatório</button>
+            </div>
+
+            <div id="relatorio-fazenda-result" style="display: none;">
                 <div class="chart-card full-width">
-                    <h4 style="margin: 0 0 15px 0; border-bottom: 1px solid var(--border); padding-bottom: 10px;">Resumo por Fazenda e Produto</h4>
+                    <h4 id="relatorio-fazenda-titulo" style="margin: 0 0 15px 0; border-bottom: 1px solid var(--border); padding-bottom: 10px;">Resultados</h4>
                     <div class="table-container">
-                        <table id="insumos-resumo-table" class="data-table">
+                        <table id="relatorio-fazenda-table" class="data-table">
                             <thead>
                                 <tr>
-                                    <th>Fazenda</th>
                                     <th>Produto</th>
-                                    <th>Área Aplicada (ha)</th>
-                                    <th>Dose Recomendada</th>
-                                    <th>Dose Aplicada</th>
-                                    <th>Quantidade</th>
-                                    <th>Diferença</th>
+                                    <th>Área Total Aplicada (ha)</th>
+                                    <th>Quantidade Total</th>
+                                    <th>Dose Média Aplicada</th>
+                                    <th>Dose Recomendada (Média)</th>
+                                    <th>Diferença (%)</th>
                                 </tr>
                             </thead>
-                            <tbody id="insumos-resumo-tbody">
-                                <tr>
-                                    <td colspan="7" class="loading">📡 Carregando resumo...</td>
-                                </tr>
+                            <tbody id="relatorio-fazenda-tbody">
+                                <!-- Preenchido via JS -->
                             </tbody>
                         </table>
                     </div>
-                </div>
-                <div class="chart-card full-width">
-                    <h4 style="margin: 0 0 15px 0; border-bottom: 1px solid var(--border); padding-bottom: 10px;">Comparativo Aplicado vs Previsto</h4>
-                    <canvas id="chart-insumos-resumo"></canvas>
                 </div>
             </div>
         </div>
