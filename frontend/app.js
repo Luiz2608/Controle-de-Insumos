@@ -7867,8 +7867,14 @@ Gemas viáveis por metro (Alvo: 10 a 13): ${getStatusEmoji(statusGemasM)} ${stat
             if (s.includes('bom')) return '🟢';
             if (s.includes('regular')) return '🟡';
             if (s.includes('ruim')) return '🔴';
+            if (s.includes('atenção')) return '🟡'; // Novo emoji para Atenção (Amarelo)
             return '⚪';
         };
+
+        let observacaoExtra = '';
+        if (statusGemasM === 'Atenção') {
+             observacaoExtra = '\n⚠️ Atenção ao consumo de muda, Oportunidade de redução';
+        }
 
         const text =
 `🌱 *QUALIDADE DE MUDA – PLANTIO*
@@ -7904,10 +7910,12 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
 📊 Avaliação
 
 Qualidade dos toletes (Alvo: >=70%): ${getStatusEmoji(statusToletes)} ${statusToletes} (${this.ui.formatNumber(pctToletesBons, 1)}%)
-Gemas viáveis por metro (Alvo: 10 a 13): ${getStatusEmoji(statusGemasM)} ${statusGemasM} (${this.ui.formatNumber(mediaViaveisM, 2)})
+Gemas viáveis por metro (Alvo: 10 a 13): ${getStatusEmoji(statusGemasM)} ${statusGemasM} (${this.ui.formatNumber(mediaViaveisM, 2)})${observacaoExtra}
 % de gemas viáveis (Alvo: >= 80%): ${getStatusEmoji(statusPctGemas)} ${statusPctGemas} (${this.ui.formatNumber(pctGemasViaveis, 1)}%)
 
-📌 Status geral: ${getStatusEmoji(statusGeral)} ${statusGeral}`;
+📋 Observação: ${r.observacoes || '—'}
+
+📌 Status geral: ${getStatusEmoji(statusGeral)} ${statusGeral}${observacaoExtra}`;
 
         const originalText = button ? button.innerText : null;
         if (button) {
