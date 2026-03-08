@@ -7910,7 +7910,7 @@ ${this.ui.formatNumber(tHaDescarte||0,2)} T/ha
 📊 Avaliação
 
 Qualidade dos toletes (Alvo: >=70%): ${getStatusEmoji(statusToletes)} ${statusToletes} (${this.ui.formatNumber(pctToletesBons, 1)}%)
-Gemas viáveis por metro (Alvo: 10 a 13): ${getStatusEmoji(statusGemasM)} ${statusGemasM} (${this.ui.formatNumber(mediaViaveisM, 2)})${observacaoExtra}
+Gemas viáveis por metro (Alvo: 10 a 13): ${getStatusEmoji(statusGemasM)} ${statusGemasM} (${this.ui.formatNumber(mediaViaveisM, 2)})
 % de gemas viáveis (Alvo: >= 80%): ${getStatusEmoji(statusPctGemas)} ${statusPctGemas} (${this.ui.formatNumber(pctGemasViaveis, 1)}%)
 
 📋 Observação: ${r.observacoes || '—'}
