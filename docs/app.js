@@ -99,9 +99,11 @@ class InsumosApp {
         // Nova Regra (Solicitada):
         // < 10: Ruim
         // >= 10 e <= 13: Excelente
-        // > 13: Ruim
+        // > 13: Atenção (Oportunidade de Redução) - Tratado visualmente como alerta
         if (mediaViaveisM >= 10 && mediaViaveisM <= 13) {
             statusGemasM = 'Excelente';
+        } else if (mediaViaveisM > 13) {
+            statusGemasM = 'Atenção'; // Novo status interno para lógica de exibição
         } else {
             statusGemasM = 'Ruim';
         }
@@ -118,17 +120,25 @@ class InsumosApp {
         else statusPctGemas = 'Ruim';
 
         // Overall Quality: worst of the three
-        const levels = { 'Excelente': 4, 'Bom': 3, 'Regular': 2, 'Ruim': 1 };
+        const levels = { 'Excelente': 4, 'Bom': 3, 'Regular': 2, 'Ruim': 1, 'Atenção': 1.5 }; // Atenção is technically not 'Good', but specific
         const statuses = [statusToletes, statusGemasM, statusPctGemas];
         let minLevel = 4;
         let statusGeral = 'Excelente';
 
         statuses.forEach(s => {
+            // Prioridade para o status 'Atenção' se aparecer, para não ser mascarado por Ruim se quisermos destaque,
+            // mas a regra geral é pegar o pior.
+            // Se Atenção for considerado melhor que Ruim (1.5 > 1), ele ganha.
             if (levels[s] < minLevel) {
                 minLevel = levels[s];
                 statusGeral = s;
             }
         });
+
+        // Se especificamente GemasM for Atenção, força o status geral ser Atenção para exibir o alerta
+        if (statusGemasM === 'Atenção') {
+            statusGeral = 'Atenção';
+        }
 
         return {
             statusToletes,
@@ -7458,13 +7468,26 @@ forceReloadAllData() {
                 if (qualStatus) {
                     const { statusGeral, mediaViaveisM } = qualStatus;
                     let colorClass = 'badge-danger';
+                    let label = 'Ruim';
                     
-                    if (statusGeral === 'Excelente') colorClass = 'badge-success';
-                    else if (statusGeral === 'Bom') colorClass = 'badge-info';
-                    else if (statusGeral === 'Regular') colorClass = 'badge-warning';
-                    else colorClass = 'badge-danger';
+                    if (statusGeral === 'Excelente') {
+                         colorClass = 'badge-success';
+                         label = 'Excelente';
+                    } else if (statusGeral === 'Bom') {
+                         colorClass = 'badge-info';
+                         label = 'Bom';
+                    } else if (statusGeral === 'Regular') {
+                         colorClass = 'badge-warning';
+                         label = 'Regular';
+                    } else if (statusGeral === 'Atenção') {
+                         colorClass = 'badge-alert'; // Novo estilo
+                         label = '⚠️ Atenção';
+                    } else {
+                         colorClass = 'badge-danger';
+                         label = 'Ruim';
+                    }
                     
-                    indicador = `<span class="badge ${colorClass}" title="${this.ui.formatNumber(mediaViaveisM || 0, 2)} gemas/m">${statusGeral}</span>`;
+                    indicador = `<span class="badge ${colorClass}" title="${this.ui.formatNumber(mediaViaveisM || 0, 2)} gemas/m">${label}</span>`;
                 } else {
                     indicador = (q.mediaKgHa != null) ? `${this.ui.formatNumber(q.mediaKgHa, 2)} kg/ha` : '—';
                 }
@@ -7643,8 +7666,14 @@ forceReloadAllData() {
             if (s.includes('bom')) return '🟢';
             if (s.includes('regular')) return '🟡';
             if (s.includes('ruim')) return '🔴';
+            if (s.includes('atenção')) return '⚠️'; // Novo emoji para Atenção
             return '⚪';
         };
+
+        let observacaoExtra = '';
+        if (statusGemasM === 'Atenção') {
+             observacaoExtra = '\n⚠️ Atenção ao consumo de muda, Oportunidade de redução';
+        }
 
         const text =
 `🌱 QUALIDADE DE MUDA – PLANTIO
@@ -7671,8 +7700,10 @@ forceReloadAllData() {
 📊 Avaliação
 
 Qualidade dos toletes (Alvo: >=70%): ${getStatusEmoji(statusToletes)} ${statusToletes} (${this.ui.formatNumber(pctToletesBons, 1)}%)
-Gemas viáveis por metro (Alvo: 10 a 13): ${getStatusEmoji(statusGemasM)} ${statusGemasM} (${this.ui.formatNumber(mediaViaveisM, 2)})
+Gemas viáveis por metro (Alvo: 10 a 13): ${getStatusEmoji(statusGemasM)} ${statusGemasM} (${this.ui.formatNumber(mediaViaveisM, 2)})${observacaoExtra}
 % de gemas viáveis (Alvo: >= 80%): ${getStatusEmoji(statusPctGemas)} ${statusPctGemas} (${this.ui.formatNumber(pctGemasViaveis, 1)}%)
+
+📋 Observação: ${r.observacoes || '—'}
 
 📌 Status geral: ${getStatusEmoji(statusGeral)} ${statusGeral}`;
 
