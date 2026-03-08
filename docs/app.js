@@ -96,10 +96,15 @@ class InsumosApp {
             }
         }
         let statusGemasM = 'Ruim';
-        if (mediaViaveisM >= 12) statusGemasM = 'Excelente';
-        else if (mediaViaveisM >= 10) statusGemasM = 'Bom';
-        else if (mediaViaveisM >= 8) statusGemasM = 'Regular';
-        else statusGemasM = 'Ruim';
+        // Nova Regra (Solicitada):
+        // < 10: Ruim
+        // >= 10 e <= 13: Excelente
+        // > 13: Ruim
+        if (mediaViaveisM >= 10 && mediaViaveisM <= 13) {
+            statusGemasM = 'Excelente';
+        } else {
+            statusGemasM = 'Ruim';
+        }
 
         // 3. Percentual de gemas viáveis (%)
         const totalGBoas = toNum(q.totalGemasBoas) > 0 ? toNum(q.totalGemasBoas) : (toNum(q.esqGemasBoasPor5) + toNum(q.dirGemasBoasPor5));
