@@ -7666,7 +7666,7 @@ forceReloadAllData() {
             if (s.includes('bom')) return '🟢';
             if (s.includes('regular')) return '🟡';
             if (s.includes('ruim')) return '🔴';
-            if (s.includes('atenção')) return '⚠️'; // Novo emoji para Atenção
+            if (s.includes('atenção')) return '🟡'; // Alterado para Amarelo
             return '⚪';
         };
 
@@ -7700,12 +7700,12 @@ forceReloadAllData() {
 📊 Avaliação
 
 Qualidade dos toletes (Alvo: >=70%): ${getStatusEmoji(statusToletes)} ${statusToletes} (${this.ui.formatNumber(pctToletesBons, 1)}%)
-Gemas viáveis por metro (Alvo: 10 a 13): ${getStatusEmoji(statusGemasM)} ${statusGemasM} (${this.ui.formatNumber(mediaViaveisM, 2)})${observacaoExtra}
+Gemas viáveis por metro (Alvo: 10 a 13): ${getStatusEmoji(statusGemasM)} ${statusGemasM} (${this.ui.formatNumber(mediaViaveisM, 2)})
 % de gemas viáveis (Alvo: >= 80%): ${getStatusEmoji(statusPctGemas)} ${statusPctGemas} (${this.ui.formatNumber(pctGemasViaveis, 1)}%)
 
 📋 Observação: ${r.observacoes || '—'}
 
-📌 Status geral: ${getStatusEmoji(statusGeral)} ${statusGeral}`;
+📌 Status geral: ${getStatusEmoji(statusGeral)} ${statusGeral}${observacaoExtra}`;
 
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(text).then(() => {
