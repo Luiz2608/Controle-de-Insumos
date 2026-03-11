@@ -264,6 +264,26 @@ class UIManager {
         difElement.textContent = '0.00%';
         difElement.className = '';
     }
+
+    getAvaliacaoLabel(percent, type) {
+        const p = parseFloat(percent) || 0;
+        if (type === 'toletes') {
+            if (p < 70) return "🔴 Ruim";
+            if (p < 90) return "🟢 Bom";
+            return "🔵 Excelente";
+        } else if (type === 'gemas') {
+            if (p < 80) return "🔴 Ruim";
+            if (p < 90) return "🟢 Bom";
+            return "🔵 Excelente";
+        }
+        return "⚪ Não avaliado";
+    }
+
+    getStatusGeral(avaliacoes) {
+        if (avaliacoes.some(a => a.includes("🔴"))) return "🔴 Ruim";
+        if (avaliacoes.every(a => a.includes("🔵"))) return "🔵 Excelente";
+        return "🟢 Bom";
+    }
 }
 
 // Instância global do gerenciador de UI

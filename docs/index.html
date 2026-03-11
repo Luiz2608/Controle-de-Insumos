@@ -2106,7 +2106,7 @@
                     <div class="chart-card form-card">
                         <h4 class="section-title">Equipe e Equipamentos</h4>
                         <div class="modal-form-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
-                            <div class="form-group">
+                            <div class="form-group" id="group-qual-trator">
                                 <label for="qual-equipamento-trator">Trator</label>
                                 <input type="text" id="qual-equipamento-trator" placeholder="ID/Modelo">
                             </div>
@@ -2449,56 +2449,72 @@
                                 </div>
                                 <div class="form-group">
                                     <label for="muda-fazenda-origem">Fazenda Origem</label>
-                                    <input type="text" id="muda-fazenda-origem">
+                                    <input type="text" id="muda-fazenda-origem" readonly>
                                 </div>
                                 <div class="form-group">
-                                    <label for="muda-talhao-origem">Talhão Origem</label>
-                                    <input type="text" id="muda-talhao-origem">
+                                    <label for="muda-talhao-origem">Talhão</label>
+                                    <input type="text" id="muda-talhao-origem" readonly>
                                 </div>
 
-
                                 <div class="form-group">
-                                    <label for="qual-mudas-amostra-fixo">Amostra Fixa</label>
-                                    <input type="text" id="qual-mudas-amostra-fixo" value="100 toletes" readonly style="background-color: #e9ecef;">
+                                    <label for="qual-muda-amostra-auto">Amostra</label>
+                                    <input type="number" id="qual-muda-amostra-auto" class="readonly-field" readonly>
                                 </div>
                                 <div class="form-group">
-                                    <label for="qual-mudas-total">Total gemas</label>
-                                    <input type="number" id="qual-mudas-total" step="1">
+                                    <label for="qual-muda-comprimento-tolete">Comprimento do tolete (cm)</label>
+                                    <input type="number" id="qual-muda-comprimento-tolete" step="0.1">
                                 </div>
                                 <div class="form-group">
-                                    <label for="qual-mudas-boas">Gemas boas</label>
-                                    <input type="number" id="qual-mudas-boas" step="1">
+                                    <label for="qual-muda-toletes-bons">Toletes bons</label>
+                                    <input type="number" id="qual-muda-toletes-bons" step="1">
                                 </div>
                                 <div class="form-group">
-                                    <label for="qual-mudas-ruins">Gemas ruins</label>
-                                    <input type="number" id="qual-mudas-ruins" step="1">
+                                    <label for="qual-muda-toletes-ruins">Toletes ruins</label>
+                                    <input type="number" id="qual-muda-toletes-ruins" step="1">
                                 </div>
                                 <div class="form-group">
-                                    <label for="qual-mudas-boas-pct">% Boas (>80%)</label>
-                                    <input type="number" id="qual-mudas-boas-pct" step="0.01" class="readonly-field" readonly>
+                                    <label for="qual-muda-toletes-total">Total de toletes</label>
+                                    <input type="number" id="qual-muda-toletes-total" class="readonly-field" readonly>
                                 </div>
                                 <div class="form-group">
-                                    <label for="qual-mudas-reboulos">Total Reboulos</label>
-                                    <input type="number" id="qual-mudas-reboulos" step="1">
+                                    <label for="qual-muda-toletes-bons-pct">% Toletes bons</label>
+                                    <input type="number" id="qual-muda-toletes-bons-pct" class="readonly-field" readonly>
                                 </div>
                                 <div class="form-group">
-                                    <label for="qual-mudas-reboulos-bons">Reboulos Bons</label>
-                                    <input type="number" id="qual-mudas-reboulos-bons" step="1">
+                                    <label for="qual-muda-toletes-ruins-pct">% Toletes ruins</label>
+                                    <input type="number" id="qual-muda-toletes-ruins-pct" class="readonly-field" readonly>
                                 </div>
                                 <div class="form-group">
-                                    <label for="qual-mudas-reboulos-ruins">Reboulos Ruins</label>
-                                    <input type="number" id="qual-mudas-reboulos-ruins" step="1">
+                                    <label for="qual-muda-gemas-boas">Gemas boas</label>
+                                    <input type="number" id="qual-muda-gemas-boas" step="1">
                                 </div>
                                 <div class="form-group">
-                                    <label for="qual-mudas-reboulos-bons-pct">% Bons</label>
-                                    <input type="number" id="qual-mudas-reboulos-bons-pct" step="0.01" class="readonly-field" readonly>
+                                    <label for="qual-muda-gemas-ruins">Gemas ruins</label>
+                                    <input type="number" id="qual-muda-gemas-ruins" step="1">
                                 </div>
                                 <div class="form-group">
-                                    <label for="qual-mudas-reboulos-ruins-pct">% Ruins</label>
-                                    <input type="number" id="qual-mudas-reboulos-ruins-pct" step="0.01" class="readonly-field" readonly>
+                                    <label for="qual-muda-gemas-total">Total de gemas</label>
+                                    <input type="number" id="qual-muda-gemas-total" class="readonly-field" readonly>
+                                </div>
+                                <div class="form-group">
+                                    <label for="qual-muda-gemas-boas-pct">% Gemas boas</label>
+                                    <input type="number" id="qual-muda-gemas-boas-pct" class="readonly-field" readonly>
+                                </div>
+                                <div class="form-group">
+                                    <label for="qual-muda-peso-amostra">Peso da amostra da cana (kg)</label>
+                                    <input type="number" id="qual-muda-peso-amostra" step="0.001">
+                                </div>
+                                <div class="form-group">
+                                    <label for="qual-muda-tch">TCH da cana</label>
+                                    <input type="number" id="qual-muda-tch" class="readonly-field" readonly>
                                 </div>
                             </div>
-                        </div>
+                            <div style="margin-top: 20px; text-align: right;">
+                                <button type="button" id="btn-copiar-whatsapp-colheita" class="btn btn-secondary">
+                                    📲 Copiar para WhatsApp
+                                </button>
+                            </div>
+                         </div>
                     </div>
                 </div>
 

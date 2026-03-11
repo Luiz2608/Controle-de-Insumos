@@ -104,7 +104,35 @@ class InsumosApp {
             statusGemasM = 'Excelente';
         } else if (mediaViaveisM > 13) {
             statusGemasM = 'Atenção'; // Novo status interno para lógica de exibição
-        } else {
+        } else if (this.isQualidadeMode && tipoOperacao === 'colheita_muda') {
+        qualidade = {
+            tipoOperacao: tipoOperacao,
+            // Equipe e Equipamentos
+            qualEquipamentoPlantadora: document.getElementById('qual-equipamento-plantadora')?.value || '',
+            qualOperador: document.getElementById('qual-operador')?.value || '',
+            qualMatricula: document.getElementById('qual-matricula')?.value || document.getElementById('qual-matricula-header')?.value || '',
+            horaRegistro: horaRegistro,
+            // Origem e Qualidade
+            mudaColheitaInfo: document.getElementById('muda-colheita-info')?.value || '',
+            mudaFazendaOrigem: document.getElementById('muda-fazenda-origem')?.value || '',
+            mudaTalhaoOrigem: document.getElementById('muda-talhao-origem')?.value || '',
+            mudaVariedade: document.getElementById('muda-variedade')?.value || '',
+            // Novos campos
+            colheitaMudaAmostra: parseVal('qual-muda-amostra-auto'),
+            colheitaMudaComprimentoTolete: parseVal('qual-muda-comprimento-tolete'),
+            colheitaMudaToletesBons: parseVal('qual-muda-toletes-bons'),
+            colheitaMudaToletesRuins: parseVal('qual-muda-toletes-ruins'),
+            colheitaMudaToletesTotal: parseVal('qual-muda-toletes-total'),
+            colheitaMudaToletesBonsPct: parseVal('qual-muda-toletes-bons-pct'),
+            colheitaMudaToletesRuinsPct: parseVal('qual-muda-toletes-ruins-pct'),
+            colheitaMudaGemasBoas: parseVal('qual-muda-gemas-boas'),
+            colheitaMudaGemasRuins: parseVal('qual-muda-gemas-ruins'),
+            colheitaMudaGemasTotal: parseVal('qual-muda-gemas-total'),
+            colheitaMudaGemasBoasPct: parseVal('qual-muda-gemas-boas-pct'),
+            colheitaMudaPesoAmostra: parseVal('qual-muda-peso-amostra'),
+            colheitaMudaTch: parseVal('qual-muda-tch'),
+        };
+    } else {
             statusGemasM = 'Ruim';
         }
 
@@ -1709,7 +1737,15 @@ forceReloadAllData() {
                     await this.loadLiberacoesForSelect();
                     // Populate single-frente based on default quality type (plantio)
                     this.populateSingleFrente('plantio');
-                this.initQualidadePlantioCanaListeners();
+                    
+                    const qualTipoSelectVal = document.getElementById('qualidade-tipo-select')?.value;
+                    if (this.isQualidadeMode) {
+                        if (qualTipoSelectVal === 'plantio_cana') {
+                            this.initQualidadePlantioCanaListeners();
+                        } else if (qualTipoSelectVal === 'colheita_muda') {
+                            this.initQualidadeColheitaMudaListeners();
+                        }
+                    }
                 });
             }
 
@@ -1719,9 +1755,13 @@ forceReloadAllData() {
                 qualTipoSelect.addEventListener('change', () => {
                     this.toggleOperacaoSections();
                     this.populateSingleFrente(qualTipoSelect.value);
-                if (this.isQualidadeMode && qualTipoSelect.value === 'plantio_cana') {
-                    this.initQualidadePlantioCanaListeners();
-                }
+                    if (this.isQualidadeMode) {
+                        if (qualTipoSelect.value === 'plantio_cana') {
+                            this.initQualidadePlantioCanaListeners();
+                        } else if (qualTipoSelect.value === 'colheita_muda') {
+                            this.initQualidadeColheitaMudaListeners();
+                        }
+                    }
                 });
             }
 
@@ -8077,6 +8117,121 @@ Dia: ${this.ui.formatNumber(consDia,2)} t | Prev.: ${this.ui.formatNumber(consPr
         }
     }
 
+    copyQualidadeResumoColheitaMudaWhatsApp(id, button) {
+        const r = (this.plantioDia || []).find(p => String(p.id) === String(id));
+        if (!r || !r.qualidade) return;
+
+        const q = r.qualidade || {};
+        const fmtDate = (d) => {
+            if (!d) return '—';
+            const parts = String(d).split('-');
+            return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : d;
+        };
+
+        const formatNum = (val, decimals = 2) => {
+            if (val === null || val === undefined || val === '') return '0';
+            const num = parseFloat(String(val).replace(',', '.'));
+            return isNaN(num) ? '0' : num.toFixed(decimals);
+        };
+
+        // Dados do registro
+        const dataFmt = fmtDate(r.data);
+        const observacao = r.observacoes || '—';
+        
+        // Dados de Origem
+        const fazendaOrigem = q.mudaFazendaOrigem || '—';
+        const talhao = q.mudaTalhaoOrigem || '—';
+        const variedade = q.mudaVariedade || '—';
+        const liberacaoColheita = q.mudaColheitaInfo || '—';
+        
+        // Dados de Qualidade
+        const totalToletes = q.colheitaMudaToletesTotal || '0';
+        const comprimentoTolete = q.colheitaMudaComprimentoTolete || '0';
+        const toletesBons = q.colheitaMudaToletesBons || '0';
+        const pctToletesBons = formatNum(q.colheitaMudaToletesBonsPct, 2);
+        const toletesRuins = q.colheitaMudaToletesRuins || '0';
+        const pctToletesRuins = formatNum(q.colheitaMudaToletesRuinsPct, 2);
+        const gemasBoas = q.colheitaMudaGemasBoas || '0';
+        const gemasRuins = q.colheitaMudaGemasRuins || '0';
+        const totalGemas = q.colheitaMudaGemasTotal || '0';
+        const pctGemasBoas = formatNum(q.colheitaMudaGemasBoasPct, 2);
+        const pesoAmostra = q.colheitaMudaPesoAmostra || '0';
+        const tchCana = formatNum(q.colheitaMudaTch, 2);
+
+        // Análise Automática
+        const avalToletes = this.ui.getAvaliacaoLabel(pctToletesBons, 'toletes');
+        const avalGemas = this.ui.getAvaliacaoLabel(pctGemasBoas, 'gemas');
+        const statusGeral = this.ui.getStatusGeral([avalToletes, avalGemas]);
+
+        const report = `🌱 *QUALIDADE DE MUDA – COLHEITA DE MUDA*
+
+📍 Fazenda origem: ${fazendaOrigem}
+📍 Talhão: ${talhao}
+🌱 Variedade: ${variedade}
+📅 Data: ${dataFmt}
+
+📋 Liberação de colheita: ${liberacaoColheita}
+🔢 Amostra: ${totalToletes}
+
+📏 Comprimento do tolete: ${comprimentoTolete} cm
+
+🌿 Avaliação dos toletes
+
+🟢 Toletes bons: ${toletesBons} ~ ${pctToletesBons}%
+🔴 Toletes ruins: ${toletesRuins} ~ ${pctToletesRuins}%
+📊 Total de toletes: ${totalToletes}
+
+🧬 Avaliação das gemas
+
+🟢 Gemas boas: ${gemasBoas}
+🔴 Gemas ruins: ${gemasRuins}
+📊 Total de gemas: ${totalGemas}
+📈 % Gemas boas: ${pctGemasBoas}%
+
+⚖ Peso da amostra da cana: ${pesoAmostra} kg
+📊 TCH da cana: ${tchCana} T/ha
+
+📊 Avaliação
+
+Qualidade dos toletes: ${avalToletes}
+Qualidade das gemas: ${avalGemas}
+
+📋 Observação: ${observacao}
+
+📌 Status geral: ${statusGeral}`;
+
+        const originalText = button ? button.innerText : null;
+        if (button) {
+            button.disabled = true;
+            button.innerText = '✅ Copiado!';
+        }
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(report).then(() => {
+                this.ui.showNotification('✔ Resumo de Colheita copiado!', 'success');
+                if (button) {
+                    setTimeout(() => {
+                        button.disabled = false;
+                        button.innerText = originalText;
+                    }, 2500);
+                }
+            }).catch(() => {
+                this.ui.showNotification('Erro ao copiar. Tente novamente.', 'error');
+                window.prompt('Copie o texto abaixo:', report);
+                if (button) {
+                    button.disabled = false;
+                    button.innerText = originalText;
+                }
+            });
+        } else {
+            window.prompt('Copie o texto abaixo:', report);
+            if (button) {
+                button.disabled = false;
+                button.innerText = originalText;
+            }
+        }
+    }
+
     getPlantioDetailsHTML(r) {
         const fmtDate = (d) => {
             if (!d) return '—';
@@ -8176,9 +8331,10 @@ Dia: ${this.ui.formatNumber(consDia,2)} t | Prev.: ${this.ui.formatNumber(consPr
         const hasComplexFields = q.mediaKgHa != null || q.esqPesoLiquido != null || q.totalToletesBons != null;
         const isPlantioCanaComplex = (q.tipoOperacao === 'plantio_cana' || (rawTipo === 'qualidade_muda' && hasComplexFields));
         
-        const isQualidadeMudaGeneric = (rawTipo === 'colheita_muda' || rawTipo === 'qualidade_muda') && !isPlantioCanaComplex;
+        const isColheitaMuda = rawTipo === 'colheita_muda' || q.tipoOperacao === 'colheita_muda';
+        const isQualidadeMudaGeneric = (rawTipo === 'qualidade_muda') && !isPlantioCanaComplex;
         const isNovoPlantioCanaGlobal = isPlantioCanaComplex;
-        const hideInsumosSection = isQualidadeMudaGeneric || isNovoPlantioCanaGlobal;
+        const hideInsumosSection = isColheitaMuda || isQualidadeMudaGeneric || isNovoPlantioCanaGlobal;
 
         const primeiraFrente = Array.isArray(r.frentes) && r.frentes.length > 0 ? r.frentes[0] : null;
         let derivedHeaderFazenda = null;
@@ -8229,7 +8385,51 @@ Dia: ${this.ui.formatNumber(consDia,2)} t | Prev.: ${this.ui.formatNumber(consPr
         }
 
         let qualitySections = '';
-        if (isQualidadeMudaGeneric) {
+        if (isColheitaMuda) {
+            const avalToletes = this.ui.getAvaliacaoLabel(q.colheitaMudaToletesBonsPct, 'toletes');
+            const avalGemas = this.ui.getAvaliacaoLabel(q.colheitaMudaGemasBoasPct, 'gemas');
+            const statusGeral = this.ui.getStatusGeral([avalToletes, avalGemas]);
+
+            qualitySections += `
+                <h6 style="margin: 0 0 5px 0; border-bottom: 1px solid #eee; padding-bottom: 5px;">🌱 Origem da Muda</h6>
+                <div class="quality-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
+                    ${qualItem('Fazenda Origem', q.mudaFazendaOrigem || '—')}
+                    ${qualItem('Talhão', q.mudaTalhaoOrigem || '—')}
+                    ${qualItem('Liberação', q.mudaColheitaInfo || '—')}
+                    ${qualItem('Variedade', q.mudaVariedade || '—')}
+                </div>
+
+                <h6 style="margin: 15px 0 5px 0; border-bottom: 1px solid #eee; padding-bottom: 5px;">🌿 Avaliação dos Toletes</h6>
+                <div class="quality-grid">
+                    ${qualItem('Amostra', this.ui.formatNumber(q.colheitaMudaAmostra, 0))}
+                    ${qualItem('Comprimento', this.ui.formatNumber(q.colheitaMudaComprimentoTolete, 1), 'cm')}
+                    ${qualItem('Toletes Bons', this.ui.formatNumber(q.colheitaMudaToletesBons, 0), `(${this.ui.formatNumber(q.colheitaMudaToletesBonsPct, 1)}%)`)}
+                    ${qualItem('Toletes Ruins', this.ui.formatNumber(q.colheitaMudaToletesRuins, 0), `(${this.ui.formatNumber(q.colheitaMudaToletesRuinsPct, 1)}%)`)}
+                    ${qualItem('Total Toletes', this.ui.formatNumber(q.colheitaMudaToletesTotal, 0))}
+                </div>
+
+                <h6 style="margin: 15px 0 5px 0; border-bottom: 1px solid #eee; padding-bottom: 5px;">🧬 Avaliação das Gemas</h6>
+                <div class="quality-grid">
+                    ${qualItem('Gemas Boas', this.ui.formatNumber(q.colheitaMudaGemasBoas, 0))}
+                    ${qualItem('Gemas Ruins', this.ui.formatNumber(q.colheitaMudaGemasRuins, 0))}
+                    ${qualItem('Total Gemas', this.ui.formatNumber(q.colheitaMudaGemasTotal, 0))}
+                    ${qualItem('% Gemas Boas', this.ui.formatNumber(q.colheitaMudaGemasBoasPct, 2), '%')}
+                </div>
+
+                <h6 style="margin: 15px 0 5px 0; border-bottom: 1px solid #eee; padding-bottom: 5px;">⚖️ Pesagem e TCH</h6>
+                <div class="quality-grid">
+                    ${qualItem('Peso Amostra', this.ui.formatNumber(q.colheitaMudaPesoAmostra, 3), 'kg')}
+                    ${qualItem('TCH da Cana', this.ui.formatNumber(q.colheitaMudaTch, 2), 'T/ha')}
+                </div>
+
+                <h6 style="margin: 15px 0 5px 0; border-bottom: 1px solid #eee; padding-bottom: 5px;">📊 Análise Automática</h6>
+                <div class="quality-grid">
+                    ${qualItem('Qualidade Toletes', avalToletes)}
+                    ${qualItem('Qualidade Gemas', avalGemas)}
+                    ${qualItem('Status Geral', statusGeral)}
+                </div>
+            `;
+        } else if (isQualidadeMudaGeneric) {
              qualitySections += `
                 <!-- Subseção Colheita/Qualidade -->
                 <h6 style="margin: 0 0 5px 0; border-bottom: 1px solid #eee; padding-bottom: 5px;">🌾 Dados da Qualidade/Colheita</h6>
@@ -8583,11 +8783,15 @@ Dia: ${this.ui.formatNumber(consDia,2)} t | Prev.: ${this.ui.formatNumber(consPr
                     <button class="btn btn-secondary" onclick="window.insumosApp.copyQualidadeResumoOperacionalWhatsApp('${r.id}', this)">
                         📋 Copiar Resumo para WhatsApp
                     </button>
+                    ` : (isColheitaMuda ? `
+                    <button class="btn btn-secondary" onclick="window.insumosApp.copyQualidadeResumoColheitaMudaWhatsApp('${r.id}', this)">
+                        📋 Copiar Resumo para WhatsApp
+                    </button>
                     ` : (q ? `
                     <button class="btn btn-secondary" onclick="window.insumosApp.copyQualidadeResumoGeralWhatsApp('${r.id}', this)">
                         📋 Copiar Resumo para WhatsApp
                     </button>
-                    ` : '')}
+                    ` : ''))}
                 </div>
             </div>`;
     }
@@ -13851,11 +14055,13 @@ InsumosApp.prototype.onLiberacaoSelectChange = function(triggerId) {
         const fazendaOrigemEl = document.getElementById('muda-fazenda-origem');
         const talhaoOrigemEl = document.getElementById('muda-talhao-origem');
         const varEl = document.getElementById('qual-muda-variedade');
+        const varMudaEl = document.getElementById('muda-variedade');
         
         if (libEl) libEl.value = lib.numero_liberacao || lib.id;
         if (fazendaOrigemEl) fazendaOrigemEl.value = lib.fazenda;
         if (talhaoOrigemEl) talhaoOrigemEl.value = talhao;
         if (varEl) varEl.value = variety;
+        if (varMudaEl) varMudaEl.value = variety;
 
     } else if (triggerId === 'muda-liberacao-fazenda') {
         // Logic for Plantio de Cana Mode
@@ -14992,6 +15198,10 @@ InsumosApp.prototype.toggleOperacaoSections = function() {
             setDisplay(secMudaConsumo, false);
             setDisplay(secQualPlantioCana, true);
             setDisplay(secQualPlantioCanaFields, true);
+            
+            // Show Trator for Plantio de Cana
+            const tratorGroup = document.getElementById('group-qual-trator');
+            if (tratorGroup) tratorGroup.style.display = 'block';
         } else {
             // Colheita de Muda: Trator..., Origem & Qualidade Muda
             setDisplay(secGemas, false); 
@@ -15001,6 +15211,10 @@ InsumosApp.prototype.toggleOperacaoSections = function() {
             setDisplay(secMudaConsumo, false);
             setDisplay(secQualPlantioCana, false);
             setDisplay(secQualPlantioCanaFields, false);
+            
+            // Hide Trator field for Colheita de Muda as requested
+            const tratorGroup = document.getElementById('group-qual-trator');
+            if (tratorGroup) tratorGroup.style.display = 'none';
         }
     }
 };
@@ -15040,6 +15254,8 @@ InsumosApp.prototype.resetPlantioForm = function(mode = 'normal') {
         'oxifertil-dose', 'cobricao-dia', 'cobricao-acumulada',
         'muda-consumo-total', 'muda-consumo-acumulado', 'muda-consumo-dia', 'muda-previsto',
         'muda-liberacao-fazenda', 'muda-variedade', 'qual-muda-liberacao', 'qual-muda-variedade', 'muda-colheita-info', 'muda-fazenda-origem', 'muda-talhao-origem',
+        'qual-muda-amostra-auto', 'qual-muda-comprimento-tolete', 'qual-muda-toletes-bons', 'qual-muda-toletes-ruins', 'qual-muda-toletes-total', 'qual-muda-toletes-bons-pct', 'qual-muda-toletes-ruins-pct',
+        'qual-muda-gemas-boas', 'qual-muda-gemas-ruins', 'qual-muda-gemas-total', 'qual-muda-gemas-boas-pct', 'qual-muda-peso-amostra', 'qual-muda-tch',
         'colheita-hectares', 'colheita-tch-estimado', 'colheita-tch-real',
         'single-frente', 'single-fazenda', 'single-cod', 'single-regiao',
         'single-area', 'single-plantada', 'single-area-total', 'single-area-acumulada', 'single-plantio-dia',
@@ -15281,6 +15497,197 @@ InsumosApp.prototype.updateQualidadePlantioCanaCalculations = function() {
     setOut('qual-total-toletes-bons', pctBons);
     setOut('qual-total-toletes-ruins', pctRuins);
 };
+InsumosApp.prototype.initQualidadeColheitaMudaListeners = function() {
+    const secMudas = document.getElementById('sec-mudas');
+    if (!secMudas || secMudas.style.display === 'none') return;
+
+    const ids = [
+        'qual-muda-toletes-bons', 'qual-muda-toletes-ruins',
+        'qual-muda-gemas-boas', 'qual-muda-gemas-ruins',
+        'qual-muda-peso-amostra'
+    ];
+
+    ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (el.__colheitaCalcHandler) {
+            el.removeEventListener('input', el.__colheitaCalcHandler);
+        }
+        const handler = () => {
+            this.updateQualidadeColheitaMudaCalculations();
+        };
+        el.addEventListener('input', handler);
+        el.__colheitaCalcHandler = handler;
+    });
+
+    const btnCopiar = document.getElementById('btn-copiar-whatsapp-colheita');
+    if (btnCopiar) {
+        if (btnCopiar.__whatsappHandler) {
+            btnCopiar.removeEventListener('click', btnCopiar.__whatsappHandler);
+        }
+        const handler = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.copiarWhatsAppColheitaMuda();
+        };
+        btnCopiar.addEventListener('click', handler);
+        btnCopiar.__whatsappHandler = handler;
+    }
+
+    this.updateQualidadeColheitaMudaCalculations();
+};
+
+InsumosApp.prototype.updateQualidadeColheitaMudaCalculations = function() {
+    const getVal = (id) => {
+        const el = document.getElementById(id);
+        if (!el) return 0;
+        const v = String(el.value || '').trim().replace(',', '.');
+        const num = parseFloat(v);
+        return isNaN(num) ? 0 : num;
+    };
+
+    const setVal = (id, v, decimals = 2) => {
+        const el = document.getElementById(id);
+        if (el) el.value = isFinite(v) ? Number(v).toFixed(decimals) : '';
+    };
+
+    // Toletes
+    const toletesBons = getVal('qual-muda-toletes-bons');
+    const toletesRuins = getVal('qual-muda-toletes-ruins');
+    const totalToletes = toletesBons + toletesRuins;
+    setVal('qual-muda-toletes-total', totalToletes, 0);
+    
+    // Amostra = Total de toletes
+    setVal('qual-muda-amostra-auto', totalToletes, 0);
+
+    if (totalToletes > 0) {
+        setVal('qual-muda-toletes-bons-pct', (toletesBons / totalToletes) * 100);
+        setVal('qual-muda-toletes-ruins-pct', (toletesRuins / totalToletes) * 100);
+    } else {
+        setVal('qual-muda-toletes-bons-pct', 0);
+        setVal('qual-muda-toletes-ruins-pct', 0);
+    }
+
+    // Gemas
+    const gemasBoas = getVal('qual-muda-gemas-boas');
+    const gemasRuins = getVal('qual-muda-gemas-ruins');
+    const totalGemas = gemasBoas + gemasRuins;
+    setVal('qual-muda-gemas-total', totalGemas, 0);
+
+    if (totalGemas > 0) {
+        setVal('qual-muda-gemas-boas-pct', (gemasBoas / totalGemas) * 100);
+    } else {
+        setVal('qual-muda-gemas-boas-pct', 0);
+    }
+
+    // TCH
+    const pesoAmostra = getVal('qual-muda-peso-amostra');
+    if (pesoAmostra > 0) {
+        // Fórmula: TCH = (Peso da amostra da cana / 2) * 6666
+        const tch = (pesoAmostra / 2) * 6666 / 1000; // Dividido por 1000 se for Toneladas? 
+        // O usuário disse: TCH = (Peso da amostra da cana / 2) * 6666
+        // Geralmente TCH é Toneladas por Hectare. 
+        // Se Peso da amostra é kg, (kg / 2m) * 6666 m/ha = kg/ha.
+        // kg/ha / 1000 = t/ha.
+        // Vou assumir que o resultado deve ser em Toneladas/ha.
+        setVal('qual-muda-tch', (pesoAmostra / 2) * 6.666);
+    } else {
+        setVal('qual-muda-tch', 0);
+    }
+};
+
+InsumosApp.prototype.copiarWhatsAppColheitaMuda = function() {
+    console.log('Executando copiarWhatsAppColheitaMuda...');
+    
+    const getVal = (id) => {
+        const el = document.getElementById(id);
+        return el ? el.value : '';
+    };
+
+    const formatNum = (val, decimals = 2) => {
+        if (val === null || val === undefined || val === '') return '0';
+        const num = parseFloat(String(val).replace(',', '.'));
+        return isNaN(num) ? '0' : num.toFixed(decimals);
+    };
+
+    // Pega dados do Step 1 (Identificação)
+    const dataFmt = this.ui.formatDateBR(getVal('plantio-data'));
+    const responsavel = getVal('plantio-responsavel');
+    const observacao = getVal('plantio-obs');
+    
+    // Pega dados de Origem (Step 3)
+    const fazendaOrigem = getVal('muda-fazenda-origem');
+    const talhao = getVal('muda-talhao-origem');
+    const variedade = getVal('muda-variedade') || getVal('qual-muda-variedade');
+    const liberacaoColheitaSelect = document.getElementById('muda-colheita-info');
+    const liberacaoColheita = liberacaoColheitaSelect ? (liberacaoColheitaSelect.options[liberacaoColheitaSelect.selectedIndex]?.text || '') : '';
+    
+    // Pega dados de Qualidade (Step 3)
+    const totalToletes = getVal('qual-muda-toletes-total');
+    const comprimentoTolete = getVal('qual-muda-comprimento-tolete');
+    const toletesBons = getVal('qual-muda-toletes-bons');
+    const pctToletesBons = formatNum(getVal('qual-muda-toletes-bons-pct'), 2);
+    const toletesRuins = getVal('qual-muda-toletes-ruins');
+    const pctToletesRuins = formatNum(getVal('qual-muda-toletes-ruins-pct'), 2);
+    const gemasBoas = getVal('qual-muda-gemas-boas');
+    const gemasRuins = getVal('qual-muda-gemas-ruins');
+    const totalGemas = getVal('qual-muda-gemas-total');
+    const pctGemasBoas = formatNum(getVal('qual-muda-gemas-boas-pct'), 2);
+    const pesoAmostra = getVal('qual-muda-peso-amostra');
+    const tchCana = formatNum(getVal('qual-muda-tch'), 2);
+
+    // Análise Automática
+    const avalToletes = this.ui.getAvaliacaoLabel(pctToletesBons, 'toletes');
+    const avalGemas = this.ui.getAvaliacaoLabel(pctGemasBoas, 'gemas');
+    const statusGeral = this.ui.getStatusGeral([avalToletes, avalGemas]);
+
+    const report = `🌱 *QUALIDADE DE MUDA – COLHEITA DE MUDA*
+
+📍 Fazenda origem: ${fazendaOrigem || '—'}
+📍 Talhão: ${talhao || '—'}
+🌱 Variedade: ${variedade || '—'}
+📅 Data: ${dataFmt}
+
+📋 Liberação de colheita: ${liberacaoColheita || '—'}
+🔢 Amostra: ${totalToletes || '0'}
+
+📏 Comprimento do tolete: ${comprimentoTolete || '0'} cm
+
+🌿 Avaliação dos toletes
+
+🟢 Toletes bons: ${toletesBons || '0'} ~ ${pctToletesBons}%
+🔴 Toletes ruins: ${toletesRuins || '0'} ~ ${pctToletesRuins}%
+📊 Total de toletes: ${totalToletes || '0'}
+
+🧬 Avaliação das gemas
+
+🟢 Gemas boas: ${gemasBoas || '0'}
+🔴 Gemas ruins: ${gemasRuins || '0'}
+📊 Total de gemas: ${totalGemas || '0'}
+📈 % Gemas boas: ${pctGemasBoas}%
+
+⚖ Peso da amostra da cana: ${pesoAmostra || '0'} kg
+📊 TCH da cana: ${tchCana} T/ha
+
+📊 Avaliação
+
+Qualidade dos toletes: ${avalToletes}
+Qualidade das gemas: ${avalGemas}
+
+📋 Observação: ${observacao || '—'}
+
+📌 Status geral: ${statusGeral}`;
+
+    console.log('Relatório gerado:', report);
+
+    navigator.clipboard.writeText(report).then(() => {
+        this.showToast('Relatório de Colheita copiado para o WhatsApp!');
+    }).catch(err => {
+        console.error('Erro ao copiar:', err);
+        alert('Erro ao copiar relatório. Por favor, tente novamente.');
+    });
+};
+
 InsumosApp.prototype.handleEditPlantio = async function(id) {
     if (!this.plantioDia) return;
     const record = this.plantioDia.find(r => String(r.id) === String(id));
@@ -15502,6 +15909,22 @@ InsumosApp.prototype.handleEditPlantio = async function(id) {
     set('muda-colheita-info', q.mudaColheitaInfo);
     set('muda-fazenda-origem', q.mudaFazendaOrigem);
     set('muda-talhao-origem', q.mudaTalhaoOrigem);
+
+    // Novos campos Colheita de Muda na edição
+    set('qual-muda-amostra-auto', q.colheitaMudaAmostra);
+    set('qual-muda-comprimento-tolete', q.colheitaMudaComprimentoTolete);
+    set('qual-muda-toletes-bons', q.colheitaMudaToletesBons);
+    set('qual-muda-toletes-ruins', q.colheitaMudaToletesRuins);
+    set('qual-muda-toletes-total', q.colheitaMudaToletesTotal);
+    set('qual-muda-toletes-bons-pct', q.colheitaMudaToletesBonsPct);
+    set('qual-muda-toletes-ruins-pct', q.colheitaMudaToletesRuinsPct);
+    set('qual-muda-gemas-boas', q.colheitaMudaGemasBoas);
+    set('qual-muda-gemas-ruins', q.colheitaMudaGemasRuins);
+    set('qual-muda-gemas-total', q.colheitaMudaGemasTotal);
+    set('qual-muda-gemas-boas-pct', q.colheitaMudaGemasBoasPct);
+    set('qual-muda-peso-amostra', q.colheitaMudaPesoAmostra);
+    set('qual-muda-tch', q.colheitaMudaTch);
+
     set('qual-mudas-reboulos', q.mudasReboulos);
     set('qual-mudas-reboulos-bons', q.mudasReboulosBons);
     set('qual-mudas-reboulos-ruins', q.mudasReboulosRuins);
@@ -15816,6 +16239,20 @@ InsumosApp.prototype.savePlantioDia = async function(createAnother = false) {
             mudaColheitaInfo: document.getElementById('muda-colheita-info')?.value || '',
             mudaFazendaOrigem: document.getElementById('muda-fazenda-origem')?.value || '',
             mudaTalhaoOrigem: document.getElementById('muda-talhao-origem')?.value || '',
+            // Novos campos Colheita de Muda
+            colheitaMudaAmostra: parseVal('qual-muda-amostra-auto'),
+            colheitaMudaComprimentoTolete: parseVal('qual-muda-comprimento-tolete'),
+            colheitaMudaToletesBons: parseVal('qual-muda-toletes-bons'),
+            colheitaMudaToletesRuins: parseVal('qual-muda-toletes-ruins'),
+            colheitaMudaToletesTotal: parseVal('qual-muda-toletes-total'),
+            colheitaMudaToletesBonsPct: parseVal('qual-muda-toletes-bons-pct'),
+            colheitaMudaToletesRuinsPct: parseVal('qual-muda-toletes-ruins-pct'),
+            colheitaMudaGemasBoas: parseVal('qual-muda-gemas-boas'),
+            colheitaMudaGemasRuins: parseVal('qual-muda-gemas-ruins'),
+            colheitaMudaGemasTotal: parseVal('qual-muda-gemas-total'),
+            colheitaMudaGemasBoasPct: parseVal('qual-muda-gemas-boas-pct'),
+            colheitaMudaPesoAmostra: parseVal('qual-muda-peso-amostra'),
+            colheitaMudaTch: parseVal('qual-muda-tch'),
             mudasReboulos: parseVal('qual-mudas-reboulos'),
             mudasReboulosBons: parseVal('qual-mudas-reboulos-bons'),
             mudasReboulosRuins: parseVal('qual-mudas-reboulos-ruins'),
