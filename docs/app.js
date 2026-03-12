@@ -51,6 +51,12 @@ class InsumosApp {
             fazendas: { key: 'codigo', dir: 'asc' }
         };
 
+        const now = new Date();
+        this.plantioPeriodo = { month: now.getMonth() + 1, year: now.getFullYear() };
+        this._plantioPeriodoFilterInit = false;
+        this.viagensPeriodo = { month: now.getMonth() + 1, year: now.getFullYear() };
+        this._viagensPeriodoFilterInit = false;
+
         // Controle de Load do Dashboard (Circuit Breaker)
         this.dashboardLoadCount = 0;
         this.dashboardLoadResetTime = Date.now();
@@ -1487,6 +1493,7 @@ class InsumosApp {
             
             this.initTheme();
             await this.setupEventListeners();
+            this.enhanceDateInputsBR();
             this.setupAIAnalysis();
             this.setupAdminPanel();
             this.setupVersionCheck();
@@ -1534,6 +1541,87 @@ class InsumosApp {
         document.body.classList.toggle('dark-mode', isDark);
     }
 
+    enhanceDateInputsBR(root = document) {
+        const inputs = Array.from(root.querySelectorAll('input[type="date"]'));
+        inputs.forEach(input => this._enhanceDateInputBR(input));
+        if (!this._brDateMirrorInterval) {
+            this._brDateMirrorInterval = setInterval(() => {
+                try {
+                    document.querySelectorAll('input[type="date"][data-br-date-enhanced="1"]').forEach((isoEl) => {
+                        const current = isoEl.value;
+                        if (isoEl.__brLastValue !== current) {
+                            isoEl.__brLastValue = current;
+                            if (typeof isoEl.__brSync === 'function') isoEl.__brSync();
+                        }
+                    });
+                } catch {}
+            }, 250);
+        }
+    }
+
+    _enhanceDateInputBR(dateInput) {
+        if (!dateInput || dateInput.dataset && dateInput.dataset.brDateEnhanced === '1') return;
+        if (!dateInput.id) return;
+
+        const parent = dateInput.parentElement;
+        if (!parent) return;
+
+        const wrapper = document.createElement('div');
+        wrapper.style.position = 'relative';
+
+        const mirror = document.createElement('input');
+        mirror.type = 'text';
+        mirror.readOnly = true;
+        mirror.inputMode = 'numeric';
+        mirror.autocomplete = 'off';
+        mirror.spellcheck = false;
+        mirror.placeholder = 'dd/mm/aaaa';
+        mirror.className = dateInput.className || '';
+        mirror.style.width = '100%';
+        mirror.style.boxSizing = 'border-box';
+        mirror.style.cursor = 'pointer';
+
+        const format = (iso) => {
+            const v = String(iso || '').trim();
+            const m = v.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+            if (!m) return '';
+            return `${m[3]}/${m[2]}/${m[1]}`;
+        };
+
+        const sync = () => {
+            mirror.value = format(dateInput.value);
+        };
+
+        mirror.addEventListener('click', () => {
+            if (typeof dateInput.showPicker === 'function') {
+                try { dateInput.showPicker(); return; } catch {}
+            }
+            const prev = dateInput.style.pointerEvents;
+            dateInput.style.pointerEvents = 'auto';
+            dateInput.focus();
+            try { dateInput.click(); } catch {}
+            setTimeout(() => { dateInput.style.pointerEvents = prev; }, 0);
+        });
+
+        dateInput.addEventListener('input', sync);
+        dateInput.addEventListener('change', sync);
+
+        dateInput.style.position = 'absolute';
+        dateInput.style.inset = '0';
+        dateInput.style.opacity = '0';
+        dateInput.style.cursor = 'pointer';
+        dateInput.style.pointerEvents = 'none';
+
+        parent.insertBefore(wrapper, dateInput);
+        wrapper.appendChild(mirror);
+        wrapper.appendChild(dateInput);
+
+        dateInput.dataset.brDateEnhanced = '1';
+        dateInput.__brSync = sync;
+        dateInput.__brLastValue = dateInput.value;
+        sync();
+    }
+
     // Adicione esta função à classe InsumosApp
 forceReloadAllData() {
     console.log('🔄 Forçando recarregamento de todos os dados...');
@@ -1567,6 +1655,44 @@ forceReloadAllData() {
                 this.renderPlantioDia();
             });
         });
+    }
+
+    setupPlantioPeriodoFilter() {
+        const monthSelect = document.getElementById('plantio-filter-month');
+        const yearSelect = document.getElementById('plantio-filter-year');
+        if (!monthSelect || !yearSelect) return;
+
+        if (!this._plantioPeriodoFilterInit) {
+            const onChange = () => {
+                const fallback = this.plantioPeriodo || { month: (new Date().getMonth() + 1), year: new Date().getFullYear() };
+                const month = monthSelect.value ? Number(monthSelect.value) : fallback.month;
+                const year = yearSelect.value ? Number(yearSelect.value) : fallback.year;
+                this.plantioPeriodo = { month, year };
+                this.renderPlantioDia();
+            };
+            monthSelect.addEventListener('change', onChange);
+            yearSelect.addEventListener('change', onChange);
+            this._plantioPeriodoFilterInit = true;
+        }
+    }
+
+    setupViagensPeriodoFilter() {
+        const monthSelect = document.getElementById('viagens-filter-month');
+        const yearSelect = document.getElementById('viagens-filter-year');
+        if (!monthSelect || !yearSelect) return;
+
+        if (!this._viagensPeriodoFilterInit) {
+            const onChange = () => {
+                const fallback = this.viagensPeriodo || { month: (new Date().getMonth() + 1), year: new Date().getFullYear() };
+                const month = monthSelect.value ? Number(monthSelect.value) : fallback.month;
+                const year = yearSelect.value ? Number(yearSelect.value) : fallback.year;
+                this.viagensPeriodo = { month, year };
+                this.renderViagensAdubo();
+            };
+            monthSelect.addEventListener('change', onChange);
+            yearSelect.addEventListener('change', onChange);
+            this._viagensPeriodoFilterInit = true;
+        }
     }
 
     async onDbChange(detail) {
@@ -1643,6 +1769,7 @@ forceReloadAllData() {
 
     async setupEventListeners() {
         this.setupPlantioTabs();
+        this.setupPlantioPeriodoFilter();
         this.setupPlantioSummaryListeners();
         this.initPlantioModalSteps();
         this.initGenericModalSteps(); // Initialize generic steps for Adubo/Composto
@@ -6305,12 +6432,18 @@ forceReloadAllData() {
         const insumoProdutoSel = document.getElementById('insumo-produto');
         if (insumoProdutoSel) insumoProdutoSel.addEventListener('change', async () => {
             const prod = insumoProdutoSel.value;
+            const outroGroup = document.getElementById('insumo-produto-outro-group');
+            const outroInput = document.getElementById('insumo-produto-outro');
+            const isOutro = /^outro(s)?$/i.test(String(prod || '').trim());
+            if (outroGroup) outroGroup.style.display = isOutro ? 'block' : 'none';
+            if (!isOutro && outroInput) outroInput.value = '';
+            if (isOutro && outroInput) setTimeout(() => outroInput.focus(), 0);
             const unidInput = document.getElementById('insumo-unid');
             const map = this.getInsumoUnits();
-            if (unidInput) unidInput.value = map[prod] || '';
+            if (unidInput) unidInput.value = isOutro ? '' : (map[prod] || '');
 
             // Auto-fill dose prevista from OS
-            if (prod) {
+            if (prod && !isOutro) {
                 const frenteKey = document.getElementById('single-frente')?.value || '';
                 const osKey = document.getElementById('single-os')?.value || '';
                 const dosePrevInput = document.getElementById('insumo-dose-prevista');
@@ -6510,6 +6643,7 @@ forceReloadAllData() {
                 const os = this.osListCache.find(o => String(o.numero).trim() === String(val).trim());
                 if (os) {
                     console.log('OS Selecionada:', os);
+                    await this.loadProdutosDatalist();
 
                     // Preencher Responsável
                     const respEl = document.getElementById('plantio-responsavel');
@@ -7005,12 +7139,15 @@ forceReloadAllData() {
     renderPlantioDia() {
         const tbody = document.getElementById('plantio-table-body');
         const thead = document.getElementById('plantio-table-head');
+        const groupedList = document.getElementById('plantio-grouped-list');
         if (!tbody) return;
+        const plantioTable = tbody.closest('table');
         
         // Determine active tab filter
         const currentTab = this.plantioTab || 'plantio';
         
         // Update Headers based on tab
+        let headerRowHtml = '';
         if (thead) {
             const currentTab = this.plantioTab || 'plantio';
             const sort = (currentTab === 'qualidade_muda') ? this.tableSort.qualidade : (currentTab === 'colheita_muda' ? this.tableSort.colheita : this.tableSort.plantio);
@@ -7034,7 +7171,7 @@ forceReloadAllData() {
             const sortFn = (key) => `window.insumosApp.toggleTableSort('${currentTab === 'qualidade_muda' ? 'qualidade' : (currentTab === 'colheita_muda' ? 'colheita' : 'plantio')}', '${key}')`;
 
             if (currentTab === 'qualidade_muda') {
-                thead.innerHTML = `
+                headerRowHtml = `
                     <tr>
                         <th style="cursor:pointer" onclick="${sortFn('data')}">Data${getIcon('data')}</th>
                         <th style="cursor:pointer" onclick="${sortFn('tipo_operacao')}">Tipo${getIcon('tipo_operacao')}</th>
@@ -7045,7 +7182,7 @@ forceReloadAllData() {
                     </tr>
                 `;
             } else if (currentTab === 'colheita_muda') {
-                thead.innerHTML = `
+                headerRowHtml = `
                     <tr>
                         <th style="cursor:pointer" onclick="${sortFn('data')}">Data / Hora${getIcon('data')}</th>
                         <th>Frentes</th>
@@ -7056,7 +7193,7 @@ forceReloadAllData() {
                     </tr>
                 `;
             } else {
-                thead.innerHTML = `
+                headerRowHtml = `
                     <tr>
                         <th style="cursor:pointer" onclick="${sortFn('data')}">Data / Hora${getIcon('data')}</th>
                         <th>Frentes</th>
@@ -7067,6 +7204,8 @@ forceReloadAllData() {
                     </tr>
                 `;
             }
+            
+            thead.innerHTML = headerRowHtml;
         }
         
         // Aplicar ordenação
@@ -7162,7 +7301,7 @@ forceReloadAllData() {
         });
         
         // Filter rows based on tab
-        const rows = allRows.filter(r => {
+        let rows = allRows.filter(r => {
             const q = r.qualidade || {};
             const tipo = r.tipo_operacao || q.tipoOperacao || 'plantio';
             
@@ -7176,6 +7315,88 @@ forceReloadAllData() {
             }
             return false;
         });
+
+        const monthSelect = document.getElementById('plantio-filter-month');
+        const yearSelect = document.getElementById('plantio-filter-year');
+        const fallback = this.plantioPeriodo || { month: (new Date().getMonth() + 1), year: new Date().getFullYear() };
+
+        const yearMonths = new Map();
+        rows.forEach(item => {
+            const raw = item && item.data != null ? String(item.data) : '';
+            if (raw.length < 7) return;
+            const y = Number(raw.slice(0, 4));
+            const m = Number(raw.slice(5, 7));
+            if (Number.isNaN(y) || Number.isNaN(m)) return;
+            if (!yearMonths.has(y)) yearMonths.set(y, new Set());
+            yearMonths.get(y).add(m);
+        });
+
+        const availableYears = Array.from(yearMonths.keys()).sort((a, b) => b - a);
+
+        let selectedYear = (yearSelect && yearSelect.value) ? Number(yearSelect.value) : fallback.year;
+        if (!availableYears.includes(selectedYear)) {
+            if (availableYears.includes(fallback.year)) selectedYear = fallback.year;
+            else selectedYear = availableYears[0] != null ? availableYears[0] : fallback.year;
+        }
+
+        if (yearSelect) {
+            if (!availableYears.length) {
+                yearSelect.innerHTML = '<option value=\"\" disabled selected>Sem registros</option>';
+            } else {
+                const existing = Array.from(yearSelect.options).map(o => Number(o.value));
+                const same = existing.length === availableYears.length && existing.every((v, i) => v === availableYears[i]);
+                if (!same) {
+                    yearSelect.innerHTML = '';
+                    availableYears.forEach(y => {
+                        const opt = document.createElement('option');
+                        opt.value = String(y);
+                        opt.textContent = String(y);
+                        yearSelect.appendChild(opt);
+                    });
+                }
+                yearSelect.value = String(selectedYear);
+            }
+        }
+
+        const availableMonths = Array.from(yearMonths.get(selectedYear) || []).sort((a, b) => a - b);
+
+        let selectedMonth = (monthSelect && monthSelect.value) ? Number(monthSelect.value) : fallback.month;
+        if (!availableMonths.includes(selectedMonth)) {
+            if (availableMonths.includes(fallback.month)) selectedMonth = fallback.month;
+            else selectedMonth = availableMonths.length ? availableMonths[availableMonths.length - 1] : fallback.month;
+        }
+
+        if (monthSelect) {
+            if (!availableMonths.length) {
+                monthSelect.innerHTML = '<option value=\"\" disabled selected>Sem registros</option>';
+            } else {
+                const existing = Array.from(monthSelect.options).map(o => Number(o.value));
+                const same = existing.length === availableMonths.length && existing.every((v, i) => v === availableMonths[i]);
+                if (!same) {
+                    monthSelect.innerHTML = '';
+                    availableMonths.forEach(m => {
+                        const monthNameRaw = new Date(2000, m - 1, 1).toLocaleString('pt-BR', { month: 'long' });
+                        const monthName = monthNameRaw ? monthNameRaw.charAt(0).toUpperCase() + monthNameRaw.slice(1) : String(m);
+                        const opt = document.createElement('option');
+                        opt.value = String(m);
+                        opt.textContent = monthName;
+                        monthSelect.appendChild(opt);
+                    });
+                }
+                monthSelect.value = String(selectedMonth);
+            }
+        }
+
+        this.plantioPeriodo = { month: selectedMonth, year: selectedYear };
+
+        rows = rows.filter(r => {
+            const raw = r && r.data != null ? String(r.data) : '';
+            if (raw.length < 7) return false;
+            const y = Number(raw.slice(0, 4));
+            const m = Number(raw.slice(5, 7));
+            if (Number.isNaN(y) || Number.isNaN(m)) return false;
+            return y === selectedYear && m === selectedMonth;
+        });
         
         if (rows.length === 0) {
             let label = 'Plantio';
@@ -7183,27 +7404,36 @@ forceReloadAllData() {
             if (currentTab === 'qualidade_muda') label = 'Qualidade de Muda';
             
             const colSpan = currentTab === 'qualidade_muda' ? 6 : 4;
-
-            tbody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align: center; padding: 20px; color: var(--text-light);">Nenhum registro de ${label} encontrado.</td></tr>`;
+            if (currentTab === 'plantio' || currentTab === 'colheita_muda' || currentTab === 'qualidade_muda') {
+                if (plantioTable) plantioTable.style.display = 'none';
+                if (groupedList) {
+                    groupedList.style.display = 'block';
+                    groupedList.innerHTML = `<div class="plantio-day-empty">Nenhum registro de ${label} encontrado.</div>`;
+                }
+                tbody.innerHTML = '';
+            } else {
+                if (plantioTable) plantioTable.style.display = '';
+                if (groupedList) {
+                    groupedList.style.display = 'none';
+                    groupedList.innerHTML = '';
+                }
+                tbody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align: center; padding: 20px; color: var(--text-light);">Nenhum registro de ${label} encontrado.</td></tr>`;
+            }
             return;
         }
 
-        tbody.innerHTML = rows.map(r => {
+        const renderRowHtml = (r) => {
             if (currentTab === 'qualidade_muda') {
-                // Quality Render Logic
                 const frentes = (r.frentes||[]);
                 const fazendaFrente = frentes.length > 0 ? `${frentes[0].fazenda || ''} / ${frentes[0].frente || ''}` : '—';
                 
                 const q = r.qualidade || {};
 
-                // Frota / Turno
                 const trator = q.qualEquipamentoTrator || '';
                 const plantadora = q.qualEquipamentoPlantadora || '';
                 const frota = (trator || plantadora) ? `${trator}${plantadora ? ' / ' + plantadora : ''}` : '—';
                 
-                // Tenta pegar o turno ou a hora (fallback)
                 let turnoOuHora = '—';
-                // Prioridade: Hora > Created_at > Turno
                 if (q.horaRegistro && !q.horaRegistro.toLowerCase().includes('turno')) {
                     turnoOuHora = q.horaRegistro;
                 } else if (r.horaRegistro && !r.horaRegistro.toLowerCase().includes('turno')) {
@@ -7219,11 +7449,9 @@ forceReloadAllData() {
                 
                 const frotaHora = `<div>${frota}</div><div class="subtext">${turnoOuHora}</div>`;
 
-                // Status
                 let statusBadge = '<span class="badge badge-secondary">—</span>';
                 
                 if (q.tipoOperacao === 'plantio_cana') {
-                    // Nova lógica baseada em 3 indicadores
                     const qualStatus = this.calculateQualidadeMudaStatus(q);
 
                     if (qualStatus) {
@@ -7235,7 +7463,6 @@ forceReloadAllData() {
                         else if (statusGeral === 'Regular') colorClass = 'badge-warning';
                         else colorClass = 'badge-danger';
                         
-                        // Status Badge com Título e Valor
                         statusBadge = `
                         <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
                             <span class="badge ${colorClass}" style="font-size: 0.9em; padding: 6px 10px;">${statusGeral}</span>
@@ -7244,7 +7471,6 @@ forceReloadAllData() {
                         </div>`;
                     }
                 } else {
-                    // Lógica antiga para outros tipos (porcentagem)
                     let pct = null;
                     pct = (q.gemasBoasPct != null) ? parseFloat(q.gemasBoasPct) : 
                            (q.gemasViaveisPerc != null) ? parseFloat(q.gemasViaveisPerc) :
@@ -7261,14 +7487,13 @@ forceReloadAllData() {
                     }
                 }
 
-                // Determine Type Label
                 const tipoRaw = r.tipo_operacao || q.tipoOperacao || 'plantio';
                 let tipoLabel = 'Plantio';
-                let badgeClass = 'badge-info'; // Blue
+                let badgeClass = 'badge-info';
                 
                 if (tipoRaw === 'colheita_muda' || (tipoRaw === 'qualidade_muda' && q.tipoOperacao === 'colheita_muda')) {
                     tipoLabel = 'Colheita';
-                    badgeClass = 'badge-warning'; // Yellow/Orange
+                    badgeClass = 'badge-warning';
                 }
 
                 return `
@@ -7299,7 +7524,6 @@ forceReloadAllData() {
                 const tch = this.ui.formatNumber(r.colheita_tch_real || 0, 2);
                 const tonTotais = this.ui.formatNumber(r.colheita_toneladas_totais || 0, 2);
                 
-                // Hora
                 const horaStr = r.horaRegistro || (r.qualidade && r.qualidade.horaRegistro) || '';
                 const dataHoraHtml = horaStr ? `<div>${this.ui.formatDateBR(r.data)}</div><div style="font-size:0.85em; color:#666;">${horaStr}</div>` : this.ui.formatDateBR(r.data);
 
@@ -7327,13 +7551,11 @@ forceReloadAllData() {
             } else {
                 const sumArea = (r.frentes||[]).reduce((s,x)=> s + (Number(x.area)||0), 0);
                 const sumPlantioDia = (r.frentes||[]).reduce((s,x)=> s + (Number(x.plantioDiario || x.plantada)||0), 0);
-                // Cobrição is usually in 'qualidade' object or root 'cobricao_dia'/'cobricao_acumulada'
                 const q = r.qualidade || {};
                 const cobricao = this.ui.formatNumber(q.cobricaoDia || r.cobricaoDia || 0, 2);
                 
                 const resumoFrentes = (r.frentes||[]).map(f => `${f.frente}: ${f.fazenda||'—'}${f.regiao?(' / '+f.regiao):''}`).join(' | ');
                 
-                // Hora
                 const horaStr = r.horaRegistro || (r.qualidade && r.qualidade.horaRegistro) || '';
                 const dataHoraHtml = horaStr ? `<div>${this.ui.formatDateBR(r.data)}</div><div style="font-size:0.85em; color:#666;">${horaStr}</div>` : this.ui.formatDateBR(r.data);
 
@@ -7360,7 +7582,72 @@ forceReloadAllData() {
                     </td>
                 </tr>`;
             }
-        }).join('');
+        };
+        
+        if (currentTab === 'plantio' || currentTab === 'colheita_muda' || currentTab === 'qualidade_muda') {
+            if (plantioTable) plantioTable.style.display = 'none';
+            if (groupedList) groupedList.style.display = 'block';
+            
+            const toDateKey = (item) => {
+                const raw = item && item.data != null ? String(item.data) : '';
+                return raw.length >= 10 ? raw.slice(0, 10) : raw;
+            };
+            
+            const getTurnoLabel = (item) => {
+                const horaStr = (item && (item.horaRegistro || (item.qualidade && item.qualidade.horaRegistro))) ? String(item.horaRegistro || (item.qualidade && item.qualidade.horaRegistro) || '') : '';
+                if (horaStr && /turno/i.test(horaStr)) return horaStr.trim();
+                if (item && item.turno) return `Turno ${item.turno}`;
+                return '';
+            };
+            
+            const orderedDateKeys = [];
+            const grouped = new Map();
+            for (const r of rows) {
+                const key = toDateKey(r);
+                if (!grouped.has(key)) {
+                    grouped.set(key, []);
+                    orderedDateKeys.push(key);
+                }
+                grouped.get(key).push(r);
+            }
+            
+            const cardsHtml = orderedDateKeys.map(dateKey => {
+                const dayRows = grouped.get(dateKey) || [];
+                const turnos = Array.from(new Set(dayRows.map(getTurnoLabel).filter(Boolean)));
+                let turnoLabel = 'Turno Geral';
+                if (turnos.length === 1) turnoLabel = turnos[0];
+                else if (turnos.length > 1) turnoLabel = `Turnos: ${turnos.join(' | ')}`;
+                
+                const dateLabel = this.ui.formatDateBR(dateKey || (dayRows[0] && dayRows[0].data));
+                
+                return `
+                <div class="plantio-day-card">
+                    <div class="plantio-day-header">
+                        <div class="plantio-day-title">📅 ${dateLabel} | ${turnoLabel}</div>
+                        <div class="plantio-day-subtitle">Total de registros: ${dayRows.length}</div>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>${headerRowHtml}</thead>
+                            <tbody>
+                                ${dayRows.map(renderRowHtml).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>`;
+            }).join('');
+            
+            if (groupedList) groupedList.innerHTML = cardsHtml;
+            tbody.innerHTML = '';
+            return;
+        }
+        
+        if (plantioTable) plantioTable.style.display = '';
+        if (groupedList) {
+            groupedList.style.display = 'none';
+            groupedList.innerHTML = '';
+        }
+        tbody.innerHTML = rows.map(renderRowHtml).join('');
     }
 
     async renderQualidadeList() {
@@ -8934,6 +9221,7 @@ Qualidade das gemas: ${avalGemas}
  
     setupViagemAduboListeners() {
         console.log('Setting up Viagem Adubo listeners...');
+        this.setupViagensPeriodoFilter();
         // Button Nova Viagem (Open Modal)
         const btnNovaViagem = document.getElementById('btn-nova-viagem-adubo');
         
@@ -8967,7 +9255,7 @@ Qualidade das gemas: ${avalGemas}
             prodSelect.parentNode.replaceChild(newSel, prodSelect);
             newSel.addEventListener('change', () => {
                 const val = newSel.value;
-                if (val === 'Outro') {
+                if (/^outro(s)?$/i.test(String(val || '').trim())) {
                     const modal = document.getElementById('modal-produto-outro');
                     if (modal) {
                         modal.style.zIndex = '12100';
@@ -8990,13 +9278,60 @@ Qualidade das gemas: ${avalGemas}
                 }
             });
         }
+
+        const osMain = document.getElementById('viagem-adubo-os');
+        if (osMain) {
+            const apply = async () => {
+                const osNum = String(osMain.value || '').trim();
+                const select = document.getElementById('viagem-produto');
+                if (!select) return;
+                if (!osNum) return;
+
+                try {
+                    if ((!this.osListCache || !Array.isArray(this.osListCache) || this.osListCache.length === 0) && navigator.onLine && this.api && typeof this.api.getOSList === 'function') {
+                        const osRes = await this.api.getOSList();
+                        if (osRes && osRes.success) this.osListCache = osRes.data || [];
+                    }
+                    const os = (this.osListCache || []).find(o => {
+                        const n = (o && (o.numero ?? o.numero_os ?? o.numeroOS ?? o.numeroOs)) != null ? String(o.numero ?? o.numero_os ?? o.numeroOS ?? o.numeroOs).trim() : '';
+                        return n && n === osNum;
+                    });
+                    const produtosRaw = os ? os.produtos : null;
+                    const list = Array.isArray(produtosRaw) ? produtosRaw : (typeof produtosRaw === 'string' ? (() => { try { return JSON.parse(produtosRaw) || []; } catch (_) { return []; } })() : []);
+                    const produtos = Array.isArray(list)
+                        ? list.map(p => (p && (p.produto ?? p.nome ?? p.name)) != null ? String(p.produto ?? p.nome ?? p.name).trim() : '').filter(Boolean)
+                        : [];
+
+                    if (produtos.length > 0) {
+                        const currentVal = select.value;
+                        const uniq = Array.from(new Set(produtos));
+                        uniq.sort((a, b) => a.localeCompare(b));
+                        select.innerHTML =
+                            '<option value="">Selecione</option>' +
+                            uniq.map(p => `<option value="${p}">${p}</option>`).join('') +
+                            '<option value="Outro">Outro</option>';
+
+                        if (currentVal && Array.from(select.options).some(o => o.value === currentVal)) {
+                            select.value = currentVal;
+                        } else {
+                            select.value = '';
+                        }
+                    }
+                } catch (e) {
+                    console.error('Erro ao carregar produtos da OS (viagem):', e);
+                }
+            };
+            osMain.addEventListener('change', apply);
+            osMain.addEventListener('blur', apply);
+        }
+
         const prodSelectModal = document.getElementById('modal-viagem-produto');
         if (prodSelectModal) {
             const newSelM = prodSelectModal.cloneNode(true);
             prodSelectModal.parentNode.replaceChild(newSelM, prodSelectModal);
             newSelM.addEventListener('change', () => {
                 const val = newSelM.value;
-                if (val === 'Outro') {
+                if (/^outro(s)?$/i.test(String(val || '').trim())) {
                     const modal = document.getElementById('modal-produto-outro');
                     if (modal) {
                         modal.style.zIndex = '12100';
@@ -9291,7 +9626,11 @@ Qualidade das gemas: ${avalGemas}
 
             // Fill Fields
             if (document.getElementById('modal-viagem-data')) document.getElementById('modal-viagem-data').value = item.data || '';
-            if (document.getElementById('modal-viagem-adubo-os')) document.getElementById('modal-viagem-adubo-os').value = item.numeroOS || item.numero_os || '';
+            if (document.getElementById('modal-viagem-adubo-os')) {
+                const osEl = document.getElementById('modal-viagem-adubo-os');
+                osEl.value = item.numeroOS || item.numero_os || '';
+                osEl.dispatchEvent(new Event('change'));
+            }
             if (document.getElementById('modal-viagem-frente')) document.getElementById('modal-viagem-frente').value = item.frente || '';
             
             // Set Fazenda Select
@@ -9307,7 +9646,17 @@ Qualidade das gemas: ${avalGemas}
 
             if (document.getElementById('modal-viagem-origem')) document.getElementById('modal-viagem-origem').value = item.origem || '';
             if (document.getElementById('modal-viagem-destino')) document.getElementById('modal-viagem-destino').value = item.destino || '';
-            if (document.getElementById('modal-viagem-produto')) document.getElementById('modal-viagem-produto').value = item.produto || '';
+            if (document.getElementById('modal-viagem-produto')) {
+                const prodEl = document.getElementById('modal-viagem-produto');
+                const val = item.produto || '';
+                if (val && !Array.from(prodEl.options || []).some(o => o.value === val)) {
+                    const opt = document.createElement('option');
+                    opt.value = val;
+                    opt.textContent = val;
+                    prodEl.appendChild(opt);
+                }
+                prodEl.value = val;
+            }
             if (document.getElementById('modal-viagem-quantidade-total')) document.getElementById('modal-viagem-quantidade-total').value = item.quantidadeTotal || item.quantidade_total || '';
             if (document.getElementById('modal-viagem-unidade')) document.getElementById('modal-viagem-unidade').value = item.unidade || '';
             if (document.getElementById('modal-viagem-caminhao')) document.getElementById('modal-viagem-caminhao').value = item.caminhao || '';
@@ -9586,7 +9935,7 @@ Qualidade das gemas: ${avalGemas}
         const prodSelect = document.getElementById('modal-viagem-produto');
         if (prodSelect) {
             prodSelect.addEventListener('change', () => {
-                if (prodSelect.value !== 'Outro') {
+                if (!/^outro(s)?$/i.test(String(prodSelect.value || '').trim())) {
                     this.customProdutoInfo = null;
                 }
             });
@@ -9838,7 +10187,10 @@ Qualidade das gemas: ${avalGemas}
 
             const data = getVal('viagem-data');
             const fazenda = getVal('viagem-fazenda');
-            let produto = getVal('viagem-produto');
+            const produtoSel = getVal('viagem-produto');
+            const produtoOutro = getVal('viagem-produto-outro');
+            const isOutro = /^outro(s)?$/i.test(String(produtoSel || '').trim());
+            let produto = isOutro ? produtoOutro : produtoSel;
             let unidade = getVal('viagem-unidade');
             
             if (transportType === 'composto') {
@@ -9850,7 +10202,7 @@ Qualidade das gemas: ${avalGemas}
             const quantidadeTotalNum = parseFloat((qtdStr || '').toString().replace(',', '.'));
             
             // Reset errors
-            ['viagem-data', 'viagem-fazenda', 'viagem-produto', 'viagem-quantidade-total'].forEach(id => {
+            ['viagem-data', 'viagem-fazenda', 'viagem-produto', 'viagem-produto-outro', 'viagem-quantidade-total'].forEach(id => {
                 const el = document.getElementById(prefix + id);
                 if (el) el.classList.remove('input-error');
             });
@@ -9859,7 +10211,8 @@ Qualidade das gemas: ${avalGemas}
                 let missing = [];
                 if (!data) { missing.push('Data'); document.getElementById(prefix + 'viagem-data')?.classList.add('input-error'); }
                 if (!fazenda) { missing.push('Fazenda'); document.getElementById(prefix + 'viagem-fazenda')?.classList.add('input-error'); }
-                if (!produto) { missing.push('Produto'); document.getElementById(prefix + 'viagem-produto')?.classList.add('input-error'); }
+                if (!produtoSel) { missing.push('Produto'); document.getElementById(prefix + 'viagem-produto')?.classList.add('input-error'); }
+                if (isOutro && !produtoOutro) { missing.push('Nome do insumo'); document.getElementById(prefix + 'viagem-produto-outro')?.classList.add('input-error'); }
                 if (isNaN(quantidadeTotalNum)) { missing.push('Quantidade'); document.getElementById(prefix + 'viagem-quantidade-total')?.classList.add('input-error'); }
                 
                 if (this.ui && this.ui.showNotification) {
@@ -10229,6 +10582,94 @@ Qualidade das gemas: ${avalGemas}
             data = data.filter(v => Array.isArray(v.bags) && v.bags.some(b => norm(b.lacre).includes(f)));
         }
 
+        if (currentType !== 'composto') {
+            const monthSelect = document.getElementById('viagens-filter-month');
+            const yearSelect = document.getElementById('viagens-filter-year');
+            const fallback = this.viagensPeriodo || { month: (new Date().getMonth() + 1), year: new Date().getFullYear() };
+
+            const yearMonths = new Map();
+            data.forEach(item => {
+                const raw = item && item.data != null ? String(item.data) : '';
+                if (raw.length < 7) return;
+                const y = Number(raw.slice(0, 4));
+                const m = Number(raw.slice(5, 7));
+                if (Number.isNaN(y) || Number.isNaN(m)) return;
+                if (!yearMonths.has(y)) yearMonths.set(y, new Set());
+                yearMonths.get(y).add(m);
+            });
+
+            const availableYears = Array.from(yearMonths.keys()).sort((a, b) => b - a);
+
+            let selectedYear = (yearSelect && yearSelect.value) ? Number(yearSelect.value) : fallback.year;
+            if (!availableYears.includes(selectedYear)) {
+                if (availableYears.includes(fallback.year)) selectedYear = fallback.year;
+                else selectedYear = availableYears[0] != null ? availableYears[0] : fallback.year;
+            }
+
+            if (yearSelect) {
+                if (!availableYears.length) {
+                    yearSelect.innerHTML = '<option value="" disabled selected>Sem registros</option>';
+                } else {
+                    const existing = Array.from(yearSelect.options).map(o => Number(o.value));
+                    const same = existing.length === availableYears.length && existing.every((v, i) => v === availableYears[i]);
+                    if (!same) {
+                        yearSelect.innerHTML = '';
+                        availableYears.forEach(y => {
+                            const opt = document.createElement('option');
+                            opt.value = String(y);
+                            opt.textContent = String(y);
+                            yearSelect.appendChild(opt);
+                        });
+                    }
+                    yearSelect.value = String(selectedYear);
+                }
+            }
+
+            const availableMonths = Array.from(yearMonths.get(selectedYear) || []).sort((a, b) => a - b);
+
+            let selectedMonth = (monthSelect && monthSelect.value) ? Number(monthSelect.value) : fallback.month;
+            if (!availableMonths.includes(selectedMonth)) {
+                if (availableMonths.includes(fallback.month)) selectedMonth = fallback.month;
+                else selectedMonth = availableMonths.length ? availableMonths[availableMonths.length - 1] : fallback.month;
+            }
+
+            if (monthSelect) {
+                if (!availableMonths.length) {
+                    monthSelect.innerHTML = '<option value="" disabled selected>Sem registros</option>';
+                } else {
+                    const existing = Array.from(monthSelect.options).map(o => Number(o.value));
+                    const same = existing.length === availableMonths.length && existing.every((v, i) => v === availableMonths[i]);
+                    if (!same) {
+                        monthSelect.innerHTML = '';
+                        availableMonths.forEach(m => {
+                            const monthNameRaw = new Date(2000, m - 1, 1).toLocaleString('pt-BR', { month: 'long' });
+                            const monthName = monthNameRaw ? monthNameRaw.charAt(0).toUpperCase() + monthNameRaw.slice(1) : String(m);
+                            const opt = document.createElement('option');
+                            opt.value = String(m);
+                            opt.textContent = monthName;
+                            monthSelect.appendChild(opt);
+                        });
+                    }
+                    monthSelect.value = String(selectedMonth);
+                }
+            }
+
+            this.viagensPeriodo = { month: selectedMonth, year: selectedYear };
+
+            if (availableYears.length && availableMonths.length) {
+                data = data.filter(r => {
+                    const raw = r && r.data != null ? String(r.data) : '';
+                    if (raw.length < 7) return false;
+                    const y = Number(raw.slice(0, 4));
+                    const m = Number(raw.slice(5, 7));
+                    if (Number.isNaN(y) || Number.isNaN(m)) return false;
+                    return y === selectedYear && m === selectedMonth;
+                });
+            } else {
+                data = [];
+            }
+        }
+
         // Sort Logic
         if (this.viagensAduboSort && this.viagensAduboSort.key) {
             const { key, dir } = this.viagensAduboSort;
@@ -10278,17 +10719,17 @@ Qualidade das gemas: ${avalGemas}
             `;
             return;
         }
-        tbody.innerHTML = data.map(v => {
-            const q = v.quantidadeTotal != null ? v.quantidadeTotal : (v.quantidade_total != null ? v.quantidade_total : 0);
-            const qtd = typeof q === 'number' ? q : parseFloat(q) || 0;
-            
-            if (currentType === 'composto') {
-                 const previsto = parseFloat(v.totalPrevisto || v.total_previsto || 0);
-                 const realizado = parseFloat(v.totalRealizado || v.total_realizado || 0);
-                 const diff = realizado - previsto;
-                 const diffSign = diff > 0 ? '+' : '';
 
-                 return `
+        if (currentType === 'composto') {
+            tbody.innerHTML = data.map(v => {
+                const q = v.quantidadeTotal != null ? v.quantidadeTotal : (v.quantidade_total != null ? v.quantidade_total : 0);
+                const qtd = typeof q === 'number' ? q : parseFloat(q) || 0;
+                const previsto = parseFloat(v.totalPrevisto || v.total_previsto || 0);
+                const realizado = parseFloat(v.totalRealizado || v.total_realizado || 0);
+                const diff = realizado - previsto;
+                const diffSign = diff > 0 ? '+' : '';
+
+                return `
                     <tr>
                         <td>${v.data}</td>
                         <td>${v.fazenda || ''}</td>
@@ -10302,29 +10743,69 @@ Qualidade das gemas: ${avalGemas}
                             <button class="btn btn-delete-viagem-adubo" data-viagem-id="${v.id}">🗑️</button>
                         </td>
                     </tr>
-                 `;
-            } else {
-                return `
-                    <tr>
-                        <td>${this.ui.formatDateBR(v.data)}</td>
-                        <td>${v.frente || ''}</td>
-                        <td>${v.fazenda || ''}</td>
-                        <td>${v.produto || ''}</td>
-                        <td>${this.ui.formatNumber(qtd, 3)}</td>
-                        <td>${v.unidade || ''}</td>
-                        <td>${v.motorista || ''}</td>
-                        <td>${v.caminhao || ''}</td>
-                        <td style="white-space: nowrap;">
-                            <div style="display: flex; gap: 8px;">
-                                <button class="btn btn-sm btn-secondary btn-view-viagem-adubo" data-viagem-id="${v.id}" title="Ver Detalhes">Detalhes</button>
-                                <button class="btn btn-sm btn-secondary btn-edit-viagem-adubo" data-viagem-id="${v.id}" title="Editar">✏️</button>
-                                <button class="btn btn-sm btn-danger btn-delete-viagem-adubo" data-viagem-id="${v.id}" title="Excluir">🗑️</button>
-                            </div>
-                        </td>
-                    </tr>
                 `;
+            }).join('');
+            return;
+        }
+
+        const renderRowAdubo = (v) => {
+            const q = v.quantidadeTotal != null ? v.quantidadeTotal : (v.quantidade_total != null ? v.quantidade_total : 0);
+            const qtd = typeof q === 'number' ? q : parseFloat(q) || 0;
+            return `
+                <tr>
+                    <td>${this.ui.formatDateBR(v.data)}</td>
+                    <td>${v.frente || ''}</td>
+                    <td>${v.fazenda || ''}</td>
+                    <td>${v.produto || ''}</td>
+                    <td>${this.ui.formatNumber(qtd, 3)}</td>
+                    <td>${v.unidade || ''}</td>
+                    <td>${v.motorista || ''}</td>
+                    <td>${v.caminhao || ''}</td>
+                    <td style="white-space: nowrap;">
+                        <div style="display: flex; gap: 8px;">
+                            <button class="btn btn-sm btn-secondary btn-view-viagem-adubo" data-viagem-id="${v.id}" title="Ver Detalhes">Detalhes</button>
+                            <button class="btn btn-sm btn-secondary btn-edit-viagem-adubo" data-viagem-id="${v.id}" title="Editar">✏️</button>
+                            <button class="btn btn-sm btn-danger btn-delete-viagem-adubo" data-viagem-id="${v.id}" title="Excluir">🗑️</button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        };
+
+        const toDateKey = (item) => {
+            const raw = item && item.data != null ? String(item.data) : '';
+            return raw.length >= 10 ? raw.slice(0, 10) : raw;
+        };
+
+        const orderedDates = [];
+        const grouped = new Map();
+        data.forEach(v => {
+            const key = toDateKey(v);
+            if (!grouped.has(key)) {
+                grouped.set(key, []);
+                orderedDates.push(key);
             }
+            grouped.get(key).push(v);
+        });
+
+        const groupsHtml = orderedDates.map(dateKey => {
+            const items = grouped.get(dateKey) || [];
+            const dateLabel = this.ui.formatDateBR(dateKey || (items[0] && items[0].data));
+            return `
+                <tr class="viagens-day-header-row">
+                    <td colspan="9">
+                        <div class="viagens-day-header">
+                            <div class="viagens-day-title">📅 ${dateLabel}</div>
+                            <div class="viagens-day-subtitle">Total de viagens do dia: ${items.length}</div>
+                        </div>
+                    </td>
+                </tr>
+                ${items.map(renderRowAdubo).join('')}
+                <tr class="viagens-day-spacer"><td colspan="9"></td></tr>
+            `;
         }).join('');
+
+        tbody.innerHTML = groupsHtml;
     }
 
     applyViagensFilters() {
@@ -14242,7 +14723,13 @@ InsumosApp.prototype.updateFixedFrentesTotals = function() {
 };
 
 InsumosApp.prototype.addInsumoRow = async function() {
-    const produto = document.getElementById('insumo-produto')?.value || '';
+    const produtoSel = document.getElementById('insumo-produto')?.value || '';
+    let produto = produtoSel;
+    if (/^outro(s)?$/i.test(String(produtoSel || '').trim())) {
+        const outroVal = document.getElementById('insumo-produto-outro')?.value || '';
+        if (!outroVal.trim()) { this.ui.showNotification('Informe o nome do insumo', 'warning'); return; }
+        produto = outroVal;
+    }
     
     // Helper para parsear floats aceitando virgula e ponto
     const parseInput = (id) => {
@@ -14309,10 +14796,12 @@ InsumosApp.prototype.addInsumoRow = async function() {
     this.renderInsumosDraft();
     
     // Limpar campos
-    ['insumo-produto', 'insumo-dose-prevista', 'insumo-qtd-total', 'insumo-area-aplicada'].forEach(id => { 
+    ['insumo-produto', 'insumo-produto-outro', 'insumo-dose-prevista', 'insumo-qtd-total', 'insumo-area-aplicada'].forEach(id => { 
         const el = document.getElementById(id); 
         if (el) el.value = ''; 
     });
+    const outroGroup = document.getElementById('insumo-produto-outro-group');
+    if (outroGroup) outroGroup.style.display = 'none';
     
     // Auto-repopulate Area Aplicada for the next row
     const plantioAreaEl = document.getElementById('single-plantio-dia');
@@ -14404,6 +14893,58 @@ InsumosApp.prototype.renderInsumosDraft = function() {
 
 InsumosApp.prototype.loadProdutosDatalist = async function() {
     try {
+        const osKey = document.getElementById('single-os')?.value || '';
+        if (osKey) {
+            try {
+                if ((!this.osListCache || !Array.isArray(this.osListCache) || this.osListCache.length === 0) && navigator.onLine && this.api && typeof this.api.getOSList === 'function') {
+                    const osRes = await this.api.getOSList();
+                    if (osRes && osRes.success) this.osListCache = osRes.data || [];
+                }
+
+                const matchOs = (this.osListCache || []).find(o => {
+                    const n = (o && (o.numero ?? o.numero_os ?? o.numeroOS ?? o.numeroOs)) != null ? String(o.numero ?? o.numero_os ?? o.numeroOS ?? o.numeroOs).trim() : '';
+                    return n && n === String(osKey).trim();
+                });
+
+                let osProdutos = [];
+                if (matchOs && matchOs.produtos != null) {
+                    const raw = matchOs.produtos;
+                    let list = [];
+                    if (Array.isArray(raw)) list = raw;
+                    else if (typeof raw === 'string') {
+                        try { list = JSON.parse(raw) || []; } catch (_) { list = []; }
+                    }
+                    if (Array.isArray(list)) {
+                        osProdutos = list
+                            .map(p => (p && (p.produto ?? p.nome ?? p.name)) != null ? String(p.produto ?? p.nome ?? p.name).trim() : '')
+                            .filter(Boolean);
+                    }
+                }
+
+                if (osProdutos.length > 0) {
+                    const select = document.getElementById('insumo-produto');
+                    if (select) {
+                        const currentVal = select.value;
+                        const uniq = Array.from(new Set(osProdutos));
+                        uniq.sort((a, b) => a.localeCompare(b));
+                        select.innerHTML =
+                            '<option value="">Selecione o produto...</option>' +
+                            uniq.map(p => `<option value="${p}">${p}</option>`).join('') +
+                            '<option value="Outro">Outro</option>';
+
+                        if (currentVal && Array.from(select.options).some(o => o.value === currentVal)) {
+                            select.value = currentVal;
+                        } else {
+                            select.value = '';
+                        }
+                    }
+                    return;
+                }
+            } catch (e) {
+                console.error('Erro ao carregar produtos da OS para select:', e);
+            }
+        }
+
         const frenteKey = document.getElementById('single-frente')?.value || '';
         const fazendaKey = document.getElementById('single-fazenda')?.value || ''; // Filter by Farm
         let produtos = [];

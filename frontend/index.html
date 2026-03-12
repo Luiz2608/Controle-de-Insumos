@@ -847,6 +847,17 @@
                 </div>
             </div>
 
+            <div class="viagens-periodo-filter">
+                <div class="filter-group" style="margin:0;">
+                    <label for="viagens-filter-month">📅 Mês:</label>
+                    <select id="viagens-filter-month"></select>
+                </div>
+                <div class="filter-group" style="margin:0;">
+                    <label for="viagens-filter-year">Ano:</label>
+                    <select id="viagens-filter-year"></select>
+                </div>
+            </div>
+
         <div id="viagens-filters-container" class="filters" style="display: none;">
             <div class="filter-group">
                 <label for="viagens-tipo-filter">Tipo</label>
@@ -939,6 +950,10 @@
                             <option>NO-NEMA</option>
                             <option value="Outro">Outro</option>
                         </select>
+                    </div>
+                    <div class="form-group" id="viagem-produto-outro-group" style="display:none;">
+                        <label for="viagem-produto-outro">Nome do insumo</label>
+                        <input type="text" id="viagem-produto-outro" placeholder="Digite o nome do insumo">
                     </div>
                     <div class="form-group">
                         <label for="viagem-quantidade-total">Quantidade (t)</label>
@@ -1181,7 +1196,19 @@
         <div class="dashboard-wrapper">
              <div class="chart-card" style="height: 80vh; min-height: 500px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
-                    <h4 style="margin: 0;">Registros de Plantio Diário</h4>
+                    <div style="display:flex; flex-direction:column; gap:10px;">
+                        <h4 style="margin: 0;">Registros de Plantio Diário</h4>
+                        <div class="plantio-periodo-filter">
+                            <div class="filter-group" style="margin:0;">
+                                <label for="plantio-filter-month">📅 Mês:</label>
+                                <select id="plantio-filter-month"></select>
+                            </div>
+                            <div class="filter-group" style="margin:0;">
+                                <label for="plantio-filter-year">Ano:</label>
+                                <select id="plantio-filter-year"></select>
+                            </div>
+                        </div>
+                    </div>
                     <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                         <button class="btn btn-secondary" id="btn-os">📋 Gerenciar O.S.</button>
                         <button class="btn btn-secondary" id="btn-open-fazendas-modal">🚜 Fazendas</button>
@@ -1205,6 +1232,7 @@
                 </div>
 
                 <div class="table-container" style="flex: 1; overflow-y: auto;">
+                    <div id="plantio-grouped-list" class="plantio-grouped-list" style="display:none;"></div>
                     <table class="data-table">
                         <thead id="plantio-table-head">
                             <tr>
@@ -2044,6 +2072,10 @@
                                     <option>NO-NEMA</option>
                                     <option value="Outro">Outro</option>
                                 </select>
+                                <div id="insumo-produto-outro-group" style="display:none; margin-top: 10px;">
+                                    <label for="insumo-produto-outro" style="display: block;">Nome do insumo</label>
+                                    <input type="text" id="insumo-produto-outro" placeholder="Digite o nome do insumo">
+                                </div>
                                 <label for="insumo-dose-prevista" style="margin-top: 10px; display: block;">Dose Prev. (L/kg ha)</label>
                                 <input type="number" id="insumo-dose-prevista" step="0.001" placeholder="0.000">
                             </div>
@@ -2718,6 +2750,10 @@
                             <option value="Outro">Outro</option>
                         </select>
                     </div>
+                    <div class="form-group" id="modal-viagem-produto-outro-group" style="display:none;">
+                        <label for="modal-viagem-produto-outro">Nome do insumo</label>
+                        <input type="text" id="modal-viagem-produto-outro" placeholder="Digite o nome do insumo">
+                    </div>
                     <div class="form-group">
                         <label for="modal-viagem-quantidade-total">Quantidade (t)</label>
                         <input type="number" id="modal-viagem-quantidade-total" step="0.001">
@@ -2905,6 +2941,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.js"></script>
     <script src="config.js?v=RESYNC-HOTFIX-70"></script>
     
+    <script src="offline-first.js?v=OFFLINE-FIRST-1"></script>
     <script src="api.js?v=RESYNC-HOTFIX-70"></script>
     <script src="ui.js?v=RESYNC-HOTFIX-70"></script>
     <script src="lacre-report.js?v=RESYNC-HOTFIX-70"></script>
@@ -2943,14 +2980,17 @@
 
             const data = getVal('viagem-data');
             const fazenda = getVal('viagem-fazenda');
-            const produto = getVal('viagem-produto');
+            const produtoSel = getVal('viagem-produto');
+            const produtoOutro = getVal('viagem-produto-outro');
+            const isOutro = /^outro(s)?$/i.test(String(produtoSel || '').trim());
+            const produto = isOutro ? produtoOutro : produtoSel;
             const qtdStr = getVal('viagem-quantidade-total');
             const quantidadeTotalNum = parseFloat((qtdStr || '').toString().replace(',', '.'));
             
             // alert(`DEBUG VALORES:\nData: ${data}\nFazenda: ${fazenda}\nProduto: ${produto}\nQtd: ${qtdStr} -> ${quantidadeTotalNum}`);
 
             // Reset errors
-            ['viagem-data', 'viagem-fazenda', 'viagem-produto', 'viagem-quantidade-total'].forEach(id => {
+            ['viagem-data', 'viagem-fazenda', 'viagem-produto', 'viagem-produto-outro', 'viagem-quantidade-total'].forEach(id => {
                 const el = document.getElementById(prefix + id);
                 if (el) el.classList.remove('input-error');
             });
@@ -2959,7 +2999,8 @@
                 let missing = [];
                 if (!data) { missing.push('Data'); document.getElementById(prefix + 'viagem-data')?.classList.add('input-error'); }
                 if (!fazenda) { missing.push('Fazenda'); document.getElementById(prefix + 'viagem-fazenda')?.classList.add('input-error'); }
-                if (!produto) { missing.push('Produto'); document.getElementById(prefix + 'viagem-produto')?.classList.add('input-error'); }
+                if (!produtoSel) { missing.push('Produto'); document.getElementById(prefix + 'viagem-produto')?.classList.add('input-error'); }
+                if (isOutro && !produtoOutro) { missing.push('Nome do insumo'); document.getElementById(prefix + 'viagem-produto-outro')?.classList.add('input-error'); }
                 if (isNaN(quantidadeTotalNum)) { missing.push('Quantidade'); document.getElementById(prefix + 'viagem-quantidade-total')?.classList.add('input-error'); }
                 
                 // alert('DEBUG: Falta campos: ' + missing.join(', '));

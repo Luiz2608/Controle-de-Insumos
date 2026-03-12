@@ -754,6 +754,7 @@ class ApiService {
             // Assumindo que há apenas uma frente por registro de plantio diário, conforme lógica atual
             const frenteInfo = frentes[0] || {};
             const fazendaNome = frenteInfo.fazenda || 'Desconhecida';
+            const osNumero = frenteInfo.os_numero || frenteInfo.osNumero || record.os_numero || record.os || '';
             // A área aplicada no dia é o plantioDiario ou plantada
             const areaDia = parseFloat(frenteInfo.plantioDiario || frenteInfo.plantada || 0);
             const talhao = frenteInfo.frente || ''; 
@@ -784,6 +785,8 @@ class ApiService {
                     produto: ins.produto,
                     inicio: dataPlantio,
                     dataInicio: dataPlantio,
+                    os: osNumero,
+                    numero_os: osNumero,
                     quantidadeAplicada: qtd,
                     doseAplicada: dose,
                     areaTotalAplicada: areaDia,

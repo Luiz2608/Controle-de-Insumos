@@ -288,3 +288,6 @@ class UIManager {
 
 // Instância global do gerenciador de UI
 window.uiManager = new UIManager();
+if (window.offlineFirst && typeof window.offlineFirst.bindUI === 'function') {
+    window.offlineFirst.bindUI(window.uiManager);
+}

@@ -1691,3 +1691,115 @@ body.dark-mode #modal-transporte-composto .close-modal {
     color: #aaa !important;
 }
 
+.plantio-periodo-filter {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.plantio-periodo-filter label {
+    font-weight: 700;
+}
+
+.plantio-periodo-filter select {
+    min-width: 140px;
+}
+
+.viagens-periodo-filter {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin: 10px 0;
+}
+
+.viagens-periodo-filter label {
+    font-weight: 700;
+}
+
+.viagens-periodo-filter select {
+    min-width: 140px;
+}
+
+.viagens-day-header-row td {
+    padding: 0;
+    border-bottom: 0;
+}
+
+.viagens-day-header {
+    padding: 12px 14px;
+    background: var(--table-header-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 10px;
+}
+
+.viagens-day-title {
+    font-weight: 700;
+    color: var(--text);
+}
+
+.viagens-day-subtitle {
+    font-size: 0.9em;
+    color: var(--text-light);
+}
+
+.viagens-day-spacer td {
+    height: 10px;
+    padding: 0;
+    border: 0;
+}
+
+.plantio-grouped-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 6px 2px;
+}
+
+.plantio-day-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+}
+
+.plantio-day-header {
+    padding: 12px 14px;
+    background: var(--table-header-bg);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.plantio-day-title {
+    font-weight: 700;
+    color: var(--text);
+}
+
+.plantio-day-subtitle {
+    font-size: 0.9em;
+    color: var(--text-light);
+}
+
+.plantio-day-card .table-container {
+    border: 0;
+    border-radius: 0;
+}
+
+.plantio-day-empty {
+    padding: 16px;
+    text-align: center;
+    color: var(--text-light);
+    background: var(--surface);
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+}
+
