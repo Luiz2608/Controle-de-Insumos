@@ -2054,6 +2054,10 @@
                 <div class="step-content" data-step="2">
                     <div class="chart-card form-card">
                         <h4 class="section-title">Gestão de Insumos</h4>
+                        <div style="display:flex; justify-content:flex-end; gap:10px; margin-bottom:10px;">
+                            <button type="button" id="btn-import-boletim" class="btn btn-secondary">Importar Boletim</button>
+                            <input type="file" id="input-import-boletim" accept=".pdf,application/pdf" style="display:none;">
+                        </div>
                         <div class="modal-form-grid">
                              <div class="form-group" style="grid-column: span 2;">
                                 <label for="insumo-produto">Produto</label>
@@ -2112,6 +2116,31 @@
                         </div>
                         <div id="insumos-total-gasto" style="text-align: right; font-weight: bold; margin-top: 10px; font-size: 1.1em; color: var(--primary-dark);">
                             Total Gasto no Dia: 0.000
+                        </div>
+                    </div>
+                    <div id="modal-boletim-insumos" class="modal" style="display:none;">
+                        <div class="modal-content" style="max-width: 900px;">
+                            <div class="modal-header">
+                                <h3>Insumos detectados no boletim</h3>
+                                <span class="close" id="close-modal-boletim-insumos">&times;</span>
+                            </div>
+                            <div class="modal-body">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Produto</th>
+                                            <th>Dose</th>
+                                            <th>Quantidade</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="boletim-insumos-tbody"></tbody>
+                                </table>
+                            </div>
+                            <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:10px;">
+                                <button type="button" class="btn btn-secondary" id="edit-boletim-import">Editar valores manualmente</button>
+                                <button type="button" class="btn btn-secondary" id="cancel-boletim-import">Cancelar</button>
+                                <button type="button" class="btn btn-primary" id="confirm-boletim-import">Confirmar Importação</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2941,7 +2970,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.js"></script>
     <script src="config.js?v=RESYNC-HOTFIX-70"></script>
     
-    <script src="offline-first.js?v=OFFLINE-FIRST-1"></script>
+    <script src="offline-first.js?v=OFFLINE-FIRST-2"></script>
     <script src="api.js?v=RESYNC-HOTFIX-70"></script>
     <script src="ui.js?v=RESYNC-HOTFIX-70"></script>
     <script src="lacre-report.js?v=RESYNC-HOTFIX-70"></script>

@@ -269,52 +269,47 @@
                 if (document.getElementById('connection-status-indicator')) return;
                 const bar = document.createElement('div');
                 bar.id = 'connection-status-indicator';
-                bar.style.position = 'fixed';
-                bar.style.top = '0';
-                bar.style.left = '0';
-                bar.style.right = '0';
                 bar.style.zIndex = '2147483646';
-                bar.style.display = 'flex';
-                bar.style.justifyContent = 'space-between';
+                bar.style.display = 'inline-flex';
                 bar.style.alignItems = 'center';
-                bar.style.padding = '6px 10px';
+                bar.style.gap = '6px';
+                bar.style.padding = '2px 8px';
                 bar.style.fontFamily = '-apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif';
-                bar.style.fontSize = '13px';
+                bar.style.fontSize = '11px';
                 bar.style.fontWeight = '700';
                 bar.style.background = 'rgba(0,0,0,0.75)';
                 bar.style.color = '#fff';
                 bar.style.backdropFilter = 'blur(8px)';
                 bar.style.pointerEvents = 'none';
+                bar.style.borderRadius = '999px';
+                bar.style.whiteSpace = 'nowrap';
 
-                const left = document.createElement('div');
-                left.textContent = '🟢 Online';
-                const right = document.createElement('div');
-                right.id = 'connection-status-right';
-                right.textContent = '';
-                bar.appendChild(left);
-                bar.appendChild(right);
-                document.body.appendChild(bar);
-                this._statusEl = left;
+                const status = document.createElement('div');
+                status.textContent = '🟢 Online';
+                const sync = document.createElement('div');
+                sync.id = 'connection-status-right';
+                sync.textContent = '';
+                bar.appendChild(status);
+                bar.appendChild(sync);
+                this._statusEl = status;
 
-                const banner = document.createElement('div');
-                banner.id = 'offline-mode-banner';
-                banner.style.position = 'fixed';
-                banner.style.top = '34px';
-                banner.style.left = '0';
-                banner.style.right = '0';
-                banner.style.zIndex = '2147483645';
-                banner.style.padding = '10px 12px';
-                banner.style.fontFamily = '-apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif';
-                banner.style.fontSize = '13px';
-                banner.style.fontWeight = '700';
-                banner.style.background = 'rgba(245, 158, 11, 0.95)';
-                banner.style.color = '#111827';
-                banner.style.textAlign = 'center';
-                banner.style.display = 'none';
-                banner.style.pointerEvents = 'none';
-                banner.textContent = '⚠️ Modo Offline — Sem conexão com a internet. Os dados serão sincronizados automaticamente quando a conexão voltar.';
-                document.body.appendChild(banner);
-                this._offlineBannerEl = banner;
+                const currentUser = document.getElementById('current-user');
+                if (currentUser && currentUser.parentElement) {
+                    const wrapper = document.createElement('div');
+                    wrapper.id = 'connection-user-wrapper';
+                    wrapper.style.display = 'flex';
+                    wrapper.style.flexDirection = 'column';
+                    wrapper.style.alignItems = 'flex-end';
+                    wrapper.style.gap = '4px';
+                    currentUser.parentElement.insertBefore(wrapper, currentUser);
+                    wrapper.appendChild(currentUser);
+                    wrapper.appendChild(bar);
+                } else {
+                    bar.style.position = 'fixed';
+                    bar.style.top = '8px';
+                    bar.style.right = '10px';
+                    document.body.appendChild(bar);
+                }
             };
 
             if (document.readyState === 'loading') {
@@ -334,12 +329,7 @@
             this._statusEl.textContent = online ? '🟢 Online' : '🔴 Offline';
 
             const right = document.getElementById('connection-status-right');
-            if (right) right.textContent = this._isSyncing ? '☁️ Sincronizando...' : '';
-
-            if (this._offlineBannerEl) {
-                this._offlineBannerEl.style.display = online ? 'none' : 'block';
-            }
-            document.body.style.paddingTop = online ? '34px' : '86px';
+            if (right) right.textContent = this._isSyncing ? '⟳ Sync' : '';
         }
 
         _attachNetworkEvents() {
