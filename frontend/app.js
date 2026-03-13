@@ -14778,6 +14778,7 @@ InsumosApp.prototype.handleBoletimImportFile = async function(file) {
     try {
         this.showProgress('Importando Boletim...', 5, 'Enviando PDF para análise...');
         const extracted = await this.analyzeBoletimPdfWithGemini(file);
+        if (extracted === null) return;
         const rows = extracted.length ? extracted : [{ produto: '', dose: '', quantidade: '' }];
 
         await this.openBoletimImportModal(rows, file);
@@ -14820,14 +14821,14 @@ InsumosApp.prototype.analyzeBoletimPdfWithGemini = async function(file) {
         return null;
     };
 
-    let geminiKey = (window.API_CONFIG && window.API_CONFIG.geminiKey) || localStorage.getItem('geminiApiKey') || '';
+    const geminiKey = (window.API_CONFIG && window.API_CONFIG.geminiKey) || localStorage.getItem('GEMINI_API_KEY') || '';
     if (!geminiKey || geminiKey.trim().length < 20) {
-        this.hideProgress();
-        geminiKey = await this.askGeminiKey();
-        this.showProgress('Importando Boletim...', 10, 'Preparando análise...');
-    }
-    if (!geminiKey || geminiKey.trim().length < 20) {
-        throw new Error('Chave da API Gemini não informada ou inválida.');
+        const modal = document.getElementById('api-key-modal');
+        const input = document.getElementById('gemini-api-key-input');
+        if (modal) modal.style.display = 'flex';
+        if (input) input.value = (window.API_CONFIG && window.API_CONFIG.geminiKey) || localStorage.getItem('GEMINI_API_KEY') || '';
+        if (this.ui) this.ui.showNotification('Chave API Gemini não encontrada! Configure no menu de configurações.', 'warning', 4000);
+        return null;
     }
 
     const base64Pdf = await toBase64(file);
