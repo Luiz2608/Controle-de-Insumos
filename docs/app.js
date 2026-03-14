@@ -14777,9 +14777,13 @@ InsumosApp.prototype.handleBoletimImportFile = async function(file) {
         this.showProgress('Importando Boletim...', 5, 'Enviando PDF para análise...');
         const extracted = await this.analyzeBoletimPdfWithGemini(file);
         if (extracted === null) return;
-        const rows = extracted.length ? extracted : [{ produto: '', dose: '', quantidade: '' }];
+        const insumos = extracted && Array.isArray(extracted.insumos) ? extracted.insumos : [];
+        if (!insumos.length) {
+            this.ui.showNotification('Não foi possível identificar os insumos no boletim importado.', 'warning', 5000);
+            return;
+        }
 
-        await this.openBoletimImportModal(rows, file);
+        await this.applyBoletimInsumosAuto(insumos, file);
     } catch (e) {
         console.error('Erro ao importar boletim:', e);
         const rawMsg = e && e.message != null ? String(e.message) : '';
@@ -14816,20 +14820,21 @@ InsumosApp.prototype.analyzeBoletimPdfWithGemini = async function(file) {
         reader.readAsDataURL(f);
     });
 
-    const parseJsonArray = (rawText) => {
+    const parseBoletimPayload = (rawText) => {
         const t = String(rawText || '').replace(/```json/gi, '```').replace(/```/g, '').trim();
         if (!t) return null;
         try {
             const parsed = JSON.parse(t);
-            return Array.isArray(parsed) ? parsed : null;
+            if (parsed && typeof parsed === 'object') return parsed;
         } catch {}
-        const start = t.indexOf('[');
-        const end = t.lastIndexOf(']');
+        const start = t.indexOf('{');
+        const end = t.lastIndexOf('}');
         if (start >= 0 && end > start) {
-            const slice = t.slice(start, end + 1);
+            let slice = t.slice(start, end + 1);
+            slice = slice.replace(/,\s*(?=[}\]])/g, '');
             try {
                 const parsed = JSON.parse(slice);
-                return Array.isArray(parsed) ? parsed : null;
+                if (parsed && typeof parsed === 'object') return parsed;
             } catch {}
         }
         return null;
@@ -14865,27 +14870,23 @@ InsumosApp.prototype.analyzeBoletimPdfWithGemini = async function(file) {
     const prompt = [
         'Analise o PDF enviado que contém um Boletim Diário de Plantio de cana-de-açúcar.',
         '',
-        'Localize a tabela de consumo de insumos presente no documento.',
+        'Objetivo: extrair os dados reais de aplicação de insumos contidos no boletim.',
         '',
-        'Extraia todas as linhas que contenham produtos utilizados no plantio.',
+        'Para cada insumo aplicado, identifique:',
+        '- Nome do produto (string)',
+        '- Dose real aplicada por hectare (dose_real: number, em L/ha ou kg/ha conforme o boletim)',
+        '- Área aplicada (area_aplicada: number, em hectares)',
         '',
-        'Para cada produto retorne:',
-        '',
-        'Produto',
-        'Dose por hectare',
-        'Quantidade aplicada no dia',
-        '',
-        'Ignore qualquer outro conteúdo do documento.',
-        '',
-        'Retorne exclusivamente em formato JSON no seguinte padrão:',
-        '',
-        '[',
+        'Retorne EXCLUSIVAMENTE um JSON válido (sem markdown e sem texto adicional) exatamente neste formato:',
         '{',
-        '"produto": "",',
-        '"dose_ha": "",',
-        '"quantidade_dia": ""',
+        '  "insumos": [',
+        '    { "produto": "Nome do produto", "dose_real": 0.0, "area_aplicada": 0.0 }',
+        '  ]',
         '}',
-        ']'
+        '',
+        'Regras:',
+        '- Use ponto como separador decimal.',
+        '- Se não encontrar insumos, retorne: { "insumos": [] }'
     ].join('\n');
 
     const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + encodeURIComponent(geminiKey);
@@ -14922,15 +14923,119 @@ InsumosApp.prototype.analyzeBoletimPdfWithGemini = async function(file) {
         ? data.candidates[0].content.parts.map(p => p.text || '').join('\n')
         : '';
 
-    const arr = parseJsonArray(rawText) || parseJsonArray(data && data.candidates && data.candidates[0] && data.candidates[0].content ? JSON.stringify(data.candidates[0].content) : '');
-    if (!arr) return [];
-
-    return arr.map(it => {
+    const payload = parseBoletimPayload(rawText) || parseBoletimPayload(data && data.candidates && data.candidates[0] && data.candidates[0].content ? JSON.stringify(data.candidates[0].content) : '');
+    const rawInsumos = payload && Array.isArray(payload.insumos) ? payload.insumos : [];
+    const toNum = (v) => {
+        const s = String(v == null ? '' : v).trim();
+        if (!s) return NaN;
+        const norm = s.replace(/\./g, '').replace(',', '.');
+        const n = parseFloat(norm);
+        return isNaN(n) ? NaN : n;
+    };
+    const normalized = rawInsumos.map(it => {
         const produto = it && it.produto != null ? String(it.produto).trim() : '';
-        const dose = it && it.dose_ha != null ? String(it.dose_ha).trim() : '';
-        const quantidade = it && it.quantidade_dia != null ? String(it.quantidade_dia).trim() : '';
-        return { produto, dose, quantidade };
-    }).filter(r => r.produto || r.dose || r.quantidade);
+        const doseReal = it && it.dose_real != null ? toNum(it.dose_real) : NaN;
+        const areaAplicada = it && it.area_aplicada != null ? toNum(it.area_aplicada) : NaN;
+        return {
+            produto,
+            dose_real: isNaN(doseReal) ? 0 : doseReal,
+            area_aplicada: isNaN(areaAplicada) ? 0 : areaAplicada
+        };
+    }).filter(r => r.produto && (r.dose_real > 0 || r.area_aplicada > 0));
+
+    return { insumos: normalized };
+};
+
+InsumosApp.prototype.applyBoletimInsumosAuto = async function(insumos, file) {
+    const normalize = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
+    const matchProduto = (raw) => {
+        const produto = String(raw || '').trim();
+        const sel = document.getElementById('insumo-produto');
+        if (!sel) return produto;
+        const wanted = normalize(produto);
+        const opts = Array.from(sel.options || []);
+        const exact = opts.find(o => normalize(o.value || o.textContent || '') === wanted);
+        return exact ? (exact.value || exact.textContent || produto) : produto;
+    };
+
+    const getDosePrevistaFromOS = async (produto) => {
+        const osKey = document.getElementById('single-os')?.value || '';
+        if (osKey && this.osListCache) {
+            const os = this.osListCache.find(o => String(o.numero).trim() === String(osKey).trim());
+            if (os && os.produtos) {
+                const found = os.produtos.find(p => normalize(p.produto) === normalize(produto));
+                if (found) return parseFloat(found.doseRecomendada || found.doseRec || found.dose || found.quantidade || 0) || 0;
+            }
+        }
+
+        const frenteKey = document.getElementById('single-frente')?.value || '';
+        if (frenteKey) {
+            try {
+                const osRes = await this.api.getOSByFrente(frenteKey);
+                if (osRes && osRes.success && osRes.data && Array.isArray(osRes.data.produtos)) {
+                    const found = osRes.data.produtos.find(p => normalize(p.produto) === normalize(produto));
+                    if (found) return parseFloat(found.doseRecomendada || found.doseRec || found.dose || found.quantidade || 0) || 0;
+                }
+            } catch (e) {
+                console.error('Erro ao buscar dados da OS:', e);
+            }
+        }
+        return 0;
+    };
+
+    for (const item of insumos) {
+        const produtoRaw = item && item.produto != null ? String(item.produto).trim() : '';
+        if (!produtoRaw) continue;
+        const produto = matchProduto(produtoRaw);
+        const doseReal = Number(item.dose_real) || 0;
+        const areaAplicada = Number(item.area_aplicada) || 0;
+        if (!(doseReal > 0) || !(areaAplicada > 0)) continue;
+
+        const produtoSelect = document.getElementById('insumo-produto');
+        if (produtoSelect) {
+            const wanted = normalize(produto);
+            const opt = Array.from(produtoSelect.options || []).find(o => normalize(o.value || o.textContent || '') === wanted);
+            if (opt) produtoSelect.value = opt.value || opt.textContent || produtoSelect.value;
+        }
+
+        const dosePrevista = await getDosePrevistaFromOS(produto);
+        const qtdTotal = doseReal * areaAplicada;
+
+        await this.addInsumoRowFromImport({
+            produto,
+            dosePrevista,
+            qtdTotal,
+            areaAplicada
+        });
+    }
+
+    if (file) {
+        try {
+            const dataUrl = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+            this._boletimAnexoDraft = {
+                name: file.name,
+                type: file.type,
+                size: file.size,
+                lastModified: file.lastModified,
+                dataUrl
+            };
+        } catch (e) {
+            console.error('Erro ao anexar boletim ao registro:', e);
+            this._boletimAnexoDraft = {
+                name: file.name,
+                type: file.type,
+                size: file.size,
+                lastModified: file.lastModified
+            };
+        }
+    }
+
+    this.ui.showNotification('Insumos do boletim preenchidos automaticamente.', 'success', 5000);
 };
 
 InsumosApp.prototype.ocrBoletimFromPdf = async function(file) {
