@@ -963,7 +963,7 @@ class InsumosApp {
                         '- Não inclua comentários, texto explicativo nem campos extras, apenas o JSON.'
                     ].join('\n');
 
-                    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + geminiKey;
+                    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + geminiKey;
                     
                     const response = await fetch(url, {
                         method: 'POST',
@@ -4493,15 +4493,7 @@ forceReloadAllData() {
                 }
             };
 
-            // Estratégia de Fallback (v53 - Atualizado para Gemini 2.5)
-            // Prioriza a série 2.5 (atual) e mantém 2.0 como fallback legado.
-            const modelChain = [
-                'gemini-2.5-flash',       // 1. Novo padrão (rápido e capaz)
-                'gemini-2.5-pro',         // 2. Mais inteligente (se flash falhar)
-                'gemini-2.5-flash-lite',  // 3. Otimizado para custo/velocidade
-                'gemini-2.0-flash',       // 4. Fallback legado (funcional até jun/26)
-                'gemini-2.0-pro-exp',     // 5. Experimental antigo
-            ];
+            const modelChain = ['gemini-2.5-flash'];
 
             let lastError = null;
             let successResult = null;
@@ -4698,8 +4690,7 @@ forceReloadAllData() {
                 Se algum campo não for encontrado, use null.
             `;
 
-            // Usar gemini-2.0-flash (MANDATÓRIO: Versão mais recente e capaz)
-            const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + geminiKey;
+            const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + geminiKey;
             
             // Montar payload com verificação rigorosa
             const parts = [];
@@ -14897,7 +14888,7 @@ InsumosApp.prototype.analyzeBoletimPdfWithGemini = async function(file) {
         ']'
     ].join('\n');
 
-    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + encodeURIComponent(geminiKey);
+    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + encodeURIComponent(geminiKey);
     const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
