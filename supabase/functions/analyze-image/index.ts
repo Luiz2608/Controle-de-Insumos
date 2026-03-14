@@ -2,13 +2,9 @@
 // https://deno.land/manual/getting_started/setup_your_environment
 // This enables autocomplete, go to definition, etc.
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.1.3"
-
 declare const Deno: {
-  env: {
-    get: (key: string) => string | undefined
-  }
+  env: { get: (key: string) => string | undefined }
+  serve: (handler: (req: Request) => Response | Promise<Response>) => void
 }
 
 const corsHeaders = {
@@ -16,7 +12,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -35,11 +31,11 @@ serve(async (req) => {
       throw new Error('Chave de API do Gemini não configurada (GEMINI_API_KEY)')
     }
 
-    const genAI = new GoogleGenerativeAI(apiKey)
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" })
+    const mimeTypeMatch = imageBase64.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,/)
+    const mimeType = mimeTypeMatch ? mimeTypeMatch[1] : 'image/jpeg'
 
     // Clean base64 string
-    const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "")
+    const base64Data = imageBase64.replace(/^data:[^;]+;base64,/, "")
 
     const prompt = `Analise esta imagem de plantio de cana-de-açúcar (ou amostra de solo/mudas).
     Objetivo: Contar as gemas (buds) visíveis e os toletes (setts).
@@ -54,18 +50,30 @@ serve(async (req) => {
         "toletes": { "total": 0, "bons": 0, "ruins": 0 }
     }`
 
-    const result = await model.generateContent([
-      prompt,
-      {
-        inlineData: {
-          data: base64Data,
-          mimeType: "image/jpeg",
-        },
-      },
-    ])
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`
+    const geminiRes = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{
+          parts: [
+            { text: prompt },
+            { inline_data: { mime_type: mimeType, data: base64Data } },
+          ],
+        }],
+        generationConfig: { response_mime_type: 'application/json' },
+      }),
+    })
 
-    const response = await result.response
-    const text = response.text()
+    if (!geminiRes.ok) {
+      const errText = await geminiRes.text()
+      throw new Error(errText || `Erro Gemini HTTP ${geminiRes.status}`)
+    }
+
+    const geminiData = await geminiRes.json()
+    const parts = geminiData?.candidates?.[0]?.content?.parts
+    const rawText = Array.isArray(parts) ? parts.map((p: any) => p?.text || '').join('\n') : ''
+    const text = String(rawText || '').replace(/```json/gi, '```').replace(/```/g, '').trim()
     
     // Extract JSON from text
     const jsonMatch = text.match(/\{[\s\S]*\}/)
