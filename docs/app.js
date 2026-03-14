@@ -14983,6 +14983,7 @@ InsumosApp.prototype.applyBoletimInsumosAuto = async function(insumos, file) {
         return 0;
     };
 
+    let added = 0;
     for (const item of insumos) {
         const produtoRaw = item && item.produto != null ? String(item.produto).trim() : '';
         if (!produtoRaw) continue;
@@ -15007,6 +15008,12 @@ InsumosApp.prototype.applyBoletimInsumosAuto = async function(insumos, file) {
             qtdTotal,
             areaAplicada
         });
+        added++;
+    }
+
+    if (!added) {
+        this.ui.showNotification('Não foi possível identificar os insumos no boletim importado.', 'warning', 5000);
+        return;
     }
 
     if (file) {
