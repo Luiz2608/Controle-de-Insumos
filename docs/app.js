@@ -14791,7 +14791,23 @@ InsumosApp.prototype.handleBoletimImportFile = async function(file) {
         await this.openBoletimImportModal(rows, file);
     } catch (e) {
         console.error('Erro ao importar boletim:', e);
-        this.ui.showNotification('Falha ao ler o boletim. Você pode lançar os insumos manualmente.', 'warning', 4000);
+        const rawMsg = e && e.message != null ? String(e.message) : '';
+        const gemini = e && e.gemini ? e.gemini : null;
+        const isQuota =
+            (gemini && (gemini.httpStatus === 429 || gemini.code === 429 || gemini.status === 'RESOURCE_EXHAUSTED')) ||
+            rawMsg.includes('RESOURCE_EXHAUSTED') ||
+            rawMsg.includes('exceeded your current quota') ||
+            rawMsg.includes('"code": 429');
+
+        if (isQuota) {
+            const modal = document.getElementById('api-key-modal');
+            const input = document.getElementById('gemini-api-key-input');
+            if (modal) modal.style.display = 'flex';
+            if (input) input.value = (window.API_CONFIG && window.API_CONFIG.geminiKey) || localStorage.getItem('GEMINI_API_KEY') || '';
+            this.ui.showNotification('Limite de uso da IA (Gemini) atingido. Gere uma nova chave/ative cobrança ou aguarde e tente novamente.', 'warning', 7000);
+        } else {
+            this.ui.showNotification('Falha ao ler o boletim. Você pode lançar os insumos manualmente.', 'warning', 4000);
+        }
     } finally {
         this.hideProgress();
     }
@@ -14825,6 +14841,20 @@ InsumosApp.prototype.analyzeBoletimPdfWithGemini = async function(file) {
                 return Array.isArray(parsed) ? parsed : null;
             } catch {}
         }
+        return null;
+    };
+
+    const parseGeminiError = (txt) => {
+        try {
+            const parsed = JSON.parse(String(txt || ''));
+            if (parsed && parsed.error) {
+                return {
+                    code: parsed.error.code,
+                    status: parsed.error.status,
+                    message: parsed.error.message
+                };
+            }
+        } catch {}
         return null;
     };
 
@@ -14884,7 +14914,17 @@ InsumosApp.prototype.analyzeBoletimPdfWithGemini = async function(file) {
 
     if (!response.ok) {
         const txt = await response.text();
-        throw new Error(txt || ('Erro HTTP ' + response.status));
+        const apiErr = parseGeminiError(txt);
+        const status = response.status;
+        const isQuota = status === 429 || (apiErr && (apiErr.code === 429 || apiErr.status === 'RESOURCE_EXHAUSTED'));
+        if (isQuota) {
+            const err = new Error('GEMINI_QUOTA_EXCEEDED');
+            err.gemini = { ...(apiErr || {}), httpStatus: status };
+            throw err;
+        }
+        const err = new Error((apiErr && apiErr.message) ? apiErr.message : (txt || ('Erro HTTP ' + status)));
+        err.gemini = { ...(apiErr || {}), httpStatus: status };
+        throw err;
     }
     const data = await response.json();
     const rawText = data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts
