@@ -14818,6 +14818,7 @@ InsumosApp.prototype.analyzeBoletimPdfWithGemini = async function(file) {
         if (!t) return null;
         try {
             const parsed = JSON.parse(t);
+            if (Array.isArray(parsed)) return { insumos: parsed };
             if (parsed && typeof parsed === 'object') return parsed;
         } catch {}
         const start = t.indexOf('{');
@@ -14827,6 +14828,7 @@ InsumosApp.prototype.analyzeBoletimPdfWithGemini = async function(file) {
             slice = slice.replace(/,\s*(?=[}\]])/g, '');
             try {
                 const parsed = JSON.parse(slice);
+                if (Array.isArray(parsed)) return { insumos: parsed };
                 if (parsed && typeof parsed === 'object') return parsed;
             } catch {}
         }
