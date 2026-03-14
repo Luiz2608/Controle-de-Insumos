@@ -5,6 +5,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.1.3"
 
+declare const Deno: {
+  env: {
+    get: (key: string) => string | undefined
+  }
+}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -17,7 +23,8 @@ serve(async (req) => {
   }
 
   try {
-    const { imageBase64 } = await req.json()
+    const body = (await req.json()) as { imageBase64?: string }
+    const imageBase64 = body && typeof body.imageBase64 === 'string' ? body.imageBase64 : ''
     
     if (!imageBase64) {
       throw new Error('Imagem não fornecida')
@@ -62,7 +69,7 @@ serve(async (req) => {
     
     // Extract JSON from text
     const jsonMatch = text.match(/\{[\s\S]*\}/)
-    let data
+    let data: unknown
     if (jsonMatch) {
       data = JSON.parse(jsonMatch[0])
     } else {
@@ -75,8 +82,9 @@ serve(async (req) => {
     )
 
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
     return new Response(
-      JSON.stringify({ success: false, message: error.message }),
+      JSON.stringify({ success: false, message }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,
