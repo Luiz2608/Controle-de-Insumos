@@ -2965,6 +2965,65 @@
     <script src="app.js?v=PAGES-20260313-732abf3"></script>
     
     <script>
+    (() => {
+        const ensure = () => {
+            if (document.getElementById('connection-status-indicator')) return;
+            const currentUser = document.getElementById('current-user');
+            if (!currentUser || !currentUser.parentElement) return;
+
+            const bar = document.createElement('div');
+            bar.id = 'connection-status-indicator';
+            bar.style.zIndex = '2147483646';
+            bar.style.display = 'inline-flex';
+            bar.style.alignItems = 'center';
+            bar.style.gap = '6px';
+            bar.style.padding = '2px 8px';
+            bar.style.fontFamily = '-apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif';
+            bar.style.fontSize = '11px';
+            bar.style.fontWeight = '700';
+            bar.style.background = 'rgba(0,0,0,0.75)';
+            bar.style.color = '#fff';
+            bar.style.backdropFilter = 'blur(8px)';
+            bar.style.pointerEvents = 'none';
+            bar.style.borderRadius = '999px';
+            bar.style.whiteSpace = 'nowrap';
+
+            const status = document.createElement('div');
+            status.id = 'connection-status-text';
+            status.textContent = navigator.onLine === true ? '🟢 Online' : '🔴 Offline';
+            bar.appendChild(status);
+
+            const wrapper = document.createElement('div');
+            wrapper.id = 'connection-user-wrapper';
+            wrapper.style.display = 'flex';
+            wrapper.style.flexDirection = 'column';
+            wrapper.style.alignItems = 'flex-end';
+            wrapper.style.gap = '4px';
+
+            currentUser.parentElement.insertBefore(wrapper, currentUser);
+            wrapper.appendChild(currentUser);
+            wrapper.appendChild(bar);
+        };
+
+        const render = () => {
+            const el = document.getElementById('connection-status-text');
+            if (!el) return;
+            el.textContent = navigator.onLine === true ? '🟢 Online' : '🔴 Offline';
+        };
+
+        const boot = () => {
+            ensure();
+            render();
+            window.addEventListener('online', render);
+            window.addEventListener('offline', render);
+        };
+
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+        else boot();
+    })();
+    </script>
+
+    <script>
     // FIX DE EMERGÊNCIA - BYPASS DE CACHE PARA SAVE VIAGEM
     window.forceSaveViagemAdubo = async function(isModal = false) {
         //alert('DEBUG: forceSaveViagemAdubo INICIADO!');
