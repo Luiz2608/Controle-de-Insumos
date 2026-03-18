@@ -10741,14 +10741,33 @@ Qualidade das gemas: ${avalGemas}
             return;
         }
 
+        const esc = (val) => String(val == null ? '' : val)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+
         const renderRowAdubo = (v) => {
             const q = v.quantidadeTotal != null ? v.quantidadeTotal : (v.quantidade_total != null ? v.quantidade_total : 0);
             const qtd = typeof q === 'number' ? q : parseFloat(q) || 0;
+            const origem = v.origem || '';
+            const destino = v.destino || '';
+            const observacoes = v.observacoes || '';
+            const subtitulo = origem && destino ? `${origem} → ${destino}` : (origem ? `Origem: ${origem}` : (destino ? `Destino: ${destino}` : ''));
+            const dataHtml = `
+                <div>${esc(this.ui.formatDateBR(v.data))}</div>
+                ${observacoes ? `<div style="font-size: 0.82em; opacity: 0.75; margin-top: 2px;">Controle: ${esc(observacoes)}</div>` : ''}
+            `;
+            const fazendaHtml = `
+                <div>${esc(v.fazenda || '')}</div>
+                ${subtitulo ? `<div style="font-size: 0.82em; opacity: 0.75; margin-top: 2px;">${esc(subtitulo)}</div>` : ''}
+            `;
             return `
                 <tr>
-                    <td>${this.ui.formatDateBR(v.data)}</td>
+                    <td>${dataHtml}</td>
                     <td>${v.frente || ''}</td>
-                    <td>${v.fazenda || ''}</td>
+                    <td>${fazendaHtml}</td>
                     <td>${v.produto || ''}</td>
                     <td>${this.ui.formatNumber(qtd, 3)}</td>
                     <td>${v.unidade || ''}</td>
