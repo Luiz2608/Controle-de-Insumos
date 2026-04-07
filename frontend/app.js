@@ -7248,12 +7248,7 @@ forceReloadAllData() {
                 return;
             }
             this.ui.showNotification(`Registros encontrados: ${ops.length}`, 'info', 3500);
-
-            const ok = await this.showConfirmationModal(
-                'Importar Plantio/Colheita',
-                `Arquivo: ${file.name}\nPlanilha: ${sheetName}\nRegistros encontrados: ${ops.length}\n\nDeseja importar agora?`
-            );
-            if (!ok) return;
+            this.ui.showNotification('Importando registros... aguarde.', 'info', 4000);
 
             let imported = 0;
             let skipped = 0;
@@ -7271,7 +7266,7 @@ forceReloadAllData() {
                 const payload = {
                     id: op.id,
                     data: op.dataIso,
-                    responsavel: '',
+                    responsavel: 'Importação Excel',
                     observacoes: 'Importado via Excel',
                     hora: '',
                     tipo_operacao: op.tipo,
