@@ -1823,8 +1823,22 @@ forceReloadAllData() {
 
         // Modal Novo Lançamento Plantio
         const btnNovoLancamento = document.getElementById('btn-novo-lancamento');
+        const btnImportPlantioExcel = document.getElementById('btn-import-plantio-excel');
+        const plantioImportFile = document.getElementById('plantio-import-file');
         const novoLancamentoModal = document.getElementById('novo-lancamento-modal');
         const closeNovoLancamentoButtons = document.querySelectorAll('.close-novo-lancamento-modal');
+
+        if (btnImportPlantioExcel && plantioImportFile) {
+            btnImportPlantioExcel.addEventListener('click', () => {
+                plantioImportFile.value = '';
+                plantioImportFile.click();
+            });
+            plantioImportFile.addEventListener('change', async () => {
+                const file = plantioImportFile.files && plantioImportFile.files[0];
+                if (!file) return;
+                await this.importPlantioExcelFile(file);
+            });
+        }
 
         if (btnNovoLancamento && novoLancamentoModal) {
             btnNovoLancamento.addEventListener('click', async () => {
@@ -7099,6 +7113,198 @@ forceReloadAllData() {
             await this.loadPlantioDia();
         } else if (tabName === 'viagens-adubo') {
             await this.loadViagensAdubo();
+        }
+    }
+
+    _parseImportNumber(value) {
+        if (value == null || value === '') return 0;
+        if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+        const raw = String(value).trim();
+        if (!raw) return 0;
+        let s = raw.replace(/\s+/g, '');
+        if (s.includes('.') && s.includes(',')) {
+            s = s.replace(/\./g, '').replace(',', '.');
+        } else if (s.includes(',')) {
+            s = s.replace(',', '.');
+        }
+        s = s.replace(/[^\d.-]/g, '');
+        const n = parseFloat(s);
+        return Number.isFinite(n) ? n : 0;
+    }
+
+    _toIsoDate(value) {
+        const toIso = (d) => {
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        };
+        if (value instanceof Date && !isNaN(value)) return toIso(value);
+        if (typeof value === 'number' && window.XLSX && XLSX.SSF && typeof XLSX.SSF.parse_date_code === 'function') {
+            const parsed = XLSX.SSF.parse_date_code(value);
+            if (parsed && parsed.y && parsed.m && parsed.d) {
+                const yyyy = String(parsed.y).padStart(4, '0');
+                const mm = String(parsed.m).padStart(2, '0');
+                const dd = String(parsed.d).padStart(2, '0');
+                return `${yyyy}-${mm}-${dd}`;
+            }
+        }
+        const raw = String(value || '').trim();
+        if (!raw) return null;
+        const m1 = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (m1) return `${m1[1]}-${m1[2]}-${m1[3]}`;
+        const m2 = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+        if (m2) return `${m2[3]}-${m2[2]}-${m2[1]}`;
+        const d = new Date(raw);
+        if (!isNaN(d)) return toIso(d);
+        return null;
+    }
+
+    async _plantioImportExists(dataIso, tipoOperacao, frente, fazenda) {
+        try {
+            if (!this.api || !this.api.supabase) return false;
+            const { data, error } = await this.api.supabase
+                .from('plantio_diario')
+                .select('id')
+                .eq('data', dataIso)
+                .eq('tipo_operacao', tipoOperacao)
+                .contains('frentes', JSON.stringify([{ frente: String(frente), fazenda: String(fazenda) }]))
+                .limit(1);
+            if (error) return false;
+            return Array.isArray(data) && data.length > 0;
+        } catch {
+            return false;
+        }
+    }
+
+    async importPlantioExcelFile(file) {
+        try {
+            if (!window.XLSX) {
+                this.ui.showNotification('Biblioteca de Excel não carregada (XLSX).', 'error');
+                return;
+            }
+            const buf = await file.arrayBuffer();
+            const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+            const sheetName = wb.SheetNames && wb.SheetNames[0];
+            if (!sheetName) {
+                this.ui.showNotification('Arquivo Excel sem planilhas.', 'warning');
+                return;
+            }
+            const ws = wb.Sheets[sheetName];
+            const grid = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' });
+            const norm = (v) => String(v || '')
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+
+            let headerRowIndex = -1;
+            for (let i = 0; i < Math.min(grid.length, 20); i++) {
+                const row = grid[i] || [];
+                const joined = row.map(norm).join(' | ');
+                if (joined.includes('frente') && joined.includes('fazenda') && joined.includes('data')) {
+                    headerRowIndex = i;
+                    break;
+                }
+            }
+            if (headerRowIndex === -1) {
+                this.ui.showNotification('Cabeçalho não encontrado. Esperado: Frente, Fazenda, Data, Plantado, Área colhida.', 'warning', 7000);
+                return;
+            }
+
+            const header = grid[headerRowIndex] || [];
+            const idxFrente = header.findIndex(h => norm(h) === 'frente' || norm(h).includes('frente'));
+            const idxFazenda = header.findIndex(h => norm(h) === 'fazenda' || norm(h).includes('fazenda'));
+            const idxData = header.findIndex(h => norm(h) === 'data' || norm(h).includes('data'));
+            const idxPlantado = header.findIndex(h => norm(h).includes('plantado'));
+            const idxColhida = header.findIndex(h => norm(h).includes('colhida'));
+
+            if (idxFrente === -1 || idxFazenda === -1 || idxData === -1 || idxPlantado === -1 || idxColhida === -1) {
+                this.ui.showNotification('Colunas obrigatórias não encontradas (Frente, Fazenda, Data, Plantado, Colhida).', 'warning', 7000);
+                return;
+            }
+
+            const baseId = Date.now();
+            const ops = [];
+            for (let r = headerRowIndex + 1; r < grid.length; r++) {
+                const row = grid[r] || [];
+                const frente = String(row[idxFrente] || '').trim();
+                const fazenda = String(row[idxFazenda] || '').trim();
+                const dataIso = this._toIsoDate(row[idxData]);
+                if (!frente || !fazenda || !dataIso) continue;
+
+                const plantadoHa = this._parseImportNumber(row[idxPlantado]);
+                const colhidaHa = this._parseImportNumber(row[idxColhida]);
+                if (plantadoHa > 0) ops.push({ dataIso, frente, fazenda, tipo: 'plantio', plantadoHa, colhidaHa: 0, id: baseId + ops.length + 1 });
+                if (colhidaHa > 0) ops.push({ dataIso, frente, fazenda, tipo: 'colheita_muda', plantadoHa: 0, colhidaHa, id: baseId + ops.length + 1 });
+            }
+
+            if (!ops.length) {
+                this.ui.showNotification('Nenhum registro válido encontrado para importar.', 'warning');
+                return;
+            }
+
+            const ok = await this.showConfirmationModal(
+                'Importar Plantio/Colheita',
+                `Arquivo: ${file.name}\nPlanilha: ${sheetName}\nRegistros encontrados: ${ops.length}\n\nDeseja importar agora?`
+            );
+            if (!ok) return;
+
+            let imported = 0;
+            let skipped = 0;
+            let failed = 0;
+
+            for (let i = 0; i < ops.length; i++) {
+                const op = ops[i];
+                const exists = await this._plantioImportExists(op.dataIso, op.tipo, op.frente, op.fazenda);
+                if (exists) {
+                    skipped++;
+                    continue;
+                }
+
+                const payload = {
+                    id: op.id,
+                    data: op.dataIso,
+                    responsavel: '',
+                    observacoes: 'Importado via Excel',
+                    hora: '',
+                    tipo_operacao: op.tipo,
+                    colheita_hectares: op.colhidaHa || 0,
+                    colheita_tch_estimado: 0,
+                    colheita_tch_real: 0,
+                    colheita_toneladas_totais: 0,
+                    frentes: [{
+                        frente: op.frente,
+                        fazenda: op.fazenda,
+                        os_numero: '',
+                        cod: undefined,
+                        regiao: '',
+                        area: 0,
+                        plantada: 0,
+                        areaTotal: 0,
+                        areaAcumulada: 0,
+                        plantioDiario: op.plantadoHa || 0
+                    }],
+                    insumos: [],
+                    qualidade: null
+                };
+
+                try {
+                    await this.api.addPlantioDia(payload);
+                    imported++;
+                    if ((imported + skipped + failed) % 20 === 0) {
+                        this.ui.showNotification(`Importação em andamento: ${imported} importados, ${skipped} duplicados, ${failed} falhas`, 'info', 2500);
+                    }
+                } catch {
+                    failed++;
+                }
+            }
+
+            await this.loadPlantioDia();
+            this.ui.showNotification(`Importação concluída: ${imported} importados, ${skipped} duplicados, ${failed} falhas`, failed ? 'warning' : 'success', 7000);
+        } catch {
+            this.ui.showNotification('Erro ao importar Excel.', 'error', 5000);
         }
     }
 

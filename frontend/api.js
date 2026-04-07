@@ -130,6 +130,11 @@ class ApiService {
         }
     }
 
+    applyOrder(query, column, options) {
+        if (query && typeof query.order === 'function') return query.order(column, options);
+        return query;
+    }
+
     // === AUTH ===
 
     // Lista de emails que são automaticamente promovidos a admin
@@ -173,6 +178,36 @@ class ApiService {
             // Use upsert para garantir que o registro exista e esteja atualizado
             const { error } = await this.supabase.from('users').upsert(publicUser);
             if (error) {
+                if (error.code === '23505' && String(error.message || '').includes('users_email_key')) {
+                    try {
+                        const { data: byEmail } = await this.supabase
+                            .from('users')
+                            .select('id')
+                            .eq('email', publicUser.email)
+                            .maybeSingle();
+                        
+                        if (byEmail && byEmail.id) {
+                            const updates = {
+                                username: publicUser.username,
+                                first_name: publicUser.first_name,
+                                last_name: publicUser.last_name,
+                            };
+                            
+                            if (byEmail.id !== publicUser.id) {
+                                const { error: swapError } = await this.supabase
+                                    .from('users')
+                                    .update({ id: publicUser.id, ...updates })
+                                    .eq('email', publicUser.email);
+                                if (!swapError) return;
+                            }
+
+                            await this.supabase.from('users').update(updates).eq('email', publicUser.email);
+                            return;
+                        }
+                    } catch (e) {
+                        console.warn('Falha ao resolver conflito de email na tabela users:', e);
+                    }
+                }
                 // Tratamento específico para erro de coluna inexistente (Schema Cache ou Migração Pendente)
                 if (error.code === 'PGRST204' && (error.message.includes('email') || error.message.includes('column'))) {
                     console.warn('⚠️ Schema do banco desatualizado. Tentando sincronização básica (apenas username/password). Recomendado aplicar migration 002_add_user_fields.sql');
@@ -494,10 +529,9 @@ class ApiService {
     async getUsers() {
         this.checkConfig();
         // Consulta tabela pública 'users'
-        const { data, error } = await this.supabase
-            .from('users')
-            .select('*')
-            .order('username', { ascending: true });
+        let q = this.supabase.from('users').select('*');
+        q = this.applyOrder(q, 'username', { ascending: true });
+        const { data, error } = await q;
 
         if (error) {
             console.error('Erro ao buscar usuários:', error);
@@ -593,11 +627,9 @@ class ApiService {
     async getAuditLogs(limit = 100) {
         this.checkConfig();
         try {
-            const { data, error } = await this.supabase
-                .from('audit_logs')
-                .select('*, users(email, username)')
-                .order('created_at', { ascending: false })
-                .limit(limit);
+            let q = this.supabase.from('audit_logs').select('*, users(email, username)').limit(limit);
+            q = this.applyOrder(q, 'created_at', { ascending: false });
+            const { data, error } = await q;
 
             if (error) {
                 console.error('Error fetching audit logs:', error);
@@ -1513,10 +1545,9 @@ class ApiService {
 
     async getOSList() {
         this.checkConfig();
-        const { data, error } = await this.supabase
-            .from('os_agricola')
-            .select('*')
-            .order('created_at', { ascending: false });
+        let q = this.supabase.from('os_agricola').select('*');
+        q = this.applyOrder(q, 'created_at', { ascending: false });
+        const { data, error } = await q;
         
         if (error) {
             console.error('Erro ao buscar lista de OS:', error);
@@ -1549,13 +1580,13 @@ class ApiService {
 
         // Buscar OS ativa para a frente
         // Ordenar por data de abertura decrescente para pegar a mais recente
-        const { data, error } = await this.supabase
+        let q = this.supabase
             .from('os_agricola')
             .select('*')
             .eq('frente', frenteStr)
-            //.eq('status', 'Aberta') // Removido filtro de status para garantir retorno
-            .order('created_at', { ascending: false })
             .limit(1);
+        q = this.applyOrder(q, 'created_at', { ascending: false });
+        const { data, error } = await q;
 
         if (error) {
             console.error('Erro ao buscar OS por frente:', error);
@@ -1653,10 +1684,9 @@ class ApiService {
 
     async getLiberacaoColheita() {
         this.checkConfig();
-        const { data, error } = await this.supabase
-            .from('liberacao_colheita')
-            .select('*')
-            .order('data', { ascending: false });
+        let q = this.supabase.from('liberacao_colheita').select('*');
+        q = this.applyOrder(q, 'data', { ascending: false });
+        const { data, error } = await q;
 
         if (error) {
             console.error('Erro ao buscar liberacao_colheita:', error);
@@ -1673,10 +1703,9 @@ class ApiService {
 
     async getTransporteComposto() {
         this.checkConfig();
-        const { data, error } = await this.supabase
-            .from('transporte_composto')
-            .select('*')
-            .order('created_at', { ascending: false });
+        let q = this.supabase.from('transporte_composto').select('*');
+        q = this.applyOrder(q, 'created_at', { ascending: false });
+        const { data, error } = await q;
 
         if (error) {
             console.error('Erro ao buscar transporte de composto:', error);
@@ -1817,11 +1846,12 @@ class ApiService {
     async getOSTransporteDiario(osId) {
         this.checkConfig();
         if (!osId || osId === 'undefined') return { success: true, data: [] };
-        const { data, error } = await this.supabase
+        let q = this.supabase
             .from('os_transporte_diario')
             .select('*')
-            .eq('os_id', osId)
-            .order('data_transporte', { ascending: true });
+            .eq('os_id', osId);
+        q = this.applyOrder(q, 'data_transporte', { ascending: true });
+        const { data, error } = await q;
             
         if (error) {
              // Se tabela não existir ainda, retorna array vazio para não quebrar UI
