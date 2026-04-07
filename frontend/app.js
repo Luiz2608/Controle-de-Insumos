@@ -10253,7 +10253,9 @@ Qualidade das gemas: ${avalGemas}
 
             titleEl.textContent = title;
             msgEl.textContent = message;
-            modal.style.display = 'block';
+            modal.style.display = 'flex';
+            modal.style.alignItems = 'center';
+            modal.style.justifyContent = 'center';
 
             // Clone buttons to remove old listeners
             const newBtnYes = btnYes.cloneNode(true);
