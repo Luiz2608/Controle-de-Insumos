@@ -1830,12 +1830,14 @@ forceReloadAllData() {
 
         if (btnImportPlantioExcel && plantioImportFile) {
             btnImportPlantioExcel.addEventListener('click', () => {
+                if (this.ui && this.ui.showNotification) this.ui.showNotification('Selecione o arquivo Excel para importar.', 'info', 2500);
                 plantioImportFile.value = '';
                 plantioImportFile.click();
             });
             plantioImportFile.addEventListener('change', async () => {
                 const file = plantioImportFile.files && plantioImportFile.files[0];
                 if (!file) return;
+                if (this.ui && this.ui.showNotification) this.ui.showNotification(`Lendo arquivo: ${file.name}`, 'info', 2500);
                 await this.importPlantioExcelFile(file);
             });
         }
@@ -7244,6 +7246,7 @@ forceReloadAllData() {
                 this.ui.showNotification('Nenhum registro válido encontrado para importar.', 'warning');
                 return;
             }
+            this.ui.showNotification(`Registros encontrados: ${ops.length}`, 'info', 3500);
 
             const ok = await this.showConfirmationModal(
                 'Importar Plantio/Colheita',
@@ -7254,6 +7257,7 @@ forceReloadAllData() {
             let imported = 0;
             let skipped = 0;
             let failed = 0;
+            let firstError = null;
 
             for (let i = 0; i < ops.length; i++) {
                 const op = ops[i];
@@ -7296,15 +7300,21 @@ forceReloadAllData() {
                     if ((imported + skipped + failed) % 20 === 0) {
                         this.ui.showNotification(`Importação em andamento: ${imported} importados, ${skipped} duplicados, ${failed} falhas`, 'info', 2500);
                     }
-                } catch {
+                } catch (e) {
                     failed++;
+                    if (!firstError) {
+                        firstError = (e && e.message) ? String(e.message) : String(e);
+                    }
                 }
             }
 
             await this.loadPlantioDia();
-            this.ui.showNotification(`Importação concluída: ${imported} importados, ${skipped} duplicados, ${failed} falhas`, failed ? 'warning' : 'success', 7000);
-        } catch {
-            this.ui.showNotification('Erro ao importar Excel.', 'error', 5000);
+            const extra = firstError ? `\nFalha: ${firstError}` : '';
+            this.ui.showNotification(`Importação concluída: ${imported} importados, ${skipped} duplicados, ${failed} falhas${extra}`, failed ? 'warning' : 'success', 9000);
+        } catch (e) {
+            console.error('Erro ao importar Excel (Plantio):', e);
+            const msg = (e && e.message) ? String(e.message) : String(e);
+            this.ui.showNotification(`Erro ao importar Excel: ${msg}`, 'error', 9000);
         }
     }
 
