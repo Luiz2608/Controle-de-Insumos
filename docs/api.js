@@ -174,7 +174,7 @@ class ApiService {
             }
             
             // Use upsert
-            const { error } = await this.supabase.from('users').upsert(publicUser);
+            const { error } = await this.supabase.from('users').upsert(publicUser, { onConflict: 'id' });
             
             if (error) {
                 // Erro 23505: Unique Constraint (email ou username já existe)
@@ -184,14 +184,14 @@ class ApiService {
                     // Se o erro for no username e for novo usuário, tentamos sufixo
                     if (String(error.message).includes('users_username_key') && !existingUser) {
                         publicUser.username = `${baseUsername}_${Math.floor(Math.random() * 1000)}`;
-                        await this.supabase.from('users').upsert(publicUser);
+                        await this.supabase.from('users').upsert(publicUser, { onConflict: 'id' });
                         return;
                     }
 
-                    // Se for conflito de email, apenas update campos seguros
+                    // Se for conflito de email, apenas update campos seguros (não corrige inconsistência de ID)
                     const { data: byEmail } = await this.supabase
                         .from('users')
-                        .select('id')
+                        .select('id, email')
                         .eq('email', user.email)
                         .maybeSingle();
                     
@@ -207,7 +207,7 @@ class ApiService {
                 // Fallback PGRST204 (coluna inexistente)
                 if (error.code === 'PGRST204') {
                     const basicUser = { id: user.id, username: baseUsername, password: 'managed_by_supabase_auth' };
-                    await this.supabase.from('users').upsert(basicUser);
+                    await this.supabase.from('users').upsert(basicUser, { onConflict: 'id' });
                     return;
                 }
 
@@ -603,9 +603,17 @@ class ApiService {
                     if (error.code === '23503' && retry) {
                         console.warn('User record missing in public.users, syncing before retry log...');
                         await this.syncUserToPublicTable(this.user);
-                        return await performLog(false);
+                        const { data: synced } = await this.supabase
+                            .from('users')
+                            .select('id')
+                            .eq('id', this.user.id)
+                            .maybeSingle();
+                        if (synced && synced.id) return await performLog(false);
+                        return;
                     }
-                    console.error('Error logging action:', error);
+                    if (error.code !== '23503' && error.code !== '23505') {
+                        console.error('Error logging action:', error);
+                    }
                 }
             };
 
