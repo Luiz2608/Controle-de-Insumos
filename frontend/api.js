@@ -610,15 +610,29 @@ class ApiService {
         if (!this.user) return; 
         
         try {
-            const { error } = await this.supabase
-                .from('audit_logs')
-                .insert({
-                    user_id: this.user.id,
-                    action: action,
-                    details: details
-                });
-            
-            if (error) console.error('Error logging action:', error);
+            // Se o log falhar por causa da FK do user_id, 
+            // tentamos sincronizar o usuário e repetir uma vez.
+            const performLog = async (retry = true) => {
+                const { error } = await this.supabase
+                    .from('audit_logs')
+                    .insert({
+                        user_id: this.user.id,
+                        action: action,
+                        details: details
+                    });
+                
+                if (error) {
+                    // Erro 23503: Foreign Key Constraint (user_id não existe em 'users')
+                    if (error.code === '23503' && retry) {
+                        console.warn('User record missing in public.users, syncing before retry log...');
+                        await this.syncUserToPublicTable(this.user);
+                        return await performLog(false);
+                    }
+                    console.error('Error logging action:', error);
+                }
+            };
+
+            await performLog();
         } catch (e) {
             console.error('Error logging action:', e);
         }

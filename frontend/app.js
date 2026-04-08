@@ -7122,44 +7122,99 @@ forceReloadAllData() {
     _parseImportNumber(value) {
         if (value == null || value === '') return 0;
         if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
-        const raw = String(value).trim();
-        if (!raw) return 0;
-        let s = raw.replace(/\s+/g, '');
-        if (s.includes('.') && s.includes(',')) {
-            s = s.replace(/\./g, '').replace(',', '.');
-        } else if (s.includes(',')) {
+        
+        // Remove espaços e limpa a string
+        let s = String(value).trim();
+        if (!s) return 0;
+
+        // Se houver vírgula e ponto, o último costuma ser o decimal
+        const lastComma = s.lastIndexOf(',');
+        const lastDot = s.lastIndexOf('.');
+
+        if (lastComma !== -1 && lastDot !== -1) {
+            if (lastComma > lastDot) {
+                // Formato BR: 1.234,56
+                s = s.replace(/\./g, '').replace(',', '.');
+            } else {
+                // Formato US: 1,234.56
+                s = s.replace(/,/g, '');
+            }
+        } else if (lastComma !== -1) {
+            // Só tem vírgula: assume decimal (6,66 -> 6.66)
             s = s.replace(',', '.');
         }
+        
+        // Remove qualquer caractere que não seja número, ponto decimal ou sinal de menos
+        // Usamos regex global para garantir que limpamos tudo
         s = s.replace(/[^\d.-]/g, '');
+        
+        // Se após a limpeza sobraram múltiplos pontos (ex: 1.234.56), 
+        // mantém apenas o último como decimal
+        const parts = s.split('.');
+        if (parts.length > 2) {
+            const decimalPart = parts.pop();
+            s = parts.join('') + '.' + decimalPart;
+        }
+
         const n = parseFloat(s);
         return Number.isFinite(n) ? n : 0;
     }
 
     _toIsoDate(value) {
+        if (value == null) return null;
+        
         const toIso = (d) => {
+            if (!(d instanceof Date) || isNaN(d)) return null;
             const yyyy = d.getFullYear();
             const mm = String(d.getMonth() + 1).padStart(2, '0');
             const dd = String(d.getDate()).padStart(2, '0');
             return `${yyyy}-${mm}-${dd}`;
         };
+
+        // 1. Já é um objeto Date
         if (value instanceof Date && !isNaN(value)) return toIso(value);
-        if (typeof value === 'number' && window.XLSX && XLSX.SSF && typeof XLSX.SSF.parse_date_code === 'function') {
-            const parsed = XLSX.SSF.parse_date_code(value);
-            if (parsed && parsed.y && parsed.m && parsed.d) {
-                const yyyy = String(parsed.y).padStart(4, '0');
-                const mm = String(parsed.m).padStart(2, '0');
-                const dd = String(parsed.d).padStart(2, '0');
-                return `${yyyy}-${mm}-${dd}`;
+
+        // 2. É um número (provavelmente serial do Excel)
+        if (typeof value === 'number') {
+            // Tenta usar a biblioteca XLSX se disponível
+            if (window.XLSX && XLSX.SSF && typeof XLSX.SSF.parse_date_code === 'function') {
+                const parsed = XLSX.SSF.parse_date_code(value);
+                if (parsed && parsed.y && parsed.m && parsed.d) {
+                    const yyyy = String(parsed.y).padStart(4, '0');
+                    const mm = String(parsed.m).padStart(2, '0');
+                    const dd = String(parsed.d).padStart(2, '0');
+                    return `${yyyy}-${mm}-${dd}`;
+                }
             }
+            // Fallback para conversão manual de serial Excel (base 1900)
+            // Excel bug: 1900 foi bissexto no Excel (não foi na vida real), então subtraímos 25569
+            const d = new Date((value - 25569) * 86400 * 1000);
+            if (!isNaN(d)) return toIso(d);
         }
-        const raw = String(value || '').trim();
+
+        const raw = String(value).trim();
         if (!raw) return null;
-        const m1 = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+        // 3. Formato YYYY-MM-DD
+        const m1 = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
         if (m1) return `${m1[1]}-${m1[2]}-${m1[3]}`;
-        const m2 = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-        if (m2) return `${m2[3]}-${m2[2]}-${m2[1]}`;
+
+        // 4. Formato DD/MM/YYYY ou D/M/YY
+        const m2 = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+        if (m2) {
+            let dd = m2[1].padStart(2, '0');
+            let mm = m2[2].padStart(2, '0');
+            let yyyy = m2[3];
+            if (yyyy.length === 2) {
+                yyyy = (parseInt(yyyy) > 50 ? '19' : '20') + yyyy;
+            }
+            return `${yyyy}-${mm}-${dd}`;
+        }
+
+        // 5. Tentativa genérica do Date()
         const d = new Date(raw);
         if (!isNaN(d)) return toIso(d);
+
         return null;
     }
 
