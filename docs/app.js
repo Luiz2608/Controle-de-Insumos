@@ -1830,7 +1830,7 @@ forceReloadAllData() {
 
         if (btnImportPlantioExcel && plantioImportFile) {
             btnImportPlantioExcel.addEventListener('click', () => {
-                if (this.ui && this.ui.showNotification) this.ui.showNotification('Selecione o arquivo Excel para importar.', 'info', 2500);
+                if (this.ui && this.ui.showNotification) this.ui.showNotification('Selecione o arquivo Excel ou CSV para importar.', 'info', 2500);
                 plantioImportFile.value = '';
                 plantioImportFile.click();
             });
@@ -1838,7 +1838,7 @@ forceReloadAllData() {
                 const file = plantioImportFile.files && plantioImportFile.files[0];
                 if (!file) return;
                 if (this.ui && this.ui.showNotification) this.ui.showNotification(`Lendo arquivo: ${file.name}`, 'info', 2500);
-                await this.importPlantioExcelFile(file);
+                await this.importPlantioFile(file);
             });
         }
 
@@ -7234,6 +7234,198 @@ forceReloadAllData() {
         }
     }
 
+    async importPlantioFile(file) {
+        const name = String(file && file.name ? file.name : '').toLowerCase();
+        const type = String(file && file.type ? file.type : '').toLowerCase();
+        if (name.endsWith('.csv') || type.includes('csv')) return await this.importPlantioCsvFile(file);
+        return await this.importPlantioExcelFile(file);
+    }
+
+    _detectDelimitedSeparator(sampleLine) {
+        const s = String(sampleLine || '');
+        const candidates = [';', ',', '\t', '|'];
+        let best = ',';
+        let bestCount = -1;
+        for (const c of candidates) {
+            const count = s.split(c).length - 1;
+            if (count > bestCount) {
+                bestCount = count;
+                best = c;
+            }
+        }
+        return best;
+    }
+
+    _parseDelimitedLine(line, sep) {
+        const out = [];
+        let cur = '';
+        let inQuotes = false;
+        const s = String(line ?? '');
+        for (let i = 0; i < s.length; i++) {
+            const ch = s[i];
+            if (ch === '"') {
+                if (inQuotes && s[i + 1] === '"') {
+                    cur += '"';
+                    i++;
+                } else {
+                    inQuotes = !inQuotes;
+                }
+                continue;
+            }
+            if (!inQuotes && ch === sep) {
+                out.push(cur);
+                cur = '';
+                continue;
+            }
+            cur += ch;
+        }
+        out.push(cur);
+        return out.map(v => String(v).trim());
+    }
+
+    _delimitedTextToGrid(text) {
+        const raw = String(text || '');
+        const lines = raw.split(/\r?\n/);
+        const firstNonEmpty = lines.find(l => String(l).trim().length > 0) || '';
+        const sep = this._detectDelimitedSeparator(firstNonEmpty);
+        const rows = [];
+        for (const line of lines) {
+            if (line == null) continue;
+            const trimmed = String(line).trim();
+            if (!trimmed) continue;
+            rows.push(this._parseDelimitedLine(line, sep));
+        }
+        return rows;
+    }
+
+    async importPlantioCsvFile(file) {
+        try {
+            const text = await file.text();
+            const grid = this._delimitedTextToGrid(text);
+            if (!Array.isArray(grid) || grid.length === 0) {
+                this.ui.showNotification('CSV vazio ou inválido.', 'warning');
+                return;
+            }
+
+            const norm = (v) => String(v || '')
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+
+            let headerRowIndex = -1;
+            for (let i = 0; i < Math.min(grid.length, 20); i++) {
+                const row = grid[i] || [];
+                const joined = row.map(norm).join(' | ');
+                if (joined.includes('frente') && joined.includes('fazenda') && joined.includes('data')) {
+                    headerRowIndex = i;
+                    break;
+                }
+            }
+            if (headerRowIndex === -1) {
+                this.ui.showNotification('Cabeçalho não encontrado. Esperado: Frente, Fazenda, Data, Plantado (ha), Área colhida (ha).', 'warning', 7000);
+                return;
+            }
+
+            const header = grid[headerRowIndex] || [];
+            const idxFrente = header.findIndex(h => norm(h) === 'frente' || norm(h).includes('frente'));
+            const idxFazenda = header.findIndex(h => norm(h) === 'fazenda' || norm(h).includes('fazenda'));
+            const idxData = header.findIndex(h => norm(h) === 'data' || norm(h).includes('data'));
+            const idxPlantado = header.findIndex(h => norm(h).includes('plantado'));
+            const idxColhida = header.findIndex(h => norm(h).includes('colhida'));
+
+            if (idxFrente === -1 || idxFazenda === -1 || idxData === -1 || idxPlantado === -1 || idxColhida === -1) {
+                this.ui.showNotification('Colunas obrigatórias não encontradas (Frente, Fazenda, Data, Plantado, Colhida).', 'warning', 7000);
+                return;
+            }
+
+            const baseId = Date.now();
+            const ops = [];
+            for (let r = headerRowIndex + 1; r < grid.length; r++) {
+                const row = grid[r] || [];
+                const frente = String(row[idxFrente] || '').trim();
+                const fazenda = String(row[idxFazenda] || '').trim();
+                const dataIso = this._toIsoDate(row[idxData]);
+                if (!frente || !fazenda || !dataIso) continue;
+
+                const plantadoHa = this._parseImportNumber(row[idxPlantado]);
+                const colhidaHa = this._parseImportNumber(row[idxColhida]);
+                if (plantadoHa > 0) ops.push({ dataIso, frente, fazenda, tipo: 'plantio', plantadoHa, colhidaHa: 0, id: baseId + ops.length + 1 });
+                if (colhidaHa > 0) ops.push({ dataIso, frente, fazenda, tipo: 'colheita_muda', plantadoHa: 0, colhidaHa, id: baseId + ops.length + 1 });
+            }
+
+            if (!ops.length) {
+                this.ui.showNotification('Nenhum registro válido encontrado para importar.', 'warning');
+                return;
+            }
+            this.ui.showNotification(`Registros encontrados: ${ops.length}`, 'info', 3500);
+            this.ui.showNotification('Importando registros... aguarde.', 'info', 4000);
+
+            let imported = 0;
+            let skipped = 0;
+            let failed = 0;
+            let firstError = null;
+
+            for (let i = 0; i < ops.length; i++) {
+                const op = ops[i];
+                const exists = await this._plantioImportExists(op.dataIso, op.tipo, op.frente, op.fazenda);
+                if (exists) {
+                    skipped++;
+                    continue;
+                }
+
+                const payload = {
+                    id: op.id,
+                    data: op.dataIso,
+                    responsavel: 'Importação CSV',
+                    observacoes: 'Importado via CSV',
+                    hora: '',
+                    tipo_operacao: op.tipo,
+                    colheita_hectares: op.colhidaHa || 0,
+                    colheita_tch_estimado: 0,
+                    colheita_tch_real: 0,
+                    colheita_toneladas_totais: 0,
+                    frentes: [{
+                        frente: op.frente,
+                        fazenda: op.fazenda,
+                        os_numero: '',
+                        cod: undefined,
+                        regiao: '',
+                        area: 0,
+                        plantada: 0,
+                        areaTotal: 0,
+                        areaAcumulada: 0,
+                        plantioDiario: op.plantadoHa || 0
+                    }],
+                    insumos: [],
+                    qualidade: null
+                };
+
+                try {
+                    await this.api.addPlantioDia(payload);
+                    imported++;
+                    if ((imported + skipped + failed) % 20 === 0) {
+                        this.ui.showNotification(`Importação em andamento: ${imported} importados, ${skipped} duplicados, ${failed} falhas`, 'info', 2500);
+                    }
+                } catch (e) {
+                    failed++;
+                    if (!firstError) {
+                        firstError = (e && e.message) ? String(e.message) : String(e);
+                    }
+                }
+            }
+
+            await this.loadPlantioDia();
+            const extra = firstError ? `\nFalha: ${firstError}` : '';
+            this.ui.showNotification(`Importação concluída: ${imported} importados, ${skipped} duplicados, ${failed} falhas${extra}`, failed ? 'warning' : 'success', 9000);
+        } catch (e) {
+            console.error('Erro ao importar CSV (Plantio):', e);
+            const msg = (e && e.message) ? String(e.message) : String(e);
+            this.ui.showNotification(`Erro ao importar CSV: ${msg}`, 'error', 9000);
+        }
+    }
+
     async importPlantioExcelFile(file) {
         try {
             if (!window.XLSX) {
@@ -7266,7 +7458,7 @@ forceReloadAllData() {
                 }
             }
             if (headerRowIndex === -1) {
-                this.ui.showNotification('Cabeçalho não encontrado. Esperado: Frente, Fazenda, Data, Plantado, Área colhida.', 'warning', 7000);
+                this.ui.showNotification('Cabeçalho não encontrado. Esperado: Frente, Fazenda, Data, Plantado (ha), Área colhida (ha).', 'warning', 7000);
                 return;
             }
 
